@@ -16,31 +16,33 @@ import (
 )
 
 type stubControlOperations struct {
-	gateListResponse      localapi.TypedResponse[generated.GateListData]
-	gateViewResponse      localapi.TypedResponse[generated.GateView]
-	gateCheckResponse     localapi.TypedResponse[generated.GateEvaluation]
-	gateEvidenceResponse  localapi.TypedResponse[generated.GateEvidenceSubmission]
-	gateProfileResponse   localapi.TypedResponse[generated.GateProfileDraftSubmission]
-	backupPolicyResponse  localapi.TypedResponse[generated.BackupPolicyDraftSubmission]
-	retentionLockResponse localapi.TypedResponse[generated.BackupRetentionLockDraftSubmission]
-	retirementResponse    localapi.TypedResponse[generated.BackupRetirementDraftSubmission]
-	backupStatusResponse  localapi.TypedResponse[generated.BackupStatusData]
-	backupJobResponse     localapi.TypedResponse[generated.BackupJob]
-	summaryResponse       localapi.TypedResponse[generated.ApiSummaryData]
-	databaseResponse      localapi.TypedResponse[generated.DatabaseStatusData]
-	auditListResponse     localapi.TypedResponse[generated.AuditCheckpointListData]
-	auditVerifyResponse   localapi.TypedResponse[generated.AuditVerificationData]
-	importResponse        localapi.TypedResponse[generated.InventoryImportData]
-	diffResponse          localapi.TypedResponse[generated.InventoryDiffData]
-	exportResponse        localapi.TypedResponse[generated.InventoryExportData]
-	planResponse          localapi.TypedResponse[generated.Plan]
-	runResponse           localapi.TypedResponse[generated.RunPresentation]
-	err                   error
-	calls                 int
-	config                string
-	importRequest         generated.InventoryImportRequest
-	diffRequest           generated.InventoryDiffRequest
-	exportRequest         generated.InventoryExportRequest
+	gateListResponse       localapi.TypedResponse[generated.GateListData]
+	gateViewResponse       localapi.TypedResponse[generated.GateView]
+	gateCheckResponse      localapi.TypedResponse[generated.GateEvaluation]
+	gateEvidenceResponse   localapi.TypedResponse[generated.GateEvidenceSubmission]
+	gateProfileResponse    localapi.TypedResponse[generated.GateProfileDraftSubmission]
+	backupPolicyResponse   localapi.TypedResponse[generated.BackupPolicyDraftSubmission]
+	retentionLockResponse  localapi.TypedResponse[generated.BackupRetentionLockDraftSubmission]
+	retirementResponse     localapi.TypedResponse[generated.BackupRetirementDraftSubmission]
+	backupStatusResponse   localapi.TypedResponse[generated.BackupStatusData]
+	backupJobResponse      localapi.TypedResponse[generated.BackupJob]
+	restoreBindingResponse localapi.TypedResponse[generated.RestoreBinding]
+	restoreVerifyResponse  localapi.TypedResponse[generated.RestoreVerification]
+	summaryResponse        localapi.TypedResponse[generated.ApiSummaryData]
+	databaseResponse       localapi.TypedResponse[generated.DatabaseStatusData]
+	auditListResponse      localapi.TypedResponse[generated.AuditCheckpointListData]
+	auditVerifyResponse    localapi.TypedResponse[generated.AuditVerificationData]
+	importResponse         localapi.TypedResponse[generated.InventoryImportData]
+	diffResponse           localapi.TypedResponse[generated.InventoryDiffData]
+	exportResponse         localapi.TypedResponse[generated.InventoryExportData]
+	planResponse           localapi.TypedResponse[generated.Plan]
+	runResponse            localapi.TypedResponse[generated.RunPresentation]
+	err                    error
+	calls                  int
+	config                 string
+	importRequest          generated.InventoryImportRequest
+	diffRequest            generated.InventoryDiffRequest
+	exportRequest          generated.InventoryExportRequest
 }
 
 func (stub *stubControlOperations) Gates(_ context.Context, _ string) (localapi.TypedResponse[generated.GateListData], error) {
@@ -75,6 +77,15 @@ func (stub *stubControlOperations) RunBackup(_ context.Context, _ string, _ gene
 }
 func (stub *stubControlOperations) VerifyBackup(_ context.Context, _ string, _ generated.BackupVerifyRequest) (localapi.TypedResponse[generated.BackupJob], error) {
 	return stub.backupJobResponse, stub.err
+}
+func (stub *stubControlOperations) PlanRestore(_ context.Context, _ string, _ generated.RestoreRequest) (localapi.TypedResponse[generated.RestoreBinding], error) {
+	return stub.restoreBindingResponse, stub.err
+}
+func (stub *stubControlOperations) RunRestore(_ context.Context, _ string, _ generated.RestoreRunRequest) (localapi.TypedResponse[generated.RestoreBinding], error) {
+	return stub.restoreBindingResponse, stub.err
+}
+func (stub *stubControlOperations) VerifyRestore(_ context.Context, _ string, _ generated.RestoreVerifyRequest) (localapi.TypedResponse[generated.RestoreVerification], error) {
+	return stub.restoreVerifyResponse, stub.err
 }
 
 func (stub *stubControlOperations) Summary(_ context.Context, config string) (localapi.TypedResponse[generated.ApiSummaryData], error) {
@@ -181,26 +192,32 @@ func successfulControlOperations(t *testing.T) *stubControlOperations {
 	retirement := generated.BackupRetirementDraftSubmission{Schema: generated.SchemaIDBackupRetirementDraftSubmission, SchemaVersion: "1.1.0", DraftID: "retirement-draft-test", ChangeID: "retirement-change-test", OperationID: "retirement-operation-test", SelectionDigest: "sha256:" + strings.Repeat("b", 64), CredentialManifestDigest: "sha256:" + strings.Repeat("c", 64), TargetPointIDs: []string{"point-old"}, SurvivorPointIDs: []string{"point-good"}, Status: "draft", StateRevision: 10, RecoveryEpoch: 2}
 	backupStatus := generated.BackupStatusData{Schema: generated.SchemaIDBackupStatusData, SchemaVersion: "1.3.0", Policies: []generated.BackupPolicy{}, Jobs: []generated.BackupJob{}, Verifications: []generated.BackupVerificationAttempt{}, LastGood: []generated.BackupLastGood{}, Retirements: []generated.BackupLocalRetirementStatus{}, Offsite: []generated.BackupOffsiteStatus{}, RecoveryEpoch: 2}
 	backupJob := generated.BackupJob{Schema: generated.SchemaIDBackupJob, SchemaVersion: "1.1.0", JobID: "job-test", PolicyID: "policy-a", SourceKind: "fixture", ProofClass: "fixture", Status: "pending", RecoveryEpoch: 2}
+	restoreRequest, restoreRun, _ := syntheticRestoreValues()
+	restoreBinding := generated.RestoreBinding{Schema: generated.SchemaIDRestoreBinding, SchemaVersion: "1.1.0", Source: restoreRequest.Source, PointID: restoreRequest.PointID, DependencyIDs: restoreRequest.DependencyIDs, TargetIDs: restoreRequest.TargetIDs, TargetDigest: restoreRequest.TargetDigest, PlanID: restoreRun.PlanID, PlanDigest: restoreRun.PlanDigest, HumanAcknowledgementID: restoreRun.HumanAcknowledgementID, FenceSetDigest: restoreRequest.FenceSetDigest, AuditDecisionDigest: restoreRequest.AuditDecisionDigest, CandidateDigest: restoreRequest.CandidateDigest, PriorInstanceID: restoreRequest.PriorInstanceID, NewInstanceID: restoreRequest.NewInstanceID, PriorRecoveryEpoch: 2, NextRecoveryEpoch: 3, Status: "planned"}
+	verifiedAt := "2026-09-24T06:00:00Z"
+	restoreVerification := generated.RestoreVerification{Schema: generated.SchemaIDRestoreVerification, SchemaVersion: "1.1.0", Source: restoreRequest.Source, PlanID: restoreRun.PlanID, PlanDigest: restoreRun.PlanDigest, PointID: restoreRequest.PointID, TargetDigest: restoreRequest.TargetDigest, FenceVerified: true, DatabaseVerified: true, AuditVerified: true, VerifiedAt: &verifiedAt, PriorInstanceID: restoreRequest.PriorInstanceID, NewInstanceID: restoreRequest.NewInstanceID, PriorRecoveryEpoch: 2, NextRecoveryEpoch: 3, FenceSetDigest: restoreRequest.FenceSetDigest, AuditDecisionDigest: restoreRequest.AuditDecisionDigest, CandidateDigest: restoreRequest.CandidateDigest, Canary: generated.RestoreCanaryResult{Schema: generated.SchemaIDRestoreCanaryResult, SchemaVersion: "1.1.0", ReadVerified: true, OldEpochDenied: true, NoopRunID: "run-canary", AuditCheckpointID: "checkpoint-canary", BackupPointID: "point-canary", FormerWriterDenied: true, Status: "verified", VerifiedAt: &verifiedAt}, Status: "verified"}
 	return &stubControlOperations{
-		gateListResponse:      operationResponse(t, "api.v1.gates.list", false, 2, 7, list),
-		gateViewResponse:      operationResponse(t, "api.v1.gates.get", false, 2, 7, view),
-		gateCheckResponse:     operationResponse(t, "api.v1.gates.check", false, 2, 7, evaluation),
-		gateEvidenceResponse:  operationResponse(t, "api.v1.gate-evidence.create", true, 2, 8, evidence),
-		gateProfileResponse:   operationResponse(t, "api.v1.gate-profile-drafts.create", true, 2, 8, profile),
-		backupPolicyResponse:  operationResponse(t, "api.v1.backup-policy-drafts.create", true, 2, 8, backup),
-		retentionLockResponse: operationResponse(t, "api.v1.backup-retention-lock-drafts.create", true, 2, 9, retentionLock),
-		retirementResponse:    operationResponse(t, "api.v1.backup-retirement-drafts.create", true, 2, 10, retirement),
-		backupStatusResponse:  operationResponse(t, "api.v1.backups.status", false, 2, 7, backupStatus),
-		backupJobResponse:     operationResponse(t, "api.v1.backups.run", true, 2, 8, backupJob),
-		summaryResponse:       operationResponse(t, "api.v1.summary.get", false, 2, 7, summary),
-		databaseResponse:      operationResponse(t, "api.v1.database-status.get", false, 2, 7, database),
-		auditListResponse:     operationResponse(t, "api.v1.audit-checkpoints.list", false, 2, 7, auditList),
-		auditVerifyResponse:   operationResponse(t, "api.v1.audit-history.verification", false, 2, 7, auditVerify),
-		importResponse:        operationResponse(t, "api.v1.inventory-drafts.import", true, 2, 8, imported),
-		diffResponse:          operationResponse(t, "api.v1.inventory-diffs.create", false, 2, 8, diff),
-		exportResponse:        operationResponse(t, "api.v1.inventory-exports.create", true, 2, 9, exported),
-		planResponse:          operationResponse(t, "api.v1.plans.create", true, plan.Binding.RecoveryEpoch, plan.Binding.StateRevision, plan),
-		runResponse:           operationResponse(t, "api.v1.runs.get", run.Changed, run.RecoveryEpoch, run.StateRevision, phase4TestPresentation(run)),
+		gateListResponse:       operationResponse(t, "api.v1.gates.list", false, 2, 7, list),
+		gateViewResponse:       operationResponse(t, "api.v1.gates.get", false, 2, 7, view),
+		gateCheckResponse:      operationResponse(t, "api.v1.gates.check", false, 2, 7, evaluation),
+		gateEvidenceResponse:   operationResponse(t, "api.v1.gate-evidence.create", true, 2, 8, evidence),
+		gateProfileResponse:    operationResponse(t, "api.v1.gate-profile-drafts.create", true, 2, 8, profile),
+		backupPolicyResponse:   operationResponse(t, "api.v1.backup-policy-drafts.create", true, 2, 8, backup),
+		retentionLockResponse:  operationResponse(t, "api.v1.backup-retention-lock-drafts.create", true, 2, 9, retentionLock),
+		retirementResponse:     operationResponse(t, "api.v1.backup-retirement-drafts.create", true, 2, 10, retirement),
+		backupStatusResponse:   operationResponse(t, "api.v1.backups.status", false, 2, 7, backupStatus),
+		backupJobResponse:      operationResponse(t, "api.v1.backups.run", true, 2, 8, backupJob),
+		restoreBindingResponse: operationResponse(t, "api.v1.restores.plan", true, 2, 10, restoreBinding),
+		restoreVerifyResponse:  operationResponse(t, "api.v1.restores.verify", true, 3, 12, restoreVerification),
+		summaryResponse:        operationResponse(t, "api.v1.summary.get", false, 2, 7, summary),
+		databaseResponse:       operationResponse(t, "api.v1.database-status.get", false, 2, 7, database),
+		auditListResponse:      operationResponse(t, "api.v1.audit-checkpoints.list", false, 2, 7, auditList),
+		auditVerifyResponse:    operationResponse(t, "api.v1.audit-history.verification", false, 2, 7, auditVerify),
+		importResponse:         operationResponse(t, "api.v1.inventory-drafts.import", true, 2, 8, imported),
+		diffResponse:           operationResponse(t, "api.v1.inventory-diffs.create", false, 2, 8, diff),
+		exportResponse:         operationResponse(t, "api.v1.inventory-exports.create", true, 2, 9, exported),
+		planResponse:           operationResponse(t, "api.v1.plans.create", true, plan.Binding.RecoveryEpoch, plan.Binding.StateRevision, plan),
+		runResponse:            operationResponse(t, "api.v1.runs.get", run.Changed, run.RecoveryEpoch, run.StateRevision, phase4TestPresentation(run)),
 	}
 }
 

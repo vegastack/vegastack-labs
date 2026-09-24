@@ -14,6 +14,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -67,7 +68,7 @@ type acceptanceInstalledLoader struct {
 }
 
 func (loader acceptanceInstalledLoader) LoadVerified(_ context.Context, binding recovery.WitnessBinding, required []recovery.BoundaryRequirement, _ time.Time) (installedRecoveryCandidate, error) {
-	if binding != loader.binding || len(required) != len(loader.required) {
+	if !reflect.DeepEqual(binding, loader.binding) || len(required) != len(loader.required) {
 		return installedRecoveryCandidate{}, recovery.ErrWitnessUnavailable
 	}
 	for index := range required {

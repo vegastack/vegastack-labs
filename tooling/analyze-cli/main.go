@@ -39,24 +39,25 @@ type listedPackage struct {
 }
 
 type analysis struct {
-	GeneratedCommandsReference  bool     `json:"generatedCommandsReference"`
-	GeneratedEndpointsReference bool     `json:"generatedEndpointsReference"`
-	HandwrittenRegistry         bool     `json:"handwrittenRegistry"`
-	ReleaseArtifactExecution    bool     `json:"releaseArtifactExecution"`
-	ReleaseNetworkAccess        bool     `json:"releaseNetworkAccess"`
-	SQLiteAccess                bool     `json:"sqliteAccess"`
-	ShellDispatch               bool     `json:"shellDispatch"`
-	StateExportTrust            bool     `json:"stateExportTrust"`
-	StateExportReleaseCoupling  bool     `json:"stateExportReleaseCoupling"`
-	ControlSQLiteAccess         bool     `json:"controlSQLiteAccess"`
-	ControlShellDispatch        bool     `json:"controlShellDispatch"`
-	ControlGoogleAccess         bool     `json:"controlGoogleAccess"`
-	ControlProviderAccess       bool     `json:"controlProviderAccess"`
-	ControlArbitraryHTTP        bool     `json:"controlArbitraryHTTP"`
-	ControlServerPath           bool     `json:"controlServerPath"`
-	InventoryDirectDomain       bool     `json:"inventoryDirectDomain"`
-	LocalClientBoundary         bool     `json:"localClientBoundary"`
-	TargetsAnalyzed             []string `json:"targetsAnalyzed"`
+	GeneratedCommandsReference   bool     `json:"generatedCommandsReference"`
+	GeneratedEndpointsReference  bool     `json:"generatedEndpointsReference"`
+	HandwrittenRegistry          bool     `json:"handwrittenRegistry"`
+	ReleaseArtifactExecution     bool     `json:"releaseArtifactExecution"`
+	ReleaseNetworkAccess         bool     `json:"releaseNetworkAccess"`
+	SQLiteAccess                 bool     `json:"sqliteAccess"`
+	ShellDispatch                bool     `json:"shellDispatch"`
+	StateExportTrust             bool     `json:"stateExportTrust"`
+	StateExportReleaseCoupling   bool     `json:"stateExportReleaseCoupling"`
+	ControlSQLiteAccess          bool     `json:"controlSQLiteAccess"`
+	ControlShellDispatch         bool     `json:"controlShellDispatch"`
+	ControlGoogleAccess          bool     `json:"controlGoogleAccess"`
+	ControlProviderAccess        bool     `json:"controlProviderAccess"`
+	ControlArbitraryHTTP         bool     `json:"controlArbitraryHTTP"`
+	ControlServerPath            bool     `json:"controlServerPath"`
+	InventoryDirectDomain        bool     `json:"inventoryDirectDomain"`
+	LocalClientBoundary          bool     `json:"localClientBoundary"`
+	RestoreCommandClosureInvalid bool     `json:"restoreCommandClosureInvalid"`
+	TargetsAnalyzed              []string `json:"targetsAnalyzed"`
 }
 
 type sourcePackage struct {
@@ -370,6 +371,8 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 	}
 	standardNetworkPackages := standardNetworkClosure(listed)
 	result.LocalClientBoundary = true
+	restoreCLISeen, restoreCLIValid := false, false
+	restoreClientSeen, restoreClientValid := false, false
 	localClosure := moduleDependencyClosure(inModule, localAPIImport)
 	controlClosure := moduleDependencyClosure(inModule, cliImport)
 	for importPath := range moduleDependencyClosure(inModule, clientFileImport) {
@@ -401,6 +404,12 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 			return analysis{}, err
 		}
 		checked[candidate.ImportPath] = parsed.infoPackage()
+		if candidate.ImportPath == cliImport && containsString(candidate.GoFiles, "restore.go") {
+			restoreCLISeen, restoreCLIValid = true, reviewedRestoreCLIFile(candidate.Dir)
+		}
+		if candidate.ImportPath == localAPIImport && containsString(candidate.GoFiles, "restore_client.go") {
+			restoreClientSeen, restoreClientValid = true, reviewedRestoreClientFile(candidate.Dir)
+		}
 		if candidate.ImportPath == localRetentionImport && !reviewedLocalRetentionPackage(parsed, localRetentionImport) {
 			result.ControlProviderAccess = true
 		}
@@ -493,7 +502,41 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 			inspectPackage(parsed, generatedImport, stateExportImport, isReleasePackage, registryGeneratedOrReviewed, inspectControlPaths, &result)
 		}
 	}
+	result.RestoreCommandClosureInvalid = restoreCLISeen != restoreClientSeen || restoreCLISeen && (!restoreCLIValid || !restoreClientValid)
 	return result, nil
+}
+
+func reviewedRestoreCLIFile(directory string) bool {
+	return reviewedRestoreSource(filepath.Join(directory, "restore.go"), []string{
+		"generated.ValidateContractJSON", "generated.SchemaIDRestoreRequest", "generated.SchemaIDRestoreRunRequest", "generated.SchemaIDRestoreVerifyRequest",
+		"control.PlanRestore", "control.RunRestore", "control.VerifyRestore",
+	}, []string{"os/exec", "database/sql", "productionDatabasePath", "RestoreSnapshot", "os.Rename"})
+}
+
+func reviewedRestoreClientFile(directory string) bool {
+	return reviewedRestoreSource(filepath.Join(directory, "restore_client.go"), []string{
+		`"/api/v1/restores/plans"`, `"api.v1.restores.plan"`, `"api.v1.restores.run"`, `"api.v1.restores.verify"`,
+		"generated.ValidateContractJSON", "data.PriorRecoveryEpoch == result.RecoveryEpoch", "data.NextRecoveryEpoch == result.RecoveryEpoch",
+	}, []string{"os/exec", "database/sql", "productionDatabasePath", "RestoreSnapshot", "os.Rename", "net/http"})
+}
+
+func reviewedRestoreSource(path string, required, forbidden []string) bool {
+	source, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	text := string(source)
+	for _, marker := range required {
+		if !strings.Contains(text, marker) {
+			return false
+		}
+	}
+	for _, marker := range forbidden {
+		if strings.Contains(text, marker) {
+			return false
+		}
+	}
+	return true
 }
 
 const reviewedMainCompositionDigest = "f029c8f3e41b0f66ee2984d971d5d35735a456a60d36fcae6c07ca8ff64ef2d3"
@@ -871,16 +914,31 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 		}
 	}
 	if containsString(names, "backup_client.go") && containsString(names, "credential_lifecycle_client.go") {
+		withRestore := containsString(names, "restore_client.go")
 		if containsString(names, "listener_linux.go") {
-			if strings.Join(names, ",") != "audit_client.go,backup_client.go,client.go,credential_client.go,credential_lifecycle_client.go,gates_client.go,listener.go,listener_linux.go" {
+			exact := "audit_client.go,backup_client.go,client.go,credential_client.go,credential_lifecycle_client.go,gates_client.go,listener.go,listener_linux.go"
+			if withRestore {
+				exact += ",restore_client.go"
+			}
+			if strings.Join(names, ",") != exact {
 				return false
 			}
 			expected = reviewedBackupLifecycleLocalAPILinuxDigest
+			if withRestore {
+				expected = reviewedRestoreLocalAPILinuxDigest
+			}
 		} else {
-			if strings.Join(names, ",") != "audit_client.go,backup_client.go,client.go,credential_client.go,credential_lifecycle_client.go,gates_client.go,listener.go,listener_unsupported.go" {
+			exact := "audit_client.go,backup_client.go,client.go,credential_client.go,credential_lifecycle_client.go,gates_client.go,listener.go,listener_unsupported.go"
+			if withRestore {
+				exact += ",restore_client.go"
+			}
+			if strings.Join(names, ",") != exact {
 				return false
 			}
 			expected = reviewedBackupLifecycleLocalAPIUnsupportedDigest
+			if withRestore {
+				expected = reviewedRestoreLocalAPIUnsupportedDigest
+			}
 		}
 	} else if containsString(names, "backup_client.go") {
 		if containsString(names, "listener_linux.go") {
@@ -917,6 +975,8 @@ const (
 	reviewedBackupLifecycleLocalAPIUnsupportedDigest = "7c102d030fa2ca86e3d5c6d9fb5018d30fd1da61cbeb0b43c6fa8239725e2d66"
 	reviewedBackupLocalAPILinuxDigest                = "9341e73b56a727fdf9b64e013fcd43f3c896e786c20c8e9a7c087429abbb193c"
 	reviewedBackupLocalAPIUnsupportedDigest          = "6119851667da72ab447af607b2f0aa9e2b5e5345c4fccf84a3b4fdf898bb08f1"
+	reviewedRestoreLocalAPILinuxDigest               = "3342235b81d22270a667f3b2b194fcd8bc0f0dacf9b022a3556df781cbad8c49"
+	reviewedRestoreLocalAPIUnsupportedDigest         = "1da2fc8a1ee2f8c5d212aa24afb1c4ec6dde1bf1cfd210752033864e88bf1acb"
 )
 
 const reviewedAuditVerificationDigest = "1f4068a1ea9ee0eb52ab91fd5b792b9d094218a50b5ba6fc4e74568d70bc07b8"
@@ -1008,11 +1068,11 @@ func reviewedRecoveryCustodianPackage(candidate checkedSourcePackage) bool {
 	var expected string
 	switch strings.Join(names, ",") {
 	case "artifact.go,collector.go,custody.go,fence_witness.go,manifest.go,manifest_file_unix.go,package_file_unix.go,qualification.go,qualified_registry_linux.go,receipt_file_unix.go,source_admission.go,source_handoff.go,transport.go,witness.go":
-		expected = "26aa0c194f1df8c74c57efaeb0b626c1402a14e5c6ed420262bb6c7e7cdfe433"
+		expected = "d7ea2effd5df8259bc73c04b0a0887ee0c078559781be93ac32c38a8d36d9587"
 	case "artifact.go,collector.go,custody.go,fence_witness.go,manifest.go,manifest_file_unix.go,package_file_unix.go,qualification.go,qualified_registry_unsupported.go,receipt_file_unix.go,source_admission.go,source_handoff.go,transport.go,witness.go":
-		expected = "1138578166ca5084503c7df66d832fdf2d8d3341ee2d7172fa493d43a4687bd3"
+		expected = "7427f43bb532e12ecfaf2cbcc19b53892224762739a6d4dd70979be527489981"
 	case "artifact.go,collector.go,custody.go,fence_witness.go,manifest.go,manifest_file_unsupported.go,package_file_unsupported.go,qualification.go,qualified_registry_unsupported.go,receipt_file_unsupported.go,source_admission.go,source_handoff.go,transport.go,witness.go":
-		expected = "5e5f8477602adba1c602ad405802c189f89e7c14b71c08cc008dad7e6e1dc91f"
+		expected = "305e743c3cd3014e4000a95a3f887a952502ab802b51b783e558751aef749089"
 	default:
 		return false
 	}
@@ -1186,8 +1246,8 @@ var forbiddenBackupProcessPatterns = []string{"RESTIC_PASSWORD_COMMAND", "RESTIC
 // Each file is byte-pinned so neither authority can silently expand.
 var reviewedBackupSubprocesses = map[string]string{
 	"restic_linux.go":          "5298187bff0aa47d207f304329a24defb6096d292c977ac7cd5b0be2064e1123",
-	"custody_process_linux.go": "97e5505bc6684ca6efc4a9221aca4726490d56b8c8464e9787261d732bc234c6",
-	"custody_systemd_linux.go": "f44ab3782392a85a190c037a058b53894adee8e3c7de0dca0ab01642a6faf9d5",
+	"custody_process_linux.go": "c271d76bcc05bc63ff99ce396cb0ab896dbcbe364527ae6593122a8e15db4e57",
+	"custody_systemd_linux.go": "e43bced103cd0530812847b4fbf646d7bc931a3c7ba6c5b012bbed858925b910",
 }
 
 var reviewedLocalRetentionSources = map[string]string{

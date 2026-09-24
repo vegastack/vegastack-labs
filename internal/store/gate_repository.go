@@ -184,6 +184,36 @@ func (repository *GateRepository) ListAppliedGateEvidence(ctx context.Context, g
 	return result, err
 }
 
+// ListCurrentAppliedGateEvidence excludes historical, superseded, revoked,
+// future-revision, and prior-epoch rows. Recovery uses this only to derive
+// applicability; it is never independent fence proof.
+func (repository *GateRepository) ListCurrentAppliedGateEvidence(ctx context.Context, gateID, subjectID string) ([]generated.GateEvidence, error) {
+	if repository == nil || repository.store == nil || gateID == "" || subjectID == "" {
+		return nil, newStoreError(generated.ErrorCodeInputInvalid, "gate-evidence", false, nil)
+	}
+	result := []generated.GateEvidence{}
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		rows, err := tx.query(ctx, `SELECT e.canonical_bytes FROM gate_applied_evidence e JOIN system_meta m ON m.id=1 WHERE e.gate_id=? AND e.subject_id=? AND e.status='applied' AND e.recovery_epoch=m.recovery_epoch AND e.state_revision<=m.state_revision AND NOT EXISTS(SELECT 1 FROM gate_applied_evidence later WHERE later.recovery_epoch=e.recovery_epoch AND later.state_revision<=m.state_revision AND (later.supersedes_evidence_id=e.evidence_id OR later.revokes_evidence_id=e.evidence_id)) ORDER BY e.state_revision,e.evidence_id`, gateID, subjectID)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var raw []byte
+			if err := rows.Scan(&raw); err != nil {
+				return err
+			}
+			var evidence generated.GateEvidence
+			if json.Unmarshal(raw, &evidence) != nil || generated.ValidateContractJSON(generated.SchemaIDGateEvidence, raw, generated.ContractExact) != nil || evidence.GateID != gateID || evidence.SubjectID != subjectID || evidence.Status != "applied" {
+				return newStoreError(generated.ErrorCodeIntegrityFailure, "gate-evidence", false, nil)
+			}
+			result = append(result, evidence)
+		}
+		return rows.Err()
+	})
+	return result, err
+}
+
 // ResolveCurrentLiveGateEvidence returns the one unreplaced live proof bound to
 // the exact bundle digest and current applied profile. It is the production
 // activation boundary for optional adapters: a profile string alone can never
@@ -497,6 +527,31 @@ func (repository *GateRepository) GetAppliedProfileScope(ctx context.Context) (G
 	}
 	if json.Unmarshal(raw, &scope.Capabilities) != nil {
 		return GateAppliedProfile{}, newStoreError(generated.ErrorCodeIntegrityFailure, "applied-profile", false, nil)
+	}
+	return scope, nil
+}
+
+// GetAppliedRecoveryProfileScope returns the exact profile from the immediately
+// preceding epoch only while this store is the promoted recovery-required
+// authority. It exists solely so the sealed restore canary can reacquire the
+// already verified backup key before normal current-epoch mutations are enabled.
+func (repository *GateRepository) GetAppliedRecoveryProfileScope(ctx context.Context) (GateAppliedProfile, error) {
+	if repository == nil || repository.store == nil {
+		return GateAppliedProfile{}, newStoreError(generated.ErrorCodeInputInvalid, "recovery-profile", false, nil)
+	}
+	var scope GateAppliedProfile
+	var raw []byte
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		return tx.queryRow(ctx, `SELECT p.profile_id,p.profile_version,p.policy_id,p.policy_version,p.capabilities_bytes,p.state_revision,p.recovery_epoch
+			FROM gate_applied_profiles p JOIN system_meta m ON m.id=1
+			WHERE m.authority_mode='recovery-required' AND m.recovery_epoch>0 AND p.recovery_epoch=m.recovery_epoch-1 AND p.state_revision<=m.state_revision
+			ORDER BY p.state_revision DESC,p.binding_id DESC LIMIT 1`).Scan(&scope.ProfileID, &scope.ProfileVersion, &scope.PolicyID, &scope.PolicyVersion, &raw, &scope.StateRevision, &scope.RecoveryEpoch)
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return GateAppliedProfile{}, newStoreError(generated.ErrorCodeResourceNotFound, "recovery-profile", false, nil)
+	}
+	if err != nil || json.Unmarshal(raw, &scope.Capabilities) != nil {
+		return GateAppliedProfile{}, newStoreError(generated.ErrorCodeIntegrityFailure, "recovery-profile", false, err)
 	}
 	return scope, nil
 }

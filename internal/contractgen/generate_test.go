@@ -112,7 +112,7 @@ func TestPhase5GeneratedNamesMatchEveryConsumer(t *testing.T) {
 	}) {
 		t.Errorf("#102 Phase 5 endpoint baseline or #104/#105 scoped additions changed: %v", phase5EndpointIDs)
 	}
-	if !reflect.DeepEqual(availablePhase5Endpoints, []string{"api.v1.audit-checkpoints.create", "api.v1.audit-checkpoints.list", "api.v1.audit-history.verification", "api.v1.backup-policy-drafts.create", "api.v1.backup-retention-lock-drafts.create", "api.v1.backup-retirement-drafts.create", "api.v1.backups.run", "api.v1.backups.status", "api.v1.backups.verify", "api.v1.credential-lifecycle-drafts.create", "api.v1.credential-references.import-stream", "api.v1.gate-evidence.create", "api.v1.gate-profile-drafts.create", "api.v1.gates.check", "api.v1.gates.get", "api.v1.gates.list"}) {
+	if !reflect.DeepEqual(availablePhase5Endpoints, []string{"api.v1.audit-checkpoints.create", "api.v1.audit-checkpoints.list", "api.v1.audit-history.verification", "api.v1.backup-policy-drafts.create", "api.v1.backup-retention-lock-drafts.create", "api.v1.backup-retirement-drafts.create", "api.v1.backups.run", "api.v1.backups.status", "api.v1.backups.verify", "api.v1.credential-lifecycle-drafts.create", "api.v1.credential-references.import-stream", "api.v1.gate-evidence.create", "api.v1.gate-profile-drafts.create", "api.v1.gates.check", "api.v1.gates.get", "api.v1.gates.list", "api.v1.restores.get", "api.v1.restores.plan", "api.v1.restores.run", "api.v1.restores.verify"}) {
 		t.Errorf("unexpected available Phase 5 endpoints: %v", availablePhase5Endpoints)
 	}
 	var gateSchema map[string]any
@@ -261,9 +261,14 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/release-manifest.schema.json",
 		"schemas/v1/release-trust-policy.schema.json",
 		"schemas/v1/release-verify-data.schema.json",
+		"schemas/v1/restore-audit-decision.schema.json",
 		"schemas/v1/restore-binding.schema.json",
+		"schemas/v1/restore-canary-result.schema.json",
+		"schemas/v1/restore-dependency-binding.schema.json",
+		"schemas/v1/restore-fence-item.schema.json",
 		"schemas/v1/restore-request.schema.json",
 		"schemas/v1/restore-run-request.schema.json",
+		"schemas/v1/restore-source-binding.schema.json",
 		"schemas/v1/restore-verification.schema.json",
 		"schemas/v1/restore-verify-request.schema.json",
 		"schemas/v1/run-presentation.schema.json",
@@ -702,14 +707,14 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 			}
 		}
 	}
-	if available != 37 || planned != 31 {
-		t.Fatalf("command availability = (%d available, %d planned), want (37, 31)", available, planned)
+	if available != 40 || planned != 28 {
+		t.Fatalf("command availability = (%d available, %d planned), want (40, 28)", available, planned)
 	}
 	// #102's 17 available/38 planned baseline remains the arithmetic base:
 	// #104 promoted four exact gate commands and added one exact profile draft;
 	// #124 promoted one exact local-only credential import command;
 	// #107 promoted two exact audit read commands.
-	if !reflect.DeepEqual(availablePhase5, []string{"audit checkpoints", "audit verify", "backup policy draft", "backup retention-locks draft", "backup retirement draft", "backup run", "backup status", "backup verify", "credential activate", "credential import", "credential recover", "credential revoke", "credential rotate", "credential stage", "gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft", "recovery witness collect"}) {
+	if !reflect.DeepEqual(availablePhase5, []string{"audit checkpoints", "audit verify", "backup policy draft", "backup retention-locks draft", "backup retirement draft", "backup run", "backup status", "backup verify", "credential activate", "credential import", "credential recover", "credential revoke", "credential rotate", "credential stage", "gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft", "recovery witness collect", "restore plan", "restore run", "restore verify"}) {
 		t.Fatalf("unexpected available Phase 5 commands: %v", availablePhase5)
 	}
 
@@ -741,7 +746,7 @@ func TestGeneratedGoIsRuntimeSerializable(t *testing.T) {
 	}
 	for _, want := range []string{
 		`RegistrySchemaVersion`,
-		`= "1.20.0"`,
+		`= "1.21.0"`,
 		`type Endpoint struct`,
 		`var Endpoints = []Endpoint`,
 		`type DatabaseStatusData struct`,

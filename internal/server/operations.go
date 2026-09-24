@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -25,6 +26,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/inventoryops"
 	"github.com/vegastack/vegastack-labs/internal/localapi"
 	planengine "github.com/vegastack/vegastack-labs/internal/plan"
+	"github.com/vegastack/vegastack-labs/internal/recovery"
 	"github.com/vegastack/vegastack-labs/internal/result"
 	runengine "github.com/vegastack/vegastack-labs/internal/run"
 	"github.com/vegastack/vegastack-labs/internal/serverconfig"
@@ -38,17 +40,25 @@ import (
 var productionDatabasePath = "/var/lib/vsk-labs/control.db"
 
 type Operations struct {
-	build              result.BuildInfo
-	requestIDs         result.RequestIDSource
-	openStore          func(context.Context, store.Config) (*store.Store, error)
-	databasePath       string
-	platformProbe      PlatformProbe
-	identityHTTPClient *http.Client
-	offsiteEffect      OffsiteEffectFactory
-	newAdapterRegistry func() *adapter.Registry
+	build                  result.BuildInfo
+	requestIDs             result.RequestIDSource
+	openStore              func(context.Context, store.Config) (*store.Store, error)
+	databasePath           string
+	platformProbe          PlatformProbe
+	identityHTTPClient     *http.Client
+	offsiteEffect          OffsiteEffectFactory
+	recoveryCanaryPorts    RecoveryCanaryPortFactory
+	localBackupAdapter     func(localbackup.Config) (*localbackup.Adapter, error)
+	localRecoverySource    func(*serverconfig.LocalBackup, uint32, *store.BackupRepository, store.RestoredSQLiteInspector, localbackup.RecoveryCredentialSource, localbackup.DependencyTrustVerifier, store.OnlineSnapshotSource) (recovery.SnapshotResolver, recovery.CompatibilityVerifier, recovery.AuditPositionVerifier, error)
+	recoveryCanaryBorrower func(recoveryCredentialBorrower) recoveryCanaryCredentialBorrower
+	recoveryCanaryBackup   func(*store.Store, *store.RestoreRepository, *store.BackupRepository, *localbackup.Adapter, recoveryCanaryCredentialBorrower, func() time.Time) recovery.RecoveryBackupCreator
+	recoveryFormerWriter   func(*store.RestoreRepository, recovery.ExactFenceRefresher) recovery.FormerWriterVerifier
+	recoveryCanaryObserve  func(recovery.CanaryVerifier)
+	newAdapterRegistry     func() *adapter.Registry
 }
 
 type OffsiteEffectFactory func(context.Context, serverconfig.Profile, *store.Store) (adapter.Adapter, error)
+type RecoveryCanaryPortFactory func(context.Context, serverconfig.Profile, *store.Store, *store.BackupRepository) (recovery.CanaryAuditVerifier, recovery.CanaryBackupVerifier, error)
 type OperationsOption func(*Operations)
 
 // WithOffsiteEffectFactory supplies the qualified site composition. The
@@ -61,6 +71,13 @@ func WithOffsiteEffectFactory(factory OffsiteEffectFactory) OperationsOption {
 	}
 }
 
+// WithRecoveryCanaryPortFactory supplies site-qualified independent audit and
+// local backup capabilities. An omitted factory leaves both typed ports nil,
+// so restore verification remains recovery-required.
+func WithRecoveryCanaryPortFactory(factory RecoveryCanaryPortFactory) OperationsOption {
+	return func(operations *Operations) { operations.recoveryCanaryPorts = factory }
+}
+
 func NewOperations(build result.BuildInfo, requestIDs result.RequestIDSource, options ...OperationsOption) *Operations {
 	operations := &Operations{
 		build: build, requestIDs: requestIDs, openStore: store.Open,
@@ -68,6 +85,19 @@ func NewOperations(build result.BuildInfo, requestIDs result.RequestIDSource, op
 		identityHTTPClient: &http.Client{Timeout: 10 * time.Second},
 		offsiteEffect: func(context.Context, serverconfig.Profile, *store.Store) (adapter.Adapter, error) {
 			return nil, nil
+		},
+		recoveryCanaryPorts:    systemRecoveryCanaryPortFactory(),
+		localBackupAdapter:     localbackup.New,
+		localRecoverySource:    composeLocalRecoverySource,
+		recoveryCanaryBorrower: func(borrower recoveryCredentialBorrower) recoveryCanaryCredentialBorrower { return borrower },
+		recoveryCanaryBackup: func(authority *store.Store, restores *store.RestoreRepository, backups *store.BackupRepository, local *localbackup.Adapter, borrower recoveryCanaryCredentialBorrower, clock func() time.Time) recovery.RecoveryBackupCreator {
+			if local == nil {
+				return unavailableRecoveryCanaryBackup{}
+			}
+			return &localRecoveryCanaryBackup{authority: authority, restores: restores, backups: backups, adapter: local, borrower: borrower, clock: clock}
+		},
+		recoveryFormerWriter: func(restores *store.RestoreRepository, fences recovery.ExactFenceRefresher) recovery.FormerWriterVerifier {
+			return recovery.FreshFormerWriterCanary{Restores: restores, Fences: fences}
 		},
 		newAdapterRegistry: productionAdapterRegistry,
 	}
@@ -96,7 +126,7 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		return err
 	}
 	factory := result.NewFactory(operations.build, operations.requestIDs)
-	authority, err := operations.openStore(ctx, store.Config{DatabasePath: operations.databasePath, Mode: store.OpenExisting, ExpectedUID: profile.SocketOwnerUID, ToolVersion: operations.build.ToolVersion, BuildVersion: operations.build.ReleaseBuildID})
+	authority, err := operations.openAuthorityWithPromotion(ctx, profile)
 	if err != nil {
 		return err
 	}
@@ -217,6 +247,13 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		return err
 	}
 	backupRepository := store.NewBackupRepository(authority)
+	var restoreSnapshotResolver recovery.SnapshotResolver
+	var restoreCompatibility recovery.CompatibilityVerifier
+	var restoreAudit recovery.AuditPositionVerifier
+	var restoreSnapshotSource store.OnlineSnapshotSource
+	var restoreInspector store.RestoredSQLiteInspector
+	var restoreTrust localbackup.DependencyTrustVerifier
+	var recoveryBackupAdapter *localbackup.Adapter
 	// The protected local backup adapter is registered only when the complete
 	// standard/critical/restic profile triplet is present. It fails closed
 	// off-Linux and its effect always runs through the exact bound credential
@@ -233,7 +270,8 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 			return inspectErr
 		}
 		localTrust := localbackup.NewProtectedLocalDependencyTrust()
-		localAdapter, adapterErr := localbackup.New(localbackup.Config{
+		restoreSnapshotSource, restoreInspector, restoreTrust = snapshots, inspector, localTrust
+		localAdapter, adapterErr := operations.localBackupAdapter(localbackup.Config{
 			LocalBackup: profile.LocalBackup,
 			ExpectedUID: profile.SocketOwnerUID,
 			Backups:     backupRepository,
@@ -247,6 +285,7 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 			Clock:       time.Now,
 		})
 		if adapterErr == nil {
+			recoveryBackupAdapter = localAdapter
 			if registerErr := adapters.Register(localbackup.AdapterID, localAdapter); registerErr != nil {
 				_ = application.Shutdown(ctx)
 				return registerErr
@@ -273,7 +312,25 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
+	recoveryCore, err := runengine.NewRecoveryEffect(authority)
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	coreRouter := runengine.CoreRouter{Gate: coreGate, Recovery: recoveryCore}
 	credentialRepository := store.NewCredentialRepository(authority)
+	if err := registerProductionRecoveryCredentialResolver(ctx, adapters, credentialRepository, gateRepository, profile.SocketOwnerUID); err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	if profile.LocalBackup != nil && restoreSnapshotSource != nil && restoreInspector != nil && restoreTrust != nil {
+		borrower := recoveryCredentialBorrower{references: credentialRepository, profiles: gateRepository, revisions: planRepository, resolvers: adapters}
+		restoreSnapshotResolver, restoreCompatibility, restoreAudit, err = operations.localRecoverySource(profile.LocalBackup, profile.SocketOwnerUID, backupRepository, restoreInspector, borrower, restoreTrust, restoreSnapshotSource)
+		if err != nil {
+			_ = application.Shutdown(ctx)
+			return err
+		}
+	}
 	credentialStep := &runengine.CredentialStep{Bindings: credentialRepository, Resolvers: adapters, Profiles: gateRepository, Plans: plans, Clock: time.Now}
 	credentialCore, err := runengine.NewCoreCredentialEffect(credentialRepository, store.NewAcknowledgementRepository(authority), runengine.UnavailableGateVerifier{}, composeNativeCredentialLifecycleVerifier(ctx, operations.databasePath, profile.SocketOwnerUID), runengine.UnavailableCredentialRecoveryVerifier{}, time.Now)
 	if err != nil {
@@ -285,7 +342,7 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	runs, err := runengine.NewEngine(runengine.Config{Repository: runRepository, Plans: plans, Admission: admission, Adapters: adapters, Core: coreGate, CredentialCore: credentialCore, RetentionCore: retentionCore, SecretGate: runengine.UnavailableGateVerifier{}, CredentialStep: credentialStep, Clock: time.Now, ExecutionContext: ctx})
+	runs, err := runengine.NewEngine(runengine.Config{Repository: runRepository, Plans: plans, Admission: admission, Adapters: adapters, Core: coreRouter, CredentialCore: credentialCore, RetentionCore: retentionCore, SecretGate: runengine.UnavailableGateVerifier{}, CredentialStep: credentialStep, Clock: time.Now, ExecutionContext: ctx})
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err
@@ -333,6 +390,60 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
+	// Restore routes are composed in the one server process. The store-backed
+	// planner, session journal, candidate staging, and startup promotion are
+	// concrete here; source snapshot/compatibility/audit, installed fence scope,
+	// and canary ports remain fail-closed until their protected profile adapters
+	// are present rather than being substituted with fixture authority.
+	restoreRepository := store.NewRestoreRepository(authority)
+	candidateOpener := func(ctx context.Context, path string) (*store.Store, error) {
+		return operations.openStore(ctx, store.Config{DatabasePath: path, Mode: store.OpenExisting, ExpectedUID: profile.SocketOwnerUID, ToolVersion: operations.build.ToolVersion, BuildVersion: operations.build.ReleaseBuildID})
+	}
+	health, err := authority.Health(ctx)
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	restorePlanner := recovery.StoreRestorePlanner{Declarations: declarationRepository, Plans: planRepository, Restores: restoreRepository, Clock: time.Now}
+	restoreSessions := recovery.StoreRestoreSessions{Repository: restoreRepository}
+	restoreCandidates := recovery.StoreCandidateStager{Repository: restoreRepository, Plans: planRepository, Manager: recovery.CandidateManager{DatabasePath: operations.databasePath, Storage: recovery.LocalCandidateStorage{ExpectedUID: profile.SocketOwnerUID}, Authority: recovery.StoreCandidateAuthority{Open: candidateOpener}, Bundles: recovery.StoreRecoveryBundleStore{Open: candidateOpener}}}
+	restoreFences := recovery.TwoStageFences{
+		Admissions: recovery.LoadSystemSourceAdmission, Profiles: gateRepository,
+		Execution:      recovery.SystemExactFenceWitnessVerifier(operations.build.ReleaseBuildID, "1.0.0"),
+		ReleaseBuildID: operations.build.ReleaseBuildID, EvaluatorVersion: "1.0.0",
+	}
+	restoreStoreCanary := recovery.StoreRecoveryCanary{Authority: authority, Restores: restoreRepository}
+	canaryAudit, canaryBackup, err := operations.recoveryCanaryPorts(ctx, profile, authority, backupRepository)
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	borrower := operations.recoveryCanaryBorrower(recoveryCredentialBorrower{references: credentialRepository, profiles: gateRepository, revisions: planRepository, resolvers: adapters})
+	backupCreator := operations.recoveryCanaryBackup(authority, restoreRepository, backupRepository, recoveryBackupAdapter, borrower, time.Now)
+	canaryBackup = recovery.CurrentEpochBackupCanary{Creator: backupCreator, Reader: backupRepository}
+	restoreCanary := recovery.CanaryVerifier{
+		Read: restoreStoreCanary, OldEpoch: restoreStoreCanary,
+		Noop: recovery.BoundCanaryNoop{Restores: restoreRepository, Core: coreRouter, Recorder: authority}, Audit: canaryAudit, Backup: canaryBackup,
+		FormerWriter: operations.recoveryFormerWriter(restoreRepository, restoreFences.Execution),
+		Enable:       restoreStoreCanary,
+		Clock:        time.Now,
+	}
+	if operations.recoveryCanaryObserve != nil {
+		operations.recoveryCanaryObserve(restoreCanary)
+	}
+	restoreService, err := recovery.NewOperationsService(recovery.OperationsConfig{
+		Sources: recovery.SourceVerifier{Local: backupRepository, Snapshots: restoreSnapshotResolver, Compatibility: restoreCompatibility, Audit: restoreAudit, Clock: time.Now}, Continuity: recovery.ContinuityResolver{}, Fences: restoreFences,
+		Plans: restorePlanner, Sessions: restoreSessions, Candidates: restoreCandidates, Canary: restoreCanary,
+		TargetReleaseBuildID: operations.build.ReleaseBuildID, TargetToolVersion: operations.build.ToolVersion, TargetSchemaVersion: strconv.FormatUint(health.SchemaVersion, 10),
+	})
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	if err := api.RegisterRestoreOperations(application, api.RestoreConfig{Operations: restoreService, Results: factory, Authorization: effectiveConfig}); err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
 	if err := api.ValidateRegisteredRoutes(application); err != nil {
 		_ = application.Shutdown(ctx)
 		return err
@@ -347,6 +458,44 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		return err
 	}
 	return service.Run(ctx)
+}
+
+// openAuthorityWithPromotion is the sole startup cutover boundary. It opens
+// the former authority only long enough to read its immutable pending record,
+// closes it before acquiring the filesystem authority lock, and then reopens
+// the exact promoted database in recovery-required mode.
+func (operations *Operations) openAuthorityWithPromotion(ctx context.Context, profile serverconfig.Profile) (*store.Store, error) {
+	configFor := func(path string) store.Config {
+		return store.Config{DatabasePath: path, Mode: store.OpenExisting, ExpectedUID: profile.SocketOwnerUID, ToolVersion: operations.build.ToolVersion, BuildVersion: operations.build.ReleaseBuildID}
+	}
+	authority, err := operations.openStore(ctx, configFor(operations.databasePath))
+	if err != nil {
+		return nil, err
+	}
+	pending, found, err := store.NewRestoreRepository(authority).PendingPromotion(ctx)
+	if err != nil || !found {
+		if err != nil {
+			_ = authority.Close()
+			return nil, err
+		}
+		return authority, nil
+	}
+	if err := authority.Close(); err != nil {
+		return nil, err
+	}
+	opener := func(ctx context.Context, path string) (*store.Store, error) {
+		return operations.openStore(ctx, configFor(path))
+	}
+	manager := recovery.CandidateManager{
+		DatabasePath: operations.databasePath,
+		Storage:      recovery.LocalCandidateStorage{ExpectedUID: profile.SocketOwnerUID},
+		Authority:    recovery.StoreCandidateAuthority{Open: opener},
+		Bundles:      recovery.StoreRecoveryBundleStore{Open: opener},
+	}
+	if _, err := manager.PromoteAtStartup(ctx, recovery.StartupExpectation{Binding: pending.Binding, DatabaseDigest: pending.DatabaseDigest, JournalDigest: pending.JournalDigest, BundleDigest: pending.BundleDigest}); err != nil {
+		return nil, err
+	}
+	return operations.openStore(ctx, configFor(operations.databasePath))
 }
 
 // productionAdapterRegistry is the single composition point for adapters that
@@ -569,6 +718,30 @@ func (operations *Operations) VerifyBackup(ctx context.Context, configPath strin
 		return localapi.TypedResponse[generated.BackupJob]{}, err
 	}
 	return client.VerifyBackup(ctx, profile, input)
+}
+
+func (operations *Operations) PlanRestore(ctx context.Context, configPath string, input generated.RestoreRequest) (localapi.TypedResponse[generated.RestoreBinding], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.RestoreBinding]{}, err
+	}
+	return client.PlanRestore(ctx, profile, input)
+}
+
+func (operations *Operations) RunRestore(ctx context.Context, configPath string, input generated.RestoreRunRequest) (localapi.TypedResponse[generated.RestoreBinding], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.RestoreBinding]{}, err
+	}
+	return client.RunRestore(ctx, profile, input)
+}
+
+func (operations *Operations) VerifyRestore(ctx context.Context, configPath string, input generated.RestoreVerifyRequest) (localapi.TypedResponse[generated.RestoreVerification], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.RestoreVerification]{}, err
+	}
+	return client.VerifyRestore(ctx, profile, input)
 }
 
 func (operations *Operations) ImportInventory(ctx context.Context, configPath string, request generated.InventoryImportRequest) (localapi.TypedResponse[generated.InventoryImportData], error) {

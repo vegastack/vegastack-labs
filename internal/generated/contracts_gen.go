@@ -6,7 +6,7 @@ import "encoding/json"
 
 const (
 	SchemaMajor                                = 1
-	RegistrySchemaVersion                      = "1.20.0"
+	RegistrySchemaVersion                      = "1.21.0"
 	AvailabilityAvailable                      = "available"
 	AvailabilityPlanned                        = "planned"
 	FlagKindValue                              = "value"
@@ -151,9 +151,14 @@ const (
 	SchemaIDReleaseTrustPolicy                 = "vegastack-labs.dev/release-trust-policy"
 	SchemaIDReleaseVerifyData                  = "vegastack-labs.dev/release-verify-data"
 	SchemaIDRemoteReadProfile                  = "vegastack-labs.dev/remote-read-profile"
+	SchemaIDRestoreAuditDecision               = "vegastack-labs.dev/restore-audit-decision"
 	SchemaIDRestoreBinding                     = "vegastack-labs.dev/restore-binding"
+	SchemaIDRestoreCanaryResult                = "vegastack-labs.dev/restore-canary-result"
+	SchemaIDRestoreDependencyBinding           = "vegastack-labs.dev/restore-dependency-binding"
+	SchemaIDRestoreFenceItem                   = "vegastack-labs.dev/restore-fence-item"
 	SchemaIDRestoreRequest                     = "vegastack-labs.dev/restore-request"
 	SchemaIDRestoreRunRequest                  = "vegastack-labs.dev/restore-run-request"
+	SchemaIDRestoreSourceBinding               = "vegastack-labs.dev/restore-source-binding"
 	SchemaIDRestoreVerification                = "vegastack-labs.dev/restore-verification"
 	SchemaIDRestoreVerifyRequest               = "vegastack-labs.dev/restore-verify-request"
 	SchemaIDResultError                        = "vegastack-labs.dev/result-error"
@@ -241,6 +246,9 @@ const (
 	FlagAll                                    = "--all"
 	FlagAsset                                  = "--asset"
 	FlagPolicy                                 = "--policy"
+	CommandNameRestorePlan                     = "restore plan"
+	CommandNameRestoreRun                      = "restore run"
+	CommandNameRestoreVerify                   = "restore verify"
 	CommandNameRunCancel                       = "run cancel"
 	FlagRunID                                  = "--run-id"
 	CommandNameRunInspect                      = "run inspect"
@@ -1883,83 +1891,234 @@ type RemoteReadProfile struct {
 	IdentityConfigPath *string `json:"identityConfigPath"`
 }
 
+type RestoreAuditDecision struct {
+	Schema                      string  `json:"schema"`
+	SchemaVersion               string  `json:"schemaVersion"`
+	LocalLastEventID            int64   `json:"localLastEventId"`
+	IndependentLastEventID      int64   `json:"independentLastEventId"`
+	IndependentCheckpointDigest string  `json:"independentCheckpointDigest"`
+	Strategy                    string  `json:"strategy"`
+	LostFromEventID             *int64  `json:"lostFromEventId"`
+	LostThroughEventID          *int64  `json:"lostThroughEventId"`
+	LostFromTime                *string `json:"lostFromTime"`
+	LostThroughTime             *string `json:"lostThroughTime"`
+	HumanAcknowledgementID      *string `json:"humanAcknowledgementId"`
+	DecisionDigest              string  `json:"decisionDigest"`
+}
+
 type RestoreBinding struct {
-	Schema                      string   `json:"schema"`
-	SchemaVersion               string   `json:"schemaVersion"`
-	PointID                     string   `json:"pointId"`
-	DependencyIDs               []string `json:"dependencyIds"`
-	TargetIDs                   []string `json:"targetIds"`
-	TargetDigest                string   `json:"targetDigest"`
-	PlanID                      string   `json:"planId"`
-	PlanDigest                  string   `json:"planDigest"`
-	HumanAcknowledgementID      string   `json:"humanAcknowledgementId"`
-	FormerControllerFenceDigest string   `json:"formerControllerFenceDigest"`
-	PriorInstanceID             string   `json:"priorInstanceId"`
-	NewInstanceID               string   `json:"newInstanceId"`
-	PriorRecoveryEpoch          int64    `json:"priorRecoveryEpoch"`
-	NextRecoveryEpoch           int64    `json:"nextRecoveryEpoch"`
-	Status                      string   `json:"status"`
+	Schema                   string               `json:"schema"`
+	SchemaVersion            string               `json:"schemaVersion"`
+	Source                   RestoreSourceBinding `json:"source"`
+	PointID                  string               `json:"pointId"`
+	DependencyIDs            []string             `json:"dependencyIds"`
+	TargetIDs                []string             `json:"targetIds"`
+	TargetDigest             string               `json:"targetDigest"`
+	PlanID                   string               `json:"planId"`
+	PlanDigest               string               `json:"planDigest"`
+	HumanAcknowledgementID   string               `json:"humanAcknowledgementId"`
+	FenceSetDigest           string               `json:"fenceSetDigest"`
+	AuditDecisionDigest      string               `json:"auditDecisionDigest"`
+	CandidateDigest          string               `json:"candidateDigest"`
+	FormerHostID             string               `json:"formerHostId"`
+	ReplacementHostID        string               `json:"replacementHostId"`
+	RecoveryDraftID          string               `json:"recoveryDraftId"`
+	CiphertextFingerprint    string               `json:"ciphertextFingerprint"`
+	SourceAdmissionDigest    string               `json:"sourceAdmissionDigest"`
+	FenceQualificationDigest string               `json:"fenceQualificationDigest"`
+	RecoveryRunID            string               `json:"recoveryRunId"`
+	RecoveryStepID           string               `json:"recoveryStepId"`
+	RecoveryLeaseID          string               `json:"recoveryLeaseId"`
+	RecoveryChallengeID      string               `json:"recoveryChallengeId"`
+	RecoveryReceiptID        string               `json:"recoveryReceiptId"`
+	CanaryRunID              string               `json:"canaryRunId"`
+	CanaryStepID             string               `json:"canaryStepId"`
+	CanaryLeaseID            string               `json:"canaryLeaseId"`
+	CanaryChallengeID        string               `json:"canaryChallengeId"`
+	CanaryReceiptID          string               `json:"canaryReceiptId"`
+	CanaryBindingDigest      string               `json:"canaryBindingDigest"`
+	PriorInstanceID          string               `json:"priorInstanceId"`
+	NewInstanceID            string               `json:"newInstanceId"`
+	PriorRecoveryEpoch       int64                `json:"priorRecoveryEpoch"`
+	NextRecoveryEpoch        int64                `json:"nextRecoveryEpoch"`
+	Status                   string               `json:"status"`
+}
+
+type RestoreCanaryResult struct {
+	Schema             string  `json:"schema"`
+	SchemaVersion      string  `json:"schemaVersion"`
+	ReadVerified       bool    `json:"readVerified"`
+	OldEpochDenied     bool    `json:"oldEpochDenied"`
+	NoopRunID          string  `json:"noopRunId"`
+	AuditCheckpointID  string  `json:"auditCheckpointId"`
+	BackupPointID      string  `json:"backupPointId"`
+	FormerWriterDenied bool    `json:"formerWriterDenied"`
+	Status             string  `json:"status"`
+	VerifiedAt         *string `json:"verifiedAt"`
+}
+
+type RestoreDependencyBinding struct {
+	DependencyID string `json:"dependencyId"`
+	Kind         string `json:"kind"`
+	Digest       string `json:"digest"`
+}
+
+type RestoreFenceItem struct {
+	Schema                string   `json:"schema"`
+	SchemaVersion         string   `json:"schemaVersion"`
+	Boundary              string   `json:"boundary"`
+	SubjectID             string   `json:"subjectId"`
+	TargetID              string   `json:"targetId"`
+	AdapterID             string   `json:"adapterId"`
+	FormerIdentityID      string   `json:"formerIdentityId"`
+	ProfileID             string   `json:"profileId"`
+	ProfileVersion        string   `json:"profileVersion"`
+	PolicyID              string   `json:"policyId"`
+	PolicyVersion         string   `json:"policyVersion"`
+	ReleaseBuildID        string   `json:"releaseBuildId"`
+	EvaluatorVersion      string   `json:"evaluatorVersion"`
+	RecoveryEpoch         int64    `json:"recoveryEpoch"`
+	RequiredEvidenceKinds []string `json:"requiredEvidenceKinds"`
+	Required              bool     `json:"required"`
+	EvidenceIDs           []string `json:"evidenceIds"`
+	EvidenceDigest        string   `json:"evidenceDigest"`
+	ObservedAt            *string  `json:"observedAt"`
+	Status                string   `json:"status"`
 }
 
 type RestoreRequest struct {
-	Schema                string   `json:"schema"`
-	SchemaVersion         string   `json:"schemaVersion"`
-	ExpectedStateRevision int64    `json:"expectedStateRevision"`
-	RecoveryEpoch         int64    `json:"recoveryEpoch"`
-	TargetDigest          string   `json:"targetDigest"`
-	IdempotencyKey        string   `json:"idempotencyKey"`
-	PointID               string   `json:"pointId"`
-	DependencyIDs         []string `json:"dependencyIds"`
-	TargetIDs             []string `json:"targetIds"`
-	PriorInstanceID       string   `json:"priorInstanceId"`
-	NewInstanceID         string   `json:"newInstanceId"`
-	PriorRecoveryEpoch    int64    `json:"priorRecoveryEpoch"`
+	Schema                   string               `json:"schema"`
+	SchemaVersion            string               `json:"schemaVersion"`
+	ExpectedStateRevision    int64                `json:"expectedStateRevision"`
+	RecoveryEpoch            int64                `json:"recoveryEpoch"`
+	TargetDigest             string               `json:"targetDigest"`
+	IdempotencyKey           string               `json:"idempotencyKey"`
+	Source                   RestoreSourceBinding `json:"source"`
+	Fences                   []RestoreFenceItem   `json:"fences"`
+	AuditDecision            RestoreAuditDecision `json:"auditDecision"`
+	PointID                  string               `json:"pointId"`
+	DependencyIDs            []string             `json:"dependencyIds"`
+	TargetIDs                []string             `json:"targetIds"`
+	PriorInstanceID          string               `json:"priorInstanceId"`
+	NewInstanceID            string               `json:"newInstanceId"`
+	PriorRecoveryEpoch       int64                `json:"priorRecoveryEpoch"`
+	NextRecoveryEpoch        int64                `json:"nextRecoveryEpoch"`
+	FenceSetDigest           string               `json:"fenceSetDigest"`
+	AuditDecisionDigest      string               `json:"auditDecisionDigest"`
+	CandidateDigest          string               `json:"candidateDigest"`
+	FormerHostID             string               `json:"formerHostId"`
+	ReplacementHostID        string               `json:"replacementHostId"`
+	RecoveryDraftID          string               `json:"recoveryDraftId"`
+	CiphertextFingerprint    string               `json:"ciphertextFingerprint"`
+	SourceAdmissionDigest    string               `json:"sourceAdmissionDigest"`
+	FenceQualificationDigest string               `json:"fenceQualificationDigest"`
+	RecoveryRunID            string               `json:"recoveryRunId"`
+	RecoveryStepID           string               `json:"recoveryStepId"`
+	RecoveryLeaseID          string               `json:"recoveryLeaseId"`
+	RecoveryChallengeID      string               `json:"recoveryChallengeId"`
+	RecoveryReceiptID        string               `json:"recoveryReceiptId"`
+	CanaryRunID              string               `json:"canaryRunId"`
+	CanaryStepID             string               `json:"canaryStepId"`
+	CanaryLeaseID            string               `json:"canaryLeaseId"`
+	CanaryChallengeID        string               `json:"canaryChallengeId"`
+	CanaryReceiptID          string               `json:"canaryReceiptId"`
+	CanaryBindingDigest      string               `json:"canaryBindingDigest"`
 }
 
 type RestoreRunRequest struct {
-	Schema                      string `json:"schema"`
-	SchemaVersion               string `json:"schemaVersion"`
-	ExpectedStateRevision       int64  `json:"expectedStateRevision"`
-	RecoveryEpoch               int64  `json:"recoveryEpoch"`
-	TargetDigest                string `json:"targetDigest"`
-	IdempotencyKey              string `json:"idempotencyKey"`
-	PointID                     string `json:"pointId"`
-	PlanID                      string `json:"planId"`
-	PlanDigest                  string `json:"planDigest"`
-	HumanAcknowledgementID      string `json:"humanAcknowledgementId"`
-	FormerControllerFenceDigest string `json:"formerControllerFenceDigest"`
-	PriorInstanceID             string `json:"priorInstanceId"`
-	NewInstanceID               string `json:"newInstanceId"`
-	PriorRecoveryEpoch          int64  `json:"priorRecoveryEpoch"`
-	NextRecoveryEpoch           int64  `json:"nextRecoveryEpoch"`
+	Schema                 string               `json:"schema"`
+	SchemaVersion          string               `json:"schemaVersion"`
+	ExpectedStateRevision  int64                `json:"expectedStateRevision"`
+	RecoveryEpoch          int64                `json:"recoveryEpoch"`
+	TargetDigest           string               `json:"targetDigest"`
+	IdempotencyKey         string               `json:"idempotencyKey"`
+	Source                 RestoreSourceBinding `json:"source"`
+	PointID                string               `json:"pointId"`
+	PlanID                 string               `json:"planId"`
+	PlanDigest             string               `json:"planDigest"`
+	HumanAcknowledgementID string               `json:"humanAcknowledgementId"`
+	FenceSetDigest         string               `json:"fenceSetDigest"`
+	AuditDecisionDigest    string               `json:"auditDecisionDigest"`
+	CandidateDigest        string               `json:"candidateDigest"`
+	PriorInstanceID        string               `json:"priorInstanceId"`
+	NewInstanceID          string               `json:"newInstanceId"`
+	PriorRecoveryEpoch     int64                `json:"priorRecoveryEpoch"`
+	NextRecoveryEpoch      int64                `json:"nextRecoveryEpoch"`
+	RecoveryRunID          string               `json:"recoveryRunId"`
+	RecoveryStepID         string               `json:"recoveryStepId"`
+	RecoveryLeaseID        string               `json:"recoveryLeaseId"`
+	RecoveryChallengeID    string               `json:"recoveryChallengeId"`
+	RecoveryReceiptID      string               `json:"recoveryReceiptId"`
+	CanaryRunID            string               `json:"canaryRunId"`
+	CanaryStepID           string               `json:"canaryStepId"`
+	CanaryLeaseID          string               `json:"canaryLeaseId"`
+	CanaryChallengeID      string               `json:"canaryChallengeId"`
+	CanaryReceiptID        string               `json:"canaryReceiptId"`
+	CanaryBindingDigest    string               `json:"canaryBindingDigest"`
+}
+
+type RestoreSourceBinding struct {
+	Schema                 string                     `json:"schema"`
+	SchemaVersion          string                     `json:"schemaVersion"`
+	PointID                string                     `json:"pointId"`
+	PointDigest            string                     `json:"pointDigest"`
+	ManifestDigest         string                     `json:"manifestDigest"`
+	VerificationDigest     string                     `json:"verificationDigest"`
+	SourceClass            string                     `json:"sourceClass"`
+	RepositoryGenerationID string                     `json:"repositoryGenerationId"`
+	KeyReferenceID         string                     `json:"keyReferenceId"`
+	DeclaredRPOSeconds     int64                      `json:"declaredRpoSeconds"`
+	CreatedAt              string                     `json:"createdAt"`
+	VerifiedAt             string                     `json:"verifiedAt"`
+	RecoveryEpoch          int64                      `json:"recoveryEpoch"`
+	DependencyDigests      []string                   `json:"dependencyDigests"`
+	RequiredDependencies   []RestoreDependencyBinding `json:"requiredDependencies"`
+	TargetReleaseBuildID   string                     `json:"targetReleaseBuildId"`
+	TargetToolVersion      string                     `json:"targetToolVersion"`
+	TargetSchemaVersion    string                     `json:"targetSchemaVersion"`
 }
 
 type RestoreVerification struct {
-	Schema            string  `json:"schema"`
-	SchemaVersion     string  `json:"schemaVersion"`
-	PlanID            string  `json:"planId"`
-	PlanDigest        string  `json:"planDigest"`
-	PointID           string  `json:"pointId"`
-	TargetDigest      string  `json:"targetDigest"`
-	FenceVerified     bool    `json:"fenceVerified"`
-	DatabaseVerified  bool    `json:"databaseVerified"`
-	AuditVerified     bool    `json:"auditVerified"`
-	VerifiedAt        *string `json:"verifiedAt"`
-	NextRecoveryEpoch int64   `json:"nextRecoveryEpoch"`
-	Status            string  `json:"status"`
+	Schema              string               `json:"schema"`
+	SchemaVersion       string               `json:"schemaVersion"`
+	Source              RestoreSourceBinding `json:"source"`
+	PlanID              string               `json:"planId"`
+	PlanDigest          string               `json:"planDigest"`
+	PointID             string               `json:"pointId"`
+	TargetDigest        string               `json:"targetDigest"`
+	FenceVerified       bool                 `json:"fenceVerified"`
+	DatabaseVerified    bool                 `json:"databaseVerified"`
+	AuditVerified       bool                 `json:"auditVerified"`
+	VerifiedAt          *string              `json:"verifiedAt"`
+	PriorInstanceID     string               `json:"priorInstanceId"`
+	NewInstanceID       string               `json:"newInstanceId"`
+	PriorRecoveryEpoch  int64                `json:"priorRecoveryEpoch"`
+	NextRecoveryEpoch   int64                `json:"nextRecoveryEpoch"`
+	FenceSetDigest      string               `json:"fenceSetDigest"`
+	AuditDecisionDigest string               `json:"auditDecisionDigest"`
+	CandidateDigest     string               `json:"candidateDigest"`
+	Canary              RestoreCanaryResult  `json:"canary"`
+	Status              string               `json:"status"`
 }
 
 type RestoreVerifyRequest struct {
-	Schema                string `json:"schema"`
-	SchemaVersion         string `json:"schemaVersion"`
-	ExpectedStateRevision int64  `json:"expectedStateRevision"`
-	RecoveryEpoch         int64  `json:"recoveryEpoch"`
-	TargetDigest          string `json:"targetDigest"`
-	IdempotencyKey        string `json:"idempotencyKey"`
-	PointID               string `json:"pointId"`
-	PlanID                string `json:"planId"`
-	PlanDigest            string `json:"planDigest"`
-	NextRecoveryEpoch     int64  `json:"nextRecoveryEpoch"`
+	Schema                string               `json:"schema"`
+	SchemaVersion         string               `json:"schemaVersion"`
+	ExpectedStateRevision int64                `json:"expectedStateRevision"`
+	RecoveryEpoch         int64                `json:"recoveryEpoch"`
+	TargetDigest          string               `json:"targetDigest"`
+	IdempotencyKey        string               `json:"idempotencyKey"`
+	Source                RestoreSourceBinding `json:"source"`
+	PointID               string               `json:"pointId"`
+	PlanID                string               `json:"planId"`
+	PlanDigest            string               `json:"planDigest"`
+	PriorInstanceID       string               `json:"priorInstanceId"`
+	NewInstanceID         string               `json:"newInstanceId"`
+	PriorRecoveryEpoch    int64                `json:"priorRecoveryEpoch"`
+	NextRecoveryEpoch     int64                `json:"nextRecoveryEpoch"`
+	FenceSetDigest        string               `json:"fenceSetDigest"`
+	AuditDecisionDigest   string               `json:"auditDecisionDigest"`
+	CandidateDigest       string               `json:"candidateDigest"`
 }
 
 type ResultError struct {
@@ -2338,9 +2497,9 @@ var Commands = []Command{
 	{Path: []string{"recovery", "witness", "collect"}, Summary: "Collect one bounded independent recovery witness on a separately administered custodian.", Availability: "available", OwnerPhase: "5", Risk: "mutation", Flags: []Flag{{Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one exact public recovery binding and required-boundary document (64 KiB max).", Enum: []string(nil)}, {Name: "--material-fd", Kind: "value", ValueName: "fd", Required: true, Repeatable: false, Summary: "Read the independently held protected material from an inherited descriptor.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}, {Name: "--signing-key-fd", Kind: "value", ValueName: "fd", Required: true, Repeatable: false, Summary: "Read the protected witness signing seed from an inherited descriptor.", Enum: []string(nil)}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/recovery-witness-collection-data", Examples: []Example{{Summary: "Collect one bounded independent recovery witness on a separately administered custodian.", Arguments: []string{"recovery", "witness", "collect", "--file", "fixture/recovery-witness-input.json", "--signing-key-fd", "3", "--material-fd", "4", "--output", "json"}}}},
 	{Path: []string{"release", "inspect"}, Summary: "Inspect a local release manifest and compatibility without claiming cryptographic verification.", Availability: "available", OwnerPhase: "1", Risk: "read-only", Flags: []Flag{{Name: "--manifest", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the local release manifest at this path.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/release-inspect-data", Examples: []Example{{Summary: "Inspect a local manifest as versioned JSON.", Arguments: []string{"release", "inspect", "--manifest", "release/manifest.json", "--output", "json"}}}},
 	{Path: []string{"release", "verify"}, Summary: "Verify a signed local manifest and explicitly selected assets against a supplied offline policy.", Availability: "available", OwnerPhase: "1", Risk: "read-only", Flags: []Flag{{Name: "--all", Kind: "switch", ValueName: "", Required: false, Repeatable: false, Summary: "Explicitly verify every asset in the manifest.", Enum: []string(nil)}, {Name: "--asset", Kind: "value", ValueName: "id", Required: false, Repeatable: true, Summary: "Verify one named asset; repeat for additional assets.", Enum: []string(nil)}, {Name: "--manifest", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the local release manifest at this path.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--policy", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the supplied local trust policy at this path.", Enum: []string(nil)}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/release-verify-data", Examples: []Example{{Summary: "Explicitly verify every local asset.", Arguments: []string{"release", "verify", "--manifest", "release/manifest.json", "--policy", "release/policy.json", "--all"}}, {Summary: "Verify one local asset against a supplied policy.", Arguments: []string{"release", "verify", "--manifest", "release/manifest.json", "--policy", "release/policy.json", "--asset", "linux-amd64", "--output", "json"}}}},
-	{Path: []string{"restore", "plan"}, Summary: "Create an immutable restore plan.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned", RequestSchema: "vegastack-labs.dev/restore-request", DataSchema: "vegastack-labs.dev/restore-binding"},
-	{Path: []string{"restore", "run"}, Summary: "Run one authorized restore plan.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned", RequestSchema: "vegastack-labs.dev/restore-run-request", DataSchema: "vegastack-labs.dev/restore-binding"},
-	{Path: []string{"restore", "verify"}, Summary: "Verify a completed restore.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned", RequestSchema: "vegastack-labs.dev/restore-verify-request", DataSchema: "vegastack-labs.dev/restore-verification"},
+	{Path: []string{"restore", "plan"}, Summary: "Create one immutable fenced restore plan.", Availability: "available", OwnerPhase: "5", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one exact material-free restore request JSON file (256 KiB max).", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/restore-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/restore-binding", Examples: []Example{{Summary: "Create one immutable fenced restore plan.", Arguments: []string{"restore", "plan", "--config", "fixture/server-profile.json", "--file", "fixture/restore-plan-request.json", "--output", "json"}}}},
+	{Path: []string{"restore", "run"}, Summary: "Stage one exact authorized restore candidate.", Availability: "available", OwnerPhase: "5", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one exact material-free restore request JSON file (256 KiB max).", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/restore-run-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/restore-binding", Examples: []Example{{Summary: "Stage one exact authorized restore candidate.", Arguments: []string{"restore", "run", "--config", "fixture/server-profile.json", "--file", "fixture/restore-run-request.json", "--output", "json"}}}},
+	{Path: []string{"restore", "verify"}, Summary: "Verify the recovered authority and complete its canary.", Availability: "available", OwnerPhase: "5", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one exact material-free restore request JSON file (256 KiB max).", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/restore-verify-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/restore-verification", Examples: []Example{{Summary: "Verify the recovered authority and complete its canary.", Arguments: []string{"restore", "verify", "--config", "fixture/server-profile.json", "--file", "fixture/restore-verify-request.json", "--output", "json"}}}},
 	{Path: []string{"run", "cancel"}, Summary: "Request server-owned cancellation of one durable run at a safe boundary.", Availability: "available", OwnerPhase: "4", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--run-id", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Select the exact durable run.", Enum: []string(nil)}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/run-reference-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/run-presentation", Examples: []Example{{Summary: "Request server-owned cancellation of one durable run at a safe boundary.", Arguments: []string{"run", "cancel", "--config", "fixture/server-profile.json", "--run-id", "run-1", "--output", "json"}}}},
 	{Path: []string{"run", "inspect"}, Summary: "Inspect one durable run without retrying apply.", Availability: "available", OwnerPhase: "4", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--run-id", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Select the exact durable run.", Enum: []string(nil)}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/run-presentation", Examples: []Example{{Summary: "Inspect one durable run without retrying apply.", Arguments: []string{"run", "inspect", "--config", "fixture/server-profile.json", "--run-id", "run-1", "--output", "json"}}}},
 	{Path: []string{"run", "resume"}, Summary: "Request server-owned resumption of one safely resumable durable run.", Availability: "available", OwnerPhase: "4", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--run-id", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Select the exact durable run.", Enum: []string(nil)}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/run-reference-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/run-presentation", Examples: []Example{{Summary: "Request server-owned resumption of one safely resumable durable run.", Arguments: []string{"run", "resume", "--config", "fixture/server-profile.json", "--run-id", "run-1", "--output", "json"}}}},
@@ -2408,10 +2567,10 @@ var Endpoints = []Endpoint{
 	{ID: "api.v1.plans.get", Method: "GET", Path: "/api/v1/plans/{planId}", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/plan-presentation", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.plans.run-resolution.get", Method: "GET", Path: "/api/v1/plans/{planId}/runs/{idempotencyKey}", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/run-presentation", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.recovery-points.get", Method: "GET", Path: "/api/v1/recovery-points/{pointId}", Availability: "planned", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/recovery-point", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
-	{ID: "api.v1.restores.get", Method: "GET", Path: "/api/v1/restores/plans/{planId}", Availability: "planned", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/browser-restore-status", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
-	{ID: "api.v1.restores.plan", Method: "POST", Path: "/api/v1/restores/plans", Availability: "planned", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/restore-request", DataSchema: "vegastack-labs.dev/restore-binding", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
-	{ID: "api.v1.restores.run", Method: "POST", Path: "/api/v1/restores/plans/{planId}/run", Availability: "planned", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/restore-run-request", DataSchema: "vegastack-labs.dev/restore-binding", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
-	{ID: "api.v1.restores.verify", Method: "POST", Path: "/api/v1/restores/plans/{planId}/verify", Availability: "planned", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/restore-verify-request", DataSchema: "vegastack-labs.dev/restore-verification", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.restores.get", Method: "GET", Path: "/api/v1/restores/plans/{planId}", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/browser-restore-status", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.restores.plan", Method: "POST", Path: "/api/v1/restores/plans", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/restore-request", DataSchema: "vegastack-labs.dev/restore-binding", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.restores.run", Method: "POST", Path: "/api/v1/restores/plans/{planId}/run", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/restore-run-request", DataSchema: "vegastack-labs.dev/restore-binding", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.restores.verify", Method: "POST", Path: "/api/v1/restores/plans/{planId}/verify", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/restore-verify-request", DataSchema: "vegastack-labs.dev/restore-verification", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.runs.cancel", Method: "POST", Path: "/api/v1/runs/{runId}/cancel", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/run-reference-request", DataSchema: "vegastack-labs.dev/run-presentation", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.runs.get", Method: "GET", Path: "/api/v1/runs/{runId}", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/run-presentation", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.runs.resume", Method: "POST", Path: "/api/v1/runs/{runId}/resume", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/run-reference-request", DataSchema: "vegastack-labs.dev/run-presentation", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},

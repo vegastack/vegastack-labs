@@ -72,7 +72,7 @@ func ParseSignedRecoveryManifest(raw []byte, adminPublic ed25519.PublicKey, expe
 		return zero, ErrWitnessUnavailable
 	}
 	now = now.UTC()
-	if payload.ValidFrom.After(now) || !now.Before(payload.ExpiresAt) || payload.ExpiresAt.Sub(payload.ValidFrom) > 24*time.Hour || payload.Binding != expected || payload.WitnessInstanceID == expected.FormerInstanceID || payload.WitnessInstanceID == expected.ReplacementInstanceID {
+	if payload.ValidFrom.After(now) || !now.Before(payload.ExpiresAt) || payload.ExpiresAt.Sub(payload.ValidFrom) > 24*time.Hour || !sameWitnessBinding(payload.Binding, expected) || payload.WitnessInstanceID == expected.FormerInstanceID || payload.WitnessInstanceID == expected.ReplacementInstanceID {
 		return zero, ErrWitnessUnavailable
 	}
 	sum := sha256.Sum256(append(append([]byte(nil), canonical...), artifact.Signature...))

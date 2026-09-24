@@ -176,6 +176,13 @@ func TestOffsiteRepositoryPersistsAppendOnlyReceiptsAndCASLastGood(t *testing.T)
 	if err := backupRepository.store.conn.QueryRowContext(ctx, `SELECT source_revision,state_revision FROM backup_offsite_last_good_history WHERE proof_id=?`, proof.ProofID).Scan(&storedSourceRevision, &storedStateRevision); err != nil || storedSourceRevision != record.SourceRevision || storedStateRevision != record.StateRevision {
 		t.Fatalf("last-good revisions source=%d state=%d err=%v", storedSourceRevision, storedStateRevision, err)
 	}
+	recoverySource, err := repository.CurrentLastGoodForPoint(ctx, point.PointID)
+	if err != nil || recoverySource.GenerationID != record.GenerationID || recoverySource.ProofID != proof.ProofID || recoverySource.ProofDigest != proof.ProofDigest || recoverySource.Status != proof.Status || recoverySource.ProofClass != proof.ProofClass || recoverySource.StateRevision != revision.StateRevision || recoverySource.CurrentStateRevision != revision.StateRevision || recoverySource.RecoveryEpoch != revision.RecoveryEpoch || recoverySource.CurrentRecoveryEpoch != revision.RecoveryEpoch || string(recoverySource.GenerationJSON) != string(record.CanonicalJSON) || string(recoverySource.ProofJSON) != string(proof.CanonicalJSON) || !recoverySource.FullReadAt.Equal(now) || !recoverySource.ObservedAt.Equal(now) {
+		t.Fatalf("recovery source=%#v err=%v", recoverySource, err)
+	}
+	if _, err := repository.CurrentLastGoodForPoint(ctx, "point-missing"); err == nil {
+		t.Fatal("missing offsite last-good source accepted")
+	}
 	status, err = repository.Status(ctx, record.GenerationID)
 	if err != nil || status.Status != "offsite-verified" || status.ProofClass != "qualified-provider" || status.LastGoodProofID != proof.ProofID {
 		t.Fatalf("verified status=%#v err=%v", status, err)

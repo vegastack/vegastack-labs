@@ -15,6 +15,12 @@ type RevisionToken struct {
 	RecoveryEpoch int64
 }
 
+type AuthorityState struct {
+	InstanceID    string
+	RecoveryEpoch int64
+	Mode          string
+}
+
 type GateDraftRequest struct {
 	EvidenceID, GateID, SubjectID, DefinitionVersion, EvaluatorVersion string
 	SourceKind, ProofClass                                             string

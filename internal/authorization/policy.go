@@ -26,11 +26,12 @@ const (
 )
 
 type Request struct {
-	Action   Action
-	Target   Target
-	Plan     *generated.Plan
-	Branches []Branch
-	Expected *RevisionBinding
+	Action               Action
+	Target               Target
+	Plan                 *generated.Plan
+	Branches             []Branch
+	Expected             *RevisionBinding
+	RecoveryContinuation bool
 }
 
 type RevisionBinding struct {
@@ -79,7 +80,7 @@ func (evaluator *Evaluator) Authorize(ctx context.Context, principal identity.Pr
 		return decision, nil
 	}
 	if request.Expected != nil {
-		if request.Expected.GrantRevision != snapshot.GrantRevision {
+		if request.Expected.GrantRevision != snapshot.GrantRevision && !(request.RecoveryContinuation && request.Expected.GrantRevision == 0) {
 			decision.ReasonCode = ReasonGrantRevisionStale
 			return decision, nil
 		}
@@ -115,12 +116,13 @@ func (evaluator *Evaluator) Authorize(ctx context.Context, principal identity.Pr
 		}
 		risk = classified
 		decision.Risk = risk
-		if request.Plan.Binding.RecoveryEpoch != snapshot.RecoveryEpoch {
+		continuation := validRecoveryContinuation(request, snapshot)
+		if request.Plan.Binding.RecoveryEpoch != snapshot.RecoveryEpoch && !continuation {
 			decision.Branch = nil
 			decision.ReasonCode = ReasonRecoveryEpochMismatch
 			return decision, nil
 		}
-		if request.Plan.Binding.StateRevision != snapshot.StateRevision {
+		if request.Plan.Binding.StateRevision != snapshot.StateRevision && !continuation {
 			decision.Branch = nil
 			decision.ReasonCode = ReasonStateRevisionStale
 			return decision, nil
@@ -168,6 +170,14 @@ func (evaluator *Evaluator) Authorize(ctx context.Context, principal identity.Pr
 	decision.ReasonCode = ReasonAllowed
 	decision.Scope = scope
 	return decision, nil
+}
+
+func validRecoveryContinuation(request Request, snapshot EffectivePolicySnapshot) bool {
+	if !request.RecoveryContinuation || request.Action != ActionExecute || request.Plan == nil || request.Expected == nil || request.Expected.StateRevision != snapshot.StateRevision || request.Expected.RecoveryEpoch != snapshot.RecoveryEpoch || request.Plan.Risk != string(RiskControlPlane) || request.Plan.AuthorizationBranch != string(BranchHuman) || len(request.Plan.Operations) != 1 {
+		return false
+	}
+	operation := request.Plan.Operations[0]
+	return request.Plan.Binding.RecoveryEpoch < int64(^uint64(0)>>1) && request.Plan.Binding.RecoveryEpoch+1 == snapshot.RecoveryEpoch && operation.OperationType == "recovery.restore.cutover" && operation.AdapterID == "core.recovery" && operation.TargetID == request.Target.ResourceID
 }
 
 func requestedBranch(request Request, principal identity.Principal) (*Branch, string) {

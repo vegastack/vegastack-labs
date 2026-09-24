@@ -7,7 +7,13 @@ import (
 	"crypto/rand"
 	"testing"
 	"time"
+
+	"github.com/vegastack/vegastack-labs/internal/generated"
 )
+
+func testRestoreDependencies() []generated.RestoreDependencyBinding {
+	return []generated.RestoreDependencyBinding{{DependencyID: "restic-binary", Kind: "binary", Digest: "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"}}
+}
 
 func witnessFixture(t *testing.T) (PinnedWitness, WitnessBinding, SignedWitness, time.Time) {
 	t.Helper()
@@ -16,7 +22,7 @@ func witnessFixture(t *testing.T) (PinnedWitness, WitnessBinding, SignedWitness,
 		t.Fatal(err)
 	}
 	now := time.Date(2026, 9, 22, 0, 0, 0, 0, time.UTC)
-	binding := WitnessBinding{FormerHostID: "old-host", FormerInstanceID: "old-instance", ReplacementHostID: "new-host", ReplacementInstanceID: "new-instance", DraftID: "draft-1", CiphertextFingerprint: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", PlanDigest: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", RunID: "run-1", StepID: "step-1", LeaseID: "lease-1", ChallengeID: "challenge-1", ReceiptID: "receipt-1", SourceAdmissionDigest: "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", FenceQualificationDigest: "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", PriorEpoch: 3, NewEpoch: 4, StateRevision: 9}
+	binding := WitnessBinding{FormerHostID: "old-host", FormerInstanceID: "old-instance", ReplacementHostID: "new-host", ReplacementInstanceID: "new-instance", DraftID: "draft-1", CiphertextFingerprint: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", PlanDigest: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", RunID: "run-1", StepID: "step-1", LeaseID: "lease-1", ChallengeID: "challenge-1", ReceiptID: "receipt-1", SourceAdmissionDigest: "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", FenceQualificationDigest: "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", TargetReleaseBuildID: "build-a", TargetToolVersion: "1.0.0", TargetSchemaVersion: "24", RequiredDependencies: testRestoreDependencies(), PriorEpoch: 3, NewEpoch: 4, StateRevision: 9}
 	recipient, err := ecdh.X25519().GenerateKey(rand.Reader)
 	if err != nil {
 		t.Fatal(err)

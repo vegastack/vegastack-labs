@@ -100,6 +100,12 @@ type BackupRunControlOperations interface {
 	VerifyBackup(context.Context, string, generated.BackupVerifyRequest) (localapi.TypedResponse[generated.BackupJob], error)
 }
 
+type RestoreControlOperations interface {
+	PlanRestore(context.Context, string, generated.RestoreRequest) (localapi.TypedResponse[generated.RestoreBinding], error)
+	RunRestore(context.Context, string, generated.RestoreRunRequest) (localapi.TypedResponse[generated.RestoreBinding], error)
+	VerifyRestore(context.Context, string, generated.RestoreVerifyRequest) (localapi.TypedResponse[generated.RestoreVerification], error)
+}
+
 type Option func(*App)
 
 func WithReleaseOperations(operations ReleaseOperations) Option {
@@ -421,6 +427,8 @@ func (app *App) Run(ctx context.Context, args []string) int {
 		return app.runBackupCommand(ctx, mode, parsed)
 	case generated.CommandNameBackupStatus, generated.CommandNameBackupRun, generated.CommandNameBackupVerify:
 		return app.runBackupOperation(ctx, mode, parsed)
+	case generated.CommandNameRestorePlan, generated.CommandNameRestoreRun, generated.CommandNameRestoreVerify:
+		return app.runRestoreOperation(ctx, mode, parsed)
 	case generated.CommandNameApply:
 		return app.runCommand(ctx, mode, parsed, parsed.Value(generated.FlagPlanID))
 	case generated.CommandNameRunInspect:

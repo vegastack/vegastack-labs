@@ -54,8 +54,8 @@ func TestQualificationCannotRegisterFixtureOrIncompleteBoundary(t *testing.T) {
 	if _, err := parseQualifiedAdapters(raw, adminPublic, required, now, productionDenialFactories); err == nil {
 		t.Fatal("fixture factory admitted as production")
 	}
-	if len(productionDenialFactories) != 0 {
-		t.Fatal("unqualified production verifier registered")
+	if factory := productionDenialFactories["https-direct-denial-v1"]; len(productionDenialFactories) != 1 || factory.new == nil || factory.implementationDigest == "" {
+		t.Fatal("reviewed production protocol factory missing")
 	}
 	wrongRoot, _, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {

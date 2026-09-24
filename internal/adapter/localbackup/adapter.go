@@ -60,11 +60,103 @@ type Config struct {
 	Hooks     *backup.HookRegistry
 	Runner    backup.ResticRunner
 	Clock     func() time.Time
+	// CustodyStart, CustodyPolicy, and ProfileVerifier are external-boundary
+	// seams. Production leaves them nil and uses the protected system custody
+	// launcher, policy loader, and profile verifier; hermetic acceptance may
+	// replace only those boundaries.
+	CustodyStart    CustodyStarter
+	CustodyPolicy   func(string) (backup.CustodyPolicy, error)
+	ProfileVerifier func(*serverconfig.LocalBackup, uint32) error
 }
+
+type CustodyStarter func(context.Context, backup.CustodySession, backup.LeaseVerifier, backup.ReadLeaseVerifier, backup.CustodyJournal) (backup.CustodyClient, error)
 
 // Adapter implements the exact bound local backup creation effect.
 type Adapter struct {
 	config Config
+}
+
+type recoveryCanaryPlanSource struct {
+	base                              PlanSource
+	planID, planDigest, stepID        string
+	policyDigest                      string
+	priorRecoveryEpoch, recoveryEpoch int64
+}
+
+func (source recoveryCanaryPlanSource) GetPlan(ctx context.Context, planID string) (store.PlanCommitResult, error) {
+	commit, err := source.base.GetPlan(ctx, planID)
+	if err != nil || planID != source.planID || commit.Plan.PlanDigest != source.planDigest || commit.Plan.Binding.RecoveryEpoch != source.priorRecoveryEpoch || len(commit.Plan.Operations) != 2 || commit.Plan.Operations[1].Sequence != 2 || commit.Plan.Operations[1].OperationID != source.stepID || commit.Plan.Operations[1].OperationType != "recovery.canary.noop" || commit.Plan.Operations[1].AdapterID != "core.recovery" || !commit.Plan.Operations[1].Idempotent {
+		return store.PlanCommitResult{}, backupError(generated.ErrorCodePlanStale, "recovery-canary-backup-plan")
+	}
+	// The source point's immutable manifest determines this policy digest and
+	// the store carries that exact policy into the new epoch. This private
+	// projection lets the ordinary adapter reuse its policy lookup without
+	// accepting a caller-authored extension or changing the acknowledged plan.
+	commit.Plan.Extensions = append(append([]generated.ContractExtension(nil), commit.Plan.Extensions...), generated.ContractExtension{Name: "x-backup-policy", ValueDigest: source.policyDigest})
+	commit.Plan.Binding.RecoveryEpoch = source.recoveryEpoch
+	return commit, nil
+}
+
+// RecoveryCanaryBackupRequest binds the ordinary local create+verify adapter to
+// the exact acknowledged subordinate recovery operation.
+type RecoveryCanaryBackupRequest struct {
+	PlanID, PlanDigest, RunID, StepID, LeaseID       string
+	StateRevision, PriorRecoveryEpoch, RecoveryEpoch int64
+	MaximumExpiresAt                                 time.Time
+}
+
+// CreateAndVerifyRecoveryCanaryBackup executes the real local backup and full
+// verification paths. The policy was derived from the selected source point by
+// the server-owned store boundary; this method never accepts policy bytes.
+func (adapterImpl *Adapter) CreateAndVerifyRecoveryCanaryBackup(ctx context.Context, request RecoveryCanaryBackupRequest, policyDigest string, password *credentialref.Value) (string, string, error) {
+	if adapterImpl == nil || adapterImpl.config.Plans == nil || adapterImpl.config.Backups == nil || password == nil || request.PlanID == "" || request.PlanDigest == "" || request.RunID == "" || request.StepID == "" || request.LeaseID == "" || request.StateRevision < 0 || request.PriorRecoveryEpoch < 0 || request.RecoveryEpoch != request.PriorRecoveryEpoch+1 || !restorePolicyDigest(policyDigest) || request.MaximumExpiresAt.IsZero() || !adapterImpl.config.Clock().UTC().Before(request.MaximumExpiresAt.UTC()) {
+		return "", "", backupError(generated.ErrorCodePrerequisiteBlocked, "recovery-canary-backup")
+	}
+	draft, err := adapterImpl.config.Backups.GetBackupPolicyDraftByDigest(ctx, policyDigest, request.RecoveryEpoch)
+	var policy generated.BackupPolicy
+	if err != nil || json.Unmarshal(draft.CanonicalJSON, &policy) != nil || policy.RepositoryClass != "standard" && policy.RepositoryClass != "critical" || policy.EncryptionKeyReferenceID == nil {
+		return "", "", backupError(generated.ErrorCodePrerequisiteBlocked, "recovery-canary-backup-policy")
+	}
+	projected := *adapterImpl
+	projected.config.Plans = recoveryCanaryPlanSource{base: adapterImpl.config.Plans, planID: request.PlanID, planDigest: request.PlanDigest, stepID: request.StepID, policyDigest: policyDigest, priorRecoveryEpoch: request.PriorRecoveryEpoch, recoveryEpoch: request.RecoveryEpoch}
+	binding := adapter.ExactExecutionBinding{PlanID: request.PlanID, PlanDigest: request.PlanDigest, RunID: request.RunID, StepID: request.StepID, LeaseID: request.LeaseID, StateRevision: request.StateRevision, RecoveryEpoch: request.RecoveryEpoch, MaximumExpiresAt: request.MaximumExpiresAt.UTC().Format(time.RFC3339)}
+	secret := []adapter.SecretReference{{ID: *policy.EncryptionKeyReferenceID, Consumer: AdapterID}}
+	create := adapter.Operation{OperationID: request.StepID, OperationType: OperationType, AdapterID: AdapterID, ExecutorID: "executor-central", TargetID: policy.RestoreTargetID, InputDigest: policyDigest, ArtifactDigest: policyDigest, SecretReferences: secret}
+	effect, err := projected.ExecuteBoundWithCredentials(ctx, create, binding, []*credentialref.Value{password})
+	if err != nil || effect.PendingPointID == nil || *effect.PendingPointID == "" {
+		return "", "", firstBackupError(err, backupError(generated.ErrorCodeRecoveryRequired, "recovery-canary-backup-create"))
+	}
+	if verified, verifyErr := projected.Verify(ctx, create, effect); verifyErr != nil || !verified.Verified {
+		return "", "", firstBackupError(verifyErr, backupError(generated.ErrorCodeIntegrityFailure, "recovery-canary-backup-create"))
+	}
+	point, err := projected.config.Backups.GetPendingRecoveryPoint(ctx, *effect.PendingPointID)
+	if err != nil {
+		return "", "", err
+	}
+	verify := adapter.Operation{OperationID: request.StepID, OperationType: VerifyOperationType, AdapterID: AdapterID, ExecutorID: "executor-central", TargetID: point.PointID, InputDigest: point.ManifestDigest, ArtifactDigest: point.InventoryDigest, SecretReferences: secret}
+	proof, err := projected.ExecuteBoundWithCredentials(ctx, verify, binding, []*credentialref.Value{password})
+	if err != nil || proof.PendingPointID == nil || *proof.PendingPointID != point.PointID {
+		return "", "", firstBackupError(err, backupError(generated.ErrorCodeRecoveryRequired, "recovery-canary-backup-verify"))
+	}
+	if verified, verifyErr := projected.Verify(ctx, verify, proof); verifyErr != nil || !verified.Verified {
+		return "", "", firstBackupError(verifyErr, backupError(generated.ErrorCodeIntegrityFailure, "recovery-canary-backup-verify"))
+	}
+	return point.PointID, policy.RepositoryClass, nil
+}
+
+func restorePolicyDigest(value string) bool {
+	if len(value) != 71 || value[:7] != "sha256:" {
+		return false
+	}
+	_, err := hex.DecodeString(value[7:])
+	return err == nil
+}
+
+func firstBackupError(value, fallback error) error {
+	if value != nil {
+		return value
+	}
+	return fallback
 }
 
 // New builds the adapter only when the protected local-backup profile is present
@@ -78,6 +170,12 @@ func New(config Config) (*Adapter, error) {
 	}
 	if config.Clock == nil {
 		config.Clock = time.Now
+	}
+	if config.ProfileVerifier == nil {
+		config.ProfileVerifier = serverconfig.VerifyLocalBackup
+	}
+	if config.CustodyPolicy == nil {
+		config.CustodyPolicy = backup.LoadCustodyPolicy
 	}
 	return &Adapter{config: config}, nil
 }
@@ -146,7 +244,7 @@ func (adapterImpl *Adapter) ExecuteBoundWithCredentials(ctx context.Context, ope
 	if !ok {
 		return adapter.Effect{}, backupError(generated.ErrorCodePrerequisiteBlocked, "local-backup-repository")
 	}
-	if err := serverconfig.VerifyLocalBackup(adapterImpl.config.LocalBackup, adapterImpl.config.ExpectedUID); err != nil {
+	if err := adapterImpl.config.ProfileVerifier(adapterImpl.config.LocalBackup, adapterImpl.config.ExpectedUID); err != nil {
 		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-profile")
 	}
 	expectation, err := adapterImpl.config.Snapshots.CurrentExpectation(ctx)
@@ -194,7 +292,7 @@ func (adapterImpl *Adapter) ExecuteBoundWithCredentials(ctx context.Context, ope
 }
 
 func (adapterImpl *Adapter) runBoundBackup(ctx context.Context, policy generated.BackupPolicy, policyDigest, repositoryID, root string, lease backup.WriterLease, pointID string, binding adapter.ExactExecutionBinding, expectation store.SnapshotExpectation, password *credentialref.Value) (effect adapter.Effect, outcomeErr error) {
-	custodyPolicy, err := backup.LoadCustodyPolicy(adapterImpl.config.LocalBackup.CustodyPolicyPath)
+	custodyPolicy, err := adapterImpl.config.CustodyPolicy(adapterImpl.config.LocalBackup.CustodyPolicyPath)
 	if err != nil || custodyPolicy.ControllerUID != adapterImpl.config.ExpectedUID || custodyPolicy.StandardRoot != adapterImpl.config.LocalBackup.StandardRoot || custodyPolicy.CriticalRoot != adapterImpl.config.LocalBackup.CriticalRoot {
 		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-custody-policy")
 	}
@@ -206,9 +304,7 @@ func (adapterImpl *Adapter) runBoundBackup(ctx context.Context, policy generated
 		RunID: binding.RunID, StepID: binding.StepID, LeaseID: lease.LeaseID, RepositoryID: repositoryID, RepositoryClass: policy.RepositoryClass,
 		PointID: pointID, SourceID: policy.SourceID, SourceRevision: expectation.Revision.StateRevision, RecoveryEpoch: binding.RecoveryEpoch, MaximumExpiresAt: lease.MaximumExpiresAt,
 		MaximumObjects: 1_000_000, MaximumBytes: maximumBytes, WriterLease: &lease}
-	launcher := backup.CustodyLauncher{PolicyPath: adapterImpl.config.LocalBackup.CustodyPolicyPath, Writer: &leaseVerifier{backups: adapterImpl.config.Backups},
-		Journal: &custodyJournal{backups: adapterImpl.config.Backups}, Clock: adapterImpl.config.Clock}
-	custody, err := launcher.Start(ctx, session)
+	custody, err := adapterImpl.startCustody(ctx, session, &leaseVerifier{backups: adapterImpl.config.Backups}, nil, &custodyJournal{backups: adapterImpl.config.Backups})
 	if err != nil {
 		return adapter.Effect{}, backupError(generated.ErrorCodePrerequisiteBlocked, "local-backup-custody")
 	}
@@ -326,6 +422,13 @@ func (adapterImpl *Adapter) runBoundBackup(ctx context.Context, policy generated
 	// the digest separately binds its canonical manifest. Neither carries a
 	// secret, snapshot content, or any verification/last-good claim.
 	return adapter.Effect{Status: "succeeded", ResultDigest: resultDigest, PendingPointID: &resultPointID, Changed: true, EffectObserved: true}, nil
+}
+
+func (adapterImpl *Adapter) startCustody(ctx context.Context, session backup.CustodySession, writer backup.LeaseVerifier, reader backup.ReadLeaseVerifier, journal backup.CustodyJournal) (backup.CustodyClient, error) {
+	if adapterImpl.config.CustodyStart != nil {
+		return adapterImpl.config.CustodyStart(ctx, session, writer, reader, journal)
+	}
+	return (backup.CustodyLauncher{PolicyPath: adapterImpl.config.LocalBackup.CustodyPolicyPath, Writer: writer, Reader: reader, Journal: journal, Clock: adapterImpl.config.Clock}).Start(ctx, session)
 }
 
 func (adapterImpl *Adapter) resolvePolicy(ctx context.Context, binding adapter.ExactExecutionBinding) (generated.BackupPolicy, string, error) {

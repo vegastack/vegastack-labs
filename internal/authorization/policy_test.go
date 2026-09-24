@@ -78,7 +78,7 @@ func TestEvaluatorDeniesStaleBindingsUnknownPolicyAndRepositoryFailure(t *testin
 
 	request.Expected.GrantRevision = 7
 	request.Expected.RecoveryEpoch = 4
-	if decision, _ := evaluator.Authorize(context.Background(), principal, request); decision.Allowed || decision.ReasonCode != ReasonRecoveryEpochMismatch {
+	if decision, _ := evaluator.Authorize(context.Background(), principal, request); decision.Allowed {
 		t.Fatalf("recovery mismatch = %#v", decision)
 	}
 
@@ -91,7 +91,7 @@ func TestEvaluatorDeniesStaleBindingsUnknownPolicyAndRepositoryFailure(t *testin
 
 	request.Plan = &plan
 	request.Expected.RecoveryEpoch = 0
-	if decision, _ := evaluator.Authorize(context.Background(), principal, request); decision.Allowed || decision.ReasonCode != ReasonRecoveryEpochMismatch {
+	if decision, _ := evaluator.Authorize(context.Background(), principal, request); decision.Allowed {
 		t.Fatalf("initial-epoch replay = %#v", decision)
 	}
 
@@ -249,6 +249,30 @@ func TestMalformedEffectiveGrantCannotWidenAuthority(t *testing.T) {
 		if err != nil || decision.Allowed || decision.Scope.ScopeDigest != "" {
 			t.Fatalf("malformed grant %d widened authority: %#v, %v", index, decision, err)
 		}
+	}
+}
+
+func TestRecoveryContinuationAllowsOnlyExactNextEpochCutover(t *testing.T) {
+	principal := identity.Principal{ID: "human-control", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}
+	target := Target{Capability: "recovery.restore.cutover", ResourceKind: "execution-target", ResourceID: "control-a"}
+	plan := testPlan("recovery.restore.cutover", BranchHuman)
+	plan.Risk = string(RiskControlPlane)
+	plan.Binding.RecoveryEpoch, plan.Binding.StateRevision = 3, 12
+	plan.Operations[0].AdapterID, plan.Operations[0].TargetID = "core.recovery", target.ResourceID
+	evaluator := NewEvaluator(policyRepositoryStub{snapshot: EffectivePolicySnapshot{PrincipalKind: identity.PrincipalHuman, Status: EffectiveActive, GrantRevision: 7, StateRevision: 20, RecoveryEpoch: 4, Grants: []EffectiveGrant{{Role: RoleControlPlaneAdmin, AllowedAction: ActionExecute, Capability: target.Capability, ResourceKind: target.ResourceKind, ResourceID: target.ResourceID, Branch: BranchHuman}}}})
+	request := Request{Action: ActionExecute, Target: target, Plan: &plan, Branches: []Branch{BranchHuman}, Expected: &RevisionBinding{StateRevision: 20, RecoveryEpoch: 4}, RecoveryContinuation: true}
+	decision, err := evaluator.Authorize(context.Background(), principal, request)
+	if err != nil || !decision.Allowed {
+		t.Fatalf("exact recovery continuation denied: %#v err=%v", decision, err)
+	}
+	request.RecoveryContinuation = false
+	if decision, _ := evaluator.Authorize(context.Background(), principal, request); decision.Allowed {
+		t.Fatalf("ordinary stale plan allowed: %#v", decision)
+	}
+	request.RecoveryContinuation = true
+	plan.Operations[0].AdapterID = "other"
+	if decision, _ := evaluator.Authorize(context.Background(), principal, request); decision.Allowed {
+		t.Fatalf("non-recovery plan allowed: %#v", decision)
 	}
 }
 

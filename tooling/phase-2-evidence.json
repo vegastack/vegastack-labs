@@ -275,6 +275,19 @@
           "github.com/vegastack/vegastack-labs/internal/adapters/r2"
         ],
         "mutationBoundaryDigest": "sha256:6c6a3ab5f366603d73c1bd07d91097d0062f49a48231aca42a4c1f500af0455d"
+      },
+      {
+        "id": "phase5-issue108-v1",
+        "issue": 108,
+        "commands": [
+          "restore plan",
+          "restore run",
+          "restore verify"
+        ],
+        "imports": [
+          "github.com/vegastack/vegastack-labs/internal/adapter/recoverydenial"
+        ],
+        "mutationBoundaryDigest": "sha256:d6aeb5bc5a09d0f5ca3d23f574d72542a9e99aa7613668f611bf01deeb9c5312"
       }
     ]
   },

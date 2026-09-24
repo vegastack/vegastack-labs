@@ -51,6 +51,9 @@ func (store *Store) executeAuditIntent(ctx context.Context, request intentReques
 	}
 	store.mu.Lock()
 	defer store.mu.Unlock()
+	if request.Expected != nil && request.Expected.RecoveryEpoch != store.health.Revision.RecoveryEpoch {
+		return intentResult{}, newStoreError("RECOVERY_EPOCH_MISMATCH", "database-revision", false, nil)
+	}
 	if err := store.readyForTransaction(ctx); err != nil {
 		return intentResult{}, err
 	}
