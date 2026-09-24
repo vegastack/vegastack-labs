@@ -10,7 +10,11 @@ test.beforeEach(async ({ page }) => installReadFixture(page));
 
 test("Phase 5 acceptance keeps protected recovery authority out of the browser", async ({ page }) => {
   fixtureState.mode = "recovery-required";
+  const statusResponse = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/v1/backups/status");
   await page.goto("/backups");
+  const response = await statusResponse;
+  console.log("[DEBUG-7a2c] acceptance status", await response.text());
+  console.log("[DEBUG-7a2c] acceptance body", await page.locator("body").innerText());
 
   await expect(page.getByText("Recovery required", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Create inert restore draft" })).toBeDisabled();

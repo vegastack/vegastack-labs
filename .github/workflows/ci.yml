@@ -155,8 +155,12 @@ jobs:
         run: |
           git show 807fc6f027ca0a0a7c96230f5adddd20d756080a:.github/workflows/ci.yml > .github/workflows/ci.yml
           pnpm --filter @vegastack/labs-web build
+          set +e
           VSK_PHASE3_PLAYWRIGHT_OUTPUT="$TMPDIR/phase3-recovery-acceptance" pnpm --filter @vegastack/labs-web exec playwright test e2e/phase5-acceptance.spec.ts --grep 'Phase 5 acceptance keeps protected recovery authority out of the browser' --reporter=line
+          acceptance_status=$?
           VSK_PHASE3_PLAYWRIGHT_OUTPUT="$TMPDIR/phase3-recovery-workflow" pnpm --filter @vegastack/labs-web exec playwright test e2e/phase5-workflows.spec.ts --grep 'Phase 5 recovery-required and audit incident states disable ordinary mutations' --reporter=line
+          workflow_status=$?
+          test "$acceptance_status" -eq 0 -a "$workflow_status" -eq 0
 
       - name: Run pinned local-backup acceptance
         if: github.event_name == 'workflow_dispatch' && inputs.backup_acceptance

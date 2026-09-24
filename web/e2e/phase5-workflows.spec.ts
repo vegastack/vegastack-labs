@@ -19,7 +19,11 @@ test("Phase 5 recovery shows sanitized reads and creates only an inert restore d
 
 test("Phase 5 recovery-required and audit incident states disable ordinary mutations", async ({ page }) => {
   fixtureState.mode = "recovery-required";
+  const statusResponse = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/v1/backups/status");
   await page.goto("/backups");
+  const response = await statusResponse;
+  console.log("[DEBUG-7a2c] workflow status", await response.text());
+  console.log("[DEBUG-7a2c] workflow body", await page.locator("body").innerText());
   await expect(page.getByText("Recovery required", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Create inert restore draft" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Start run" })).toHaveCount(0);
