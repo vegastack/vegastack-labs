@@ -26,6 +26,8 @@ func TestRenderedTimerIsWakeupOnlyAndHardened(t *testing.T) {
 
 func TestRenderedTimerRejectsSystemdSignificantPaths(t *testing.T) {
 	for _, path := range []string{"/opt/vsk labs/vsk-labs", "/opt/vsk%N/vsk-labs", `/opt/vsk\\labs`} {
-		if _, err := RenderSystemd(validPolicy(), RunnerProfile{UID: 991, PrincipalID: "schedule-runner", BinaryPath: path, ConfigPath: "/etc/vegastack/server.json"}); err == nil { t.Fatalf("accepted %q",path) }
+		if _, err := RenderSystemd(validPolicy(), RunnerProfile{UID: 991, PrincipalID: "schedule-runner", BinaryPath: path, ConfigPath: "/etc/vegastack/server.json"}); err == nil {
+			t.Fatalf("accepted %q", path)
+		}
 	}
 }
