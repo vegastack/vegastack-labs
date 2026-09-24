@@ -22,7 +22,7 @@ const EXPECTED_CHILD_ISSUES = Object.freeze([102, 104, 123, 124, 125, 132, 133, 
 const EXPECTED_RESEARCH_ISSUES = Object.freeze([103, 139, 145]);
 const EXPECTED_CREDENTIAL_CHILDREN = Object.freeze([123, 124, 125, 132, 133, 134, 135, 140, 141, 143, 144, 146, 153, 159]);
 const EXPECTED_BINDING_DIGESTS = Object.freeze({
-  children: "sha256:60da4d87009beaaeff2effd5bc0d690d3f892170420fb483b664880d27271fb9",
+  children: "sha256:de457a66f518511b31012a6ebc8e7dadfde42f7625da5e8e63f6dfad97c8e0c4",
   research: "sha256:c99cc6a9a8d1d2d42ad046c357f7c7b78dd949fb9dd83739ea95a450d236b0fb",
   maps: "sha256:12d38304bea15d3a72282882cd47b608d11aefe5cef2b457d613f606dc929c45",
 });
