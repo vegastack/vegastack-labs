@@ -22,6 +22,12 @@ func TestOffsiteCustodySessionBindsGenerationAndRepository(t *testing.T) {
 	}
 	for name, mutate := range map[string]func(*CustodySession){
 		"repository": func(value *CustodySession) { value.OffsiteRepositoryURL = "s3:https://fixture.invalid/bucket/other" },
+		"non-canonical-path": func(value *CustodySession) {
+			value.OffsiteRepositoryURL = "s3:https://fixture.invalid/bucket/other/../generation-a"
+		},
+		"encoded-generation": func(value *CustodySession) {
+			value.OffsiteRepositoryURL = "s3:https://fixture.invalid/bucket/generation%2Da"
+		},
 		"generation": func(value *CustodySession) { value.GenerationID = "" },
 		"class":      func(value *CustodySession) { value.RepositoryClass = "critical" },
 	} {

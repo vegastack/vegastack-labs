@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"net/url"
+	"path"
 	"slices"
 	"strings"
 
@@ -80,6 +81,15 @@ func validOffsiteRepositoryURL(raw string) bool {
 	}
 	parsed, err := url.Parse(strings.TrimPrefix(raw, "s3:"))
 	return err == nil && parsed.Scheme == "https" && parsed.Host != "" && parsed.User == nil && parsed.RawQuery == "" && parsed.Fragment == ""
+}
+
+func offsiteRepositoryBindsGeneration(raw, generationID string) bool {
+	if !validOffsiteToken(generationID) || !validOffsiteRepositoryURL(raw) {
+		return false
+	}
+	parsed, err := url.Parse(strings.TrimPrefix(raw, "s3:"))
+	return err == nil && parsed.RawPath == "" && strings.HasPrefix(parsed.Path, "/") && parsed.Path == path.Clean(parsed.Path) &&
+		!strings.HasSuffix(parsed.Path, "/") && path.Base(parsed.Path) == generationID
 }
 
 func offsiteRepositoryMatchesAdmission(raw, bucket, prefix string) bool {
