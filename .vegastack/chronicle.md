@@ -12,6 +12,16 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 
 — approved by (omkarmohanta09) · built by Codex · branch feat/108-fenced-authority-restore-final
 
+## 24-09-2026 — Off-site recovery generations can be retired without widening deletion authority ([#118](https://github.com/vegastack/vegastack-labs/issues/118))
+
+- **What:** An infrastructure administrator can stage one exact sealed-generation retirement that names its five owned retention rules and every object. The destructive path uses separate lock-admin and retention identities, records every effect, stops before object deletion after any ambiguous rule result, and settles only after every survivor passes full-read and isolated-restore proof.
+- **Why:** Independent off-site generations avoid shared restic dependencies, but they also need a bounded way to subtract their exact lock rules and reclaim their exact objects without granting a routine writer or scheduler broad deletion authority.
+- **How it went:** The work initially paused on a missing producer catalog in issue #114. After that contract landed with exact rule and object rows, the branch rebuilt cleanly on main; fake R2 races, lost responses, incomplete ownership and failed survivor proofs all failed closed.
+- **Changed:** Exact off-site retirement selection · append-only migration and journals · full-rule-set reread and subtraction · listed-key-only deletion · survivor recovery proof · destructive central-run contract · sanitized status and human fallback.
+- **Decisions:** none; production registration remains unavailable until current live `G-008` evidence qualifies exclusive one-owner administration, real provider semantics, distinct credentials and recovery.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/118-offsite-retirement
+
 ## 23-09-2026 — The native credential lifecycle has one complete software path ([#135](https://github.com/vegastack/vegastack-labs/issues/135))
 
 - **What:** One exact plan/run path now composes inert import, staging, real native consumer verification, bounded-overlap rotation, named revocation and independently evidenced clean-host recovery without exposing credential material.

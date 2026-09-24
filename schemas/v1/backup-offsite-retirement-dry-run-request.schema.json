@@ -1,0 +1,56 @@
+{
+  "$id": "vegastack-labs.dev/backup-offsite-retirement-dry-run-request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "expectedStateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "lockAdminReferenceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "oneOwnerProofId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "retentionReferenceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/backup-offsite-retirement-dry-run-request"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.1.0"
+      ],
+      "type": "string"
+    },
+    "selectionDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "expectedStateRevision",
+    "recoveryEpoch",
+    "selectionDigest",
+    "oneOwnerProofId",
+    "lockAdminReferenceId",
+    "retentionReferenceId"
+  ],
+  "title": "VegaStack Labs backup offsite retirement dry run request",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

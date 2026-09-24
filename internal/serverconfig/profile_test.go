@@ -152,10 +152,13 @@ func TestConvertGeneratedProfileRequiresCompleteOffsiteBackupAndLocalCustody(t *
 	digest := "sha256:" + strings.Repeat("a", 64)
 	reference := "reference-r2-parent"
 	observer := "reference-r2-observer"
+	lockAdmin, retention := "reference-r2-lock-admin", "reference-r2-retention"
 	base.OffsiteBucket = &bucket
 	base.OffsitePrefix = &prefix
 	base.OffsiteParentReferenceID = &reference
 	base.OffsiteObserverReferenceID = &observer
+	base.OffsiteLockAdminReferenceID, base.OffsiteLockAdminFingerprint = &lockAdmin, &digest
+	base.OffsiteRetentionReferenceID, base.OffsiteRetentionFingerprint = &retention, &digest
 	base.OffsiteParentFingerprint = &digest
 	base.OffsiteRuleDigest = &digest
 	base.OffsiteG008EvidenceDigest = &digest

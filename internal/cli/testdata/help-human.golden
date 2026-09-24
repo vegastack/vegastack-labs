@@ -14,6 +14,16 @@ Available commands:
     --config <path>        Read one protected server profile.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  backup offsite-retirement dry-run Derive one exact off-site retirement intent from the qualified complete bucket catalog without staging it.
+    --config <path>        Read one protected local server profile.
+    --file <path>          Read one exact typed backup-offsite-retirement-dry-run-request JSON file (64 KiB max).
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  backup offsite-retirement stage Derive and stage one exact inert off-site retirement from a qualified complete bucket catalog.
+    --config <path>        Read one protected local server profile.
+    --file <path>          Read one exact typed backup-offsite-retirement-stage-request JSON file (64 KiB max).
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   backup policy draft      Validate and store an inert canonical backup-policy draft; application still needs an exact human-approved plan.
     --config <path>        Read one protected server profile.
     --file <path>          Read one exact typed backup-policy-draft-request JSON file (64 KiB max).

@@ -969,14 +969,16 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 }
 
 const (
-	// #115 adds the typed, local-only inert retention-lock catalog draft. It
-	// carries public point IDs and digests only and reaches no provider path.
-	reviewedBackupLifecycleLocalAPILinuxDigest       = "baaed3f48daf3bd806246ca3f6473e2d9674e8af14c613d1970e8e246578d49c"
-	reviewedBackupLifecycleLocalAPIUnsupportedDigest = "7c102d030fa2ca86e3d5c6d9fb5018d30fd1da61cbeb0b43c6fa8239725e2d66"
+	// #118 adds one typed off-site retirement staging request. It carries only
+	// public IDs/digests and reaches the existing value-only local transport.
+	reviewedBackupLifecycleLocalAPILinuxDigest       = "c60cbea77d5c0c5e5b93c0739b56db12fe036fcd419c103398bc485be54d61b1"
+	reviewedBackupLifecycleLocalAPIUnsupportedDigest = "0e2035a66bcd51711c67e21ec3f3326783429defaeb6c0628b16f33fc488feb4"
 	reviewedBackupLocalAPILinuxDigest                = "9341e73b56a727fdf9b64e013fcd43f3c896e786c20c8e9a7c087429abbb193c"
 	reviewedBackupLocalAPIUnsupportedDigest          = "6119851667da72ab447af607b2f0aa9e2b5e5345c4fccf84a3b4fdf898bb08f1"
-	reviewedRestoreLocalAPILinuxDigest               = "3342235b81d22270a667f3b2b194fcd8bc0f0dacf9b022a3556df781cbad8c49"
-	reviewedRestoreLocalAPIUnsupportedDigest         = "1da2fc8a1ee2f8c5d212aa24afb1c4ec6dde1bf1cfd210752033864e88bf1acb"
+	// #108's restore client and #118's off-site retirement methods coexist in
+	// the exact production local-API package closure.
+	reviewedRestoreLocalAPILinuxDigest       = "cb0e80e6804accb26d094e7a562fb7ce131cdb5162874b84ee814ea84e85a52e"
+	reviewedRestoreLocalAPIUnsupportedDigest = "bbf72e785c3b17d1f62d6b49848f540b92a12e1928c8166ba5eff3c102ddb466"
 )
 
 const reviewedAuditVerificationDigest = "1f4068a1ea9ee0eb52ab91fd5b792b9d094218a50b5ba6fc4e74568d70bc07b8"

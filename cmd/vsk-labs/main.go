@@ -60,8 +60,11 @@ func main() {
 		os.Exit(1)
 	}
 	offsiteRunners := server.NewProfileOffsiteRunnerSource(server.NewLabsR2Runner)
+	offsiteRetirements := server.NewProfileOffsiteRetirementSource(server.NewLabsR2RetirementExecution)
 	operations := server.NewOperations(build, newRequestID,
 		server.WithOffsiteEffectFactory(server.NewProductionOffsiteEffectFactory(offsiteRunners)),
+		server.WithOffsiteRetirementEffectFactory(server.NewProductionOffsiteRetirementEffectFactory(offsiteRetirements)),
+		server.WithOffsiteRetirementCatalogFactory(server.NewProductionOffsiteRetirementCatalogFactory()),
 		server.WithRecoveryCanaryPortFactory(recoveryCanaryPorts))
 	app := cli.New(os.Stdout, os.Stderr, build, newRequestID,
 		cli.WithInput(os.Stdin),

@@ -40,24 +40,47 @@ import (
 var productionDatabasePath = "/var/lib/vsk-labs/control.db"
 
 type Operations struct {
-	build                  result.BuildInfo
-	requestIDs             result.RequestIDSource
-	openStore              func(context.Context, store.Config) (*store.Store, error)
-	databasePath           string
-	platformProbe          PlatformProbe
-	identityHTTPClient     *http.Client
-	offsiteEffect          OffsiteEffectFactory
-	recoveryCanaryPorts    RecoveryCanaryPortFactory
-	localBackupAdapter     func(localbackup.Config) (*localbackup.Adapter, error)
-	localRecoverySource    func(*serverconfig.LocalBackup, uint32, *store.BackupRepository, store.RestoredSQLiteInspector, localbackup.RecoveryCredentialSource, localbackup.DependencyTrustVerifier, store.OnlineSnapshotSource) (recovery.SnapshotResolver, recovery.CompatibilityVerifier, recovery.AuditPositionVerifier, error)
-	recoveryCanaryBorrower func(recoveryCredentialBorrower) recoveryCanaryCredentialBorrower
-	recoveryCanaryBackup   func(*store.Store, *store.RestoreRepository, *store.BackupRepository, *localbackup.Adapter, recoveryCanaryCredentialBorrower, func() time.Time) recovery.RecoveryBackupCreator
-	recoveryFormerWriter   func(*store.RestoreRepository, recovery.ExactFenceRefresher) recovery.FormerWriterVerifier
-	recoveryCanaryObserve  func(recovery.CanaryVerifier)
-	newAdapterRegistry     func() *adapter.Registry
+	build                    result.BuildInfo
+	requestIDs               result.RequestIDSource
+	openStore                func(context.Context, store.Config) (*store.Store, error)
+	databasePath             string
+	platformProbe            PlatformProbe
+	identityHTTPClient       *http.Client
+	offsiteEffect            OffsiteEffectFactory
+	offsiteRetirementEffect  OffsiteRetirementEffectFactory
+	offsiteRetirementCatalog OffsiteRetirementCatalogFactory
+	recoveryCanaryPorts      RecoveryCanaryPortFactory
+	localBackupAdapter       func(localbackup.Config) (*localbackup.Adapter, error)
+	localRecoverySource      func(*serverconfig.LocalBackup, uint32, *store.BackupRepository, store.RestoredSQLiteInspector, localbackup.RecoveryCredentialSource, localbackup.DependencyTrustVerifier, store.OnlineSnapshotSource) (recovery.SnapshotResolver, recovery.CompatibilityVerifier, recovery.AuditPositionVerifier, error)
+	recoveryCanaryBorrower   func(recoveryCredentialBorrower) recoveryCanaryCredentialBorrower
+	recoveryCanaryBackup     func(*store.Store, *store.RestoreRepository, *store.BackupRepository, *localbackup.Adapter, recoveryCanaryCredentialBorrower, func() time.Time) recovery.RecoveryBackupCreator
+	recoveryFormerWriter     func(*store.RestoreRepository, recovery.ExactFenceRefresher) recovery.FormerWriterVerifier
+	recoveryCanaryObserve    func(recovery.CanaryVerifier)
+	newAdapterRegistry       func() *adapter.Registry
+}
+
+func WithOffsiteRetirementEffectFactory(factory OffsiteRetirementEffectFactory) OperationsOption {
+	return func(operations *Operations) {
+		if factory != nil {
+			operations.offsiteRetirementEffect = factory
+		}
+	}
+}
+func WithOffsiteRetirementCatalogFactory(source OffsiteRetirementCatalogFactory) OperationsOption {
+	return func(operations *Operations) {
+		if source != nil {
+			operations.offsiteRetirementCatalog = source
+		}
+	}
+}
+func WithOffsiteRetirementCatalogSource(source api.OffsiteRetirementCatalogSource) OperationsOption {
+	return WithOffsiteRetirementCatalogFactory(func(context.Context, serverconfig.Profile, *store.Store) (api.OffsiteRetirementCatalogSource, error) {
+		return source, nil
+	})
 }
 
 type OffsiteEffectFactory func(context.Context, serverconfig.Profile, *store.Store) (adapter.Adapter, error)
+type OffsiteRetirementCatalogFactory func(context.Context, serverconfig.Profile, *store.Store) (api.OffsiteRetirementCatalogSource, error)
 type RecoveryCanaryPortFactory func(context.Context, serverconfig.Profile, *store.Store, *store.BackupRepository) (recovery.CanaryAuditVerifier, recovery.CanaryBackupVerifier, error)
 type OperationsOption func(*Operations)
 
@@ -98,6 +121,10 @@ func NewOperations(build result.BuildInfo, requestIDs result.RequestIDSource, op
 		},
 		recoveryFormerWriter: func(restores *store.RestoreRepository, fences recovery.ExactFenceRefresher) recovery.FormerWriterVerifier {
 			return recovery.FreshFormerWriterCanary{Restores: restores, Fences: fences}
+		},
+		offsiteRetirementEffect: func(context.Context, serverconfig.Profile, *store.Store) (adapter.Adapter, error) { return nil, nil },
+		offsiteRetirementCatalog: func(context.Context, serverconfig.Profile, *store.Store) (api.OffsiteRetirementCatalogSource, error) {
+			return api.UnavailableOffsiteRetirementCatalogSource{}, nil
 		},
 		newAdapterRegistry: productionAdapterRegistry,
 	}
@@ -246,6 +273,15 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
+	retirementEffect, err := operations.offsiteRetirementEffect(ctx, profile, authority)
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	if err := registerOffsiteRetirementEffect(adapters, profile.OffsiteBackup, retirementEffect); err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
 	backupRepository := store.NewBackupRepository(authority)
 	var restoreSnapshotResolver recovery.SnapshotResolver
 	var restoreCompatibility recovery.CompatibilityVerifier
@@ -331,6 +367,12 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 			return err
 		}
 	}
+	secretGate := runengine.GateVerifier(runengine.UnavailableGateVerifier{})
+	if profile.OffsiteBackup != nil {
+		if composed, composeErr := composeR2RetirementCredentials(ctx, profile, adapters, gateRepository, store.NewOffsiteRetirementRepository(authority)); composeErr == nil {
+			secretGate = composed
+		}
+	}
 	credentialStep := &runengine.CredentialStep{Bindings: credentialRepository, Resolvers: adapters, Profiles: gateRepository, Plans: plans, Clock: time.Now}
 	credentialCore, err := runengine.NewCoreCredentialEffect(credentialRepository, store.NewAcknowledgementRepository(authority), runengine.UnavailableGateVerifier{}, composeNativeCredentialLifecycleVerifier(ctx, operations.databasePath, profile.SocketOwnerUID), runengine.UnavailableCredentialRecoveryVerifier{}, time.Now)
 	if err != nil {
@@ -342,7 +384,7 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	runs, err := runengine.NewEngine(runengine.Config{Repository: runRepository, Plans: plans, Admission: admission, Adapters: adapters, Core: coreRouter, CredentialCore: credentialCore, RetentionCore: retentionCore, SecretGate: runengine.UnavailableGateVerifier{}, CredentialStep: credentialStep, Clock: time.Now, ExecutionContext: ctx})
+	runs, err := runengine.NewEngine(runengine.Config{Repository: runRepository, Plans: plans, Admission: admission, Adapters: adapters, Core: coreRouter, CredentialCore: credentialCore, RetentionCore: retentionCore, SecretGate: secretGate, CredentialStep: credentialStep, Clock: time.Now, ExecutionContext: ctx})
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err
@@ -384,7 +426,17 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	if err := api.RegisterBackupOperations(application, api.BackupOperations{Drafts: backupRepository, RetentionLocks: retentionLockDrafts, Retirements: retirementDrafts, Status: backupRepository,
+	offsiteRetirementCatalog, err := operations.offsiteRetirementCatalog(ctx, profile, authority)
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	offsiteRetirementStages, err := api.NewOffsiteRetirementStageService(store.NewLocalRetirementRepository(authority), store.NewOffsiteRetirementRepository(authority), offsiteRetirementCatalog)
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	if err := api.RegisterBackupOperations(application, api.BackupOperations{Drafts: backupRepository, RetentionLocks: retentionLockDrafts, Retirements: retirementDrafts, OffsiteRetirements: offsiteRetirementStages, Status: backupRepository,
 		Runs:    api.RunOperationConfig{Runs: runs, Plans: plans, Acknowledgements: acknowledgements, Results: factory, Authorization: effectiveConfig},
 		Results: factory}); err != nil {
 		_ = application.Shutdown(ctx)
@@ -696,6 +748,22 @@ func (operations *Operations) SubmitBackupRetirementDraft(ctx context.Context, c
 	return client.SubmitBackupRetirementDraft(ctx, profile, input)
 }
 
+func (operations *Operations) StageBackupOffsiteRetirement(ctx context.Context, configPath string, input generated.BackupOffsiteRetirementStageRequest) (localapi.TypedResponse[generated.BackupOffsiteRetirementStageSubmission], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.BackupOffsiteRetirementStageSubmission]{}, err
+	}
+	return client.StageBackupOffsiteRetirement(ctx, profile, input)
+}
+
+func (operations *Operations) DryRunBackupOffsiteRetirement(ctx context.Context, configPath string, input generated.BackupOffsiteRetirementDryRunRequest) (localapi.TypedResponse[generated.BackupOffsiteRetirementDryRunData], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.BackupOffsiteRetirementDryRunData]{}, err
+	}
+	return client.DryRunBackupOffsiteRetirement(ctx, profile, input)
+}
+
 func (operations *Operations) BackupStatus(ctx context.Context, configPath string) (localapi.TypedResponse[generated.BackupStatusData], error) {
 	client, profile, err := operations.controlClient(ctx, configPath)
 	if err != nil {
@@ -874,4 +942,14 @@ func registerOffsiteEffect(registry *adapter.Registry, profile *serverconfig.Off
 		return nil
 	}
 	return registry.Register(runengine.OffsiteAdapterID, effect)
+}
+
+func registerOffsiteRetirementEffect(registry *adapter.Registry, profile *serverconfig.OffsiteBackup, effect adapter.Adapter) error {
+	if registry == nil {
+		return failure.New(generated.ErrorCodeInputInvalid, "offsite-retirement-adapter", false)
+	}
+	if profile == nil || effect == nil {
+		return nil
+	}
+	return registry.Register(runengine.OffsiteRetirementAdapterID, effect)
 }

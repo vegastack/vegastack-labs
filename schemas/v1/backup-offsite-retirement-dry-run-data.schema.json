@@ -1,0 +1,336 @@
+{
+  "$defs": {
+    "backup-offsite-retirement-object": {
+      "additionalProperties": false,
+      "properties": {
+        "bytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "key": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/backup-offsite-retirement-object"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "key",
+        "digest",
+        "bytes"
+      ],
+      "type": "object"
+    },
+    "backup-offsite-retirement-rule": {
+      "additionalProperties": false,
+      "properties": {
+        "prefix": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "ruleId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/backup-offsite-retirement-rule"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "ruleId",
+        "prefix"
+      ],
+      "type": "object"
+    },
+    "backup-offsite-retirement-survivor-binding": {
+      "additionalProperties": false,
+      "properties": {
+        "dependencyDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "generationId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "pointId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "referenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/backup-offsite-retirement-survivor-binding"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "pointId",
+        "generationId",
+        "referenceId",
+        "dependencyDigest"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/backup-offsite-retirement-dry-run-data",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "bucketId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "catalogDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "exclusiveAdminDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "expectedReclaimBytes": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "g008BundleDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "generationId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "intentDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "inventoryDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "lockAdminFingerprint": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "lockAdminReferenceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "manifestDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "maxMutationBytes": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "maxWorkObjects": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "multipartCutoffDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "objectCount": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "objects": {
+      "items": {
+        "$ref": "#/$defs/backup-offsite-retirement-object"
+      },
+      "maxItems": 1000000,
+      "type": "array"
+    },
+    "oneOwnerProofId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "pointId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "preRuleCount": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "putCutoffDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "qualificationDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "retainedBytes": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "retentionFingerprint": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "retentionReferenceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "ruleSetDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "rules": {
+      "items": {
+        "$ref": "#/$defs/backup-offsite-retirement-rule"
+      },
+      "maxItems": 5,
+      "minItems": 5,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/backup-offsite-retirement-dry-run-data"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.1.0"
+      ],
+      "type": "string"
+    },
+    "selectionDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "sourceRevision": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "stateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "survivorBindings": {
+      "items": {
+        "$ref": "#/$defs/backup-offsite-retirement-survivor-binding"
+      },
+      "maxItems": 256,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "survivorKeyReferenceIds": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 256,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "survivorPointIds": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 256,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "survivorRuleCount": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "survivorRuleDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "intentDigest",
+    "selectionDigest",
+    "generationId",
+    "pointId",
+    "bucketId",
+    "ruleSetDigest",
+    "survivorRuleDigest",
+    "manifestDigest",
+    "catalogDigest",
+    "inventoryDigest",
+    "oneOwnerProofId",
+    "lockAdminReferenceId",
+    "lockAdminFingerprint",
+    "retentionReferenceId",
+    "retentionFingerprint",
+    "g008BundleDigest",
+    "qualificationDigest",
+    "putCutoffDigest",
+    "multipartCutoffDigest",
+    "exclusiveAdminDigest",
+    "survivorPointIds",
+    "survivorKeyReferenceIds",
+    "rules",
+    "objects",
+    "survivorBindings",
+    "objectCount",
+    "expectedReclaimBytes",
+    "retainedBytes",
+    "maxWorkObjects",
+    "maxMutationBytes",
+    "preRuleCount",
+    "survivorRuleCount",
+    "sourceRevision",
+    "stateRevision",
+    "recoveryEpoch"
+  ],
+  "title": "VegaStack Labs backup offsite retirement dry run data",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

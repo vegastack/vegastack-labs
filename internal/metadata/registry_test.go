@@ -442,7 +442,7 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 		"status": false, "database status": false, "inventory import": false, "inventory diff": false, "inventory export": false,
 		"plan": false, "apply": false, "run inspect": false, "run cancel": false, "run resume": false,
 		"gate list": false, "gate inspect": false, "gate check": false, "gate evidence": false, "gate profile draft": false,
-		"backup policy draft": false, "backup retention-locks draft": false, "backup retirement draft": false, "backup status": false, "backup run": false, "backup verify": false, "credential import": false, "credential stage": false, "credential activate": false, "credential rotate": false, "credential revoke": false, "credential recover": false,
+		"backup policy draft": false, "backup retention-locks draft": false, "backup retirement draft": false, "backup offsite-retirement dry-run": false, "backup offsite-retirement stage": false, "backup status": false, "backup run": false, "backup verify": false, "credential import": false, "credential stage": false, "credential activate": false, "credential rotate": false, "credential revoke": false, "credential recover": false,
 		"audit checkpoints": false, "audit verify": false, "restore plan": false, "restore run": false, "restore verify": false,
 		"recovery witness collect": false,
 	}

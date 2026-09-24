@@ -203,6 +203,152 @@
     {
       "path": [
         "backup",
+        "offsite-retirement",
+        "dry-run"
+      ],
+      "summary": "Derive one exact off-site retirement intent from the qualified complete bucket catalog without staging it.",
+      "availability": "available",
+      "ownerPhase": "5",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected local server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one exact typed backup-offsite-retirement-dry-run-request JSON file (64 KiB max).",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/backup-offsite-retirement-dry-run-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/backup-offsite-retirement-dry-run-data",
+      "examples": [
+        {
+          "summary": "Derive one exact off-site retirement intent from the qualified complete bucket catalog without staging it.",
+          "arguments": [
+            "backup",
+            "offsite-retirement",
+            "dry-run",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/backup-offsite-retirement-dry-run-request.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "backup",
+        "offsite-retirement",
+        "stage"
+      ],
+      "summary": "Derive and stage one exact inert off-site retirement from a qualified complete bucket catalog.",
+      "availability": "available",
+      "ownerPhase": "5",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected local server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one exact typed backup-offsite-retirement-stage-request JSON file (64 KiB max).",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/backup-offsite-retirement-stage-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/backup-offsite-retirement-stage-submission",
+      "examples": [
+        {
+          "summary": "Derive and stage one exact inert off-site retirement from a qualified complete bucket catalog.",
+          "arguments": [
+            "backup",
+            "offsite-retirement",
+            "stage",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/backup-offsite-retirement-stage-request.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "backup",
         "policy",
         "draft"
       ],
@@ -3551,8 +3697,43 @@
       "artifactPath": "schemas/v1/backup-local-retirement-status.schema.json"
     },
     {
-      "id": "vegastack-labs.dev/backup-offsite-status",
+      "id": "vegastack-labs.dev/backup-offsite-retirement-dry-run-data",
       "version": "1.1.0",
+      "artifactPath": "schemas/v1/backup-offsite-retirement-dry-run-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/backup-offsite-retirement-dry-run-request",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/backup-offsite-retirement-dry-run-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/backup-offsite-retirement-object",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/backup-offsite-retirement-object.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/backup-offsite-retirement-rule",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/backup-offsite-retirement-rule.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/backup-offsite-retirement-stage-request",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/backup-offsite-retirement-stage-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/backup-offsite-retirement-stage-submission",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/backup-offsite-retirement-stage-submission.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/backup-offsite-retirement-survivor-binding",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/backup-offsite-retirement-survivor-binding.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/backup-offsite-status",
+      "version": "1.2.0",
       "artifactPath": "schemas/v1/backup-offsite-status.schema.json"
     },
     {

@@ -219,6 +219,44 @@ func (repository *GateRepository) ListCurrentAppliedGateEvidence(ctx context.Con
 // activation boundary for optional adapters: a profile string alone can never
 // turn a fixture, stale, revoked, or cross-epoch record into runtime authority.
 func (repository *GateRepository) ResolveCurrentLiveGateEvidence(ctx context.Context, gateID, bundleDigest, qualificationDigest, putCutoffDigest, multipartCutoffDigest string, at time.Time) (generated.GateEvidence, error) {
+	return repository.resolveCurrentLiveGateEvidence(ctx, gateID, bundleDigest, qualificationDigest, putCutoffDigest, multipartCutoffDigest, "", at)
+}
+
+func (repository *GateRepository) ResolveCurrentLiveGateEvidenceWithExclusiveAdmin(ctx context.Context, gateID, bundleDigest, qualificationDigest, putCutoffDigest, multipartCutoffDigest, exclusiveAdminDigest string, at time.Time) (generated.GateEvidence, error) {
+	if !validBackupDigest(exclusiveAdminDigest) {
+		return generated.GateEvidence{}, newStoreError(generated.ErrorCodePrerequisiteBlocked, "gate-live-evidence", false, nil)
+	}
+	return repository.resolveCurrentLiveGateEvidence(ctx, gateID, bundleDigest, qualificationDigest, putCutoffDigest, multipartCutoffDigest, exclusiveAdminDigest, at)
+}
+
+func (repository *GateRepository) CurrentLiveExclusiveAdminDigest(ctx context.Context, gateID, bundleDigest, qualificationDigest, putCutoffDigest, multipartCutoffDigest string, at time.Time) (string, error) {
+	if _, err := repository.ResolveCurrentLiveGateEvidence(ctx, gateID, bundleDigest, qualificationDigest, putCutoffDigest, multipartCutoffDigest, at); err != nil {
+		return "", err
+	}
+	var raw []byte
+	if err := repository.store.conn.QueryRowContext(ctx, `SELECT bundle_bytes FROM gate_evidence_drafts WHERE bundle_digest=?`, bundleDigest).Scan(&raw); err != nil {
+		return "", err
+	}
+	var bundle generated.GateEvidenceBundle
+	if json.Unmarshal(raw, &bundle) != nil || generated.ValidateContractJSON(generated.SchemaIDGateEvidenceBundle, raw, generated.ContractExact) != nil || gateDigest(raw) != bundleDigest {
+		return "", newStoreError(generated.ErrorCodeIntegrityFailure, "gate-live-evidence", false, nil)
+	}
+	var digest string
+	for _, fact := range bundle.Facts {
+		if fact.FactID == "r2-exclusive-retention-admin" {
+			if digest != "" || !validBackupDigest(fact.ValueDigest) {
+				return "", newStoreError(generated.ErrorCodeIntegrityFailure, "gate-live-evidence", false, nil)
+			}
+			digest = fact.ValueDigest
+		}
+	}
+	if digest == "" {
+		return "", newStoreError(generated.ErrorCodePrerequisiteBlocked, "gate-live-evidence", false, nil)
+	}
+	return digest, nil
+}
+
+func (repository *GateRepository) resolveCurrentLiveGateEvidence(ctx context.Context, gateID, bundleDigest, qualificationDigest, putCutoffDigest, multipartCutoffDigest, exclusiveAdminDigest string, at time.Time) (generated.GateEvidence, error) {
 	if repository == nil || repository.store == nil || gateID == "" || len(bundleDigest) != 71 || bundleDigest[:7] != "sha256:" || at.IsZero() {
 		return generated.GateEvidence{}, newStoreError(generated.ErrorCodePrerequisiteBlocked, "gate-live-evidence", false, nil)
 	}
@@ -246,7 +284,7 @@ func (repository *GateRepository) ResolveCurrentLiveGateEvidence(ctx context.Con
 	}
 	var evidence generated.GateEvidence
 	var bundle generated.GateEvidenceBundle
-	if json.Unmarshal(raw, &evidence) != nil || generated.ValidateContractJSON(generated.SchemaIDGateEvidence, raw, generated.ContractExact) != nil || json.Unmarshal(bundleRaw, &bundle) != nil || generated.ValidateContractJSON(generated.SchemaIDGateEvidenceBundle, bundleRaw, generated.ContractExact) != nil || gateDigest(bundleRaw) != bundleDigest || !exactOffsiteQualificationEvidence(bundle, qualificationDigest, putCutoffDigest, multipartCutoffDigest) {
+	if json.Unmarshal(raw, &evidence) != nil || generated.ValidateContractJSON(generated.SchemaIDGateEvidence, raw, generated.ContractExact) != nil || json.Unmarshal(bundleRaw, &bundle) != nil || generated.ValidateContractJSON(generated.SchemaIDGateEvidenceBundle, bundleRaw, generated.ContractExact) != nil || gateDigest(bundleRaw) != bundleDigest || !exactOffsiteQualificationEvidence(bundle, qualificationDigest, putCutoffDigest, multipartCutoffDigest) || !exactExclusiveAdminEvidence(bundle, exclusiveAdminDigest) {
 		return generated.GateEvidence{}, newStoreError(generated.ErrorCodeIntegrityFailure, "gate-live-evidence", false, nil)
 	}
 	expires, expiresErr := time.Parse(time.RFC3339, evidence.ExpiresAt)
@@ -258,6 +296,22 @@ func (repository *GateRepository) ResolveCurrentLiveGateEvidence(ctx context.Con
 		return generated.GateEvidence{}, newStoreError(generated.ErrorCodePrerequisiteBlocked, "gate-live-evidence", false, nil)
 	}
 	return evidence, nil
+}
+
+func exactExclusiveAdminEvidence(bundle generated.GateEvidenceBundle, digest string) bool {
+	if digest == "" {
+		return true
+	}
+	seen := false
+	for _, fact := range bundle.Facts {
+		if fact.FactID == "r2-exclusive-retention-admin" {
+			if seen || fact.ValueDigest != digest {
+				return false
+			}
+			seen = true
+		}
+	}
+	return seen
 }
 
 func exactOffsiteQualificationEvidence(bundle generated.GateEvidenceBundle, qualificationDigest, putCutoffDigest, multipartCutoffDigest string) bool {

@@ -42,6 +42,32 @@ Owner phase: `5` · risk: `read-only` · availability: `available`
 
 - Verify local audit history against independent checkpoint state.: `vsk-labs audit verify --config fixture/server-profile.json --output json`
 
+### `vsk-labs backup offsite-retirement dry-run`
+
+Derive one exact off-site retirement intent from the qualified complete bucket catalog without staging it.
+
+Owner phase: `5` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read one protected local server profile.
+- `--file <path>` — Read one exact typed backup-offsite-retirement-dry-run-request JSON file (64 KiB max).
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Derive one exact off-site retirement intent from the qualified complete bucket catalog without staging it.: `vsk-labs backup offsite-retirement dry-run --config fixture/server-profile.json --file fixture/backup-offsite-retirement-dry-run-request.json --output json`
+
+### `vsk-labs backup offsite-retirement stage`
+
+Derive and stage one exact inert off-site retirement from a qualified complete bucket catalog.
+
+Owner phase: `5` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected local server profile.
+- `--file <path>` — Read one exact typed backup-offsite-retirement-stage-request JSON file (64 KiB max).
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Derive and stage one exact inert off-site retirement from a qualified complete bucket catalog.: `vsk-labs backup offsite-retirement stage --config fixture/server-profile.json --file fixture/backup-offsite-retirement-stage-request.json --output json`
+
 ### `vsk-labs backup policy draft`
 
 Validate and store an inert canonical backup-policy draft; application still needs an exact human-approved plan.
@@ -764,6 +790,57 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 - `planDigest`
 - `decidedAt`
 - `extensions`
+
+### `vegastack-labs.dev/backup-offsite-retirement-dry-run-data`
+
+- `schema`: `vegastack-labs.dev/backup-offsite-retirement-dry-run-data`
+- `schemaVersion`: `1.1.0`
+- `intentDigest`
+- `selectionDigest`
+- `generationId`
+- `pointId`
+- `bucketId`
+- `ruleSetDigest`
+- `survivorRuleDigest`
+- `manifestDigest`
+- `catalogDigest`
+- `inventoryDigest`
+- `oneOwnerProofId`
+- `lockAdminReferenceId`
+- `lockAdminFingerprint`
+- `retentionReferenceId`
+- `retentionFingerprint`
+- `g008BundleDigest`
+- `qualificationDigest`
+- `putCutoffDigest`
+- `multipartCutoffDigest`
+- `exclusiveAdminDigest`
+- `survivorPointIds`
+- `survivorKeyReferenceIds`
+- `rules`
+- `objects`
+- `survivorBindings`
+- `objectCount`
+- `expectedReclaimBytes`
+- `retainedBytes`
+- `maxWorkObjects`
+- `maxMutationBytes`
+- `preRuleCount`
+- `survivorRuleCount`
+- `sourceRevision`
+- `stateRevision`
+- `recoveryEpoch`
+
+### `vegastack-labs.dev/backup-offsite-retirement-dry-run-request`
+
+- `schema`: `vegastack-labs.dev/backup-offsite-retirement-dry-run-request`
+- `schemaVersion`: `1.1.0`
+- `expectedStateRevision`
+- `recoveryEpoch`
+- `selectionDigest`
+- `oneOwnerProofId`
+- `lockAdminReferenceId`
+- `retentionReferenceId`
 
 ### `vegastack-labs.dev/backup-run-request`
 

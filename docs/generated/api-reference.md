@@ -8,6 +8,8 @@ Contract schema: `1.21.0`
 | `api.v1.audit-checkpoints.create` | `POST` | `/api/v1/audit-checkpoints` | `available` | `operator` | `finite` | `vegastack-labs.dev/audit-checkpoint-request` | `vegastack-labs.dev/audit-checkpoint` |
 | `api.v1.audit-checkpoints.list` | `GET` | `/api/v1/audit-checkpoints` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/audit-checkpoint-list-data` |
 | `api.v1.audit-history.verification` | `GET` | `/api/v1/audit-history/verification` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/audit-verification-data` |
+| `api.v1.backup-offsite-retirements.dry-run` | `POST` | `/api/v1/backups/offsite-retirements/dry-run` | `available` | `operator` | `finite` | `vegastack-labs.dev/backup-offsite-retirement-dry-run-request` | `vegastack-labs.dev/backup-offsite-retirement-dry-run-data` |
+| `api.v1.backup-offsite-retirements.stage` | `POST` | `/api/v1/backups/offsite-retirements/stage` | `available` | `operator` | `finite` | `vegastack-labs.dev/backup-offsite-retirement-stage-request` | `vegastack-labs.dev/backup-offsite-retirement-stage-submission` |
 | `api.v1.backup-policy-drafts.create` | `POST` | `/api/v1/backups/policies/drafts` | `available` | `operator` | `finite` | `vegastack-labs.dev/backup-policy-draft-request` | `vegastack-labs.dev/backup-policy-draft-submission` |
 | `api.v1.backup-retention-lock-drafts.create` | `POST` | `/api/v1/backups/retention-locks/drafts` | `available` | `operator` | `finite` | `vegastack-labs.dev/backup-retention-lock-draft-request` | `vegastack-labs.dev/backup-retention-lock-draft-submission` |
 | `api.v1.backup-retirement-drafts.create` | `POST` | `/api/v1/backups/retirements/drafts` | `available` | `operator` | `finite` | `vegastack-labs.dev/backup-retirement-draft-request` | `vegastack-labs.dev/backup-retirement-draft-submission` |
@@ -125,6 +127,57 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 - `planDigest`
 - `decidedAt`
 - `extensions`
+
+### `vegastack-labs.dev/backup-offsite-retirement-dry-run-data`
+
+- `schema`: `vegastack-labs.dev/backup-offsite-retirement-dry-run-data`
+- `schemaVersion`: `1.1.0`
+- `intentDigest`
+- `selectionDigest`
+- `generationId`
+- `pointId`
+- `bucketId`
+- `ruleSetDigest`
+- `survivorRuleDigest`
+- `manifestDigest`
+- `catalogDigest`
+- `inventoryDigest`
+- `oneOwnerProofId`
+- `lockAdminReferenceId`
+- `lockAdminFingerprint`
+- `retentionReferenceId`
+- `retentionFingerprint`
+- `g008BundleDigest`
+- `qualificationDigest`
+- `putCutoffDigest`
+- `multipartCutoffDigest`
+- `exclusiveAdminDigest`
+- `survivorPointIds`
+- `survivorKeyReferenceIds`
+- `rules`
+- `objects`
+- `survivorBindings`
+- `objectCount`
+- `expectedReclaimBytes`
+- `retainedBytes`
+- `maxWorkObjects`
+- `maxMutationBytes`
+- `preRuleCount`
+- `survivorRuleCount`
+- `sourceRevision`
+- `stateRevision`
+- `recoveryEpoch`
+
+### `vegastack-labs.dev/backup-offsite-retirement-dry-run-request`
+
+- `schema`: `vegastack-labs.dev/backup-offsite-retirement-dry-run-request`
+- `schemaVersion`: `1.1.0`
+- `expectedStateRevision`
+- `recoveryEpoch`
+- `selectionDigest`
+- `oneOwnerProofId`
+- `lockAdminReferenceId`
+- `retentionReferenceId`
 
 ### `vegastack-labs.dev/backup-run-request`
 

@@ -207,6 +207,8 @@ func Current() Registry {
 		backupPolicyDraftCommand(),
 		backupRetentionLockDraftCommand(),
 		backupRetirementDraftCommand(),
+		backupOffsiteRetirementStageCommand(),
+		backupOffsiteRetirementDryRunCommand(),
 		backupStatusCommand(), backupRunCommand(), backupVerifyCommand(),
 		restoreCommand("plan", restoreRequestSchemaID, restoreBindingSchemaID, "Create one immutable fenced restore plan."),
 		restoreCommand("run", restoreRunRequestSchemaID, restoreBindingSchemaID, "Stage one exact authorized restore candidate."),
@@ -395,6 +397,18 @@ func backupRetirementDraftCommand() CommandDefinition {
 	return phase5GateCommand([]string{"backup", "retirement", "draft"}, "Derive and store one exact inert local retirement selection with its credential binding.", backupRetirementDraftRequestID, backupRetirementDraftSubmissionID, RiskMutation,
 		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected local server profile."}, {Name: "--file", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one exact typed backup-retirement-draft-request JSON file (64 KiB max)."}},
 		[]string{"backup", "retirement", "draft", "--config", "fixture/server-profile.json", "--file", "fixture/backup-retirement-draft-request.json", "--output", "json"})
+}
+
+func backupOffsiteRetirementStageCommand() CommandDefinition {
+	return phase5GateCommand([]string{"backup", "offsite-retirement", "stage"}, "Derive and stage one exact inert off-site retirement from a qualified complete bucket catalog.", backupOffsiteRetirementStageRequestID, backupOffsiteRetirementStageSubmissionID, RiskMutation,
+		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected local server profile."}, {Name: "--file", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one exact typed backup-offsite-retirement-stage-request JSON file (64 KiB max)."}},
+		[]string{"backup", "offsite-retirement", "stage", "--config", "fixture/server-profile.json", "--file", "fixture/backup-offsite-retirement-stage-request.json", "--output", "json"})
+}
+
+func backupOffsiteRetirementDryRunCommand() CommandDefinition {
+	return phase5GateCommand([]string{"backup", "offsite-retirement", "dry-run"}, "Derive one exact off-site retirement intent from the qualified complete bucket catalog without staging it.", backupOffsiteRetirementDryRunRequestID, backupOffsiteRetirementDryRunDataID, RiskReadOnly,
+		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected local server profile."}, {Name: "--file", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one exact typed backup-offsite-retirement-dry-run-request JSON file (64 KiB max)."}},
+		[]string{"backup", "offsite-retirement", "dry-run", "--config", "fixture/server-profile.json", "--file", "fixture/backup-offsite-retirement-dry-run-request.json", "--output", "json"})
 }
 
 func backupStatusCommand() CommandDefinition {
@@ -858,6 +872,10 @@ func currentSchemas() []SchemaDefinition {
 				{JSONName: "offsitePrefix", GoName: "OffsitePrefix", Kind: ValueString, Required: false, Nullable: true, Pattern: `^[a-z][a-z0-9._/-]{0,511}$`},
 				{JSONName: "offsiteParentReferenceId", GoName: "OffsiteParentReferenceID", Kind: ValueString, Required: false, Nullable: true, Pattern: `^[a-z][a-z0-9._:-]{0,127}$`},
 				{JSONName: "offsiteObserverReferenceId", GoName: "OffsiteObserverReferenceID", Kind: ValueString, Required: false, Nullable: true, Pattern: `^[a-z][a-z0-9._:-]{0,127}$`},
+				{JSONName: "offsiteLockAdminReferenceId", GoName: "OffsiteLockAdminReferenceID", Kind: ValueString, Required: false, Nullable: true, Pattern: `^[a-z][a-z0-9._:-]{0,127}$`},
+				{JSONName: "offsiteLockAdminFingerprint", GoName: "OffsiteLockAdminFingerprint", Kind: ValueString, Required: false, Nullable: true, Pattern: `^sha256:[a-f0-9]{64}$`},
+				{JSONName: "offsiteRetentionReferenceId", GoName: "OffsiteRetentionReferenceID", Kind: ValueString, Required: false, Nullable: true, Pattern: `^[a-z][a-z0-9._:-]{0,127}$`},
+				{JSONName: "offsiteRetentionFingerprint", GoName: "OffsiteRetentionFingerprint", Kind: ValueString, Required: false, Nullable: true, Pattern: `^sha256:[a-f0-9]{64}$`},
 				{JSONName: "offsiteParentFingerprint", GoName: "OffsiteParentFingerprint", Kind: ValueString, Required: false, Nullable: true, Pattern: `^sha256:[a-f0-9]{64}$`},
 				{JSONName: "offsiteRuleDigest", GoName: "OffsiteRuleDigest", Kind: ValueString, Required: false, Nullable: true, Pattern: `^sha256:[a-f0-9]{64}$`},
 				{JSONName: "offsiteG008EvidenceDigest", GoName: "OffsiteG008EvidenceDigest", Kind: ValueString, Required: false, Nullable: true, Pattern: `^sha256:[a-f0-9]{64}$`},

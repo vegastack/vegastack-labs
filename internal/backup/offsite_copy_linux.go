@@ -11,6 +11,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"syscall"
 	"time"
@@ -29,6 +30,9 @@ const (
 // child, executes the already verified inode, and gives the child only two
 // sealed secret descriptors.
 func runBrokeredOffsiteRestic(ctx context.Context, policy CustodyPolicy, session CustodySession, verifier LeaseVerifier, request OffsiteResticRequest, passwordFile, bearerFile *os.File) (OffsiteResticResult, error) {
+	if request.IsolatedRestore && !request.VerificationOnly {
+		return OffsiteResticResult{}, errors.New("isolated restore requires verification-only mode")
+	}
 	if verifier == nil || (session.Role != "offsite-writer" && session.Role != "offsite-verifier") || session.WriterLease == nil ||
 		request.BinaryPath != policy.ResticBinaryPath || request.Architecture != runtime.GOARCH ||
 		request.RepositoryURL != session.OffsiteRepositoryURL || !validOffsiteRepositoryURL(request.RepositoryURL) ||
@@ -91,7 +95,27 @@ func runBrokeredOffsiteRestic(ctx context.Context, policy CustodyPolicy, session
 		if err != nil || len(snapshotIDs) == 0 {
 			return OffsiteResticResult{}, errors.New("offsite snapshot observation failed")
 		}
-		return OffsiteResticResult{ChildExited: true, FullReadAt: time.Now().UTC(), SnapshotIDs: snapshotIDs}, nil
+		result := OffsiteResticResult{ChildExited: true, FullReadAt: time.Now().UTC(), SnapshotIDs: snapshotIDs}
+		if request.IsolatedRestore {
+			if len(snapshotIDs) != 1 {
+				return OffsiteResticResult{}, errors.New("offsite isolated restore snapshot ambiguous")
+			}
+			target, targetErr := prepareOffsiteRestoreTarget(policy)
+			if targetErr != nil {
+				return OffsiteResticResult{}, targetErr
+			}
+			restoreArgs := append(common, "restore", snapshotIDs[0], "--target", target)
+			if _, restoreErr := runReadOnly(restoreArgs, false); restoreErr != nil {
+				_ = os.RemoveAll(target)
+				return OffsiteResticResult{}, restoreErr
+			}
+			if handoffErr := handoffOffsiteRestore(target, policy.ControllerUID); handoffErr != nil {
+				_ = os.RemoveAll(target)
+				return OffsiteResticResult{}, handoffErr
+			}
+			result.RestoreTarget, result.RestoredAt = target, time.Now().UTC()
+		}
+		return result, nil
 	}
 	transfer, err := prepareBackupExchange(policy, request.SnapshotPath)
 	if err != nil {
@@ -150,6 +174,33 @@ func runBrokeredOffsiteRestic(ctx context.Context, policy CustodyPolicy, session
 	}
 	repositoryID, err := parseOffsiteRepositoryID(configOutput)
 	return OffsiteResticResult{RepositoryID: repositoryID, SnapshotID: summary.SnapshotID, ObjectCount: summary.TotalFilesProcessed, ObjectBytes: summary.TotalBytesProcessed, ChildExited: err == nil}, errors.Join(err, transfer.ReturnOwnership())
+}
+
+func prepareOffsiteRestoreTarget(policy CustodyPolicy) (string, error) {
+	target, err := os.MkdirTemp(policy.ExchangeRoot, ".vsk-offsite-restore-")
+	if err != nil {
+		return "", err
+	}
+	if os.Chmod(target, 0o700) != nil || os.Chown(target, int(policy.ResticUID), int(policy.ResticUID)) != nil {
+		_ = os.RemoveAll(target)
+		return "", errors.New("offsite restore target unavailable")
+	}
+	return target, nil
+}
+
+func handoffOffsiteRestore(target string, controllerUID uint32) error {
+	return filepath.WalkDir(target, func(path string, entry os.DirEntry, err error) error {
+		if err != nil || entry.Type()&os.ModeSymlink != 0 {
+			return errors.New("offsite restore tree unsafe")
+		}
+		if err := os.Lchown(path, int(controllerUID), int(controllerUID)); err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			return os.Chmod(path, 0o700)
+		}
+		return os.Chmod(path, 0o600)
+	})
 }
 
 func adapterSessionFromCustody(session CustodySession) adapter.SessionRequest {

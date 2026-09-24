@@ -1,0 +1,138 @@
+package backup
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"time"
+
+	"github.com/vegastack/vegastack-labs/internal/adapter"
+	"github.com/vegastack/vegastack-labs/internal/adapter/r2retention"
+	"github.com/vegastack/vegastack-labs/internal/credentialref"
+	"github.com/vegastack/vegastack-labs/internal/store"
+)
+
+type OffsiteRetirementProviderFactory interface {
+	Clients(context.Context, store.OffsiteRetirementIntent, adapter.ExactExecutionBinding, *credentialref.Value, *credentialref.Value, map[string]*credentialref.Value) (r2retention.RuleClient, r2retention.ObjectClient, OffsiteSurvivorVerifier, error)
+}
+
+// SQLRetirementExecution is the production destructive composition. It owns
+// the exact SQL intent/lease/journal/receipt lifecycle and permits provider
+// calls only through clients built from the two bound one-run credentials.
+type SQLRetirementExecution struct {
+	repository *store.OffsiteRetirementRepository
+	providers  OffsiteRetirementProviderFactory
+	clock      func() time.Time
+}
+
+func NewSQLRetirementExecution(authority *store.Store, providers OffsiteRetirementProviderFactory, clock func() time.Time) (*SQLRetirementExecution, error) {
+	if authority == nil || providers == nil {
+		return nil, errors.New("offsite retirement execution unavailable")
+	}
+	if clock == nil {
+		clock = time.Now
+	}
+	return &SQLRetirementExecution{repository: store.NewOffsiteRetirementRepository(authority), providers: providers, clock: clock}, nil
+}
+
+func (execution *SQLRetirementExecution) RetireOffsite(ctx context.Context, operation adapter.Operation, binding adapter.ExactExecutionBinding, values []*credentialref.Value) (string, error) {
+	if execution == nil || execution.repository == nil || execution.providers == nil || operation.ArtifactDigest == "" || len(values) != len(operation.SecretReferences) {
+		return "", errors.New("offsite retirement execution unavailable")
+	}
+	intent, err := execution.repository.GetOffsiteRetirementIntentByDigest(ctx, operation.ArtifactDigest)
+	if err != nil || intent.PlanID != binding.PlanID || intent.PlanDigest != binding.PlanDigest || intent.GenerationID != operation.TargetID || intent.StateRevision != binding.StateRevision || intent.RecoveryEpoch != binding.RecoveryEpoch || intent.CredentialBindingDigest != operation.InputDigest ||
+		len(operation.SecretReferences) != 2+len(intent.SurvivorKeyReferences) {
+		return "", errors.New("offsite retirement intent binding invalid")
+	}
+	var lockAdmin, retention *credentialref.Value
+	keys := map[string]*credentialref.Value{}
+	for index, reference := range operation.SecretReferences {
+		switch reference.ID {
+		case intent.LockAdminReferenceID:
+			lockAdmin = values[index]
+		case intent.RetentionReferenceID:
+			retention = values[index]
+		default:
+			keys[reference.ID] = values[index]
+		}
+	}
+	for _, key := range intent.SurvivorKeyReferences {
+		if keys[key.ReferenceID] == nil {
+			return "", errors.New("offsite retirement survivor key binding invalid")
+		}
+	}
+	if lockAdmin == nil || retention == nil || len(keys) != len(intent.SurvivorKeyReferences) {
+		return "", errors.New("offsite retirement credential binding invalid")
+	}
+	deadline, err := time.Parse(time.RFC3339, binding.MaximumExpiresAt)
+	if err != nil || !execution.clock().UTC().Before(deadline) {
+		return "", errors.New("offsite retirement deadline invalid")
+	}
+	lease, err := execution.repository.ClaimOffsiteRetirement(ctx, store.OffsiteRetirementClaim{IntentID: intent.IntentID, LeaseID: "retirement-" + binding.LeaseID, RunID: binding.RunID, StepID: binding.StepID, ExecutorLeaseID: binding.LeaseID, MaximumExpiresAt: deadline})
+	if err != nil {
+		return "", err
+	}
+	rules, objects, verifier, err := execution.providers.Clients(ctx, intent, binding, lockAdmin, retention, keys)
+	if err != nil {
+		return "", err
+	}
+	defer closeRetirementClient(rules)
+	defer closeRetirementClient(objects)
+	defer closeRetirementClient(verifier)
+	if verifier == nil {
+		return "", errors.New("fresh offsite survivor verifier unavailable")
+	}
+	journal, err := r2retention.RetireExact(ctx, intent, lease, rules, objects, execution.repository)
+	if err != nil {
+		return "", err
+	}
+	if journal.Status != "effects-observed" {
+		return "", errors.New("offsite retirement effects unresolved")
+	}
+	verifiedAt := execution.clock().UTC()
+	proof, err := VerifyOffsiteRetirement(ctx, intent, journal, execution.repository, verifier, verifiedAt)
+	if err != nil {
+		if receiptErr := execution.appendUncertainVerificationReceipt(ctx, intent, lease, journal); receiptErr != nil {
+			return "", errors.New("offsite retirement verification and uncertainty persistence failed")
+		}
+		return "", err
+	}
+	survivors := make([]store.OffsiteRetirementSurvivorSettlement, len(proof.Survivors))
+	for index, value := range proof.Survivors {
+		survivors[index] = store.OffsiteRetirementSurvivorSettlement{PointID: value.PointID, GenerationID: value.GenerationID, RuleDigest: value.RuleDigest, InventoryDigest: value.InventoryDigest, FullReadDigest: value.FullReadDigest, RestoreDigest: value.RestoreDigest, RecoveryEpoch: value.RecoveryEpoch, ObservedAt: value.ObservedAt}
+	}
+	receipt, err := execution.repository.SettleVerifiedReceipt(ctx, store.OffsiteRetirementVerifiedSettlement{ReceiptID: "receipt-" + lease.LeaseID, IntentID: intent.IntentID, LeaseID: lease.LeaseID, ReclaimedBytes: journal.ReclaimedBytes, Survivors: survivors})
+	if err != nil {
+		return "", err
+	}
+	return receipt.EffectDigest, nil
+}
+
+func (execution *SQLRetirementExecution) appendUncertainVerificationReceipt(ctx context.Context, intent store.OffsiteRetirementIntent, lease store.OffsiteRetirementLease, journal r2retention.EffectJournal) error {
+	body, err := json.Marshal(struct {
+		Schema        string                    `json:"schema"`
+		SchemaVersion string                    `json:"schemaVersion"`
+		IntentDigest  string                    `json:"intentDigest"`
+		Journal       r2retention.EffectJournal `json:"journal"`
+	}{Schema: "vegastack-labs.dev/offsite-retirement-uncertain", SchemaVersion: "1.0.0", IntentDigest: intent.IntentDigest, Journal: journal})
+	if err != nil {
+		return err
+	}
+	sum := sha256.Sum256(body)
+	return execution.repository.AppendReceipt(context.WithoutCancel(ctx), store.OffsiteRetirementReceipt{ReceiptID: "receipt-" + lease.LeaseID, IntentID: intent.IntentID, LeaseID: lease.LeaseID, Status: "uncertain", EffectDigest: "sha256:" + hex.EncodeToString(sum[:]), ReclaimedBytes: journal.ReclaimedBytes, CanonicalJSON: body})
+}
+
+func closeRetirementClient(value any) {
+	if closer, ok := value.(interface{ Close() error }); ok && closer != nil {
+		_ = closer.Close()
+	}
+}
+
+func (execution *SQLRetirementExecution) VerifiedReceiptExists(ctx context.Context, generationID, digest string) (bool, error) {
+	if execution == nil || execution.repository == nil {
+		return false, errors.New("offsite retirement execution unavailable")
+	}
+	return execution.repository.VerifiedReceiptExists(ctx, generationID, digest)
+}

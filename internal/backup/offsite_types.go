@@ -85,15 +85,17 @@ type OffsiteResticRequest struct {
 	RunID, StepID, PointID, GenerationID             string
 	RecoveryEpoch                                    int64
 	VerificationOnly                                 bool
+	IsolatedRestore                                  bool
 	Arguments, Environment                           []string
 }
 
 type OffsiteResticResult struct {
-	RepositoryID, SnapshotID string
-	SnapshotIDs              []string
-	ObjectCount, ObjectBytes int64
-	ChildExited              bool
-	FullReadAt               time.Time
+	RepositoryID, SnapshotID, RestoreTarget string
+	SnapshotIDs                             []string
+	ObjectCount, ObjectBytes                int64
+	ChildExited                             bool
+	FullReadAt                              time.Time
+	RestoredAt                              time.Time
 }
 
 type OffsiteInventoryObservation struct {

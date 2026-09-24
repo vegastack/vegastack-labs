@@ -306,7 +306,7 @@ export interface BackupLocalRetirementStatus {
 
 export interface BackupOffsiteStatus {
   readonly "schema": "vegastack-labs.dev/backup-offsite-status";
-  readonly "schemaVersion": "1.1.0";
+  readonly "schemaVersion": "1.2.0";
   readonly "generationId": string;
   readonly "sourcePointId": string;
   readonly "repositoryId": string;
@@ -314,6 +314,8 @@ export interface BackupOffsiteStatus {
   readonly "status": "pending" | "fixture-only" | "offsite-verified" | "full-payload-due" | "site-loss-blocked" | "uncertain" | "failed";
   readonly "proofClass": "fixture" | "qualified-provider" | null;
   readonly "lastGoodProofId": string | null;
+  readonly "retirementStatus": "planned" | "in-progress" | "uncertain" | "verified" | "failed" | null;
+  readonly "retirementReceiptDigest": string | null;
   readonly "recoveryEpoch": number;
 }
 
@@ -2371,7 +2373,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "enum": [
-          "1.1.0"
+          "1.2.0"
         ]
       },
       {
@@ -2433,6 +2435,26 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": true,
         "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "retirementStatus",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "enum": [
+          "planned",
+          "in-progress",
+          "uncertain",
+          "verified",
+          "failed"
+        ]
+      },
+      {
+        "name": "retirementReceiptDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^sha256:[a-f0-9]{64}$"
       },
       {
         "name": "recoveryEpoch",

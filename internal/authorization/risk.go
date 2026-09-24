@@ -39,6 +39,7 @@ var operationRisk = map[string]RiskClass{
 	"backup.retention.change":            RiskDestructive,
 	"backup.retention-locks.activate":    RiskDestructive,
 	"backup.local.retire":                RiskDestructive,
+	"backup.retire.offsite":              RiskDestructive,
 	"network.change":                     RiskControlPlane,
 	"identity.change":                    RiskControlPlane,
 	"secret-provider.change":             RiskControlPlane,

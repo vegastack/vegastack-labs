@@ -13,6 +13,87 @@ import (
 // backup-policy-draft-request JSON file and submits it as an inert draft. It
 // activates nothing; an exact plan and human approval remain required to apply.
 func (app *App) runBackupCommand(ctx context.Context, mode outputMode, parsed parsedArguments) int {
+	if parsed.commandName() == generated.CommandNameBackupOffsiteRetirementDryRun {
+		control, ok := app.control.(BackupOffsiteRetirementControlOperations)
+		if !ok || app.files == nil {
+			return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "backup-offsite-retirement-control", generated.RunStatusFailed, false)
+		}
+		raw, err := app.files.Read(ctx, parsed.Value(generated.FlagFile), 65536)
+		if err != nil {
+			return app.failServer(mode, parsed.commandName(), err)
+		}
+		var input generated.BackupOffsiteRetirementDryRunRequest
+		if generated.ValidateContractJSON(generated.SchemaIDBackupOffsiteRetirementDryRunRequest, raw, generated.ContractExact) != nil || json.Unmarshal(raw, &input) != nil {
+			return app.fail(mode, parsed.commandName(), generated.ErrorCodeInputInvalid, "backup-offsite-retirement-dry-run-contract", generated.RunStatusFailed, false)
+		}
+		response, err := control.DryRunBackupOffsiteRetirement(ctx, parsed.Value(generated.FlagConfig), input)
+		if err != nil {
+			return app.failServer(mode, parsed.commandName(), err)
+		}
+		if response.ExitCode != 0 {
+			return app.remoteFailure(mode, response.Raw, response.Result, response.ExitCode)
+		}
+		if mode == outputJSON {
+			return writeRemoteJSON(app.stdout, response.Raw, response.ExitCode)
+		}
+		data := response.Data
+		if _, err := fmt.Fprintf(app.stdout, "Off-site retirement dry-run selects generation %s (point %s) with intent %s.\nRules (%d -> %d, complete set %s):\n", data.GenerationID, data.PointID, data.IntentDigest, data.PreRuleCount, data.SurvivorRuleCount, data.RuleSetDigest); err != nil {
+			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+		}
+		for _, rule := range data.Rules {
+			if _, err := fmt.Fprintf(app.stdout, "  %s  %s\n", rule.RuleID, rule.Prefix); err != nil {
+				return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+			}
+		}
+		if _, err := fmt.Fprintf(app.stdout, "Objects (%d, reclaim %d bytes, max %d objects/%d bytes):\n", data.ObjectCount, data.ExpectedReclaimBytes, data.MaxWorkObjects, data.MaxMutationBytes); err != nil {
+			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+		}
+		for _, object := range data.Objects {
+			if _, err := fmt.Fprintf(app.stdout, "  %s  %d bytes  %s\n", object.Key, object.Bytes, object.Digest); err != nil {
+				return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+			}
+		}
+		if _, err := fmt.Fprintf(app.stdout, "Survivors (%d retained bytes, rule digest %s):\n", data.RetainedBytes, data.SurvivorRuleDigest); err != nil {
+			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+		}
+		for _, survivor := range data.SurvivorBindings {
+			if _, err := fmt.Fprintf(app.stdout, "  %s  generation %s  key %s  dependencies %s\n", survivor.PointID, survivor.GenerationID, survivor.ReferenceID, survivor.DependencyDigest); err != nil {
+				return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+			}
+		}
+		if _, err := fmt.Fprintf(app.stdout, "Authority: source revision %d, state revision %d, recovery epoch %d, one-owner proof %s.\nG-008: bundle %s, qualification %s, PUT cutoff %s, multipart cutoff %s, exclusive admin %s.\nCredentials: lock-admin %s (%s), retention-delete %s (%s).\n", data.SourceRevision, data.StateRevision, data.RecoveryEpoch, data.OneOwnerProofID, data.G008BundleDigest, data.QualificationDigest, data.PutCutoffDigest, data.MultipartCutoffDigest, data.ExclusiveAdminDigest, data.LockAdminReferenceID, data.LockAdminFingerprint, data.RetentionReferenceID, data.RetentionFingerprint); err != nil {
+			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+		}
+		return 0
+	}
+	if parsed.commandName() == generated.CommandNameBackupOffsiteRetirementStage {
+		control, ok := app.control.(BackupOffsiteRetirementControlOperations)
+		if !ok || app.files == nil {
+			return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "backup-offsite-retirement-control", generated.RunStatusFailed, false)
+		}
+		raw, err := app.files.Read(ctx, parsed.Value(generated.FlagFile), 65536)
+		if err != nil {
+			return app.failServer(mode, parsed.commandName(), err)
+		}
+		var input generated.BackupOffsiteRetirementStageRequest
+		if generated.ValidateContractJSON(generated.SchemaIDBackupOffsiteRetirementStageRequest, raw, generated.ContractExact) != nil || json.Unmarshal(raw, &input) != nil {
+			return app.fail(mode, parsed.commandName(), generated.ErrorCodeInputInvalid, "backup-offsite-retirement-stage-contract", generated.RunStatusFailed, false)
+		}
+		response, err := control.StageBackupOffsiteRetirement(ctx, parsed.Value(generated.FlagConfig), input)
+		if err != nil {
+			return app.failServer(mode, parsed.commandName(), err)
+		}
+		if response.ExitCode != 0 {
+			return app.remoteFailure(mode, response.Raw, response.Result, response.ExitCode)
+		}
+		if mode == outputJSON {
+			return writeRemoteJSON(app.stdout, response.Raw, response.ExitCode)
+		}
+		if _, err := fmt.Fprintf(app.stdout, "Staged off-site retirement %s for generation %s with %d survivor rules.\n", response.Data.IntentID, response.Data.GenerationID, response.Data.SurvivorRuleCount); err != nil {
+			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+		}
+		return 0
+	}
 	if parsed.commandName() == generated.CommandNameBackupRetirementDraft {
 		control, ok := app.control.(BackupRetirementControlOperations)
 		if !ok || app.files == nil {

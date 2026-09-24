@@ -242,7 +242,7 @@ func (repository *BackupRepository) readLocalBackupStatus(ctx context.Context, s
 		}
 		defer offsiteRows.Close()
 		for offsiteRows.Next() {
-			item := generated.BackupOffsiteStatus{Schema: generated.SchemaIDBackupOffsiteStatus, SchemaVersion: "1.1.0", Status: "pending"}
+			item := generated.BackupOffsiteStatus{Schema: generated.SchemaIDBackupOffsiteStatus, SchemaVersion: "1.2.0", Status: "pending"}
 			if err := offsiteRows.Scan(&item.GenerationID, &item.SourcePointID, &item.RepositoryID, &item.SnapshotID, &item.RecoveryEpoch); err != nil {
 				return err
 			}
@@ -257,6 +257,24 @@ func (repository *BackupRepository) readLocalBackupStatus(ctx context.Context, s
 				return lastErr
 			}
 			item.LastGoodProofID = nullableString(lastGood)
+			var retirementStatus, retirementDigest sql.NullString
+			retirementErr := tx.queryRow(ctx, `SELECT r.status,r.effect_digest FROM backup_offsite_retirement_intents i LEFT JOIN backup_offsite_retirement_receipts r ON r.intent_id=i.intent_id LEFT JOIN backup_offsite_retirement_leases l ON l.lease_id=r.lease_id AND l.intent_id=r.intent_id WHERE i.generation_id=? AND (r.receipt_id IS NULL OR r.status<>'verified' OR (l.lease_id IS NOT NULL AND r.effect_digest=r.survivor_proof_digest AND r.reclaimed_bytes=i.max_mutation_bytes AND NOT EXISTS(SELECT 1 FROM backup_offsite_retirement_attempts a WHERE a.lease_id=l.lease_id AND a.status='uncertain') AND (SELECT COUNT(*) FROM backup_offsite_retirement_attempts a WHERE a.lease_id=l.lease_id AND a.status='observed')=i.max_work_objects+1)) ORDER BY r.recorded_at DESC,r.receipt_id DESC LIMIT 1`, item.GenerationID).Scan(&retirementStatus, &retirementDigest)
+			if retirementErr != nil && !errors.Is(retirementErr, sql.ErrNoRows) {
+				return retirementErr
+			}
+			if retirementStatus.Valid {
+				item.RetirementStatus = nullableString(retirementStatus)
+			} else {
+				var planned int
+				if err := tx.queryRow(ctx, `SELECT COUNT(*) FROM backup_offsite_retirement_intents WHERE generation_id=?`, item.GenerationID).Scan(&planned); err != nil {
+					return err
+				}
+				if planned > 0 {
+					value := "planned"
+					item.RetirementStatus = &value
+				}
+			}
+			item.RetirementReceiptDigest = nullableString(retirementDigest)
 			status.Offsite = append(status.Offsite, item)
 		}
 		if err := offsiteRows.Err(); err != nil {

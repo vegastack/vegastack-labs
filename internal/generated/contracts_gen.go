@@ -5,286 +5,295 @@ package generated
 import "encoding/json"
 
 const (
-	SchemaMajor                                = 1
-	RegistrySchemaVersion                      = "1.21.0"
-	AvailabilityAvailable                      = "available"
-	AvailabilityPlanned                        = "planned"
-	FlagKindValue                              = "value"
-	FlagKindSwitch                             = "switch"
-	PlanValiditySeconds                        = 1800
-	ExecutorLeaseSeconds                       = 60
-	ExecutorCheckInSeconds                     = 20
-	SchemaIDAcknowledgement                    = "vegastack-labs.dev/acknowledgement"
-	SchemaIDAcknowledgementRequest             = "vegastack-labs.dev/acknowledgement-request"
-	SchemaIDApiAuditEventData                  = "vegastack-labs.dev/api-audit-event-data"
-	SchemaIDApiBrowserSessionData              = "vegastack-labs.dev/api-browser-session-data"
-	SchemaIDApiBrowserSessionRequest           = "vegastack-labs.dev/api-browser-session-request"
-	SchemaIDApiInventoryAliasData              = "vegastack-labs.dev/api-inventory-alias-data"
-	SchemaIDApiInventoryAliasListData          = "vegastack-labs.dev/api-inventory-alias-list-data"
-	SchemaIDApiInventoryAssetData              = "vegastack-labs.dev/api-inventory-asset-data"
-	SchemaIDApiInventoryAssetListData          = "vegastack-labs.dev/api-inventory-asset-list-data"
-	SchemaIDApiInventoryDraftData              = "vegastack-labs.dev/api-inventory-draft-data"
-	SchemaIDApiInventoryDraftListData          = "vegastack-labs.dev/api-inventory-draft-list-data"
-	SchemaIDApiInventoryNodeData               = "vegastack-labs.dev/api-inventory-node-data"
-	SchemaIDApiInventoryNodeListData           = "vegastack-labs.dev/api-inventory-node-list-data"
-	SchemaIDApiInventoryObservationData        = "vegastack-labs.dev/api-inventory-observation-data"
-	SchemaIDApiInventoryObservationListData    = "vegastack-labs.dev/api-inventory-observation-list-data"
-	SchemaIDApiPageData                        = "vegastack-labs.dev/api-page-data"
-	SchemaIDApiPageQuery                       = "vegastack-labs.dev/api-page-query"
-	SchemaIDApiSourceCountsData                = "vegastack-labs.dev/api-source-counts-data"
-	SchemaIDApiSourceData                      = "vegastack-labs.dev/api-source-data"
-	SchemaIDApiSourceListData                  = "vegastack-labs.dev/api-source-list-data"
-	SchemaIDApiSourceListQuery                 = "vegastack-labs.dev/api-source-list-query"
-	SchemaIDApiSshRequestFrameHeader           = "vegastack-labs.dev/api-ssh-request-frame-header"
-	SchemaIDApiSshResponseFrameHeader          = "vegastack-labs.dev/api-ssh-response-frame-header"
-	SchemaIDApiSummaryData                     = "vegastack-labs.dev/api-summary-data"
-	SchemaIDApprovalStatus                     = "vegastack-labs.dev/approval-status"
-	SchemaIDAuditCheckpoint                    = "vegastack-labs.dev/audit-checkpoint"
-	SchemaIDAuditCheckpointListData            = "vegastack-labs.dev/audit-checkpoint-list-data"
-	SchemaIDAuditCheckpointRequest             = "vegastack-labs.dev/audit-checkpoint-request"
-	SchemaIDAuditEvent                         = "vegastack-labs.dev/audit-event"
-	SchemaIDAuditTarget                        = "vegastack-labs.dev/audit-target"
-	SchemaIDAuditVerificationData              = "vegastack-labs.dev/audit-verification-data"
-	SchemaIDAuthorizationDecision              = "vegastack-labs.dev/authorization-decision"
-	SchemaIDBackupDependency                   = "vegastack-labs.dev/backup-dependency"
-	SchemaIDBackupJob                          = "vegastack-labs.dev/backup-job"
-	SchemaIDBackupLastGood                     = "vegastack-labs.dev/backup-last-good"
-	SchemaIDBackupLocalRetirementStatus        = "vegastack-labs.dev/backup-local-retirement-status"
-	SchemaIDBackupOffsiteStatus                = "vegastack-labs.dev/backup-offsite-status"
-	SchemaIDBackupPolicy                       = "vegastack-labs.dev/backup-policy"
-	SchemaIDBackupPolicyDraftRequest           = "vegastack-labs.dev/backup-policy-draft-request"
-	SchemaIDBackupPolicyDraftSubmission        = "vegastack-labs.dev/backup-policy-draft-submission"
-	SchemaIDBackupRetentionLock                = "vegastack-labs.dev/backup-retention-lock"
-	SchemaIDBackupRetentionLockDraftRequest    = "vegastack-labs.dev/backup-retention-lock-draft-request"
-	SchemaIDBackupRetentionLockDraftSubmission = "vegastack-labs.dev/backup-retention-lock-draft-submission"
-	SchemaIDBackupRetirementDraftRequest       = "vegastack-labs.dev/backup-retirement-draft-request"
-	SchemaIDBackupRetirementDraftSubmission    = "vegastack-labs.dev/backup-retirement-draft-submission"
-	SchemaIDBackupRunRequest                   = "vegastack-labs.dev/backup-run-request"
-	SchemaIDBackupStatusData                   = "vegastack-labs.dev/backup-status-data"
-	SchemaIDBackupTrustSourceDraftRequest      = "vegastack-labs.dev/backup-trust-source-draft-request"
-	SchemaIDBackupVerificationAttempt          = "vegastack-labs.dev/backup-verification-attempt"
-	SchemaIDBackupVerifyRequest                = "vegastack-labs.dev/backup-verify-request"
-	SchemaIDBrowserAuditEvent                  = "vegastack-labs.dev/browser-audit-event"
-	SchemaIDBrowserDeclarationOperation        = "vegastack-labs.dev/browser-declaration-operation"
-	SchemaIDBrowserDeclarationRevision         = "vegastack-labs.dev/browser-declaration-revision"
-	SchemaIDBrowserRestoreStatus               = "vegastack-labs.dev/browser-restore-status"
-	SchemaIDBrowserRun                         = "vegastack-labs.dev/browser-run"
-	SchemaIDBrowserRunResult                   = "vegastack-labs.dev/browser-run-result"
-	SchemaIDBrowserRunStep                     = "vegastack-labs.dev/browser-run-step"
-	SchemaIDCloudflareAccessProfile            = "vegastack-labs.dev/cloudflare-access-profile"
-	SchemaIDContractExtension                  = "vegastack-labs.dev/contract-extension"
-	SchemaIDCredentialImportRequest            = "vegastack-labs.dev/credential-import-request"
-	SchemaIDCredentialImportSubmission         = "vegastack-labs.dev/credential-import-submission"
-	SchemaIDCredentialLifecycleRequest         = "vegastack-labs.dev/credential-lifecycle-request"
-	SchemaIDCredentialLifecycleSubmission      = "vegastack-labs.dev/credential-lifecycle-submission"
-	SchemaIDCredentialNativeConsumer           = "vegastack-labs.dev/credential-native-consumer"
-	SchemaIDCredentialNativeDeniedReader       = "vegastack-labs.dev/credential-native-denied-reader"
-	SchemaIDCredentialReference                = "vegastack-labs.dev/credential-reference"
-	SchemaIDCredentialReferenceRequest         = "vegastack-labs.dev/credential-reference-request"
-	SchemaIDCredentialResolutionRecord         = "vegastack-labs.dev/credential-resolution-record"
-	SchemaIDDatabaseExportRequest              = "vegastack-labs.dev/database-export-request"
-	SchemaIDDatabaseStatusData                 = "vegastack-labs.dev/database-status-data"
-	SchemaIDDeclarationOperation               = "vegastack-labs.dev/declaration-operation"
-	SchemaIDDeclarationRevision                = "vegastack-labs.dev/declaration-revision"
-	SchemaIDDeclarationRevisionRequest         = "vegastack-labs.dev/declaration-revision-request"
-	SchemaIDExecutionReceipt                   = "vegastack-labs.dev/execution-receipt"
-	SchemaIDExecutionReceiptRequest            = "vegastack-labs.dev/execution-receipt-request"
-	SchemaIDExecutorClaimRequest               = "vegastack-labs.dev/executor-claim-request"
-	SchemaIDExecutorLease                      = "vegastack-labs.dev/executor-lease"
-	SchemaIDExecutorRenewRequest               = "vegastack-labs.dev/executor-renew-request"
-	SchemaIDGateCheckRequest                   = "vegastack-labs.dev/gate-check-request"
-	SchemaIDGateDefinition                     = "vegastack-labs.dev/gate-definition"
-	SchemaIDGateEvaluation                     = "vegastack-labs.dev/gate-evaluation"
-	SchemaIDGateEvidence                       = "vegastack-labs.dev/gate-evidence"
-	SchemaIDGateEvidenceAttachment             = "vegastack-labs.dev/gate-evidence-attachment"
-	SchemaIDGateEvidenceBundle                 = "vegastack-labs.dev/gate-evidence-bundle"
-	SchemaIDGateEvidenceCheck                  = "vegastack-labs.dev/gate-evidence-check"
-	SchemaIDGateEvidenceFact                   = "vegastack-labs.dev/gate-evidence-fact"
-	SchemaIDGateEvidenceRequest                = "vegastack-labs.dev/gate-evidence-request"
-	SchemaIDGateEvidenceSubmission             = "vegastack-labs.dev/gate-evidence-submission"
-	SchemaIDGateListData                       = "vegastack-labs.dev/gate-list-data"
-	SchemaIDGateProfileDraftRequest            = "vegastack-labs.dev/gate-profile-draft-request"
-	SchemaIDGateProfileDraftSubmission         = "vegastack-labs.dev/gate-profile-draft-submission"
-	SchemaIDGateView                           = "vegastack-labs.dev/gate-view"
-	SchemaIDInventoryDiffCounts                = "vegastack-labs.dev/inventory-diff-counts"
-	SchemaIDInventoryDiffData                  = "vegastack-labs.dev/inventory-diff-data"
-	SchemaIDInventoryDiffRecord                = "vegastack-labs.dev/inventory-diff-record"
-	SchemaIDInventoryDiffRequest               = "vegastack-labs.dev/inventory-diff-request"
-	SchemaIDInventoryDraftAddress              = "vegastack-labs.dev/inventory-draft-address"
-	SchemaIDInventoryDraftAlias                = "vegastack-labs.dev/inventory-draft-alias"
-	SchemaIDInventoryDraftAsset                = "vegastack-labs.dev/inventory-draft-asset"
-	SchemaIDInventoryDraftCounts               = "vegastack-labs.dev/inventory-draft-counts"
-	SchemaIDInventoryDraftExportPointer        = "vegastack-labs.dev/inventory-draft-export-pointer"
-	SchemaIDInventoryDraftExportSignature      = "vegastack-labs.dev/inventory-draft-export-signature"
-	SchemaIDInventoryDraftHardwareFact         = "vegastack-labs.dev/inventory-draft-hardware-fact"
-	SchemaIDInventoryDraftIdentity             = "vegastack-labs.dev/inventory-draft-identity"
-	SchemaIDInventoryDraftInput                = "vegastack-labs.dev/inventory-draft-input"
-	SchemaIDInventoryDraftNode                 = "vegastack-labs.dev/inventory-draft-node"
-	SchemaIDInventoryDraftObservation          = "vegastack-labs.dev/inventory-draft-observation"
-	SchemaIDInventoryDraftRef                  = "vegastack-labs.dev/inventory-draft-ref"
-	SchemaIDInventoryDraftSnapshotPayload      = "vegastack-labs.dev/inventory-draft-snapshot-payload"
-	SchemaIDInventoryDraftSource               = "vegastack-labs.dev/inventory-draft-source"
-	SchemaIDInventoryExportData                = "vegastack-labs.dev/inventory-export-data"
-	SchemaIDInventoryExportRequest             = "vegastack-labs.dev/inventory-export-request"
-	SchemaIDInventoryFieldChange               = "vegastack-labs.dev/inventory-field-change"
-	SchemaIDInventoryFieldProvenance           = "vegastack-labs.dev/inventory-field-provenance"
-	SchemaIDInventoryFinding                   = "vegastack-labs.dev/inventory-finding"
-	SchemaIDInventoryImportData                = "vegastack-labs.dev/inventory-import-data"
-	SchemaIDInventoryImportRequest             = "vegastack-labs.dev/inventory-import-request"
-	SchemaIDLocalPrincipalBinding              = "vegastack-labs.dev/local-principal-binding"
-	SchemaIDLocalRetentionLockCatalog          = "vegastack-labs.dev/local-retention-lock-catalog"
-	SchemaIDOffsiteRunSpec                     = "vegastack-labs.dev/offsite-run-spec"
-	SchemaIDOutboxRecordData                   = "vegastack-labs.dev/outbox-record-data"
-	SchemaIDPlan                               = "vegastack-labs.dev/plan"
-	SchemaIDPlanBinding                        = "vegastack-labs.dev/plan-binding"
-	SchemaIDPlanCreateRequest                  = "vegastack-labs.dev/plan-create-request"
-	SchemaIDPlanOperation                      = "vegastack-labs.dev/plan-operation"
-	SchemaIDPlanPreparation                    = "vegastack-labs.dev/plan-preparation"
-	SchemaIDPlanPresentation                   = "vegastack-labs.dev/plan-presentation"
-	SchemaIDPlanReferenceRequest               = "vegastack-labs.dev/plan-reference-request"
-	SchemaIDRecoveryPoint                      = "vegastack-labs.dev/recovery-point"
-	SchemaIDRecoveryWitnessCollectionData      = "vegastack-labs.dev/recovery-witness-collection-data"
-	SchemaIDReleaseAsset                       = "vegastack-labs.dev/release-asset"
-	SchemaIDReleaseAssetVerification           = "vegastack-labs.dev/release-asset-verification"
-	SchemaIDReleaseInspectData                 = "vegastack-labs.dev/release-inspect-data"
-	SchemaIDReleaseManifest                    = "vegastack-labs.dev/release-manifest"
-	SchemaIDReleaseTrustPolicy                 = "vegastack-labs.dev/release-trust-policy"
-	SchemaIDReleaseVerifyData                  = "vegastack-labs.dev/release-verify-data"
-	SchemaIDRemoteReadProfile                  = "vegastack-labs.dev/remote-read-profile"
-	SchemaIDRestoreAuditDecision               = "vegastack-labs.dev/restore-audit-decision"
-	SchemaIDRestoreBinding                     = "vegastack-labs.dev/restore-binding"
-	SchemaIDRestoreCanaryResult                = "vegastack-labs.dev/restore-canary-result"
-	SchemaIDRestoreDependencyBinding           = "vegastack-labs.dev/restore-dependency-binding"
-	SchemaIDRestoreFenceItem                   = "vegastack-labs.dev/restore-fence-item"
-	SchemaIDRestoreRequest                     = "vegastack-labs.dev/restore-request"
-	SchemaIDRestoreRunRequest                  = "vegastack-labs.dev/restore-run-request"
-	SchemaIDRestoreSourceBinding               = "vegastack-labs.dev/restore-source-binding"
-	SchemaIDRestoreVerification                = "vegastack-labs.dev/restore-verification"
-	SchemaIDRestoreVerifyRequest               = "vegastack-labs.dev/restore-verify-request"
-	SchemaIDResultError                        = "vegastack-labs.dev/result-error"
-	SchemaIDRun                                = "vegastack-labs.dev/run"
-	SchemaIDRunPresentation                    = "vegastack-labs.dev/run-presentation"
-	SchemaIDRunReferenceRequest                = "vegastack-labs.dev/run-reference-request"
-	SchemaIDRunResult                          = "vegastack-labs.dev/run-result"
-	RunStatusBlocked                           = "blocked"
-	RunStatusCancelled                         = "cancelled"
-	RunStatusFailed                            = "failed"
-	RunStatusInterrupted                       = "interrupted"
-	RunStatusPartial                           = "partial"
-	RunStatusSucceeded                         = "succeeded"
-	SchemaIDRunStep                            = "vegastack-labs.dev/run-step"
-	SchemaIDRunUncertainGuidance               = "vegastack-labs.dev/run-uncertain-guidance"
-	SchemaIDSanitizedExportData                = "vegastack-labs.dev/sanitized-export-data"
-	SchemaIDScheduledJob                       = "vegastack-labs.dev/scheduled-job"
-	SchemaIDScheduledJobPolicy                 = "vegastack-labs.dev/scheduled-job-policy"
-	SchemaIDScheduledJobRequest                = "vegastack-labs.dev/scheduled-job-request"
-	SchemaIDServerProfile                      = "vegastack-labs.dev/server-profile"
-	SchemaIDServerStatusData                   = "vegastack-labs.dev/server-status-data"
-	SchemaIDSignedInventoryDraftExport         = "vegastack-labs.dev/signed-inventory-draft-export"
-	SchemaIDStateExportDraft                   = "vegastack-labs.dev/state-export-draft"
-	SchemaIDStateExportDraftRef                = "vegastack-labs.dev/state-export-draft-ref"
-	SchemaIDStateExportKindCount               = "vegastack-labs.dev/state-export-kind-count"
-	SchemaIDStateExportSource                  = "vegastack-labs.dev/state-export-source"
-	CommandNameApply                           = "apply"
-	FlagConfig                                 = "--config"
-	FlagOutput                                 = "--output"
-	OutputHuman                                = "human"
-	OutputJSON                                 = "json"
-	FlagPlanID                                 = "--plan-id"
-	FlagSchemaVersion                          = "--schema-version"
-	CommandNameAuditCheckpoints                = "audit checkpoints"
-	CommandNameAuditVerify                     = "audit verify"
-	CommandNameBackupPolicyDraft               = "backup policy draft"
-	FlagFile                                   = "--file"
-	CommandNameBackupRetentionLocksDraft       = "backup retention-locks draft"
-	CommandNameBackupRetirementDraft           = "backup retirement draft"
-	CommandNameBackupRun                       = "backup run"
-	CommandNameBackupStatus                    = "backup status"
-	CommandNameBackupVerify                    = "backup verify"
-	CommandNameCredentialActivate              = "credential activate"
-	CommandNameCredentialImport                = "credential import"
-	FlagConsumerID                             = "--consumer-id"
-	FlagExpectedStateRevision                  = "--expected-state-revision"
-	FlagIdempotencyKey                         = "--idempotency-key"
-	FlagInputFd                                = "--input-fd"
-	FlagMaterialVersion                        = "--material-version"
-	FlagPurposeID                              = "--purpose-id"
-	FlagRecoveryEpoch                          = "--recovery-epoch"
-	FlagReferenceID                            = "--reference-id"
-	FlagResolverID                             = "--resolver-id"
-	FlagTargetID                               = "--target-id"
-	CommandNameCredentialRecover               = "credential recover"
-	CommandNameCredentialRevoke                = "credential revoke"
-	CommandNameCredentialRotate                = "credential rotate"
-	CommandNameCredentialStage                 = "credential stage"
-	CommandNameDatabaseStatus                  = "database status"
-	CommandNameGateCheck                       = "gate check"
-	FlagGateID                                 = "--gate-id"
-	FlagSubjectID                              = "--subject-id"
-	CommandNameGateEvidence                    = "gate evidence"
-	CommandNameGateInspect                     = "gate inspect"
-	CommandNameGateList                        = "gate list"
-	CommandNameGateProfileDraft                = "gate profile draft"
-	CommandNameHelp                            = "help"
-	CommandNameInventoryDiff                   = "inventory diff"
-	FlagCapturedAt                             = "--captured-at"
-	FlagDraftID                                = "--draft-id"
-	FlagDraftRevision                          = "--draft-revision"
-	FlagFormat                                 = "--format"
-	FlagSourceRevision                         = "--source-revision"
-	CommandNameInventoryExport                 = "inventory export"
-	CommandNameInventoryImport                 = "inventory import"
-	CommandNamePlan                            = "plan"
-	FlagDeclarationID                          = "--declaration-id"
-	FlagRevision                               = "--revision"
-	CommandNameRecoveryWitnessCollect          = "recovery witness collect"
-	FlagMaterialFd                             = "--material-fd"
-	FlagSigningKeyFd                           = "--signing-key-fd"
-	CommandNameReleaseInspect                  = "release inspect"
-	FlagManifest                               = "--manifest"
-	CommandNameReleaseVerify                   = "release verify"
-	FlagAll                                    = "--all"
-	FlagAsset                                  = "--asset"
-	FlagPolicy                                 = "--policy"
-	CommandNameRestorePlan                     = "restore plan"
-	CommandNameRestoreRun                      = "restore run"
-	CommandNameRestoreVerify                   = "restore verify"
-	CommandNameRunCancel                       = "run cancel"
-	FlagRunID                                  = "--run-id"
-	CommandNameRunInspect                      = "run inspect"
-	CommandNameRunResume                       = "run resume"
-	CommandNameServerAPISSH                    = "server api-ssh"
-	FlagDeviceID                               = "--device-id"
-	FlagSSHPrincipalID                         = "--ssh-principal-id"
-	CommandNameServerRun                       = "server run"
-	CommandNameServerStatus                    = "server status"
-	CommandNameStatus                          = "status"
-	CommandNameVersion                         = "version"
-	ErrorCodeApprovalRequired                  = "APPROVAL_REQUIRED"
-	ErrorCodeAuthenticationRequired            = "AUTHENTICATION_REQUIRED"
-	ErrorCodeAuthorizationDenied               = "AUTHORIZATION_DENIED"
-	ErrorCodeDependencyUnavailable             = "DEPENDENCY_UNAVAILABLE"
-	ErrorCodeEvidenceExpired                   = "EVIDENCE_EXPIRED"
-	ErrorCodeEvidenceInvalid                   = "EVIDENCE_INVALID"
-	ErrorCodeExecutionFailed                   = "EXECUTION_FAILED"
-	ErrorCodeExecutionPartial                  = "EXECUTION_PARTIAL"
-	ErrorCodeGateBlocked                       = "GATE_BLOCKED"
-	ErrorCodeInputInvalid                      = "INPUT_INVALID"
-	ErrorCodeIntegrityFailure                  = "INTEGRITY_FAILURE"
-	ErrorCodeInterrupted                       = "INTERRUPTED"
-	ErrorCodeMigrationBlocked                  = "MIGRATION_BLOCKED"
-	ErrorCodePlanStale                         = "PLAN_STALE"
-	ErrorCodePrerequisiteBlocked               = "PREREQUISITE_BLOCKED"
-	ErrorCodeRateLimited                       = "RATE_LIMITED"
-	ErrorCodeRecoveryEpochMismatch             = "RECOVERY_EPOCH_MISMATCH"
-	ErrorCodeRecoveryRequired                  = "RECOVERY_REQUIRED"
-	ErrorCodeResourceNotFound                  = "RESOURCE_NOT_FOUND"
-	ErrorCodeSchemaUnsupported                 = "SCHEMA_UNSUPPORTED"
-	ErrorCodeSessionExpired                    = "SESSION_EXPIRED"
-	ErrorCodeStateConflict                     = "STATE_CONFLICT"
-	ErrorCodeTargetUnreachable                 = "TARGET_UNREACHABLE"
-	ErrorCodeUnsupportedPlatform               = "UNSUPPORTED_PLATFORM"
-	ErrorCodeVersionIncompatible               = "VERSION_INCOMPATIBLE"
+	SchemaMajor                                    = 1
+	RegistrySchemaVersion                          = "1.21.0"
+	AvailabilityAvailable                          = "available"
+	AvailabilityPlanned                            = "planned"
+	FlagKindValue                                  = "value"
+	FlagKindSwitch                                 = "switch"
+	PlanValiditySeconds                            = 1800
+	ExecutorLeaseSeconds                           = 60
+	ExecutorCheckInSeconds                         = 20
+	SchemaIDAcknowledgement                        = "vegastack-labs.dev/acknowledgement"
+	SchemaIDAcknowledgementRequest                 = "vegastack-labs.dev/acknowledgement-request"
+	SchemaIDApiAuditEventData                      = "vegastack-labs.dev/api-audit-event-data"
+	SchemaIDApiBrowserSessionData                  = "vegastack-labs.dev/api-browser-session-data"
+	SchemaIDApiBrowserSessionRequest               = "vegastack-labs.dev/api-browser-session-request"
+	SchemaIDApiInventoryAliasData                  = "vegastack-labs.dev/api-inventory-alias-data"
+	SchemaIDApiInventoryAliasListData              = "vegastack-labs.dev/api-inventory-alias-list-data"
+	SchemaIDApiInventoryAssetData                  = "vegastack-labs.dev/api-inventory-asset-data"
+	SchemaIDApiInventoryAssetListData              = "vegastack-labs.dev/api-inventory-asset-list-data"
+	SchemaIDApiInventoryDraftData                  = "vegastack-labs.dev/api-inventory-draft-data"
+	SchemaIDApiInventoryDraftListData              = "vegastack-labs.dev/api-inventory-draft-list-data"
+	SchemaIDApiInventoryNodeData                   = "vegastack-labs.dev/api-inventory-node-data"
+	SchemaIDApiInventoryNodeListData               = "vegastack-labs.dev/api-inventory-node-list-data"
+	SchemaIDApiInventoryObservationData            = "vegastack-labs.dev/api-inventory-observation-data"
+	SchemaIDApiInventoryObservationListData        = "vegastack-labs.dev/api-inventory-observation-list-data"
+	SchemaIDApiPageData                            = "vegastack-labs.dev/api-page-data"
+	SchemaIDApiPageQuery                           = "vegastack-labs.dev/api-page-query"
+	SchemaIDApiSourceCountsData                    = "vegastack-labs.dev/api-source-counts-data"
+	SchemaIDApiSourceData                          = "vegastack-labs.dev/api-source-data"
+	SchemaIDApiSourceListData                      = "vegastack-labs.dev/api-source-list-data"
+	SchemaIDApiSourceListQuery                     = "vegastack-labs.dev/api-source-list-query"
+	SchemaIDApiSshRequestFrameHeader               = "vegastack-labs.dev/api-ssh-request-frame-header"
+	SchemaIDApiSshResponseFrameHeader              = "vegastack-labs.dev/api-ssh-response-frame-header"
+	SchemaIDApiSummaryData                         = "vegastack-labs.dev/api-summary-data"
+	SchemaIDApprovalStatus                         = "vegastack-labs.dev/approval-status"
+	SchemaIDAuditCheckpoint                        = "vegastack-labs.dev/audit-checkpoint"
+	SchemaIDAuditCheckpointListData                = "vegastack-labs.dev/audit-checkpoint-list-data"
+	SchemaIDAuditCheckpointRequest                 = "vegastack-labs.dev/audit-checkpoint-request"
+	SchemaIDAuditEvent                             = "vegastack-labs.dev/audit-event"
+	SchemaIDAuditTarget                            = "vegastack-labs.dev/audit-target"
+	SchemaIDAuditVerificationData                  = "vegastack-labs.dev/audit-verification-data"
+	SchemaIDAuthorizationDecision                  = "vegastack-labs.dev/authorization-decision"
+	SchemaIDBackupDependency                       = "vegastack-labs.dev/backup-dependency"
+	SchemaIDBackupJob                              = "vegastack-labs.dev/backup-job"
+	SchemaIDBackupLastGood                         = "vegastack-labs.dev/backup-last-good"
+	SchemaIDBackupLocalRetirementStatus            = "vegastack-labs.dev/backup-local-retirement-status"
+	SchemaIDBackupOffsiteRetirementDryRunData      = "vegastack-labs.dev/backup-offsite-retirement-dry-run-data"
+	SchemaIDBackupOffsiteRetirementDryRunRequest   = "vegastack-labs.dev/backup-offsite-retirement-dry-run-request"
+	SchemaIDBackupOffsiteRetirementObject          = "vegastack-labs.dev/backup-offsite-retirement-object"
+	SchemaIDBackupOffsiteRetirementRule            = "vegastack-labs.dev/backup-offsite-retirement-rule"
+	SchemaIDBackupOffsiteRetirementStageRequest    = "vegastack-labs.dev/backup-offsite-retirement-stage-request"
+	SchemaIDBackupOffsiteRetirementStageSubmission = "vegastack-labs.dev/backup-offsite-retirement-stage-submission"
+	SchemaIDBackupOffsiteRetirementSurvivorBinding = "vegastack-labs.dev/backup-offsite-retirement-survivor-binding"
+	SchemaIDBackupOffsiteStatus                    = "vegastack-labs.dev/backup-offsite-status"
+	SchemaIDBackupPolicy                           = "vegastack-labs.dev/backup-policy"
+	SchemaIDBackupPolicyDraftRequest               = "vegastack-labs.dev/backup-policy-draft-request"
+	SchemaIDBackupPolicyDraftSubmission            = "vegastack-labs.dev/backup-policy-draft-submission"
+	SchemaIDBackupRetentionLock                    = "vegastack-labs.dev/backup-retention-lock"
+	SchemaIDBackupRetentionLockDraftRequest        = "vegastack-labs.dev/backup-retention-lock-draft-request"
+	SchemaIDBackupRetentionLockDraftSubmission     = "vegastack-labs.dev/backup-retention-lock-draft-submission"
+	SchemaIDBackupRetirementDraftRequest           = "vegastack-labs.dev/backup-retirement-draft-request"
+	SchemaIDBackupRetirementDraftSubmission        = "vegastack-labs.dev/backup-retirement-draft-submission"
+	SchemaIDBackupRunRequest                       = "vegastack-labs.dev/backup-run-request"
+	SchemaIDBackupStatusData                       = "vegastack-labs.dev/backup-status-data"
+	SchemaIDBackupTrustSourceDraftRequest          = "vegastack-labs.dev/backup-trust-source-draft-request"
+	SchemaIDBackupVerificationAttempt              = "vegastack-labs.dev/backup-verification-attempt"
+	SchemaIDBackupVerifyRequest                    = "vegastack-labs.dev/backup-verify-request"
+	SchemaIDBrowserAuditEvent                      = "vegastack-labs.dev/browser-audit-event"
+	SchemaIDBrowserDeclarationOperation            = "vegastack-labs.dev/browser-declaration-operation"
+	SchemaIDBrowserDeclarationRevision             = "vegastack-labs.dev/browser-declaration-revision"
+	SchemaIDBrowserRestoreStatus                   = "vegastack-labs.dev/browser-restore-status"
+	SchemaIDBrowserRun                             = "vegastack-labs.dev/browser-run"
+	SchemaIDBrowserRunResult                       = "vegastack-labs.dev/browser-run-result"
+	SchemaIDBrowserRunStep                         = "vegastack-labs.dev/browser-run-step"
+	SchemaIDCloudflareAccessProfile                = "vegastack-labs.dev/cloudflare-access-profile"
+	SchemaIDContractExtension                      = "vegastack-labs.dev/contract-extension"
+	SchemaIDCredentialImportRequest                = "vegastack-labs.dev/credential-import-request"
+	SchemaIDCredentialImportSubmission             = "vegastack-labs.dev/credential-import-submission"
+	SchemaIDCredentialLifecycleRequest             = "vegastack-labs.dev/credential-lifecycle-request"
+	SchemaIDCredentialLifecycleSubmission          = "vegastack-labs.dev/credential-lifecycle-submission"
+	SchemaIDCredentialNativeConsumer               = "vegastack-labs.dev/credential-native-consumer"
+	SchemaIDCredentialNativeDeniedReader           = "vegastack-labs.dev/credential-native-denied-reader"
+	SchemaIDCredentialReference                    = "vegastack-labs.dev/credential-reference"
+	SchemaIDCredentialReferenceRequest             = "vegastack-labs.dev/credential-reference-request"
+	SchemaIDCredentialResolutionRecord             = "vegastack-labs.dev/credential-resolution-record"
+	SchemaIDDatabaseExportRequest                  = "vegastack-labs.dev/database-export-request"
+	SchemaIDDatabaseStatusData                     = "vegastack-labs.dev/database-status-data"
+	SchemaIDDeclarationOperation                   = "vegastack-labs.dev/declaration-operation"
+	SchemaIDDeclarationRevision                    = "vegastack-labs.dev/declaration-revision"
+	SchemaIDDeclarationRevisionRequest             = "vegastack-labs.dev/declaration-revision-request"
+	SchemaIDExecutionReceipt                       = "vegastack-labs.dev/execution-receipt"
+	SchemaIDExecutionReceiptRequest                = "vegastack-labs.dev/execution-receipt-request"
+	SchemaIDExecutorClaimRequest                   = "vegastack-labs.dev/executor-claim-request"
+	SchemaIDExecutorLease                          = "vegastack-labs.dev/executor-lease"
+	SchemaIDExecutorRenewRequest                   = "vegastack-labs.dev/executor-renew-request"
+	SchemaIDGateCheckRequest                       = "vegastack-labs.dev/gate-check-request"
+	SchemaIDGateDefinition                         = "vegastack-labs.dev/gate-definition"
+	SchemaIDGateEvaluation                         = "vegastack-labs.dev/gate-evaluation"
+	SchemaIDGateEvidence                           = "vegastack-labs.dev/gate-evidence"
+	SchemaIDGateEvidenceAttachment                 = "vegastack-labs.dev/gate-evidence-attachment"
+	SchemaIDGateEvidenceBundle                     = "vegastack-labs.dev/gate-evidence-bundle"
+	SchemaIDGateEvidenceCheck                      = "vegastack-labs.dev/gate-evidence-check"
+	SchemaIDGateEvidenceFact                       = "vegastack-labs.dev/gate-evidence-fact"
+	SchemaIDGateEvidenceRequest                    = "vegastack-labs.dev/gate-evidence-request"
+	SchemaIDGateEvidenceSubmission                 = "vegastack-labs.dev/gate-evidence-submission"
+	SchemaIDGateListData                           = "vegastack-labs.dev/gate-list-data"
+	SchemaIDGateProfileDraftRequest                = "vegastack-labs.dev/gate-profile-draft-request"
+	SchemaIDGateProfileDraftSubmission             = "vegastack-labs.dev/gate-profile-draft-submission"
+	SchemaIDGateView                               = "vegastack-labs.dev/gate-view"
+	SchemaIDInventoryDiffCounts                    = "vegastack-labs.dev/inventory-diff-counts"
+	SchemaIDInventoryDiffData                      = "vegastack-labs.dev/inventory-diff-data"
+	SchemaIDInventoryDiffRecord                    = "vegastack-labs.dev/inventory-diff-record"
+	SchemaIDInventoryDiffRequest                   = "vegastack-labs.dev/inventory-diff-request"
+	SchemaIDInventoryDraftAddress                  = "vegastack-labs.dev/inventory-draft-address"
+	SchemaIDInventoryDraftAlias                    = "vegastack-labs.dev/inventory-draft-alias"
+	SchemaIDInventoryDraftAsset                    = "vegastack-labs.dev/inventory-draft-asset"
+	SchemaIDInventoryDraftCounts                   = "vegastack-labs.dev/inventory-draft-counts"
+	SchemaIDInventoryDraftExportPointer            = "vegastack-labs.dev/inventory-draft-export-pointer"
+	SchemaIDInventoryDraftExportSignature          = "vegastack-labs.dev/inventory-draft-export-signature"
+	SchemaIDInventoryDraftHardwareFact             = "vegastack-labs.dev/inventory-draft-hardware-fact"
+	SchemaIDInventoryDraftIdentity                 = "vegastack-labs.dev/inventory-draft-identity"
+	SchemaIDInventoryDraftInput                    = "vegastack-labs.dev/inventory-draft-input"
+	SchemaIDInventoryDraftNode                     = "vegastack-labs.dev/inventory-draft-node"
+	SchemaIDInventoryDraftObservation              = "vegastack-labs.dev/inventory-draft-observation"
+	SchemaIDInventoryDraftRef                      = "vegastack-labs.dev/inventory-draft-ref"
+	SchemaIDInventoryDraftSnapshotPayload          = "vegastack-labs.dev/inventory-draft-snapshot-payload"
+	SchemaIDInventoryDraftSource                   = "vegastack-labs.dev/inventory-draft-source"
+	SchemaIDInventoryExportData                    = "vegastack-labs.dev/inventory-export-data"
+	SchemaIDInventoryExportRequest                 = "vegastack-labs.dev/inventory-export-request"
+	SchemaIDInventoryFieldChange                   = "vegastack-labs.dev/inventory-field-change"
+	SchemaIDInventoryFieldProvenance               = "vegastack-labs.dev/inventory-field-provenance"
+	SchemaIDInventoryFinding                       = "vegastack-labs.dev/inventory-finding"
+	SchemaIDInventoryImportData                    = "vegastack-labs.dev/inventory-import-data"
+	SchemaIDInventoryImportRequest                 = "vegastack-labs.dev/inventory-import-request"
+	SchemaIDLocalPrincipalBinding                  = "vegastack-labs.dev/local-principal-binding"
+	SchemaIDLocalRetentionLockCatalog              = "vegastack-labs.dev/local-retention-lock-catalog"
+	SchemaIDOffsiteRunSpec                         = "vegastack-labs.dev/offsite-run-spec"
+	SchemaIDOutboxRecordData                       = "vegastack-labs.dev/outbox-record-data"
+	SchemaIDPlan                                   = "vegastack-labs.dev/plan"
+	SchemaIDPlanBinding                            = "vegastack-labs.dev/plan-binding"
+	SchemaIDPlanCreateRequest                      = "vegastack-labs.dev/plan-create-request"
+	SchemaIDPlanOperation                          = "vegastack-labs.dev/plan-operation"
+	SchemaIDPlanPreparation                        = "vegastack-labs.dev/plan-preparation"
+	SchemaIDPlanPresentation                       = "vegastack-labs.dev/plan-presentation"
+	SchemaIDPlanReferenceRequest                   = "vegastack-labs.dev/plan-reference-request"
+	SchemaIDRecoveryPoint                          = "vegastack-labs.dev/recovery-point"
+	SchemaIDRecoveryWitnessCollectionData          = "vegastack-labs.dev/recovery-witness-collection-data"
+	SchemaIDReleaseAsset                           = "vegastack-labs.dev/release-asset"
+	SchemaIDReleaseAssetVerification               = "vegastack-labs.dev/release-asset-verification"
+	SchemaIDReleaseInspectData                     = "vegastack-labs.dev/release-inspect-data"
+	SchemaIDReleaseManifest                        = "vegastack-labs.dev/release-manifest"
+	SchemaIDReleaseTrustPolicy                     = "vegastack-labs.dev/release-trust-policy"
+	SchemaIDReleaseVerifyData                      = "vegastack-labs.dev/release-verify-data"
+	SchemaIDRemoteReadProfile                      = "vegastack-labs.dev/remote-read-profile"
+	SchemaIDRestoreAuditDecision                   = "vegastack-labs.dev/restore-audit-decision"
+	SchemaIDRestoreBinding                         = "vegastack-labs.dev/restore-binding"
+	SchemaIDRestoreCanaryResult                    = "vegastack-labs.dev/restore-canary-result"
+	SchemaIDRestoreDependencyBinding               = "vegastack-labs.dev/restore-dependency-binding"
+	SchemaIDRestoreFenceItem                       = "vegastack-labs.dev/restore-fence-item"
+	SchemaIDRestoreRequest                         = "vegastack-labs.dev/restore-request"
+	SchemaIDRestoreRunRequest                      = "vegastack-labs.dev/restore-run-request"
+	SchemaIDRestoreSourceBinding                   = "vegastack-labs.dev/restore-source-binding"
+	SchemaIDRestoreVerification                    = "vegastack-labs.dev/restore-verification"
+	SchemaIDRestoreVerifyRequest                   = "vegastack-labs.dev/restore-verify-request"
+	SchemaIDResultError                            = "vegastack-labs.dev/result-error"
+	SchemaIDRun                                    = "vegastack-labs.dev/run"
+	SchemaIDRunPresentation                        = "vegastack-labs.dev/run-presentation"
+	SchemaIDRunReferenceRequest                    = "vegastack-labs.dev/run-reference-request"
+	SchemaIDRunResult                              = "vegastack-labs.dev/run-result"
+	RunStatusBlocked                               = "blocked"
+	RunStatusCancelled                             = "cancelled"
+	RunStatusFailed                                = "failed"
+	RunStatusInterrupted                           = "interrupted"
+	RunStatusPartial                               = "partial"
+	RunStatusSucceeded                             = "succeeded"
+	SchemaIDRunStep                                = "vegastack-labs.dev/run-step"
+	SchemaIDRunUncertainGuidance                   = "vegastack-labs.dev/run-uncertain-guidance"
+	SchemaIDSanitizedExportData                    = "vegastack-labs.dev/sanitized-export-data"
+	SchemaIDScheduledJob                           = "vegastack-labs.dev/scheduled-job"
+	SchemaIDScheduledJobPolicy                     = "vegastack-labs.dev/scheduled-job-policy"
+	SchemaIDScheduledJobRequest                    = "vegastack-labs.dev/scheduled-job-request"
+	SchemaIDServerProfile                          = "vegastack-labs.dev/server-profile"
+	SchemaIDServerStatusData                       = "vegastack-labs.dev/server-status-data"
+	SchemaIDSignedInventoryDraftExport             = "vegastack-labs.dev/signed-inventory-draft-export"
+	SchemaIDStateExportDraft                       = "vegastack-labs.dev/state-export-draft"
+	SchemaIDStateExportDraftRef                    = "vegastack-labs.dev/state-export-draft-ref"
+	SchemaIDStateExportKindCount                   = "vegastack-labs.dev/state-export-kind-count"
+	SchemaIDStateExportSource                      = "vegastack-labs.dev/state-export-source"
+	CommandNameApply                               = "apply"
+	FlagConfig                                     = "--config"
+	FlagOutput                                     = "--output"
+	OutputHuman                                    = "human"
+	OutputJSON                                     = "json"
+	FlagPlanID                                     = "--plan-id"
+	FlagSchemaVersion                              = "--schema-version"
+	CommandNameAuditCheckpoints                    = "audit checkpoints"
+	CommandNameAuditVerify                         = "audit verify"
+	CommandNameBackupOffsiteRetirementDryRun       = "backup offsite-retirement dry-run"
+	FlagFile                                       = "--file"
+	CommandNameBackupOffsiteRetirementStage        = "backup offsite-retirement stage"
+	CommandNameBackupPolicyDraft                   = "backup policy draft"
+	CommandNameBackupRetentionLocksDraft           = "backup retention-locks draft"
+	CommandNameBackupRetirementDraft               = "backup retirement draft"
+	CommandNameBackupRun                           = "backup run"
+	CommandNameBackupStatus                        = "backup status"
+	CommandNameBackupVerify                        = "backup verify"
+	CommandNameCredentialActivate                  = "credential activate"
+	CommandNameCredentialImport                    = "credential import"
+	FlagConsumerID                                 = "--consumer-id"
+	FlagExpectedStateRevision                      = "--expected-state-revision"
+	FlagIdempotencyKey                             = "--idempotency-key"
+	FlagInputFd                                    = "--input-fd"
+	FlagMaterialVersion                            = "--material-version"
+	FlagPurposeID                                  = "--purpose-id"
+	FlagRecoveryEpoch                              = "--recovery-epoch"
+	FlagReferenceID                                = "--reference-id"
+	FlagResolverID                                 = "--resolver-id"
+	FlagTargetID                                   = "--target-id"
+	CommandNameCredentialRecover                   = "credential recover"
+	CommandNameCredentialRevoke                    = "credential revoke"
+	CommandNameCredentialRotate                    = "credential rotate"
+	CommandNameCredentialStage                     = "credential stage"
+	CommandNameDatabaseStatus                      = "database status"
+	CommandNameGateCheck                           = "gate check"
+	FlagGateID                                     = "--gate-id"
+	FlagSubjectID                                  = "--subject-id"
+	CommandNameGateEvidence                        = "gate evidence"
+	CommandNameGateInspect                         = "gate inspect"
+	CommandNameGateList                            = "gate list"
+	CommandNameGateProfileDraft                    = "gate profile draft"
+	CommandNameHelp                                = "help"
+	CommandNameInventoryDiff                       = "inventory diff"
+	FlagCapturedAt                                 = "--captured-at"
+	FlagDraftID                                    = "--draft-id"
+	FlagDraftRevision                              = "--draft-revision"
+	FlagFormat                                     = "--format"
+	FlagSourceRevision                             = "--source-revision"
+	CommandNameInventoryExport                     = "inventory export"
+	CommandNameInventoryImport                     = "inventory import"
+	CommandNamePlan                                = "plan"
+	FlagDeclarationID                              = "--declaration-id"
+	FlagRevision                                   = "--revision"
+	CommandNameRecoveryWitnessCollect              = "recovery witness collect"
+	FlagMaterialFd                                 = "--material-fd"
+	FlagSigningKeyFd                               = "--signing-key-fd"
+	CommandNameReleaseInspect                      = "release inspect"
+	FlagManifest                                   = "--manifest"
+	CommandNameReleaseVerify                       = "release verify"
+	FlagAll                                        = "--all"
+	FlagAsset                                      = "--asset"
+	FlagPolicy                                     = "--policy"
+	CommandNameRestorePlan                         = "restore plan"
+	CommandNameRestoreRun                          = "restore run"
+	CommandNameRestoreVerify                       = "restore verify"
+	CommandNameRunCancel                           = "run cancel"
+	FlagRunID                                      = "--run-id"
+	CommandNameRunInspect                          = "run inspect"
+	CommandNameRunResume                           = "run resume"
+	CommandNameServerAPISSH                        = "server api-ssh"
+	FlagDeviceID                                   = "--device-id"
+	FlagSSHPrincipalID                             = "--ssh-principal-id"
+	CommandNameServerRun                           = "server run"
+	CommandNameServerStatus                        = "server status"
+	CommandNameStatus                              = "status"
+	CommandNameVersion                             = "version"
+	ErrorCodeApprovalRequired                      = "APPROVAL_REQUIRED"
+	ErrorCodeAuthenticationRequired                = "AUTHENTICATION_REQUIRED"
+	ErrorCodeAuthorizationDenied                   = "AUTHORIZATION_DENIED"
+	ErrorCodeDependencyUnavailable                 = "DEPENDENCY_UNAVAILABLE"
+	ErrorCodeEvidenceExpired                       = "EVIDENCE_EXPIRED"
+	ErrorCodeEvidenceInvalid                       = "EVIDENCE_INVALID"
+	ErrorCodeExecutionFailed                       = "EXECUTION_FAILED"
+	ErrorCodeExecutionPartial                      = "EXECUTION_PARTIAL"
+	ErrorCodeGateBlocked                           = "GATE_BLOCKED"
+	ErrorCodeInputInvalid                          = "INPUT_INVALID"
+	ErrorCodeIntegrityFailure                      = "INTEGRITY_FAILURE"
+	ErrorCodeInterrupted                           = "INTERRUPTED"
+	ErrorCodeMigrationBlocked                      = "MIGRATION_BLOCKED"
+	ErrorCodePlanStale                             = "PLAN_STALE"
+	ErrorCodePrerequisiteBlocked                   = "PREREQUISITE_BLOCKED"
+	ErrorCodeRateLimited                           = "RATE_LIMITED"
+	ErrorCodeRecoveryEpochMismatch                 = "RECOVERY_EPOCH_MISMATCH"
+	ErrorCodeRecoveryRequired                      = "RECOVERY_REQUIRED"
+	ErrorCodeResourceNotFound                      = "RESOURCE_NOT_FOUND"
+	ErrorCodeSchemaUnsupported                     = "SCHEMA_UNSUPPORTED"
+	ErrorCodeSessionExpired                        = "SESSION_EXPIRED"
+	ErrorCodeStateConflict                         = "STATE_CONFLICT"
+	ErrorCodeTargetUnreachable                     = "TARGET_UNREACHABLE"
+	ErrorCodeUnsupportedPlatform                   = "UNSUPPORTED_PLATFORM"
+	ErrorCodeVersionIncompatible                   = "VERSION_INCOMPATIBLE"
 )
 
 type Acknowledgement struct {
@@ -669,17 +678,127 @@ type BackupLocalRetirementStatus struct {
 	RecoveryEpoch              int64    `json:"recoveryEpoch"`
 }
 
+type BackupOffsiteRetirementDryRunData struct {
+	Schema                  string                                   `json:"schema"`
+	SchemaVersion           string                                   `json:"schemaVersion"`
+	IntentDigest            string                                   `json:"intentDigest"`
+	SelectionDigest         string                                   `json:"selectionDigest"`
+	GenerationID            string                                   `json:"generationId"`
+	PointID                 string                                   `json:"pointId"`
+	BucketID                string                                   `json:"bucketId"`
+	RuleSetDigest           string                                   `json:"ruleSetDigest"`
+	SurvivorRuleDigest      string                                   `json:"survivorRuleDigest"`
+	ManifestDigest          string                                   `json:"manifestDigest"`
+	CatalogDigest           string                                   `json:"catalogDigest"`
+	InventoryDigest         string                                   `json:"inventoryDigest"`
+	OneOwnerProofID         string                                   `json:"oneOwnerProofId"`
+	LockAdminReferenceID    string                                   `json:"lockAdminReferenceId"`
+	LockAdminFingerprint    string                                   `json:"lockAdminFingerprint"`
+	RetentionReferenceID    string                                   `json:"retentionReferenceId"`
+	RetentionFingerprint    string                                   `json:"retentionFingerprint"`
+	G008BundleDigest        string                                   `json:"g008BundleDigest"`
+	QualificationDigest     string                                   `json:"qualificationDigest"`
+	PutCutoffDigest         string                                   `json:"putCutoffDigest"`
+	MultipartCutoffDigest   string                                   `json:"multipartCutoffDigest"`
+	ExclusiveAdminDigest    string                                   `json:"exclusiveAdminDigest"`
+	SurvivorPointIDs        []string                                 `json:"survivorPointIds"`
+	SurvivorKeyReferenceIDs []string                                 `json:"survivorKeyReferenceIds"`
+	Rules                   []BackupOffsiteRetirementRule            `json:"rules"`
+	Objects                 []BackupOffsiteRetirementObject          `json:"objects"`
+	SurvivorBindings        []BackupOffsiteRetirementSurvivorBinding `json:"survivorBindings"`
+	ObjectCount             int64                                    `json:"objectCount"`
+	ExpectedReclaimBytes    int64                                    `json:"expectedReclaimBytes"`
+	RetainedBytes           int64                                    `json:"retainedBytes"`
+	MaxWorkObjects          int64                                    `json:"maxWorkObjects"`
+	MaxMutationBytes        int64                                    `json:"maxMutationBytes"`
+	PreRuleCount            int64                                    `json:"preRuleCount"`
+	SurvivorRuleCount       int64                                    `json:"survivorRuleCount"`
+	SourceRevision          int64                                    `json:"sourceRevision"`
+	StateRevision           int64                                    `json:"stateRevision"`
+	RecoveryEpoch           int64                                    `json:"recoveryEpoch"`
+}
+
+type BackupOffsiteRetirementDryRunRequest struct {
+	Schema                string `json:"schema"`
+	SchemaVersion         string `json:"schemaVersion"`
+	ExpectedStateRevision int64  `json:"expectedStateRevision"`
+	RecoveryEpoch         int64  `json:"recoveryEpoch"`
+	SelectionDigest       string `json:"selectionDigest"`
+	OneOwnerProofID       string `json:"oneOwnerProofId"`
+	LockAdminReferenceID  string `json:"lockAdminReferenceId"`
+	RetentionReferenceID  string `json:"retentionReferenceId"`
+}
+
+type BackupOffsiteRetirementObject struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	Key           string `json:"key"`
+	Digest        string `json:"digest"`
+	Bytes         int64  `json:"bytes"`
+}
+
+type BackupOffsiteRetirementRule struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	RuleID        string `json:"ruleId"`
+	Prefix        string `json:"prefix"`
+}
+
+type BackupOffsiteRetirementStageRequest struct {
+	Schema                  string `json:"schema"`
+	SchemaVersion           string `json:"schemaVersion"`
+	ExpectedStateRevision   int64  `json:"expectedStateRevision"`
+	RecoveryEpoch           int64  `json:"recoveryEpoch"`
+	TargetDigest            string `json:"targetDigest"`
+	IdempotencyKey          string `json:"idempotencyKey"`
+	SelectionDigest         string `json:"selectionDigest"`
+	PlanID                  string `json:"planId"`
+	PlanDigest              string `json:"planDigest"`
+	OneOwnerProofID         string `json:"oneOwnerProofId"`
+	LockAdminReferenceID    string `json:"lockAdminReferenceId"`
+	RetentionReferenceID    string `json:"retentionReferenceId"`
+	CredentialBindingDigest string `json:"credentialBindingDigest"`
+}
+
+type BackupOffsiteRetirementStageSubmission struct {
+	Schema               string   `json:"schema"`
+	SchemaVersion        string   `json:"schemaVersion"`
+	IntentID             string   `json:"intentId"`
+	GenerationID         string   `json:"generationId"`
+	PointID              string   `json:"pointId"`
+	RuleSetDigest        string   `json:"ruleSetDigest"`
+	SurvivorRuleDigest   string   `json:"survivorRuleDigest"`
+	PreRuleCount         int64    `json:"preRuleCount"`
+	SurvivorRuleCount    int64    `json:"survivorRuleCount"`
+	SurvivorPointIDs     []string `json:"survivorPointIds"`
+	ExpectedReclaimBytes int64    `json:"expectedReclaimBytes"`
+	Status               string   `json:"status"`
+	StateRevision        int64    `json:"stateRevision"`
+	RecoveryEpoch        int64    `json:"recoveryEpoch"`
+}
+
+type BackupOffsiteRetirementSurvivorBinding struct {
+	Schema           string `json:"schema"`
+	SchemaVersion    string `json:"schemaVersion"`
+	PointID          string `json:"pointId"`
+	GenerationID     string `json:"generationId"`
+	ReferenceID      string `json:"referenceId"`
+	DependencyDigest string `json:"dependencyDigest"`
+}
+
 type BackupOffsiteStatus struct {
-	Schema          string  `json:"schema"`
-	SchemaVersion   string  `json:"schemaVersion"`
-	GenerationID    string  `json:"generationId"`
-	SourcePointID   string  `json:"sourcePointId"`
-	RepositoryID    string  `json:"repositoryId"`
-	SnapshotID      string  `json:"snapshotId"`
-	Status          string  `json:"status"`
-	ProofClass      *string `json:"proofClass"`
-	LastGoodProofID *string `json:"lastGoodProofId"`
-	RecoveryEpoch   int64   `json:"recoveryEpoch"`
+	Schema                  string  `json:"schema"`
+	SchemaVersion           string  `json:"schemaVersion"`
+	GenerationID            string  `json:"generationId"`
+	SourcePointID           string  `json:"sourcePointId"`
+	RepositoryID            string  `json:"repositoryId"`
+	SnapshotID              string  `json:"snapshotId"`
+	Status                  string  `json:"status"`
+	ProofClass              *string `json:"proofClass"`
+	LastGoodProofID         *string `json:"lastGoodProofId"`
+	RetirementStatus        *string `json:"retirementStatus"`
+	RetirementReceiptDigest *string `json:"retirementReceiptDigest"`
+	RecoveryEpoch           int64   `json:"recoveryEpoch"`
 }
 
 type BackupPolicy struct {
@@ -2282,6 +2401,10 @@ type ServerProfile struct {
 	OffsitePrefix                    *string                 `json:"offsitePrefix"`
 	OffsiteParentReferenceID         *string                 `json:"offsiteParentReferenceId"`
 	OffsiteObserverReferenceID       *string                 `json:"offsiteObserverReferenceId"`
+	OffsiteLockAdminReferenceID      *string                 `json:"offsiteLockAdminReferenceId"`
+	OffsiteLockAdminFingerprint      *string                 `json:"offsiteLockAdminFingerprint"`
+	OffsiteRetentionReferenceID      *string                 `json:"offsiteRetentionReferenceId"`
+	OffsiteRetentionFingerprint      *string                 `json:"offsiteRetentionFingerprint"`
 	OffsiteParentFingerprint         *string                 `json:"offsiteParentFingerprint"`
 	OffsiteRuleDigest                *string                 `json:"offsiteRuleDigest"`
 	OffsiteG008EvidenceDigest        *string                 `json:"offsiteG008EvidenceDigest"`
@@ -2451,6 +2574,8 @@ var Commands = []Command{
 	{Path: []string{"audit"}, Summary: "Inspect sanitized audit history.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned", DataSchema: "vegastack-labs.dev/audit-checkpoint-list-data"},
 	{Path: []string{"audit", "checkpoints"}, Summary: "List sanitized audit checkpoints.", Availability: "available", OwnerPhase: "5", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/audit-checkpoint-list-data", Examples: []Example{{Summary: "List sanitized audit checkpoints.", Arguments: []string{"audit", "checkpoints", "--config", "fixture/server-profile.json", "--output", "json"}}}},
 	{Path: []string{"audit", "verify"}, Summary: "Verify local audit history against independent checkpoint state.", Availability: "available", OwnerPhase: "5", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/audit-verification-data", Examples: []Example{{Summary: "Verify local audit history against independent checkpoint state.", Arguments: []string{"audit", "verify", "--config", "fixture/server-profile.json", "--output", "json"}}}},
+	{Path: []string{"backup", "offsite-retirement", "dry-run"}, Summary: "Derive one exact off-site retirement intent from the qualified complete bucket catalog without staging it.", Availability: "available", OwnerPhase: "5", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected local server profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one exact typed backup-offsite-retirement-dry-run-request JSON file (64 KiB max).", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/backup-offsite-retirement-dry-run-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/backup-offsite-retirement-dry-run-data", Examples: []Example{{Summary: "Derive one exact off-site retirement intent from the qualified complete bucket catalog without staging it.", Arguments: []string{"backup", "offsite-retirement", "dry-run", "--config", "fixture/server-profile.json", "--file", "fixture/backup-offsite-retirement-dry-run-request.json", "--output", "json"}}}},
+	{Path: []string{"backup", "offsite-retirement", "stage"}, Summary: "Derive and stage one exact inert off-site retirement from a qualified complete bucket catalog.", Availability: "available", OwnerPhase: "5", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected local server profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one exact typed backup-offsite-retirement-stage-request JSON file (64 KiB max).", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/backup-offsite-retirement-stage-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/backup-offsite-retirement-stage-submission", Examples: []Example{{Summary: "Derive and stage one exact inert off-site retirement from a qualified complete bucket catalog.", Arguments: []string{"backup", "offsite-retirement", "stage", "--config", "fixture/server-profile.json", "--file", "fixture/backup-offsite-retirement-stage-request.json", "--output", "json"}}}},
 	{Path: []string{"backup", "policy", "draft"}, Summary: "Validate and store an inert canonical backup-policy draft; application still needs an exact human-approved plan.", Availability: "available", OwnerPhase: "5", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one exact typed backup-policy-draft-request JSON file (64 KiB max).", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/backup-policy-draft-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/backup-policy-draft-submission", Examples: []Example{{Summary: "Validate and store an inert canonical backup-policy draft; application still needs an exact human-approved plan.", Arguments: []string{"backup", "policy", "draft", "--config", "fixture/server-profile.json", "--file", "fixture/backup-policy-draft-request.json", "--output", "json"}}}},
 	{Path: []string{"backup", "retention-locks", "draft"}, Summary: "Store one complete inert local retention-lock catalog and its exact human-plan declaration.", Availability: "available", OwnerPhase: "5", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one exact typed backup-retention-lock-draft-request JSON file (64 KiB max).", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/backup-retention-lock-draft-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/backup-retention-lock-draft-submission", Examples: []Example{{Summary: "Store one complete inert local retention-lock catalog and its exact human-plan declaration.", Arguments: []string{"backup", "retention-locks", "draft", "--config", "fixture/server-profile.json", "--file", "fixture/backup-retention-lock-draft-request.json", "--output", "json"}}}},
 	{Path: []string{"backup", "retirement", "draft"}, Summary: "Derive and store one exact inert local retirement selection with its credential binding.", Availability: "available", OwnerPhase: "5", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected local server profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one exact typed backup-retirement-draft-request JSON file (64 KiB max).", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/backup-retirement-draft-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/backup-retirement-draft-submission", Examples: []Example{{Summary: "Derive and store one exact inert local retirement selection with its credential binding.", Arguments: []string{"backup", "retirement", "draft", "--config", "fixture/server-profile.json", "--file", "fixture/backup-retirement-draft-request.json", "--output", "json"}}}},
@@ -2521,6 +2646,8 @@ var Endpoints = []Endpoint{
 	{ID: "api.v1.audit-checkpoints.create", Method: "POST", Path: "/api/v1/audit-checkpoints", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/audit-checkpoint-request", DataSchema: "vegastack-labs.dev/audit-checkpoint", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.audit-checkpoints.list", Method: "GET", Path: "/api/v1/audit-checkpoints", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/audit-checkpoint-list-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.audit-history.verification", Method: "GET", Path: "/api/v1/audit-history/verification", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/audit-verification-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.backup-offsite-retirements.dry-run", Method: "POST", Path: "/api/v1/backups/offsite-retirements/dry-run", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/backup-offsite-retirement-dry-run-request", DataSchema: "vegastack-labs.dev/backup-offsite-retirement-dry-run-data", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.backup-offsite-retirements.stage", Method: "POST", Path: "/api/v1/backups/offsite-retirements/stage", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/backup-offsite-retirement-stage-request", DataSchema: "vegastack-labs.dev/backup-offsite-retirement-stage-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.backup-policy-drafts.create", Method: "POST", Path: "/api/v1/backups/policies/drafts", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/backup-policy-draft-request", DataSchema: "vegastack-labs.dev/backup-policy-draft-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.backup-retention-lock-drafts.create", Method: "POST", Path: "/api/v1/backups/retention-locks/drafts", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/backup-retention-lock-draft-request", DataSchema: "vegastack-labs.dev/backup-retention-lock-draft-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.backup-retirement-drafts.create", Method: "POST", Path: "/api/v1/backups/retirements/drafts", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/backup-retirement-draft-request", DataSchema: "vegastack-labs.dev/backup-retirement-draft-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},

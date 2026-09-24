@@ -12,13 +12,13 @@ async function loadManifest() {
   return JSON.parse(await readFile(path.join(ROOT, "tooling/phase-2-evidence.json"), "utf8"));
 }
 
-test("the original Phase 2 baseline stays immutable while Phase 5 waves through #108 have exact reviewed closures", async () => {
+test("the original Phase 2 baseline stays immutable while Phase 5 waves through #118 have exact reviewed closures", async () => {
   const manifest = await loadManifest();
   const facts = await collectIntegratedFacts(ROOT);
   assert.equal(manifest.contract.postPhase2MutationBoundaryDigest, "sha256:e530e3139c9f06995389c39c28dc2c9758f96030c073c40e1b5000d44d32994c");
   assert.equal(manifest.contract.productionDependencyDigest, "sha256:a9e8788558fa5c3347b5b8464d8d5e4a67dcc9357e5ae07478b606a806f78133");
   assert.equal(manifest.contract.mutationAvailable, false);
-  assert.equal(manifest.contract.reviewedWaves?.length, 25);
+  assert.equal(manifest.contract.reviewedWaves?.length, 26);
   assert.equal(manifest.contract.reviewedWaves[0].id, "phase5-issue104-v1");
   assert.deepEqual(manifest.contract.reviewedWaves[0].commands, ["gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft"]);
   assert.deepEqual(manifest.contract.reviewedWaves[0].imports, ["github.com/vegastack/vegastack-labs/internal/gate"]);
@@ -133,7 +133,12 @@ test("the original Phase 2 baseline stays immutable while Phase 5 waves through 
   assert.deepEqual(manifest.contract.reviewedWaves[24].commands, ["restore plan", "restore run", "restore verify"]);
   assert.deepEqual(manifest.contract.reviewedWaves[24].imports, ["github.com/vegastack/vegastack-labs/internal/adapter/recoverydenial"]);
   assert.equal(manifest.contract.reviewedWaves[24].mutationBoundaryDigest, "sha256:d6aeb5bc5a09d0f5ca3d23f574d72542a9e99aa7613668f611bf01deeb9c5312");
-  assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.reviewedWaves[24].mutationBoundaryDigest);
+  assert.equal(manifest.contract.reviewedWaves[25].id, "phase5-issue118-v1");
+  assert.equal(manifest.contract.reviewedWaves[25].issue, 118);
+  assert.deepEqual(manifest.contract.reviewedWaves[25].commands, ["backup offsite-retirement dry-run", "backup offsite-retirement stage"]);
+  assert.deepEqual(manifest.contract.reviewedWaves[25].imports, ["github.com/vegastack/vegastack-labs/internal/adapter/r2retention"]);
+  assert.equal(manifest.contract.reviewedWaves[25].mutationBoundaryDigest, "sha256:85e6ba71118938c37b8e2ce90b4d2b8ca17941b8a39d1ad8234008bdb681b64a");
+  assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.reviewedWaves[25].mutationBoundaryDigest);
   assert.equal(validateEvidence(manifest, facts).status, "pass");
 });
 
@@ -187,7 +192,7 @@ test("the #124 wave rejects import activation outside the local inert boundary",
     ["unrelated credential read", (m, f) => { f.credentialEndpointIds.push("api.v1.credential-references.get"); }, "PHASE2_MUTATION_AVAILABLE"],
     ["remote transport", (m, f) => { f.credentialImportRemoteAllowed = true; }, "PHASE2_PRODUCTION_BYPASS"],
     ["production resolver", (m, f) => { f.credentialProductionResolverEnabled = true; }, "PHASE2_PRODUCTION_BYPASS"],
-    ["live gate", (m, f) => { f.credentialLiveGateEnabled = true; }, "PHASE2_PRODUCTION_BYPASS"],
+    ["missing reviewed live gate", (m, f) => { f.credentialLiveGateEnabled = false; }, "PHASE2_PRODUCTION_BYPASS"],
     ["draft as authority", (m, f) => { f.credentialImportTouchesCurrentAuthority = true; }, "PHASE2_PRODUCTION_BYPASS"],
     ["foundation migration drift", (m, f) => { f.migrations.find(({ file }) => file === "0012_credential_refs.sql").sha256 = `sha256:${"0".repeat(64)}`; }, "PHASE2_MUTATION_AVAILABLE"],
     ["import migration drift", (m, f) => { f.migrations.find(({ file }) => file === "0013_credential_import_drafts.sql").sha256 = `sha256:${"0".repeat(64)}`; }, "PHASE2_MUTATION_AVAILABLE"],
