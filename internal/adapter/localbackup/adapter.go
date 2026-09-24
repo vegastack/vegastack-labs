@@ -67,6 +67,89 @@ type Adapter struct {
 	config Config
 }
 
+type recoveryCanaryPlanSource struct {
+	base                              PlanSource
+	planID, planDigest, stepID        string
+	policyDigest                      string
+	priorRecoveryEpoch, recoveryEpoch int64
+}
+
+func (source recoveryCanaryPlanSource) GetPlan(ctx context.Context, planID string) (store.PlanCommitResult, error) {
+	commit, err := source.base.GetPlan(ctx, planID)
+	if err != nil || planID != source.planID || commit.Plan.PlanDigest != source.planDigest || commit.Plan.Binding.RecoveryEpoch != source.priorRecoveryEpoch || len(commit.Plan.Operations) != 2 || commit.Plan.Operations[1].Sequence != 2 || commit.Plan.Operations[1].OperationID != source.stepID || commit.Plan.Operations[1].OperationType != "recovery.canary.noop" || commit.Plan.Operations[1].AdapterID != "core.recovery" || !commit.Plan.Operations[1].Idempotent {
+		return store.PlanCommitResult{}, backupError(generated.ErrorCodePlanStale, "recovery-canary-backup-plan")
+	}
+	// The source point's immutable manifest determines this policy digest and
+	// the store carries that exact policy into the new epoch. This private
+	// projection lets the ordinary adapter reuse its policy lookup without
+	// accepting a caller-authored extension or changing the acknowledged plan.
+	commit.Plan.Extensions = append(append([]generated.ContractExtension(nil), commit.Plan.Extensions...), generated.ContractExtension{Name: "x-backup-policy", ValueDigest: source.policyDigest})
+	commit.Plan.Binding.RecoveryEpoch = source.recoveryEpoch
+	return commit, nil
+}
+
+// RecoveryCanaryBackupRequest binds the ordinary local create+verify adapter to
+// the exact acknowledged subordinate recovery operation.
+type RecoveryCanaryBackupRequest struct {
+	PlanID, PlanDigest, RunID, StepID, LeaseID       string
+	StateRevision, PriorRecoveryEpoch, RecoveryEpoch int64
+	MaximumExpiresAt                                 time.Time
+}
+
+// CreateAndVerifyRecoveryCanaryBackup executes the real local backup and full
+// verification paths. The policy was derived from the selected source point by
+// the server-owned store boundary; this method never accepts policy bytes.
+func (adapterImpl *Adapter) CreateAndVerifyRecoveryCanaryBackup(ctx context.Context, request RecoveryCanaryBackupRequest, policyDigest string, password *credentialref.Value) (string, string, error) {
+	if adapterImpl == nil || adapterImpl.config.Plans == nil || adapterImpl.config.Backups == nil || password == nil || request.PlanID == "" || request.PlanDigest == "" || request.RunID == "" || request.StepID == "" || request.LeaseID == "" || request.StateRevision < 0 || request.PriorRecoveryEpoch < 0 || request.RecoveryEpoch != request.PriorRecoveryEpoch+1 || !restorePolicyDigest(policyDigest) || request.MaximumExpiresAt.IsZero() || !adapterImpl.config.Clock().UTC().Before(request.MaximumExpiresAt.UTC()) {
+		return "", "", backupError(generated.ErrorCodePrerequisiteBlocked, "recovery-canary-backup")
+	}
+	draft, err := adapterImpl.config.Backups.GetBackupPolicyDraftByDigest(ctx, policyDigest, request.RecoveryEpoch)
+	var policy generated.BackupPolicy
+	if err != nil || json.Unmarshal(draft.CanonicalJSON, &policy) != nil || policy.RepositoryClass != "standard" && policy.RepositoryClass != "critical" || policy.EncryptionKeyReferenceID == nil {
+		return "", "", backupError(generated.ErrorCodePrerequisiteBlocked, "recovery-canary-backup-policy")
+	}
+	projected := *adapterImpl
+	projected.config.Plans = recoveryCanaryPlanSource{base: adapterImpl.config.Plans, planID: request.PlanID, planDigest: request.PlanDigest, stepID: request.StepID, policyDigest: policyDigest, priorRecoveryEpoch: request.PriorRecoveryEpoch, recoveryEpoch: request.RecoveryEpoch}
+	binding := adapter.ExactExecutionBinding{PlanID: request.PlanID, PlanDigest: request.PlanDigest, RunID: request.RunID, StepID: request.StepID, LeaseID: request.LeaseID, StateRevision: request.StateRevision, RecoveryEpoch: request.RecoveryEpoch, MaximumExpiresAt: request.MaximumExpiresAt.UTC().Format(time.RFC3339)}
+	secret := []adapter.SecretReference{{ID: *policy.EncryptionKeyReferenceID, Consumer: AdapterID}}
+	create := adapter.Operation{OperationID: request.StepID, OperationType: OperationType, AdapterID: AdapterID, ExecutorID: "executor-central", TargetID: policy.RestoreTargetID, InputDigest: policyDigest, ArtifactDigest: policyDigest, SecretReferences: secret}
+	effect, err := projected.ExecuteBoundWithCredentials(ctx, create, binding, []*credentialref.Value{password})
+	if err != nil || effect.PendingPointID == nil || *effect.PendingPointID == "" {
+		return "", "", firstBackupError(err, backupError(generated.ErrorCodeRecoveryRequired, "recovery-canary-backup-create"))
+	}
+	if verified, verifyErr := projected.Verify(ctx, create, effect); verifyErr != nil || !verified.Verified {
+		return "", "", firstBackupError(verifyErr, backupError(generated.ErrorCodeIntegrityFailure, "recovery-canary-backup-create"))
+	}
+	point, err := projected.config.Backups.GetPendingRecoveryPoint(ctx, *effect.PendingPointID)
+	if err != nil {
+		return "", "", err
+	}
+	verify := adapter.Operation{OperationID: request.StepID, OperationType: VerifyOperationType, AdapterID: AdapterID, ExecutorID: "executor-central", TargetID: point.PointID, InputDigest: point.ManifestDigest, ArtifactDigest: point.InventoryDigest, SecretReferences: secret}
+	proof, err := projected.ExecuteBoundWithCredentials(ctx, verify, binding, []*credentialref.Value{password})
+	if err != nil || proof.PendingPointID == nil || *proof.PendingPointID != point.PointID {
+		return "", "", firstBackupError(err, backupError(generated.ErrorCodeRecoveryRequired, "recovery-canary-backup-verify"))
+	}
+	if verified, verifyErr := projected.Verify(ctx, verify, proof); verifyErr != nil || !verified.Verified {
+		return "", "", firstBackupError(verifyErr, backupError(generated.ErrorCodeIntegrityFailure, "recovery-canary-backup-verify"))
+	}
+	return point.PointID, policy.RepositoryClass, nil
+}
+
+func restorePolicyDigest(value string) bool {
+	if len(value) != 71 || value[:7] != "sha256:" {
+		return false
+	}
+	_, err := hex.DecodeString(value[7:])
+	return err == nil
+}
+
+func firstBackupError(value, fallback error) error {
+	if value != nil {
+		return value
+	}
+	return fallback
+}
+
 // New builds the adapter only when the protected local-backup profile is present
 // and complete. A partial or absent profile fails closed.
 func New(config Config) (*Adapter, error) {

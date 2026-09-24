@@ -55,7 +55,7 @@ func main() {
 		SourceRevision: revision,
 	}
 	recoveryCanaryCapabilities := server.NewSystemRecoveryCanaryCapabilities()
-	recoveryCanaryPorts, err := server.NewQualifiedRecoveryCanaryPortFactory(recoveryCanaryCapabilities, recoveryCanaryCapabilities)
+	recoveryCanaryPorts, err := server.NewQualifiedRecoveryCanaryPortFactory(recoveryCanaryCapabilities)
 	if err != nil {
 		os.Exit(1)
 	}

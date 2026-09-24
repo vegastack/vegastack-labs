@@ -44,6 +44,16 @@ type Config struct {
 
 type Adapter struct{}
 
+type RecoveryCanaryBackupRequest struct {
+	PlanID, PlanDigest, RunID, StepID, LeaseID       string
+	StateRevision, PriorRecoveryEpoch, RecoveryEpoch int64
+	MaximumExpiresAt                                 time.Time
+}
+
+func (*Adapter) CreateAndVerifyRecoveryCanaryBackup(context.Context, RecoveryCanaryBackupRequest, string, *credentialref.Value) (string, string, error) {
+	return "", "", failure.New(generated.ErrorCodePrerequisiteBlocked, "recovery-canary-backup", false)
+}
+
 func New(Config) (*Adapter, error) {
 	return nil, failure.New(generated.ErrorCodeUnsupportedPlatform, "local-backup", false)
 }

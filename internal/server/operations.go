@@ -235,6 +235,7 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 	var restoreSnapshotSource store.OnlineSnapshotSource
 	var restoreInspector store.RestoredSQLiteInspector
 	var restoreTrust localbackup.DependencyTrustVerifier
+	var recoveryBackupAdapter *localbackup.Adapter
 	// The protected local backup adapter is registered only when the complete
 	// standard/critical/restic profile triplet is present. It fails closed
 	// off-Linux and its effect always runs through the exact bound credential
@@ -266,6 +267,7 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 			Clock:       time.Now,
 		})
 		if adapterErr == nil {
+			recoveryBackupAdapter = localAdapter
 			if registerErr := adapters.Register(localbackup.AdapterID, localAdapter); registerErr != nil {
 				_ = application.Shutdown(ctx)
 				return registerErr
@@ -398,6 +400,11 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
+	backupCreator := recovery.RecoveryBackupCreator(unavailableRecoveryCanaryBackup{})
+	if recoveryBackupAdapter != nil {
+		backupCreator = &localRecoveryCanaryBackup{authority: authority, restores: restoreRepository, backups: backupRepository, adapter: recoveryBackupAdapter, borrower: recoveryCredentialBorrower{references: credentialRepository, profiles: gateRepository, revisions: planRepository, resolvers: adapters}, clock: time.Now}
+	}
+	canaryBackup = recovery.CurrentEpochBackupCanary{Creator: backupCreator, Reader: backupRepository}
 	restoreCanary := recovery.CanaryVerifier{
 		Read: restoreStoreCanary, OldEpoch: restoreStoreCanary,
 		Noop: recovery.BoundCanaryNoop{Restores: restoreRepository, Core: coreRouter, Recorder: authority}, Audit: canaryAudit, Backup: canaryBackup,

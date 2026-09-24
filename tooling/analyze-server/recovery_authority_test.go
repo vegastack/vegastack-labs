@@ -14,6 +14,10 @@ func run() {
  _ = CanaryVerifier{}
  server.WithRecoveryCanaryPortFactory()
  registerProductionRecoveryCredentialResolver()
+ authority.WithRecoveryCanaryMutation()
+ authority.RecordRecoveryCanaryCheckpoint()
+ adapter.CreateAndVerifyRecoveryCanaryBackup()
+ borrower.BorrowRecoveryCanaryCredential()
  RegisterRestoreOperations()
 }
 func (operations *Operations) openAuthorityWithPromotion() {
@@ -23,7 +27,10 @@ func (operations *Operations) openAuthorityWithPromotion() {
  return operations.openStore(ctx, configFor(operations.databasePath))
 }`
 	recovery := `var productionDenialFactories = map[string]qualifiedFactory{"https-direct-denial-v1": {}}
-func (canary StoreRecoveryCanary) VerifyOldEpochDenied() { AttemptOldEpochMutation() }`
+func (canary StoreRecoveryCanary) VerifyOldEpochDenied() { AttemptOldEpochMutation() }
+func (store *Store) WithRecoveryCanaryMutation() {}
+func (store *Store) RecordRecoveryCanaryCheckpoint() {}
+func (repository *BackupRepository) PrepareRecoveryCanaryBackupPolicy() {}`
 	if invalidRecoveryAuthorityClosure(valid, recovery) {
 		t.Fatal("complete single-authority closure rejected")
 	}

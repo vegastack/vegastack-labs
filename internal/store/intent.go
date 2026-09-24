@@ -171,6 +171,11 @@ func (store *Store) readyForTransaction(ctx context.Context) error {
 	if err := store.readyForRead(ctx); err != nil {
 		return err
 	}
+	if token, ok := ctx.Value(recoveryCanaryMutationContextKey{}).(recoveryCanaryMutationToken); ok &&
+		token.store == store && store.health.RecoveryPending &&
+		token.stateRevision == store.health.Revision.StateRevision && token.recoveryEpoch == store.health.Revision.RecoveryEpoch {
+		return nil
+	}
 	if store.health.Mode != DatabaseReady || !store.health.MutationEnabled {
 		return newStoreError("PREREQUISITE_BLOCKED", "database-safe-mode", false, nil)
 	}

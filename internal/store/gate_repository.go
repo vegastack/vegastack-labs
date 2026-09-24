@@ -531,6 +531,31 @@ func (repository *GateRepository) GetAppliedProfileScope(ctx context.Context) (G
 	return scope, nil
 }
 
+// GetAppliedRecoveryProfileScope returns the exact profile from the immediately
+// preceding epoch only while this store is the promoted recovery-required
+// authority. It exists solely so the sealed restore canary can reacquire the
+// already verified backup key before normal current-epoch mutations are enabled.
+func (repository *GateRepository) GetAppliedRecoveryProfileScope(ctx context.Context) (GateAppliedProfile, error) {
+	if repository == nil || repository.store == nil {
+		return GateAppliedProfile{}, newStoreError(generated.ErrorCodeInputInvalid, "recovery-profile", false, nil)
+	}
+	var scope GateAppliedProfile
+	var raw []byte
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		return tx.queryRow(ctx, `SELECT p.profile_id,p.profile_version,p.policy_id,p.policy_version,p.capabilities_bytes,p.state_revision,p.recovery_epoch
+			FROM gate_applied_profiles p JOIN system_meta m ON m.id=1
+			WHERE m.authority_mode='recovery-required' AND m.recovery_epoch>0 AND p.recovery_epoch=m.recovery_epoch-1 AND p.state_revision<=m.state_revision
+			ORDER BY p.state_revision DESC,p.binding_id DESC LIMIT 1`).Scan(&scope.ProfileID, &scope.ProfileVersion, &scope.PolicyID, &scope.PolicyVersion, &raw, &scope.StateRevision, &scope.RecoveryEpoch)
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return GateAppliedProfile{}, newStoreError(generated.ErrorCodeResourceNotFound, "recovery-profile", false, nil)
+	}
+	if err != nil || json.Unmarshal(raw, &scope.Capabilities) != nil {
+		return GateAppliedProfile{}, newStoreError(generated.ErrorCodeIntegrityFailure, "recovery-profile", false, err)
+	}
+	return scope, nil
+}
+
 func (repository *GateRepository) ApplyProfileBinding(ctx context.Context, request ProfileApplyRequest) (GateAppliedProfile, error) {
 	if repository == nil || repository.store == nil || gateHuman(request.Attribution) == "" || request.BindingID == "" || request.Scope.ProfileID == "" || request.Scope.ProfileVersion == "" || request.Scope.PolicyID == "" || request.Scope.PolicyVersion == "" {
 		return GateAppliedProfile{}, newStoreError(generated.ErrorCodeInputInvalid, "profile-binding", false, nil)

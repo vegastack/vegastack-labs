@@ -15,6 +15,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/recovery"
+	"github.com/vegastack/vegastack-labs/internal/store"
 )
 
 const systemRecoveryCanaryConfigPath = "/etc/vsk-labs/recovery/canary-capabilities.json"
@@ -37,17 +38,18 @@ type recoveryCanaryCapabilityRequest struct {
 }
 
 type recoveryCanaryCapabilityResult struct {
-	Action            string    `json:"action"`
-	PlanID            string    `json:"planId"`
-	PlanDigest        string    `json:"planDigest"`
-	CanaryRunID       string    `json:"canaryRunId"`
-	CanaryStepID      string    `json:"canaryStepId"`
-	CanaryChallengeID string    `json:"canaryChallengeId"`
-	CanaryReceiptID   string    `json:"canaryReceiptId"`
-	ObserverID        string    `json:"observerId"`
-	OutputID          string    `json:"outputId"`
-	RepositoryClass   string    `json:"repositoryClass,omitempty"`
-	ObservedAt        time.Time `json:"observedAt"`
+	Action            string                                `json:"action"`
+	PlanID            string                                `json:"planId"`
+	PlanDigest        string                                `json:"planDigest"`
+	CanaryRunID       string                                `json:"canaryRunId"`
+	CanaryStepID      string                                `json:"canaryStepId"`
+	CanaryChallengeID string                                `json:"canaryChallengeId"`
+	CanaryReceiptID   string                                `json:"canaryReceiptId"`
+	ObserverID        string                                `json:"observerId"`
+	OutputID          string                                `json:"outputId"`
+	RepositoryClass   string                                `json:"repositoryClass,omitempty"`
+	ObservedAt        time.Time                             `json:"observedAt"`
+	Checkpoint        *store.RecoveryCanaryCheckpointRecord `json:"checkpoint,omitempty"`
 }
 
 type signedRecoveryCanaryCapabilityResult struct {
@@ -64,12 +66,12 @@ func NewSystemRecoveryCanaryCapabilities() *systemRecoveryCanaryCapabilities {
 	return &systemRecoveryCanaryCapabilities{load: readSystemRecoveryCanaryCapabilityConfig, clock: time.Now}
 }
 
-func (capability *systemRecoveryCanaryCapabilities) AppendRecoveryCheckpoint(ctx context.Context, request recovery.CanaryRequest, noopRunID string) (string, error) {
+func (capability *systemRecoveryCanaryCapabilities) ProduceRecoveryCheckpoint(ctx context.Context, request recovery.CanaryRequest, noopRunID string) (store.RecoveryCanaryCheckpointRecord, error) {
 	result, err := capability.invoke(ctx, recoveryCanaryCapabilityRequest{Action: "append-checkpoint", Canary: request, NoopRunID: noopRunID})
-	if err != nil || result.RepositoryClass != "" || noopRunID != request.CanaryRunID {
-		return "", failure.New(generated.ErrorCodePrerequisiteBlocked, "recovery-canary-audit", false)
+	if err != nil || result.RepositoryClass != "" || noopRunID != request.CanaryRunID || result.Checkpoint == nil || result.Checkpoint.Checkpoint.CheckpointID != result.OutputID {
+		return store.RecoveryCanaryCheckpointRecord{}, failure.New(generated.ErrorCodePrerequisiteBlocked, "recovery-canary-audit", false)
 	}
-	return result.OutputID, nil
+	return *result.Checkpoint, nil
 }
 
 func (capability *systemRecoveryCanaryCapabilities) CreateRecoveryBackup(ctx context.Context, request recovery.CanaryRequest) (string, string, error) {

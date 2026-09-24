@@ -13,12 +13,18 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/store"
 )
 
+const recoveryBackupCredentialCapability = "credential.backup.read"
+
 type recoveryCredentialReferences interface {
 	GetActiveVersion(context.Context, string, int64) (generated.CredentialReference, error)
 }
 
 type recoveryCredentialProfiles interface {
 	GetAppliedProfileScope(context.Context) (store.GateAppliedProfile, error)
+}
+
+type recoveryCanaryCredentialProfiles interface {
+	GetAppliedRecoveryProfileScope(context.Context) (store.GateAppliedProfile, error)
 }
 
 type recoveryCredentialRevisions interface {
@@ -76,6 +82,52 @@ func (borrower recoveryCredentialBorrower) BorrowRecoveryCredential(ctx context.
 		return blocked()
 	}
 	binding := credentialref.StepBinding{OperationID: request.StepID, AdapterID: request.ConsumerID, TargetID: reference.TargetID, ReferenceID: reference.ReferenceID, ConsumerID: reference.ConsumerID, PurposeID: reference.PurposeID, MaterialVersion: reference.MaterialVersion, ResolverID: reference.ResolverID, StateRevision: request.StateRevision, RecoveryEpoch: request.RecoveryEpoch}
+	if !credentialref.ValidBinding(binding) {
+		return blocked()
+	}
+	value, err := resolver.Resolve(ctx, binding)
+	if err != nil || value == nil || len(value.Bytes()) == 0 {
+		if value != nil {
+			value.Close()
+		}
+		return blocked()
+	}
+	return value, nil
+}
+
+// BorrowRecoveryCanaryCredential reacquires the source epoch's exact active
+// backup key only while the store is at the immediately following
+// recovery-required epoch. The resolver receives the historical reference
+// epoch, so its own protected-file binding still validates the same version.
+func (borrower recoveryCredentialBorrower) BorrowRecoveryCanaryCredential(ctx context.Context, request localbackup.RecoveryCredentialRequest, priorEpoch int64) (*credentialref.Value, error) {
+	blocked := func() (*credentialref.Value, error) {
+		return nil, failure.New(generated.ErrorCodePrerequisiteBlocked, "recovery-canary-credential", false)
+	}
+	profiles, ok := borrower.profiles.(recoveryCanaryCredentialProfiles)
+	if !ok || priorEpoch < 0 || request.RecoveryEpoch != priorEpoch+1 || borrower.references == nil || borrower.revisions == nil || borrower.resolvers == nil {
+		return blocked()
+	}
+	current, err := borrower.revisions.CurrentRevision(ctx)
+	if err != nil || current != (store.RevisionToken{StateRevision: request.StateRevision, RecoveryEpoch: request.RecoveryEpoch}) {
+		return blocked()
+	}
+	profile, err := profiles.GetAppliedRecoveryProfileScope(ctx)
+	if err != nil || profile.RecoveryEpoch != priorEpoch || !slices.Contains(profile.Capabilities, recoveryBackupCredentialCapability) {
+		return blocked()
+	}
+	reference, err := borrower.references.GetActiveVersion(ctx, request.ReferenceID, priorEpoch)
+	if err != nil || reference.ReferenceID != request.ReferenceID || reference.ConsumerID != request.ConsumerID || reference.Status != "active" || reference.ActivatedAt == nil || !slices.Contains(reference.VerifiedConsumerIDs, request.ConsumerID) {
+		return blocked()
+	}
+	capability, err := borrower.resolvers.ResolveCredentialCapability(reference.ResolverID, request.ConsumerID, profile.ProfileID)
+	if err != nil || capability != recoveryBackupCredentialCapability {
+		return blocked()
+	}
+	resolver, err := borrower.resolvers.ResolveCredentialResolver(reference.ResolverID, request.ConsumerID, profile.ProfileID)
+	if err != nil || resolver == nil {
+		return blocked()
+	}
+	binding := credentialref.StepBinding{OperationID: request.StepID, AdapterID: request.ConsumerID, TargetID: reference.TargetID, ReferenceID: reference.ReferenceID, ConsumerID: reference.ConsumerID, PurposeID: reference.PurposeID, MaterialVersion: reference.MaterialVersion, ResolverID: reference.ResolverID, StateRevision: request.StateRevision, RecoveryEpoch: priorEpoch}
 	if !credentialref.ValidBinding(binding) {
 		return blocked()
 	}

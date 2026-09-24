@@ -17,6 +17,13 @@ type RecoveryCheckpointAppender interface {
 	AppendRecoveryCheckpoint(context.Context, CanaryRequest, string) (string, error)
 }
 
+// RecoveryCheckpointCapability is the independently held signer/exporter/read
+// capability. The server persists its authenticated result into authoritative
+// SQLite through the narrow recovery-canary mutation boundary.
+type RecoveryCheckpointCapability interface {
+	ProduceRecoveryCheckpoint(context.Context, CanaryRequest, string) (store.RecoveryCanaryCheckpointRecord, error)
+}
+
 type AuditCheckpointReader interface {
 	GetAuditCheckpoint(context.Context, string) (generated.AuditCheckpoint, error)
 	RecoveryCanaryNoopEvent(context.Context, string, string) (int64, time.Time, error)

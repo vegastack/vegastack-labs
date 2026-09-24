@@ -97,7 +97,7 @@ func analyze(root string) (analysis, error) {
 		if relative == "cmd/vsk-labs/main.go" {
 			serverSource.Write(content)
 		}
-		if relative == "internal/recovery/qualification.go" || relative == "internal/recovery/store_canary.go" {
+		if relative == "internal/recovery/qualification.go" || relative == "internal/recovery/store_canary.go" || relative == "internal/store/recovery_canary_mutation.go" {
 			recoveryAuthoritySource.Write(content)
 		}
 		if relative == "internal/adapter/localbackup/adapter.go" || relative == "internal/adapter/localbackup/verify.go" {
@@ -231,8 +231,13 @@ func invalidRecoveryAuthorityClosure(source, recoverySource string) bool {
 			return true
 		}
 	}
-	for _, required := range []string{"server.WithRecoveryCanaryPortFactory(", "registerProductionRecoveryCredentialResolver"} {
+	for _, required := range []string{"server.WithRecoveryCanaryPortFactory(", "registerProductionRecoveryCredentialResolver", "WithRecoveryCanaryMutation", "RecordRecoveryCanaryCheckpoint", "CreateAndVerifyRecoveryCanaryBackup", "BorrowRecoveryCanaryCredential"} {
 		if !strings.Contains(source, required) {
+			return true
+		}
+	}
+	for _, required := range []string{"func (store *Store) WithRecoveryCanaryMutation", "func (store *Store) RecordRecoveryCanaryCheckpoint", "PrepareRecoveryCanaryBackupPolicy"} {
+		if !strings.Contains(recoverySource, required) {
 			return true
 		}
 	}

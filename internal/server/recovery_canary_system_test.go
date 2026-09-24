@@ -11,7 +11,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/recovery"
+	"github.com/vegastack/vegastack-labs/internal/store"
 )
 
 func TestSystemRecoveryCanaryCapabilitiesBindExactFreshOutputs(t *testing.T) {
@@ -26,7 +28,7 @@ func TestSystemRecoveryCanaryCapabilitiesBindExactFreshOutputs(t *testing.T) {
 			http.Error(writer, "bad request", http.StatusBadRequest)
 			return
 		}
-		result := recoveryCanaryCapabilityResult{Action: input.Action, PlanID: input.Canary.PlanID, PlanDigest: input.Canary.PlanDigest, CanaryRunID: input.Canary.CanaryRunID, CanaryStepID: input.Canary.CanaryStepID, CanaryChallengeID: input.Canary.CanaryChallengeID, CanaryReceiptID: input.Canary.CanaryReceiptID, ObserverID: "independent-recovery-operator", OutputID: "checkpoint-new", ObservedAt: now}
+		result := recoveryCanaryCapabilityResult{Action: input.Action, PlanID: input.Canary.PlanID, PlanDigest: input.Canary.PlanDigest, CanaryRunID: input.Canary.CanaryRunID, CanaryStepID: input.Canary.CanaryStepID, CanaryChallengeID: input.Canary.CanaryChallengeID, CanaryReceiptID: input.Canary.CanaryReceiptID, ObserverID: "independent-recovery-operator", OutputID: "checkpoint-new", ObservedAt: now, Checkpoint: &store.RecoveryCanaryCheckpointRecord{Checkpoint: generated.AuditCheckpoint{CheckpointID: "checkpoint-new"}}}
 		if input.Action == "create-backup" {
 			result.OutputID, result.RepositoryClass = "point-new", "critical"
 		}
@@ -41,15 +43,12 @@ func TestSystemRecoveryCanaryCapabilitiesBindExactFreshOutputs(t *testing.T) {
 	config := recoveryCanaryCapabilityConfig{Schema: "vegastack-labs.dev/recovery-canary-capabilities", SchemaVersion: "1.0.0", Endpoint: server.URL + "/v1/canary", ObserverID: "independent-recovery-operator", ObserverPublicKey: public, RootCAPEM: root, ClientCertificate: server.TLS.Certificates[0]}
 	capability := &systemRecoveryCanaryCapabilities{load: func() (recoveryCanaryCapabilityConfig, error) { return config, nil }, clock: func() time.Time { return now }}
 	request := recovery.CanaryRequest{PlanID: "plan-a", PlanDigest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", NewInstanceID: "instance-new", FenceSetDigest: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", CanaryRunID: "canary-run-a", CanaryStepID: "canary-step-a", CanaryLeaseID: "canary-lease-a", CanaryChallengeID: "canary-challenge-a", CanaryReceiptID: "canary-receipt-a", RecoveryEpoch: 3, ExpectedStateRevision: 8, StartedAt: now.Add(-time.Second)}
-	if id, err := capability.AppendRecoveryCheckpoint(t.Context(), request, request.CanaryRunID); err != nil || id != "checkpoint-new" {
-		t.Fatalf("checkpoint = %q, %v", id, err)
-	}
-	if id, class, err := capability.CreateRecoveryBackup(t.Context(), request); err != nil || id != "point-new" || class != "critical" {
-		t.Fatalf("backup = %q %q, %v", id, class, err)
+	if record, err := capability.ProduceRecoveryCheckpoint(t.Context(), request, request.CanaryRunID); err != nil || record.Checkpoint.CheckpointID != "checkpoint-new" {
+		t.Fatalf("checkpoint = %#v, %v", record, err)
 	}
 	config.ObserverPublicKey = append(ed25519.PublicKey(nil), public...)
 	config.ObserverPublicKey[0] ^= 0xff
-	if _, err := capability.AppendRecoveryCheckpoint(t.Context(), request, request.CanaryRunID); err == nil {
+	if _, err := capability.ProduceRecoveryCheckpoint(t.Context(), request, request.CanaryRunID); err == nil {
 		t.Fatal("wrong observer key accepted")
 	}
 }

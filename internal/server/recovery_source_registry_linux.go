@@ -19,8 +19,6 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/store"
 )
 
-const recoveryBackupCredentialCapability = "credential.backup.read"
-
 type loadedRecoveryCredentialResolver struct {
 	ownerUID uint32
 	repo     recoveryCredentialReferences
@@ -72,6 +70,9 @@ func registerProductionRecoveryCredentialResolver(ctx context.Context, registry 
 		return failure.New(generated.ErrorCodePrerequisiteBlocked, "restore-local-credential", false)
 	}
 	profile, err := profiles.GetAppliedProfileScope(ctx)
+	if err != nil {
+		profile, err = profiles.GetAppliedRecoveryProfileScope(ctx)
+	}
 	if err != nil || !slices.Contains(profile.Capabilities, recoveryBackupCredentialCapability) {
 		return nil
 	}

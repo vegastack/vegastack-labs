@@ -260,4 +260,14 @@ func TestExactAppliedProfileAndEvidenceAppendWithoutStatusEdits(t *testing.T) {
 	if err != nil || len(current) != 0 {
 		t.Fatalf("revoked evidence remained current: rows=%#v err=%v", current, err)
 	}
+	if _, err := repository.store.conn.ExecContext(context.Background(), `UPDATE system_meta SET recovery_epoch=1,authority_mode='recovery-required' WHERE id=1`); err != nil {
+		t.Fatal(err)
+	}
+	recoveryProfile, err := repository.GetAppliedRecoveryProfileScope(context.Background())
+	if err != nil || recoveryProfile.ProfileID != appliedScope.ProfileID || recoveryProfile.RecoveryEpoch != 0 {
+		t.Fatalf("prior recovery profile=%#v err=%v", recoveryProfile, err)
+	}
+	if _, err := repository.GetAppliedProfileScope(context.Background()); Code(err) != generated.ErrorCodeResourceNotFound {
+		t.Fatalf("prior profile leaked through current lookup: %v", err)
+	}
 }
