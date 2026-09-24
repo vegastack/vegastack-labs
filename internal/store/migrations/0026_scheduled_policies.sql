@@ -44,6 +44,14 @@ CREATE TABLE scheduled_occurrence_attempts (
 CREATE TRIGGER scheduled_occurrence_attempts_no_update BEFORE UPDATE ON scheduled_occurrence_attempts BEGIN SELECT RAISE(ABORT,'scheduled attempts are append-only'); END;
 CREATE TRIGGER scheduled_occurrence_attempts_no_delete BEFORE DELETE ON scheduled_occurrence_attempts BEGIN SELECT RAISE(ABORT,'scheduled attempts are append-only'); END;
 
+CREATE TABLE scheduled_credential_bindings (
+ plan_id TEXT NOT NULL, operation_id TEXT NOT NULL, manifest_digest TEXT NOT NULL,
+ binding_digest TEXT NOT NULL, binding_bytes BLOB NOT NULL, recovery_epoch INTEGER NOT NULL CHECK(recovery_epoch>=0), created_at TEXT NOT NULL,
+ PRIMARY KEY(plan_id,operation_id,binding_digest)
+) STRICT;
+CREATE TRIGGER scheduled_credential_bindings_no_update BEFORE UPDATE ON scheduled_credential_bindings BEGIN SELECT RAISE(ABORT,'scheduled credential bindings are immutable'); END;
+CREATE TRIGGER scheduled_credential_bindings_no_delete BEFORE DELETE ON scheduled_credential_bindings BEGIN SELECT RAISE(ABORT,'scheduled credential bindings are durable'); END;
+
 CREATE TABLE scheduled_occurrence_leases (
  job_id TEXT PRIMARY KEY REFERENCES scheduled_occurrences(job_id), lease_id TEXT NOT NULL UNIQUE, holder_id TEXT NOT NULL,
  acquired_at TEXT NOT NULL, expires_at TEXT NOT NULL

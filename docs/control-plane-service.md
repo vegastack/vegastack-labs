@@ -33,6 +33,8 @@ SQLite is authoritative for private operational intent, but not for secret value
 
 SQLite is also authoritative for fixed scheduled policies and their durable occurrence journal. Immutable policy drafts become active only through the exact human-approved activation effect. Canonical occurrence identity is `(policy ID, policy revision, scheduled time)`; transition and attempt records are append-only, while a bounded expiring lease prevents overlap. `vsk-labs server run` derives each occurrence and creates its fresh plan. Systemd only wakes the protected local endpoint and owns no policy or execution state.
 
+Each scheduled plan is admitted again immediately before run creation and immediately before its effect. Those checks re-read the active policy, occurrence, attempt, live lease, state revision, recovery epoch, exact action/adapter/target/work bound, action-specific digests, credentials, expiry and current recovery prerequisites. Scheduled credential bindings are immutable rows keyed to the exact committed plan and operation; they cannot be reused by an ordinary plan or change the adapter's semantic input digest.
+
 No routine control-plane operation depends on an SCM/CI/release host. In the VegaStack Labs deployment profile, a GitHub outage may block source fetches, Actions jobs or new releases, but not inventory reads, node recovery, local plans, backups or LAN/console operations.
 
 ### SQLite, D1 and R2 decision

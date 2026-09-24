@@ -366,7 +366,12 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	coreRouter := runengine.CoreRouter{Gate: coreGate, Recovery: recoveryCore, Schedule: scheduleCore}
+	scheduleObserver, err := runengine.NewScheduleObservationEffect(scheduleObservationReader{policies: store.NewScheduleRepository(authority), gates: gateRepository, declarations: declarationRepository, observations: observations, clock: time.Now})
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	coreRouter := runengine.CoreRouter{Gate: coreGate, Recovery: recoveryCore, Schedule: scheduleCore, ScheduleObserve: scheduleObserver}
 	credentialRepository := store.NewCredentialRepository(authority)
 	if err := registerProductionRecoveryCredentialResolver(ctx, adapters, credentialRepository, gateRepository, profile.SocketOwnerUID); err != nil {
 		_ = application.Shutdown(ctx)
@@ -386,7 +391,10 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 			secretGate = composed
 		}
 	}
-	credentialStep := &runengine.CredentialStep{Bindings: credentialRepository, Resolvers: adapters, Profiles: gateRepository, Plans: plans, Clock: time.Now}
+	scheduleRepository := store.NewScheduleRepository(authority)
+	prerequisiteReader := schedulePrerequisiteReader{authority: authority, policies: scheduleRepository, gates: gateRepository, backups: backupRepository, clock: time.Now, backupReady: recoveryBackupAdapter != nil, auditReady: false}
+	scheduledAdmission := scheduleAdmission{repository: scheduleRepository, prerequisites: prerequisiteReader}
+	credentialStep := &runengine.CredentialStep{Bindings: credentialRepository, Resolvers: adapters, Profiles: gateRepository, Plans: plans, ScheduledPlans: scheduledAdmission, Clock: time.Now}
 	credentialCore, err := runengine.NewCoreCredentialEffect(credentialRepository, store.NewAcknowledgementRepository(authority), runengine.UnavailableGateVerifier{}, composeNativeCredentialLifecycleVerifier(ctx, operations.databasePath, profile.SocketOwnerUID), runengine.UnavailableCredentialRecoveryVerifier{}, time.Now)
 	if err != nil {
 		_ = application.Shutdown(ctx)
@@ -397,8 +405,7 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	scheduleRepository := store.NewScheduleRepository(authority)
-	runs, err := runengine.NewEngine(runengine.Config{Repository: runRepository, Plans: plans, Admission: admission, Adapters: adapters, Core: coreRouter, CredentialCore: credentialCore, RetentionCore: retentionCore, SecretGate: secretGate, CredentialStep: credentialStep, Clock: time.Now, ExecutionContext: ctx, Scheduled: scheduleRepository})
+	runs, err := runengine.NewEngine(runengine.Config{Repository: runRepository, Plans: plans, Admission: admission, Adapters: adapters, Core: coreRouter, CredentialCore: credentialCore, RetentionCore: retentionCore, SecretGate: secretGate, CredentialStep: credentialStep, Clock: time.Now, ExecutionContext: ctx, Scheduled: scheduledAdmission})
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err
@@ -412,7 +419,7 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	scheduledPlans, err := planengine.NewScheduledService(planRepository, time.Now, operations.build.ToolVersion, "1.0.0", "executor-central")
+	scheduledPlans, err := planengine.NewScheduledService(planRepository, time.Now, operations.build.ToolVersion, "1.0.0", "executor-central", scheduledActionResolver{backups: backupRepository, audit: authority, credentials: credentialRepository, policies: scheduleRepository})
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err
@@ -422,7 +429,7 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 	if profile.ScheduledRunner != nil {
 		runnerPrincipalID = profile.ScheduledRunner.PrincipalID
 	}
-	scheduledRunner, err := schedule.NewRunner(scheduleRepository, scheduledPlans, application, scheduledEngineSubmitter{engine: runs}, authorityReader, authorityReader, time.Now, runnerPrincipalID)
+	scheduledRunner, err := schedule.NewRunner(scheduleRepository, scheduledPlans, application, scheduledEngineSubmitter{engine: runs}, authorityReader, prerequisiteReader, time.Now, runnerPrincipalID)
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err

@@ -12,12 +12,14 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/stateexport"
 )
 
-var actionOperations = map[string]map[string]bool{
-	"gate-check":              {"health.check": true},
-	"observation-refresh":     {"drift.scan": true},
-	"backup-create":           {"backup.local.create": true},
-	"backup-integrity-verify": {"backup.local.verify": true},
-	"audit-checkpoint-export": {"audit.checkpoint.anchor": true},
+type actionContract struct{ OperationType, AdapterID string }
+
+var actionOperations = map[string]actionContract{
+	"gate-check":              {"schedule.gate.check", "core.schedule-observe"},
+	"observation-refresh":     {"schedule.observation.refresh", "core.schedule-observe"},
+	"backup-create":           {"backup.local.create", "local.backup"},
+	"backup-integrity-verify": {"backup.local.verify", "local.backup"},
+	"audit-checkpoint-export": {"audit.checkpoint.anchor", "core.audit"},
 }
 
 // CanonicalPolicy validates and canonicalizes an exact fixed schedule. It
@@ -39,7 +41,7 @@ func CanonicalPolicy(policy generated.ScheduledJobPolicy) ([]byte, string, error
 		return nil, "", errors.New("invalid scheduled policy lifetime")
 	}
 	allowed, ok := actionOperations[policy.ActionKind]
-	if !ok || !allowed[policy.OperationType] || !authorization.IsPreauthorizedOperation(policy.OperationType) {
+	if !ok || allowed.OperationType != policy.OperationType || allowed.AdapterID != policy.AdapterID || !authorization.IsPreauthorizedOperation(policy.OperationType) {
 		return nil, "", errors.New("scheduled action is not preauthorized")
 	}
 	for _, ids := range [][]string{policy.ExactSourceIDs, policy.ExactSubjectIDs, policy.ExactTargetIDs, policy.CredentialReferenceIDs} {
@@ -68,6 +70,7 @@ func sortedUnique(values []string) bool {
 
 type ActionBinding struct {
 	Kind                   string
+	OperationID            string
 	OperationType          string
 	AdapterID              string
 	SourceIDs              []string

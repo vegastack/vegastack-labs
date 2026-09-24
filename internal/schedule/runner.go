@@ -237,6 +237,10 @@ func Requirements(policy generated.ScheduledJobPolicy) []PrerequisiteRequirement
 	maximum := policy.IntervalSeconds * 2
 	requirements := []PrerequisiteRequirement{{Kind: "recovery-authority", SubjectID: policy.ExactSubjectIDs[0], PolicyID: policy.PolicyID, PolicyRevision: policy.Revision, RecoveryEpoch: policy.RecoveryEpoch, MaximumAgeSeconds: maximum}}
 	switch policy.ActionKind {
+	case "gate-check":
+		requirements = append(requirements, PrerequisiteRequirement{Kind: "applicable-gate-current", SubjectID: policy.ExactSubjectIDs[0], PolicyID: policy.PolicyID, PolicyRevision: policy.Revision, RecoveryEpoch: policy.RecoveryEpoch, MaximumAgeSeconds: maximum})
+	case "observation-refresh":
+		requirements = append(requirements, PrerequisiteRequirement{Kind: "observation-authority-current", SubjectID: policy.ExactSubjectIDs[0], PolicyID: policy.PolicyID, PolicyRevision: policy.Revision, RecoveryEpoch: policy.RecoveryEpoch, MaximumAgeSeconds: maximum})
 	case "backup-create", "backup-integrity-verify":
 		requirements = append(requirements, PrerequisiteRequirement{Kind: "local-backup-qualification", SubjectID: policy.ExactSubjectIDs[0], PolicyID: policy.PolicyID, PolicyRevision: policy.Revision, RecoveryEpoch: policy.RecoveryEpoch, MaximumAgeSeconds: maximum}, PrerequisiteRequirement{Kind: "retirement-certainty", SubjectID: policy.ExactSubjectIDs[0], PolicyID: policy.PolicyID, PolicyRevision: policy.Revision, RecoveryEpoch: policy.RecoveryEpoch, MaximumAgeSeconds: maximum})
 	case "audit-checkpoint-export":

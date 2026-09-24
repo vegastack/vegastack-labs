@@ -154,7 +154,8 @@ func isCoreOperation(adapterID, kind string) bool {
 	return adapterID == "core.gate" && isGateOperation(kind) ||
 		adapterID == "core.audit" && kind == "audit.checkpoint.anchor" ||
 		adapterID == "core.recovery" && kind == "recovery.canary.noop" ||
-		adapterID == "core.schedule" && kind == "schedule.policy.activate"
+		adapterID == "core.schedule" && kind == "schedule.policy.activate" ||
+		adapterID == "core.schedule-observe" && (kind == "schedule.gate.check" || kind == "schedule.observation.refresh")
 }
 
 func NewEngine(config Config) (*Engine, error) {
@@ -548,7 +549,7 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 		}
 		var implementation adapter.Adapter
 		if isCoreOperation(operation.AdapterID, operation.OperationType) {
-			if engine.core == nil || operation.InputDigest != operation.ArtifactDigest || plan.ExecutorMode != "central" {
+			if engine.core == nil || (operation.AdapterID != "core.schedule-observe" && operation.InputDigest != operation.ArtifactDigest) || plan.ExecutorMode != "central" {
 				err = runError(generated.ErrorCodePrerequisiteBlocked, "core-effect-unavailable")
 			}
 		} else if isRetentionLockOperation(operation.AdapterID, operation.OperationType) {

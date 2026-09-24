@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -24,20 +25,31 @@ type ScheduledRequest struct {
 type OperationalPlanRepository interface {
 	CommitOperationalPlan(context.Context, store.OperationalPlanCommitRequest) (store.PlanCommitResult, error)
 }
+type ScheduledActionResolver interface {
+	ResolveScheduledAction(context.Context, generated.ScheduledJobPolicy, string) (schedule.ActionBinding, []generated.ContractExtension, error)
+}
+type scheduledActionCommitter interface {
+	CommitScheduledAction(context.Context, generated.Plan) error
+}
 type ScheduledService struct {
 	repository                               OperationalPlanRepository
 	clock                                    func() time.Time
 	toolVersion, contractVersion, executorID string
+	actions                                  ScheduledActionResolver
 }
 
-func NewScheduledService(repository OperationalPlanRepository, clock func() time.Time, toolVersion, contractVersion, executorID string) (*ScheduledService, error) {
+func NewScheduledService(repository OperationalPlanRepository, clock func() time.Time, toolVersion, contractVersion, executorID string, resolvers ...ScheduledActionResolver) (*ScheduledService, error) {
 	if repository == nil || toolVersion == "" || contractVersion == "" || executorID == "" {
 		return nil, planError(generated.ErrorCodeInputInvalid)
 	}
 	if clock == nil {
 		clock = time.Now
 	}
-	return &ScheduledService{repository: repository, clock: clock, toolVersion: toolVersion, contractVersion: contractVersion, executorID: executorID}, nil
+	service := &ScheduledService{repository: repository, clock: clock, toolVersion: toolVersion, contractVersion: contractVersion, executorID: executorID}
+	if len(resolvers) > 0 {
+		service.actions = resolvers[0]
+	}
+	return service, nil
 }
 
 func (service *ScheduledService) CreateScheduled(ctx context.Context, request ScheduledRequest) (store.PlanCommitResult, error) {
@@ -56,15 +68,29 @@ func (service *ScheduledService) CreateScheduled(ctx context.Context, request Sc
 	if err != nil {
 		return store.PlanCommitResult{}, planError(generated.ErrorCodeAuthorizationDenied)
 	}
+	extraExtensions := []generated.ContractExtension{}
+	if service.actions != nil {
+		action, extraExtensions, err = service.actions.ResolveScheduledAction(ctx, request.Policy, request.JobID)
+		if err != nil {
+			return store.PlanCommitResult{}, err
+		}
+	}
 	operations := make([]generated.PlanOperation, len(action.TargetIDs))
 	for index, target := range action.TargetIDs {
-		operations[index] = generated.PlanOperation{Sequence: int64(index + 1), OperationID: fmt.Sprintf("%s-operation-%d", request.JobID, index+1), OperationType: action.OperationType, AdapterID: action.AdapterID, ExecutorID: service.executorID, TargetID: target, InputDigest: request.PolicyDigest, ArtifactDigest: request.Policy.RetentionRuleDigest, Idempotent: true}
+		operationID := action.OperationID
+		if operationID == "" {
+			operationID = fmt.Sprintf("%s-operation-%d", request.JobID, index+1)
+		}
+		operations[index] = generated.PlanOperation{Sequence: int64(index + 1), OperationID: operationID, OperationType: action.OperationType, AdapterID: action.AdapterID, ExecutorID: service.executorID, TargetID: target, InputDigest: action.InputDigest, ArtifactDigest: action.ArtifactDigest, Idempotent: true}
 	}
 	targets, err := targetDigest(operations)
 	if err != nil {
 		return store.PlanCommitResult{}, planError(generated.ErrorCodeInputInvalid)
 	}
-	plan := generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", DeclarationID: request.Policy.DeclarationID, Binding: generated.PlanBinding{RecoveryEpoch: request.Expected.RecoveryEpoch, PriorStateRevision: request.Expected.StateRevision, StateRevision: request.Expected.StateRevision, DeclarationRevision: request.Policy.DeclarationRevision, ObservationFingerprint: request.ObservationFingerprint, TargetDigest: targets, ReasonDigest: request.PolicyDigest, PolicyVersion: request.Policy.PolicyVersion, ToolVersion: service.toolVersion, ContractVersion: service.contractVersion}, Operations: operations, Status: "planned", Risk: string(authorization.RiskRoutine), AuthorizationBranch: "preauthorized", ExecutorMode: "central", CreatedAt: created.Format(time.RFC3339), ExpiresAt: expires.Format(time.RFC3339), Extensions: []generated.ContractExtension{{Name: "x-scheduled-occurrence", ValueDigest: request.OccurrenceDigest}, {Name: "x-scheduled-policy", ValueDigest: request.PolicyDigest}}}
+	extensions := []generated.ContractExtension{{Name: "x-scheduled-occurrence", ValueDigest: request.OccurrenceDigest}, {Name: "x-scheduled-policy", ValueDigest: request.PolicyDigest}}
+	extensions = append(extensions, extraExtensions...)
+	sort.Slice(extensions, func(i, j int) bool { return extensions[i].Name < extensions[j].Name })
+	plan := generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", DeclarationID: request.Policy.DeclarationID, Binding: generated.PlanBinding{RecoveryEpoch: request.Expected.RecoveryEpoch, PriorStateRevision: request.Expected.StateRevision, StateRevision: request.Expected.StateRevision, DeclarationRevision: request.Policy.DeclarationRevision, ObservationFingerprint: request.ObservationFingerprint, TargetDigest: targets, ReasonDigest: request.PolicyDigest, PolicyVersion: request.Policy.PolicyVersion, ToolVersion: service.toolVersion, ContractVersion: service.contractVersion}, Operations: operations, Status: "planned", Risk: string(authorization.RiskRoutine), AuthorizationBranch: "preauthorized", ExecutorMode: "central", CreatedAt: created.Format(time.RFC3339), ExpiresAt: expires.Format(time.RFC3339), Extensions: extensions}
 	readable := readablePlan(plan)
 	plan.ReadableDigest = sha([]byte(readable))
 	plan.PlanDigest, err = planDigest(plan)
@@ -80,7 +106,16 @@ func (service *ScheduledService) CreateScheduled(ctx context.Context, request Sc
 		JobID, OccurrenceDigest string
 		Attempt                 int64
 	}{request.JobID, request.OccurrenceDigest, request.Attempt})
-	return service.repository.CommitOperationalPlan(ctx, store.OperationalPlanCommitRequest{Plan: plan, CanonicalBytes: canonical, Readable: readable, KeyDigest: sha([]byte(fmt.Sprintf("%s/%d", request.JobID, request.Attempt))), RequestDigest: sha(requestBytes), Expected: request.Expected})
+	committed, err := service.repository.CommitOperationalPlan(ctx, store.OperationalPlanCommitRequest{Plan: plan, CanonicalBytes: canonical, Readable: readable, KeyDigest: sha([]byte(fmt.Sprintf("%s/%d", request.JobID, request.Attempt))), RequestDigest: sha(requestBytes), Expected: request.Expected})
+	if err != nil {
+		return committed, err
+	}
+	if committer, ok := service.actions.(scheduledActionCommitter); ok {
+		if err := committer.CommitScheduledAction(ctx, committed.Plan); err != nil {
+			return store.PlanCommitResult{}, err
+		}
+	}
+	return committed, nil
 }
 
 func (service *ScheduledService) CreateScheduledPlan(ctx context.Context, request schedule.PlanRequest) (generated.Plan, error) {

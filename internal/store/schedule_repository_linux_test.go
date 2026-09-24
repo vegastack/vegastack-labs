@@ -16,7 +16,7 @@ func scheduledPolicyFixture() generated.ScheduledJobPolicy {
 	digest := "sha256:" + strings.Repeat("a", 64)
 	return generated.ScheduledJobPolicy{Schema: generated.SchemaIDScheduledJobPolicy, SchemaVersion: "1.1.0", PolicyID: "policy-a", Revision: 1,
 		DeclarationID: "declaration-a", DeclarationRevision: 1, ApprovalPlanID: "plan-a", ApprovalPlanDigest: digest, ApprovedByHumanID: "human-a",
-		ActionKind: "backup-create", OperationType: "backup.local.create", AdapterID: "core.backup", ExactSourceIDs: []string{"source-a"}, ExactSubjectIDs: []string{"subject-a"}, ExactTargetIDs: []string{"target-a"}, MaximumWork: 1, CredentialReferenceIDs: []string{"credential-a"},
+		ActionKind: "backup-create", OperationType: "backup.local.create", AdapterID: "local.backup", ExactSourceIDs: []string{"source-a"}, ExactSubjectIDs: []string{"subject-a"}, ExactTargetIDs: []string{"target-a"}, MaximumWork: 1, CredentialReferenceIDs: []string{"credential-a"},
 		GrantRevision: 1, StateRevision: 0, RecoveryEpoch: 0, PolicyVersion: "1.0.0", RetentionRuleDigest: digest, AnchorAt: "2026-09-16T00:00:00Z", IntervalSeconds: 3600, WindowSeconds: 1800, CatchUp: "latest", Concurrency: "forbid", MaxAttempts: 3, InitialBackoffSeconds: 10, MaximumBackoffSeconds: 60, ExpiresAt: "2026-10-16T00:00:00Z", Enabled: true}
 }
 

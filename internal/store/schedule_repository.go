@@ -227,6 +227,20 @@ func (repository *ScheduleRepository) GetActivePolicy(ctx context.Context, polic
 	return policy, nil
 }
 
+func (repository *ScheduleRepository) GetActivePolicyByDigest(ctx context.Context, digest string) (generated.ScheduledJobPolicy, error) {
+	var policyID string
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		return tx.queryRow(ctx, `SELECT a.policy_id FROM scheduled_policy_activations a JOIN scheduled_policy_drafts d ON d.draft_id=a.draft_id WHERE d.policy_digest=? AND a.status='active' ORDER BY a.policy_revision DESC LIMIT 1`, digest).Scan(&policyID)
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return generated.ScheduledJobPolicy{}, scheduleError(generated.ErrorCodeResourceNotFound, "scheduled-policy")
+	}
+	if err != nil {
+		return generated.ScheduledJobPolicy{}, err
+	}
+	return repository.GetActivePolicy(ctx, policyID)
+}
+
 func (repository *ScheduleRepository) ClaimOccurrence(ctx context.Context, claim OccurrenceClaim) (generated.ScheduledJob, error) {
 	if claim.Policy.PolicyID == "" || claim.ScheduledAt.IsZero() || claim.OccurrenceToken == "" || claim.IdempotencyKey == "" || claim.Expected.StateRevision != claim.Policy.StateRevision || claim.Expected.RecoveryEpoch != claim.Policy.RecoveryEpoch {
 		return generated.ScheduledJob{}, scheduleError(generated.ErrorCodeInputInvalid, "scheduled-occurrence")
@@ -332,11 +346,38 @@ func (repository *ScheduleRepository) ValidateScheduledPlan(ctx context.Context,
 		return scheduleError(generated.ErrorCodeAuthorizationDenied, "scheduled-work-bound")
 	}
 	for index, operation := range plan.Operations {
-		if operation.Sequence != int64(index+1) || operation.OperationType != action.OperationType || operation.AdapterID != action.AdapterID || operation.TargetID != action.TargetIDs[index] || operation.InputDigest != policyDigest || operation.ArtifactDigest != action.ArtifactDigest || !operation.Idempotent {
+		if operation.Sequence != int64(index+1) || operation.OperationType != action.OperationType || operation.AdapterID != action.AdapterID || operation.TargetID != action.TargetIDs[index] || !operation.Idempotent {
 			return scheduleError(generated.ErrorCodeAuthorizationDenied, "scheduled-operation-binding")
+		}
+		if !scheduledOperationDigests(policy, plan.Extensions, operation) {
+			return scheduleError(generated.ErrorCodeAuthorizationDenied, "scheduled-operation-digest")
 		}
 	}
 	return nil
+}
+
+func scheduledOperationDigests(policy generated.ScheduledJobPolicy, extensions []generated.ContractExtension, operation generated.PlanOperation) bool {
+	extension := func(name string) string {
+		for _, item := range extensions {
+			if item.Name == name {
+				return item.ValueDigest
+			}
+		}
+		return ""
+	}
+	switch policy.ActionKind {
+	case "gate-check", "observation-refresh":
+		return operation.InputDigest == policy.RetentionRuleDigest && operation.ArtifactDigest == policy.RetentionRuleDigest
+	case "backup-create":
+		return extension("x-backup-policy") == policy.RetentionRuleDigest && operation.ArtifactDigest == policy.RetentionRuleDigest
+	case "backup-integrity-verify":
+		return extension("x-backup-policy") == policy.RetentionRuleDigest && operation.InputDigest != "" && operation.ArtifactDigest != ""
+	case "audit-checkpoint-export":
+		checkpoint := extension("x-audit-checkpoint")
+		return checkpoint != "" && operation.InputDigest == checkpoint && operation.ArtifactDigest == checkpoint
+	default:
+		return false
+	}
 }
 
 func (repository *ScheduleRepository) TransitionOccurrence(ctx context.Context, jobID, from, to, reason string, planID, runID *string) (generated.ScheduledJob, error) {

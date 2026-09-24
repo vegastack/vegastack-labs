@@ -12,7 +12,7 @@ func validPolicy() generated.ScheduledJobPolicy {
 	return generated.ScheduledJobPolicy{
 		Schema: generated.SchemaIDScheduledJobPolicy, SchemaVersion: "1.1.0", PolicyID: "policy-a", Revision: 1,
 		DeclarationID: "declaration-a", DeclarationRevision: 1, ApprovalPlanID: "plan-a", ApprovalPlanDigest: digest, ApprovedByHumanID: "human-a",
-		ActionKind: "backup-create", OperationType: "backup.local.create", AdapterID: "core.backup", ExactSourceIDs: []string{"source-a"}, ExactSubjectIDs: []string{"subject-a"}, ExactTargetIDs: []string{"target-a"}, MaximumWork: 1,
+		ActionKind: "backup-create", OperationType: "backup.local.create", AdapterID: "local.backup", ExactSourceIDs: []string{"source-a"}, ExactSubjectIDs: []string{"subject-a"}, ExactTargetIDs: []string{"target-a"}, MaximumWork: 1,
 		CredentialReferenceIDs: []string{"credential-a"}, GrantRevision: 1, StateRevision: 4, RecoveryEpoch: 2, PolicyVersion: "1.0.0", RetentionRuleDigest: digest,
 		AnchorAt: "2026-09-16T00:00:00Z", IntervalSeconds: 3600, WindowSeconds: 1800, CatchUp: "latest", Concurrency: "forbid", MaxAttempts: 3, InitialBackoffSeconds: 10, MaximumBackoffSeconds: 60,
 		ExpiresAt: "2026-10-16T00:00:00Z", Enabled: true,
@@ -42,5 +42,25 @@ func TestScheduledRequestCannotCarryPlanOrHumanAcknowledgement(t *testing.T) {
 	raw := []byte(`{"schema":"vegastack-labs.dev/scheduled-job-request","schemaVersion":"1.1.0","expectedStateRevision":4,"recoveryEpoch":2,"targetDigest":"sha256:` + strings.Repeat("a", 64) + `","idempotencyKey":"dispatch-a","policyId":"policy-a","policyRevision":1,"occurrenceToken":"token-a","observedAt":"2026-09-16T00:10:00Z","planId":"plan-a","humanAcknowledgementId":"ack-a"}`)
 	if err := generated.ValidateContractJSON(generated.SchemaIDScheduledJobRequest, raw, generated.ContractExact); err == nil {
 		t.Fatal("caller-authored plan or acknowledgement accepted")
+	}
+}
+
+func TestActionCatalogRequiresExactMergedOperationAndAdapter(t *testing.T) {
+	for kind, contract := range map[string][2]string{
+		"gate-check":              {"schedule.gate.check", "core.schedule-observe"},
+		"observation-refresh":     {"schedule.observation.refresh", "core.schedule-observe"},
+		"backup-create":           {"backup.local.create", "local.backup"},
+		"backup-integrity-verify": {"backup.local.verify", "local.backup"},
+		"audit-checkpoint-export": {"audit.checkpoint.anchor", "core.audit"},
+	} {
+		policy := validPolicy()
+		policy.ActionKind, policy.OperationType, policy.AdapterID = kind, contract[0], contract[1]
+		if _, _, err := CanonicalPolicy(policy); err != nil {
+			t.Fatalf("%s rejected: %v", kind, err)
+		}
+		policy.AdapterID = "wrong.adapter"
+		if _, _, err := CanonicalPolicy(policy); err == nil {
+			t.Fatalf("%s accepted wrong adapter", kind)
+		}
 	}
 }

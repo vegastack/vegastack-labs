@@ -156,6 +156,31 @@ func credentialExtensionDigest(plan generated.Plan) string {
 	return draftCredentialDigest(plan.Extensions)
 }
 
+func scheduledCredentialExtensionDigest(plan generated.Plan) string {
+	for _, extension := range plan.Extensions {
+		if extension.Name == "x-scheduled-credential-bindings" {
+			return extension.ValueDigest
+		}
+	}
+	return ""
+}
+
+func (repository *CredentialRepository) CommitScheduledStepBinding(ctx context.Context, plan generated.Plan, binding credentialref.StepBinding) error {
+	manifest := credentialref.ManifestDigest([]credentialref.StepBinding{binding})
+	if repository == nil || repository.store == nil || plan.AuthorizationBranch != "preauthorized" || scheduledCredentialExtensionDigest(plan) != manifest || !credentialref.ValidBinding(binding) || binding.OperationID == "" || binding.RecoveryEpoch != plan.Binding.RecoveryEpoch || binding.StateRevision != plan.Binding.StateRevision {
+		return credentialStoreError(generated.ErrorCodeInputInvalid, "scheduled-credential-binding")
+	}
+	stored, err := NewPlanRepository(repository.store).GetPlan(ctx, plan.PlanID)
+	if err != nil || stored.Plan.PlanDigest != plan.PlanDigest {
+		return credentialStoreError(generated.ErrorCodePlanStale, "scheduled-credential-plan")
+	}
+	raw, _ := json.Marshal(binding)
+	return (&ScheduleRepository{store: repository.store}).inTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO scheduled_credential_bindings(plan_id,operation_id,manifest_digest,binding_digest,binding_bytes,recovery_epoch,created_at) VALUES(?,?,?,?,?,?,?)`, plan.PlanID, binding.OperationID, manifest, binding.Digest(), raw, binding.RecoveryEpoch, repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339))
+		return classifySQLiteError(ctx, err)
+	})
+}
+
 func draftCredentialDigest(extensions []generated.ContractExtension) string {
 	for _, extension := range extensions {
 		if extension.Name == "x-credential-bindings" {
@@ -168,6 +193,38 @@ func draftCredentialDigest(extensions []generated.ContractExtension) string {
 func (repository *CredentialRepository) GetStepBindings(ctx context.Context, plan generated.Plan, operationID string) ([]credentialref.StepBinding, error) {
 	if repository == nil || repository.store == nil || plan.PlanID == "" || plan.PlanDigest == "" || plan.DeclarationID == "" || plan.Binding.DeclarationRevision <= 0 || operationID == "" {
 		return nil, credentialStoreError(generated.ErrorCodeInputInvalid, "credential-step")
+	}
+	if digest := scheduledCredentialExtensionDigest(plan); digest != "" {
+		stored, err := NewPlanRepository(repository.store).GetPlan(ctx, plan.PlanID)
+		if err != nil || stored.Plan.PlanDigest != plan.PlanDigest || plan.AuthorizationBranch != "preauthorized" {
+			return nil, credentialStoreError(generated.ErrorCodePlanStale, "scheduled-credential-plan")
+		}
+		var bindings []credentialref.StepBinding
+		err = repository.store.Read(ctx, func(tx ReadTx) error {
+			rows, queryErr := tx.query(ctx, `SELECT binding_digest,binding_bytes,recovery_epoch FROM scheduled_credential_bindings WHERE plan_id=? AND operation_id=? ORDER BY binding_digest`, plan.PlanID, operationID)
+			if queryErr != nil {
+				return queryErr
+			}
+			defer rows.Close()
+			for rows.Next() {
+				var storedDigest string
+				var raw []byte
+				var epoch int64
+				if scanErr := rows.Scan(&storedDigest, &raw, &epoch); scanErr != nil {
+					return scanErr
+				}
+				var binding credentialref.StepBinding
+				if json.Unmarshal(raw, &binding) != nil || binding.Digest() != storedDigest || binding.RecoveryEpoch != epoch || binding.OperationID != operationID {
+					return credentialStoreError(generated.ErrorCodeIntegrityFailure, "scheduled-credential-binding")
+				}
+				bindings = append(bindings, binding)
+			}
+			return rows.Err()
+		})
+		if err != nil || len(bindings) == 0 || credentialref.ManifestDigest(bindings) != digest {
+			return nil, credentialStoreError(generated.ErrorCodePrerequisiteBlocked, "scheduled-credential-binding")
+		}
+		return bindings, nil
 	}
 	extensionDigest := credentialExtensionDigest(plan)
 	if extensionDigest == "" || plan.ExecutorMode != "central" {

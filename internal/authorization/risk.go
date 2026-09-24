@@ -31,6 +31,8 @@ var operationRisk = map[string]RiskClass{
 	"backup.offsite.copy":                RiskInfrastructure,
 	"drift.scan":                         RiskRoutine,
 	"health.check":                       RiskRoutine,
+	"schedule.gate.check":                RiskRoutine,
+	"schedule.observation.refresh":       RiskRoutine,
 	"node.add":                           RiskInfrastructure,
 	"node.remove":                        RiskInfrastructure,
 	"shell.grant":                        RiskInfrastructure,
@@ -92,7 +94,7 @@ func ClassifyPlan(plan generated.Plan) (RiskClass, error) {
 
 func preauthorizedOperation(operation string) bool {
 	switch operation {
-	case "application.deploy.low-risk", "audit.checkpoint", "audit.checkpoint.anchor", "backup.snapshot", "backup.verify", "backup.local.create", "backup.local.verify", "drift.scan", "health.check":
+	case "application.deploy.low-risk", "audit.checkpoint", "audit.checkpoint.anchor", "backup.snapshot", "backup.verify", "backup.local.create", "backup.local.verify", "drift.scan", "health.check", "schedule.gate.check", "schedule.observation.refresh":
 		return true
 	default:
 		return false

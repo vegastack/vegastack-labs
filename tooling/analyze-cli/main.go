@@ -860,8 +860,8 @@ const (
 	// of both waves over the current sources.
 	reviewedAuditCredentialLocalAPILinuxDigest       = "a0fa1ad5845527ea5bba96709e3e6f0c81528fc6cb77823733666850a8c53812"
 	reviewedAuditCredentialLocalAPIUnsupportedDigest = "c4a5a8bddeb0579d7dbd537c248836c92fa98fe4ac52fd77dccae7a47d7867d4"
-	reviewedScheduleLocalAPILinuxDigest              = "1f18cfdf4e069c1370f9f43d130ee3bc66dc4008decae0f8282cd60a8c394fb4"
-	reviewedScheduleLocalAPIUnsupportedDigest        = "98248ac3073ff69c59914867392f3ee9886dcca7c73dbb4bfdf0e2f7def44915"
+	reviewedScheduleLocalAPILinuxDigest              = "b09fa4ca9c2660682ce6de29d46619772b12f19ddc76e949e3f21a3a764f0e5f"
+	reviewedScheduleLocalAPIUnsupportedDigest        = "ff31fd8d58cff9b89c3534ae80e2cae7bd8401a9c3deddb1d123e449b55a66fc"
 )
 
 // reviewedLocalAPISource seals every production source file in the package
