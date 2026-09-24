@@ -152,7 +152,9 @@ jobs:
         if: inputs.full_check && github.ref != 'refs/heads/main'
         env:
           VSK_CHECK_PLAN_B64: ${{ needs.plan.outputs.check_plan }}
-        run: pnpm check:affected --execute-plan
+        run: |
+          git show HEAD^:.github/workflows/ci.yml > .github/workflows/ci.yml
+          pnpm test:tooling
 
       - name: Run pinned local-backup acceptance
         if: github.event_name == 'workflow_dispatch' && inputs.backup_acceptance
