@@ -532,7 +532,7 @@ func phase5RecoveryJobSchemas() []SchemaDefinition {
 			phase5Positive("maximumWork", "MaximumWork"), phase5IDs("credentialReferenceIds", "CredentialReferenceIDs", 64),
 			phase5Positive("grantRevision", "GrantRevision"), phase5Nonnegative("stateRevision", "StateRevision"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 			phase5Version("policyVersion", "PolicyVersion"), phase5Digest("retentionRuleDigest", "RetentionRuleDigest"),
-			phase5Timestamp("anchorAt", "AnchorAt"), phase5Interval("intervalSeconds", "IntervalSeconds"), phase5Positive("windowSeconds", "WindowSeconds"),
+			phase5Timestamp("anchorAt", "AnchorAt"), phase5Interval("intervalSeconds", "IntervalSeconds"), FieldDefinition{JSONName: "windowSeconds", GoName: "WindowSeconds", Kind: ValueInteger, Required: true, Minimum: int64Pointer(1800), Maximum: int64Pointer(604800)},
 			phase5Enum("catchUp", "CatchUp", "none", "latest"), phase5Enum("concurrency", "Concurrency", "forbid"),
 			phase5Positive("maxAttempts", "MaxAttempts"), phase5Positive("initialBackoffSeconds", "InitialBackoffSeconds"), phase5Positive("maximumBackoffSeconds", "MaximumBackoffSeconds"),
 			phase5Timestamp("expiresAt", "ExpiresAt"), phase5Bool("enabled", "Enabled"),

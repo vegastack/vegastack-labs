@@ -159,7 +159,8 @@
       "type": "integer"
     },
     "windowSeconds": {
-      "minimum": 1,
+      "maximum": 604800,
+      "minimum": 1800,
       "type": "integer"
     }
   },

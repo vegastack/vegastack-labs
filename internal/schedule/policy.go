@@ -27,7 +27,7 @@ func CanonicalPolicy(policy generated.ScheduledJobPolicy) ([]byte, string, error
 	if err != nil || generated.ValidateContractJSON(generated.SchemaIDScheduledJobPolicy, raw, generated.ContractExact) != nil {
 		return nil, "", errors.New("invalid scheduled policy contract")
 	}
-	if policy.SchemaVersion != "1.1.0" || !policy.Enabled || policy.Concurrency != "forbid" || policy.WindowSeconds > policy.IntervalSeconds || policy.MaximumBackoffSeconds < policy.InitialBackoffSeconds {
+	if policy.SchemaVersion != "1.1.0" || !policy.Enabled || policy.Concurrency != "forbid" || policy.WindowSeconds < int64(generated.PlanValiditySeconds) || policy.WindowSeconds > policy.IntervalSeconds || policy.MaximumBackoffSeconds < policy.InitialBackoffSeconds {
 		return nil, "", errors.New("invalid scheduled policy bounds")
 	}
 	anchor, anchorErr := time.Parse(time.RFC3339, policy.AnchorAt)

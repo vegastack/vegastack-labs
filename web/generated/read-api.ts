@@ -5247,7 +5247,8 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "integer",
         "required": true,
         "nullable": false,
-        "minimum": 1
+        "minimum": 1800,
+        "maximum": 604800
       },
       {
         "name": "catchUp",
