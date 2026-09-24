@@ -1,0 +1,945 @@
+{
+  "schemaVersion": 1,
+  "scenarios": [
+    {
+      "id": "gate.invalid-evidence-denied",
+      "requirementId": "5.3.gate.invalid-evidence-denied",
+      "ownerIssue": 104,
+      "seam": "gate",
+      "kind": "go-test",
+      "path": "internal/generated/phase5_contracts_test.go",
+      "selector": "TestPhase5GateEvidenceRejectsFixturePromotionAndInvalidFreshness",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "denied"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "gate.expired-evidence-denied",
+      "requirementId": "5.3.gate.expired-evidence-denied",
+      "ownerIssue": 104,
+      "seam": "gate",
+      "kind": "go-test",
+      "path": "internal/run/admission_test.go",
+      "selector": "TestAdmissionGateBindsCurrentHumanProofAndDeniesExpiredOrMissingProof",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "denied"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "gate.replaced-evidence-denied",
+      "requirementId": "5.3.gate.replaced-evidence-denied",
+      "ownerIssue": 104,
+      "seam": "gate",
+      "kind": "go-test",
+      "path": "internal/server/schedule_composition_test.go",
+      "selector": "TestScheduledGateCheckRejectsChangedDurableEvidenceAndProfile",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "denied"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "gate.fixture-not-live",
+      "requirementId": "5.3.gate.fixture-not-live",
+      "ownerIssue": 104,
+      "seam": "gate",
+      "kind": "go-test",
+      "path": "internal/api/gates_integration_linux_test.go",
+      "selector": "TestGateEvidenceAPIOnlyAuthorsFixtureDraftAndRejectsPrivateAttachments",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "fixture-only"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "gate.not-applicable-not-pass",
+      "requirementId": "5.3.gate.not-applicable-not-pass",
+      "ownerIssue": 104,
+      "seam": "gate",
+      "kind": "browser-test",
+      "path": "web/e2e/gates.spec.ts",
+      "selector": "deferred not-applicable gate shows its reason without a pass or mutation control",
+      "environment": "chromium",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "not-applicable"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "credential.resolve-after-admission",
+      "requirementId": "5.4.1.credential.resolve-after-admission",
+      "ownerIssue": 123,
+      "seam": "credential",
+      "kind": "go-test",
+      "path": "internal/run/credential_step_test.go",
+      "selector": "TestCredentialStepRechecksAppliedReferenceAndExactLease",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "resolved-after-admission"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "credential.wrong-consumer-denied",
+      "requirementId": "5.4.1.credential.wrong-consumer-denied",
+      "ownerIssue": 123,
+      "seam": "credential",
+      "kind": "go-test",
+      "path": "internal/generated/phase5_contracts_test.go",
+      "selector": "TestCredentialReferenceV11RequiresExactBinding",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "denied"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "credential.rotation-overlap-revoke",
+      "requirementId": "5.4.3.credential.rotation-overlap-revoke",
+      "ownerIssue": 125,
+      "seam": "credential",
+      "kind": "go-test",
+      "path": "internal/server/credential_lifecycle_acceptance_linux_test.go",
+      "selector": "TestFullCredentialLifecycleAcceptance",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "revoked"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "credential.clean-host-old-key-denied",
+      "requirementId": "5.4.3.credential.clean-host-old-key-denied",
+      "ownerIssue": 125,
+      "seam": "credential",
+      "kind": "go-test",
+      "path": "internal/server/credential_recovery_acceptance_linux_test.go",
+      "selector": "TestCredentialRecoveryAcceptanceNativeWitnessAndDraft",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "denied"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "credential.private-canary-redacted",
+      "requirementId": "5.4.3.credential.private-canary-redacted",
+      "ownerIssue": 125,
+      "seam": "credential",
+      "kind": "go-test",
+      "path": "internal/run/credential_lifecycle_sqlite_linux_test.go",
+      "selector": "TestSQLiteCredentialVerifierPanicRecordsPartialWithoutSecretLeak",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "redacted"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "backup.pending-not-verified",
+      "requirementId": "5.5.backup.pending-not-verified",
+      "ownerIssue": 106,
+      "seam": "backup-local",
+      "kind": "go-test",
+      "path": "internal/backup/service_test.go",
+      "selector": "TestPrepareFailsClosedForEveryIncompleteStage",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "pending"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "backup.capacity-never-prunes",
+      "requirementId": "5.5.2.backup.capacity-never-prunes",
+      "ownerIssue": 115,
+      "seam": "backup-local",
+      "kind": "go-test",
+      "path": "internal/backup/retirement_capacity_test.go",
+      "selector": "TestLocalCapacityBlocksNewStandardAtEightyPercent",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "capacity-blocked"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "backup.writer-lock-exclusive",
+      "requirementId": "5.5.2.backup.writer-lock-exclusive",
+      "ownerIssue": 115,
+      "seam": "backup-local",
+      "kind": "go-test",
+      "path": "internal/store/retirement_repository_linux_test.go",
+      "selector": "TestUnreconciledRetentionLeaseExcludesBackupWriterAndReader",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "exclusive"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "backup.corruption-denied",
+      "requirementId": "5.5.3.backup.corruption-denied",
+      "ownerIssue": 117,
+      "seam": "backup-local",
+      "kind": "go-test",
+      "path": "internal/backup/process_test.go",
+      "selector": "TestPublishedCorruptionRemainsPresentButIsRejected",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "denied"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "backup.missing-key-denied",
+      "requirementId": "5.5.3.backup.missing-key-denied",
+      "ownerIssue": 117,
+      "seam": "backup-local",
+      "kind": "go-test",
+      "path": "internal/backup/custody_systemd_linux_test.go",
+      "selector": "TestBrokeredResticRejectsCallerSelectedAuthority",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "denied"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "backup.local-restore-isolated",
+      "requirementId": "5.5.3.backup.local-restore-isolated",
+      "ownerIssue": 117,
+      "seam": "backup-local",
+      "kind": "go-test",
+      "path": "internal/backup/restore_test.go",
+      "selector": "TestVerifyRestorableUsesIsolatedTargetAndLeavesAuthorityUntouched",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "verified"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "backup.local-retirement-survivors",
+      "requirementId": "5.5.2.backup.local-retirement-survivors",
+      "ownerIssue": 115,
+      "seam": "backup-local",
+      "kind": "go-test",
+      "path": "internal/backup/retirement_selection_test.go",
+      "selector": "TestLocalRetirementRejectsUnqualifiedOrAmbiguousCatalog",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "survivors-retained"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "offsite.session-expiry-seal",
+      "requirementId": "5.5.1.offsite.session-expiry-seal",
+      "ownerIssue": 114,
+      "seam": "backup-offsite",
+      "kind": "go-test",
+      "path": "internal/backup/offsite_verify_test.go",
+      "selector": "TestSealWriterRequiresExpiryAndBothQualifiedDenials",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "sealed"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "offsite.rule-drift-denied",
+      "requirementId": "5.5.1.offsite.rule-drift-denied",
+      "ownerIssue": 114,
+      "seam": "backup-offsite",
+      "kind": "go-test",
+      "path": "internal/backup/offsite_run_spec_test.go",
+      "selector": "TestExactOffsiteRepositoryBindingRejectsEndpointAndPrefixLookalikes",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "denied"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "offsite.rule-capacity-denied",
+      "requirementId": "5.5.1.offsite.rule-capacity-denied",
+      "ownerIssue": 114,
+      "seam": "backup-offsite",
+      "kind": "go-test",
+      "path": "internal/backup/offsite_verify_test.go",
+      "selector": "TestOffsiteVerifierRejectsMismatchedManifestDependenciesAndFullRead",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "denied"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "offsite.partial-delete-uncertain",
+      "requirementId": "5.5.4.offsite.partial-delete-uncertain",
+      "ownerIssue": 118,
+      "seam": "backup-offsite",
+      "kind": "go-test",
+      "path": "internal/backup/offsite_retirement_verify_test.go",
+      "selector": "TestOffsiteRetirementCannotSettleAfterPartialDeleteOrFailedSurvivor",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "uncertain"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "offsite.provider-outage-local-survives",
+      "requirementId": "5.5.1.offsite.provider-outage-local-survives",
+      "ownerIssue": 114,
+      "seam": "backup-offsite",
+      "kind": "go-test",
+      "path": "internal/backup/offsite_admission_test.go",
+      "selector": "TestAdmitOffsitePointRequiresVerifiedCurrentCriticalSource",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "local-survives"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "audit.concurrent-chain-single",
+      "requirementId": "5.6.audit.concurrent-chain-single",
+      "ownerIssue": 107,
+      "seam": "audit",
+      "kind": "go-test",
+      "path": "internal/store/audit_chain_linux_test.go",
+      "selector": "TestConcurrentAuditIntentsCannotForkChain",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "single-chain"
+      },
+      "repeat": 3,
+      "seed": "phase5-concurrency-v1",
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "audit.fork-incident",
+      "requirementId": "5.6.audit.fork-incident",
+      "ownerIssue": 107,
+      "seam": "audit",
+      "kind": "go-test",
+      "path": "internal/audit/verify_test.go",
+      "selector": "TestVerifyLocalDetectsPayloadEditAndFork",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "incident"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "audit.rollback-incident",
+      "requirementId": "5.6.audit.rollback-incident",
+      "ownerIssue": 107,
+      "seam": "audit",
+      "kind": "go-test",
+      "path": "internal/store/audit_chain_linux_test.go",
+      "selector": "TestAuditIntentRollbackCannotLeaveOrphanLink",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "incident"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "audit.bad-signature-incident",
+      "requirementId": "5.6.audit.bad-signature-incident",
+      "ownerIssue": 107,
+      "seam": "audit",
+      "kind": "go-test",
+      "path": "internal/stateexport/signature_test.go",
+      "selector": "TestVerifySignedExportRejectsEveryBindingTamper",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "incident"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "audit.export-failure-pending",
+      "requirementId": "5.6.audit.export-failure-pending",
+      "ownerIssue": 107,
+      "seam": "audit",
+      "kind": "go-test",
+      "path": "internal/stateexport/service_test.go",
+      "selector": "TestTerminalAuditUncertaintyLeavesPendingForFailClosedReconciliation",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "pending"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "audit.private-payload-redacted",
+      "requirementId": "5.6.audit.private-payload-redacted",
+      "ownerIssue": 107,
+      "seam": "audit",
+      "kind": "go-test",
+      "path": "internal/store/audit_process_test.go",
+      "selector": "TestAuditArtifactsExcludeEveryPublicCanary",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "redacted"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "restore.pending-source-denied",
+      "requirementId": "5.7.restore.pending-source-denied",
+      "ownerIssue": 108,
+      "seam": "restore",
+      "kind": "go-test",
+      "path": "internal/recovery/source_test.go",
+      "selector": "TestSourceVerifierAcceptsOnlyExactCurrentQualifiedOffsiteGeneration",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "denied"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "restore.old-plan-denied",
+      "requirementId": "5.7.restore.old-plan-denied",
+      "ownerIssue": 108,
+      "seam": "restore",
+      "kind": "go-test",
+      "path": "internal/recovery/fence_execution_test.go",
+      "selector": "TestExactFenceWitnessBindsImmutablePlanAndExecution",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "denied"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "restore.old-writer-denied",
+      "requirementId": "5.7.restore.old-writer-denied",
+      "ownerIssue": 108,
+      "seam": "restore",
+      "kind": "go-test",
+      "path": "internal/server/recovery_process_linux_test.go",
+      "selector": "TestReturningFormerControllerCannotMutatePromotedAuthority",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "denied"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "restore.partial-fence-denied",
+      "requirementId": "5.7.restore.partial-fence-denied",
+      "ownerIssue": 108,
+      "seam": "restore",
+      "kind": "go-test",
+      "path": "internal/recovery/source_handoff_test.go",
+      "selector": "TestInstalledSourceRejectsPartialFenceAndBurnsFailedCustody",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "denied"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "restore.lost-suffix-explicit",
+      "requirementId": "5.7.restore.lost-suffix-explicit",
+      "ownerIssue": 108,
+      "seam": "restore",
+      "kind": "go-test",
+      "path": "internal/recovery/audit_continuity_test.go",
+      "selector": "TestRecoveredAuditSuffixNeverReplaysEffects",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "explicit-loss"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "restore.failed-canary-recovery-required",
+      "requirementId": "5.7.restore.failed-canary-recovery-required",
+      "ownerIssue": 108,
+      "seam": "restore",
+      "kind": "go-test",
+      "path": "internal/recovery/canary_test.go",
+      "selector": "TestAuthorityEnablesOnlyAfterCompleteCanary",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "recovery-required"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "restore.single-authority",
+      "requirementId": "5.7.restore.single-authority",
+      "ownerIssue": 108,
+      "seam": "restore",
+      "kind": "go-test",
+      "path": "internal/recovery/candidate_test.go",
+      "selector": "TestCandidatePromotionPreservesAuthorityAndNeverCreatesTwoLocalWriters",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "single-authority"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "schedule.overlap-single",
+      "requirementId": "5.8.schedule.overlap-single",
+      "ownerIssue": 109,
+      "seam": "schedule",
+      "kind": "go-test",
+      "path": "internal/schedule/service_test.go",
+      "selector": "TestDispatchUsesServerClockAndOneDurableSlot",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "single-occurrence"
+      },
+      "repeat": 3,
+      "seed": "phase5-concurrency-v1",
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "schedule.catch-up-latest",
+      "requirementId": "5.8.schedule.catch-up-latest",
+      "ownerIssue": 109,
+      "seam": "schedule",
+      "kind": "go-test",
+      "path": "internal/schedule/service_test.go",
+      "selector": "TestCatchUpWindowIsFixedWhenOccurrenceIsClaimed",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "latest-only"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "schedule.clock-rollback-no-reopen",
+      "requirementId": "5.8.schedule.clock-rollback-no-reopen",
+      "ownerIssue": 109,
+      "seam": "schedule",
+      "kind": "go-test",
+      "path": "internal/schedule/clock_test.go",
+      "selector": "TestDueUsesAnchoredUTCSlotsAcrossClockJumps",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "closed"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "schedule.uncertain-no-retry",
+      "requirementId": "5.8.schedule.uncertain-no-retry",
+      "ownerIssue": 109,
+      "seam": "schedule",
+      "kind": "go-test",
+      "path": "internal/run/scheduled_engine_test.go",
+      "selector": "TestScheduledEngineFailsClosedWithoutAdmissionOrAdapter",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "uncertain"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "schedule.human-only-denied",
+      "requirementId": "5.8.schedule.human-only-denied",
+      "ownerIssue": 109,
+      "seam": "schedule",
+      "kind": "go-test",
+      "path": "internal/schedule/policy_test.go",
+      "selector": "TestScheduledRequestCannotCarryPlanOrHumanAcknowledgement",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "denied"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "schedule.provider-outage-isolated",
+      "requirementId": "5.8.schedule.provider-outage-isolated",
+      "ownerIssue": 109,
+      "seam": "schedule",
+      "kind": "go-test",
+      "path": "internal/server/schedule_composition_test.go",
+      "selector": "TestScheduledAuditPrerequisiteUnavailableFailsClosedWithDurableDependencies",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "isolated"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "surface.cli-api-console-parity",
+      "requirementId": "5.9.surface.cli-api-console-parity",
+      "ownerIssue": 110,
+      "seam": "surface",
+      "kind": "go-test",
+      "path": "internal/server/phase5_surface_parity_linux_test.go",
+      "selector": "TestPhase5SurfacesAgreeAndBrowserCannotReachProtectedEffects",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "parity"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "browser.no-direct-effect",
+      "requirementId": "5.9.browser.no-direct-effect",
+      "ownerIssue": 110,
+      "seam": "surface",
+      "kind": "browser-test",
+      "path": "web/e2e/phase5-acceptance.spec.ts",
+      "selector": "Phase 5 acceptance keeps protected recovery authority out of the browser",
+      "environment": "chromium",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "inert"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "browser.artifact-private-free",
+      "requirementId": "5.9.browser.artifact-private-free",
+      "ownerIssue": 110,
+      "seam": "surface",
+      "kind": "browser-test",
+      "path": "web/e2e/phase5-acceptance.spec.ts",
+      "selector": "Phase 5 acceptance artifacts contain no private or secret material",
+      "environment": "chromium",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "redacted"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "suite.durable-boundary-complete",
+      "requirementId": "5.10.suite.durable-boundary-complete",
+      "ownerIssue": 111,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/run/engine_test.go",
+      "selector": "TestRestartAtEveryDurableBoundaryNeverRepeatsAmbiguousEffect",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "complete"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "suite.no-hidden-quarantine",
+      "requirementId": "5.10.suite.no-hidden-quarantine",
+      "ownerIssue": 111,
+      "seam": "suite",
+      "kind": "node-test",
+      "path": "tooling/test/phase-5-acceptance.test.mjs",
+      "selector": "Phase 5 acceptance rejects a weakened, reordered, skipped, or falsely live scenario",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "closed"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    },
+    {
+      "id": "suite.deterministic-repeat",
+      "requirementId": "5.10.suite.deterministic-repeat",
+      "ownerIssue": 111,
+      "seam": "suite",
+      "kind": "node-test",
+      "path": "tooling/test/phase-5-acceptance.test.mjs",
+      "selector": "Phase 5 exact-pass parsers enforce repeat counts",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": "deterministic"
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase3-private-artifact-scan"
+    }
+  ]
+}

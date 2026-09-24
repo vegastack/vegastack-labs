@@ -1,10 +1,17 @@
-import { createHash } from "node:crypto";
-import { lstat, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { phase3LinkerFlags, verifyPhase3 } from "./verify-phase-3.mjs";
+import {
+  acceptanceScenarioDigest,
+  executeAcceptanceScenarios,
+  parseGoScenarioPass as parseGenericGoScenarioPass,
+  parseNodeScenarioPass as parseGenericNodeScenarioPass,
+  parsePlaywrightScenarioPass as parseGenericPlaywrightScenarioPass,
+  validateAcceptanceDefinition,
+} from "./lib/acceptance-scenarios.mjs";
 import { packageManagerInvocation, runCommand } from "./lib/process.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -57,50 +64,12 @@ export function phase4FailureDiagnostic(error) {
   return `Phase 4 verification failed at ${stage}\n`;
 }
 
-function exactKeys(value, expected) {
-  return value !== null && typeof value === "object" && !Array.isArray(value) &&
-    JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...expected].sort());
-}
-
-function validRelativePath(value) {
-  return typeof value === "string" && value.length > 0 && value.length <= 4096 && !value.startsWith("/") &&
-    !value.includes("\\") && !value.includes("\0") && !value.split("/").includes("..");
-}
-
-function canonicalJSON(value) {
-  if (Array.isArray(value)) return `[${value.map(canonicalJSON).join(",")}]`;
-  if (value !== null && typeof value === "object") {
-    return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${canonicalJSON(value[key])}`).join(",")}}`;
-  }
-  return JSON.stringify(value);
-}
-
 export function phase4ScenarioDigest(definition) {
-  return `sha256:${createHash("sha256").update(canonicalJSON(definition)).digest("hex")}`;
+  return acceptanceScenarioDigest(definition);
 }
 
 export async function validatePhase4AcceptanceDefinition(root, definition, evidence) {
-  const fail = () => { throw new Error("PHASE4_FAILED:definition"); };
-  if (!exactKeys(definition, ["schemaVersion", "scenarios"]) || definition.schemaVersion !== 1 ||
-      !Array.isArray(definition.scenarios) ||
-      !exactKeys(evidence, ["check", "quarantined", "requiredScenarioIds", "schemaVersion"]) ||
-      evidence.schemaVersion !== 1 || evidence.check !== "phase-4" || !Array.isArray(evidence.requiredScenarioIds) ||
-      !Array.isArray(evidence.quarantined) || evidence.quarantined.length !== 0) fail();
-  const ids = definition.scenarios.map(({ id }) => id);
-  if (new Set(ids).size !== ids.length || JSON.stringify(ids) !== JSON.stringify(REQUIRED_PHASE4_SCENARIO_IDS) ||
-      JSON.stringify(evidence.requiredScenarioIds) !== JSON.stringify(REQUIRED_PHASE4_SCENARIO_IDS)) fail();
-  for (const scenario of definition.scenarios) {
-    if (!exactKeys(scenario, ["environment", "id", "kind", "path", "selector"]) ||
-        !SCENARIO_ID_PATTERN.test(scenario.id) || !SCENARIO_KINDS.has(scenario.kind) ||
-        !SCENARIO_ENVIRONMENTS.has(scenario.environment) || !validRelativePath(scenario.path) ||
-        !TEST_PATHS[scenario.kind].test(scenario.path) || typeof scenario.selector !== "string" ||
-        scenario.selector.length < 8 || scenario.selector.length > 200 || /[\r\n\0]/.test(scenario.selector)) fail();
-    try {
-      const metadata = await lstat(path.join(root, scenario.path));
-      if (!metadata.isFile() || metadata.isSymbolicLink()) fail();
-    } catch { fail(); }
-  }
-  return true;
+  return validateAcceptanceDefinition({ root, phase: 4, definition, evidence, requiredScenarios: REQUIRED_PHASE4_SCENARIO_IDS });
 }
 
 async function phase4Definitions(root) {
@@ -144,32 +113,8 @@ async function cleanSourceState(root) {
   return commit;
 }
 
-function regexEscape(value) { return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
-function exactGoPattern(selector) { return selector.split("/").map(part => `^${regexEscape(part)}$`).join("/"); }
-
-export function parseGoScenarioPass(stdout, selector) {
-  let passed = 0;
-  for (const line of stdout.split("\n")) {
-    if (!line.startsWith("{")) continue;
-    let event;
-    try { event = JSON.parse(line); } catch { throw new Error("PHASE4_FAILED:scenario-result"); }
-    if (event.Test !== selector) continue;
-    if (event.Action === "skip" || event.Action === "fail") throw new Error("PHASE4_FAILED:scenario-result");
-    if (event.Action === "pass") passed++;
-  }
-  if (passed !== 1) throw new Error("PHASE4_FAILED:scenario-result");
-}
-
-async function runGoScenario(root, scenario, runtime) {
-  let result;
-  try {
-    result = await runCommand("go", ["test", "-json", "-race", "-count=1", `./${path.dirname(scenario.path)}`, "-run", exactGoPattern(scenario.selector)], {
-      cwd: root, capture: true,
-      env: runtime ? { ...process.env, VSK_PHASE3_BINARY: runtime.binary, VSK_PHASE3_RUNTIME_ROOT: runtime.root } : process.env,
-      timeoutMs: 300_000,
-    });
-  } catch { throw new Error("PHASE4_FAILED:scenario-execution"); }
-  parseGoScenarioPass(result.stdout, scenario.selector);
+export function parseGoScenarioPass(stdout, selector, expectedPasses = 1) {
+  return parseGenericGoScenarioPass(stdout, selector, expectedPasses, 4);
 }
 
 function collectPlaywrightSpecs(suite, found = []) {
@@ -198,60 +143,13 @@ export function summarizeBrowserFailure(report, selector, root = ROOT) {
   return `browser title ${title}; assertion ${assertion}; status ${status}; class ${failureClass}; message ${message}`;
 }
 
-async function runBrowserScenario(root, scenario, artifacts) {
-  const reportRoot = await mkdtemp(path.join(tmpdir(), "vsk-phase4-report-"));
-  const reportPath = path.join(reportRoot, "report.json");
-  const invocation = packageManagerInvocation([
-    "--filter", "@vegastack/labs-web", "exec", "playwright", "test", scenario.path.replace(/^web\//, ""),
-    "--grep", regexEscape(scenario.selector), "--reporter=json", "--workers=1",
-  ]);
-  try {
-    await runCommand(invocation.command, invocation.args, {
-      cwd: root, capture: true,
-      env: { ...process.env, PLAYWRIGHT_JSON_OUTPUT_NAME: reportPath, VSK_PHASE3_PLAYWRIGHT_OUTPUT: artifacts },
-      timeoutMs: 180_000,
-    });
-    const report = JSON.parse(await readFile(reportPath, "utf8"));
-    parsePlaywrightScenarioPass(report, scenario.selector);
-  } catch (error) {
-    let summary = summarizeBrowserFailure({}, scenario.selector, root);
-    try { summary = summarizeBrowserFailure(JSON.parse(await readFile(reportPath, "utf8")), scenario.selector, root); } catch { /* report absent or invalid */ }
-    const failure = error?.message === "PHASE4_FAILED:scenario-result" ? error : new Error("PHASE4_FAILED:scenario-execution");
-    failure.browserSummary = summary;
-    throw failure;
-  } finally {
-    await rm(reportRoot, { recursive: true, force: true });
-  }
+
+export function parsePlaywrightScenarioPass(report, selector, expectedPasses = 1) {
+  return parseGenericPlaywrightScenarioPass(report, selector, expectedPasses, 4);
 }
 
-export function parsePlaywrightScenarioPass(report, selector) {
-  const allSpecs = collectPlaywrightSpecs(report);
-  const matches = allSpecs.filter(spec => spec.title === selector);
-  if (allSpecs.length !== 1 || matches.length !== 1 || matches[0].tests?.length === 0 ||
-      report.errors?.length !== 0 || report.stats?.expected !== 1 || report.stats?.skipped !== 0 ||
-      report.stats?.unexpected !== 0 || report.stats?.flaky !== 0) throw new Error("PHASE4_FAILED:scenario-result");
-  for (const test of matches[0].tests) {
-    if (test.status !== "expected" || test.expectedStatus !== "passed" || test.results?.length === 0 ||
-        test.results.some(item => item.status !== "passed")) throw new Error("PHASE4_FAILED:scenario-result");
-  }
-}
-
-async function runNodeScenario(root, scenario) {
-  let result;
-  try {
-    result = await runCommand(process.execPath, ["--test", "--test-reporter=tap", `--test-name-pattern=^${regexEscape(scenario.selector)}$`, scenario.path], {
-      cwd: root, capture: true, timeoutMs: 60_000,
-    });
-  } catch { throw new Error("PHASE4_FAILED:scenario-execution"); }
-  parseNodeScenarioPass(result.stdout, scenario.selector);
-}
-
-export function parseNodeScenarioPass(stdout, selector) {
-  const escaped = regexEscape(selector);
-  const passed = stdout.match(new RegExp(`^ok \\d+ - ${escaped}(?: \\(.+\\))?$`, "gm")) ?? [];
-  if (passed.length !== 1 || new RegExp(`^(?:not ok \\d+ - ${escaped}|ok \\d+ - ${escaped}.*# (?:SKIP|TODO))`, "im").test(stdout)) {
-    throw new Error("PHASE4_FAILED:scenario-result");
-  }
+export function parseNodeScenarioPass(stdout, selector, expectedPasses = 1) {
+  return parseGenericNodeScenarioPass(stdout, selector, expectedPasses, 4);
 }
 
 async function createLinuxRuntime(root) {
@@ -274,41 +172,19 @@ async function createLinuxRuntime(root) {
 export async function executePhase4Scenarios(root, definition) {
   const artifacts = await mkdtemp(path.join(tmpdir(), "vsk-phase4-browser-"));
   const runtime = process.platform === "linux" ? await createLinuxRuntime(root) : undefined;
-  const proofResults = new Map();
-  const outcomes = {};
   let sanitized;
   try {
-    for (const scenario of definition.scenarios) {
-      if (scenario.environment === "built-linux" && process.platform !== "linux") {
-        outcomes[scenario.id] = { environment: scenario.environment, status: "linux-required" };
-        continue;
-      }
-      const proof = `${scenario.kind}:${scenario.path}:${scenario.selector}`;
-      if (!proofResults.has(proof)) {
-        try {
-          if (scenario.kind === "go-test") await runGoScenario(root, scenario, runtime);
-          else if (scenario.kind === "browser-test") await runBrowserScenario(root, scenario, artifacts);
-          else await runNodeScenario(root, scenario);
-        } catch (error) {
-          const failure = /^PHASE4_FAILED:(scenario-(?:execution|result))$/.exec(error?.message ?? "");
-          if (failure) {
-            const tagged = new Error(`${error.message}:${scenario.id}`);
-            tagged.browserSummary = error.browserSummary;
-            throw tagged;
-          }
-          throw error;
-        }
-        proofResults.set(proof, true);
-      }
-      outcomes[scenario.id] = { environment: scenario.environment, status: "pass" };
-    }
+    const ordered = await executeAcceptanceScenarios({
+      root, phase: 4, definition, runtime, artifactRoot: artifacts,
+      browserFailureSummary: summarizeBrowserFailure,
+    });
     sanitized = await verifyPhase3({ artifacts, root });
+    return Object.fromEntries(ordered.map(({ id, ...outcome }) => [id, outcome]));
   } finally {
     await rm(artifacts, { recursive: true, force: true });
     if (runtime) await rm(runtime.root, { recursive: true, force: true });
+    if (sanitized !== undefined && sanitized?.status !== "pass") throw new Error("PHASE4_FAILED:evidence-sanitizer");
   }
-  if (sanitized?.status !== "pass") throw new Error("PHASE4_FAILED:evidence-sanitizer");
-  return outcomes;
 }
 
 export async function runPhase4(root = ROOT, { prepared = false } = {}) {
