@@ -126,9 +126,17 @@
       "pattern": "^sha256:[a-f0-9]{64}$",
       "type": "string"
     },
+    "exclusiveAdminDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
     "expectedReclaimBytes": {
       "minimum": 0,
       "type": "integer"
+    },
+    "g008BundleDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
     },
     "generationId": {
       "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
@@ -140,6 +148,14 @@
     },
     "inventoryDigest": {
       "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "lockAdminFingerprint": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "lockAdminReferenceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
       "type": "string"
     },
     "manifestDigest": {
@@ -154,6 +170,10 @@
       "minimum": 0,
       "type": "integer"
     },
+    "multipartCutoffDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
     "objectCount": {
       "minimum": 0,
       "type": "integer"
@@ -165,6 +185,10 @@
       "maxItems": 1000000,
       "type": "array"
     },
+    "oneOwnerProofId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
     "pointId": {
       "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
       "type": "string"
@@ -173,6 +197,14 @@
       "minimum": 0,
       "type": "integer"
     },
+    "putCutoffDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "qualificationDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
     "recoveryEpoch": {
       "minimum": 0,
       "type": "integer"
@@ -180,6 +212,14 @@
     "retainedBytes": {
       "minimum": 0,
       "type": "integer"
+    },
+    "retentionFingerprint": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "retentionReferenceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
     },
     "ruleSetDigest": {
       "pattern": "^sha256:[a-f0-9]{64}$",
@@ -209,6 +249,10 @@
     "selectionDigest": {
       "pattern": "^sha256:[a-f0-9]{64}$",
       "type": "string"
+    },
+    "sourceRevision": {
+      "minimum": 0,
+      "type": "integer"
     },
     "stateRevision": {
       "minimum": 0,
@@ -260,6 +304,16 @@
     "manifestDigest",
     "catalogDigest",
     "inventoryDigest",
+    "oneOwnerProofId",
+    "lockAdminReferenceId",
+    "lockAdminFingerprint",
+    "retentionReferenceId",
+    "retentionFingerprint",
+    "g008BundleDigest",
+    "qualificationDigest",
+    "putCutoffDigest",
+    "multipartCutoffDigest",
+    "exclusiveAdminDigest",
     "survivorPointIds",
     "survivorKeyReferenceIds",
     "rules",
@@ -272,6 +326,7 @@
     "maxMutationBytes",
     "preRuleCount",
     "survivorRuleCount",
+    "sourceRevision",
     "stateRevision",
     "recoveryEpoch"
   ],

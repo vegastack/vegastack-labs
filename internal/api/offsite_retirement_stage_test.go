@@ -109,6 +109,20 @@ func TestOffsiteRetirementRouteDryRunBindsSurvivorKeysBeforeStage(t *testing.T) 
 	if err != nil || len(dry.SurvivorKeyReferenceIDs) != 1 || dry.SurvivorKeyReferenceIDs[0] != "key-good" || len(dry.Rules) != 5 || len(dry.Objects) != 1 || len(dry.SurvivorBindings) != 1 || dry.SurvivorBindings[0].DependencyDigest != d || dry.MaxWorkObjects != 1 || dry.MaxMutationBytes != 10 || dry.RetainedBytes != 10 {
 		t.Fatalf("dry-run=%+v err=%v", dry, err)
 	}
+	recomputed := store.OffsiteRetirementIntent{GenerationID: dry.GenerationID, PointID: dry.PointID, BucketID: dry.BucketID, RuleSetDigest: dry.RuleSetDigest, SurvivorRuleDigest: dry.SurvivorRuleDigest, ManifestDigest: dry.ManifestDigest, CatalogDigest: dry.CatalogDigest, InventoryDigest: dry.InventoryDigest, OneOwnerProofID: dry.OneOwnerProofID, LockAdminReferenceID: dry.LockAdminReferenceID, LockAdminFingerprint: dry.LockAdminFingerprint, RetentionReferenceID: dry.RetentionReferenceID, RetentionFingerprint: dry.RetentionFingerprint, G008BundleDigest: dry.G008BundleDigest, QualificationDigest: dry.QualificationDigest, PutCutoffDigest: dry.PutCutoffDigest, MultipartCutoffDigest: dry.MultipartCutoffDigest, ExclusiveAdminDigest: dry.ExclusiveAdminDigest, SurvivorPointIDs: append([]string(nil), dry.SurvivorPointIDs...), SourceRevision: dry.SourceRevision, StateRevision: dry.StateRevision, RecoveryEpoch: dry.RecoveryEpoch, MaxWorkObjects: dry.MaxWorkObjects, MaxMutationBytes: dry.MaxMutationBytes, PreRuleCount: int(dry.PreRuleCount), SurvivorRuleCount: int(dry.SurvivorRuleCount)}
+	for _, rule := range dry.Rules {
+		recomputed.Rules = append(recomputed.Rules, store.OffsiteRetirementRule{RuleID: rule.RuleID, Prefix: rule.Prefix})
+	}
+	for _, object := range dry.Objects {
+		recomputed.Objects = append(recomputed.Objects, store.OffsiteRetirementObject{Key: object.Key, Digest: object.Digest, Bytes: object.Bytes})
+	}
+	for _, survivor := range dry.SurvivorBindings {
+		recomputed.SurvivorKeyReferences = append(recomputed.SurvivorKeyReferences, store.OffsiteRetirementSurvivorKey{PointID: survivor.PointID, GenerationID: survivor.GenerationID, ReferenceID: survivor.ReferenceID, DependencyDigest: survivor.DependencyDigest})
+	}
+	recomputedDigest, _, err := store.OffsiteRetirementIntentDigests(recomputed)
+	if err != nil || recomputedDigest != dry.IntentDigest {
+		t.Fatalf("dry-run cannot independently reproduce intent digest: got=%s want=%s err=%v", recomputedDigest, dry.IntentDigest, err)
+	}
 	stageInput := generated.BackupOffsiteRetirementStageRequest{Schema: generated.SchemaIDBackupOffsiteRetirementStageRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: 7, RecoveryEpoch: 2, TargetDigest: dry.IntentDigest, IdempotencyKey: "retire-a", SelectionDigest: selection, PlanID: "plan-a", PlanDigest: d, OneOwnerProofID: "proof-a", LockAdminReferenceID: "lock-admin", RetentionReferenceID: "retention", CredentialBindingDigest: d}
 	stageRaw, _ := json.Marshal(stageInput)
 	stageRequest := httptest.NewRequest(http.MethodPost, "/api/v1/backups/offsite-retirements/stage", strings.NewReader(string(stageRaw)))

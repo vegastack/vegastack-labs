@@ -683,6 +683,16 @@ type BackupOffsiteRetirementDryRunData struct {
 	ManifestDigest          string                                   `json:"manifestDigest"`
 	CatalogDigest           string                                   `json:"catalogDigest"`
 	InventoryDigest         string                                   `json:"inventoryDigest"`
+	OneOwnerProofID         string                                   `json:"oneOwnerProofId"`
+	LockAdminReferenceID    string                                   `json:"lockAdminReferenceId"`
+	LockAdminFingerprint    string                                   `json:"lockAdminFingerprint"`
+	RetentionReferenceID    string                                   `json:"retentionReferenceId"`
+	RetentionFingerprint    string                                   `json:"retentionFingerprint"`
+	G008BundleDigest        string                                   `json:"g008BundleDigest"`
+	QualificationDigest     string                                   `json:"qualificationDigest"`
+	PutCutoffDigest         string                                   `json:"putCutoffDigest"`
+	MultipartCutoffDigest   string                                   `json:"multipartCutoffDigest"`
+	ExclusiveAdminDigest    string                                   `json:"exclusiveAdminDigest"`
 	SurvivorPointIDs        []string                                 `json:"survivorPointIds"`
 	SurvivorKeyReferenceIDs []string                                 `json:"survivorKeyReferenceIds"`
 	Rules                   []BackupOffsiteRetirementRule            `json:"rules"`
@@ -695,6 +705,7 @@ type BackupOffsiteRetirementDryRunData struct {
 	MaxMutationBytes        int64                                    `json:"maxMutationBytes"`
 	PreRuleCount            int64                                    `json:"preRuleCount"`
 	SurvivorRuleCount       int64                                    `json:"survivorRuleCount"`
+	SourceRevision          int64                                    `json:"sourceRevision"`
 	StateRevision           int64                                    `json:"stateRevision"`
 	RecoveryEpoch           int64                                    `json:"recoveryEpoch"`
 }

@@ -61,6 +61,9 @@ func (app *App) runBackupCommand(ctx context.Context, mode outputMode, parsed pa
 				return exitCodeFor(generated.ErrorCodeIntegrityFailure)
 			}
 		}
+		if _, err := fmt.Fprintf(app.stdout, "Authority: source revision %d, state revision %d, recovery epoch %d, one-owner proof %s.\nG-008: bundle %s, qualification %s, PUT cutoff %s, multipart cutoff %s, exclusive admin %s.\nCredentials: lock-admin %s (%s), retention-delete %s (%s).\n", data.SourceRevision, data.StateRevision, data.RecoveryEpoch, data.OneOwnerProofID, data.G008BundleDigest, data.QualificationDigest, data.PutCutoffDigest, data.MultipartCutoffDigest, data.ExclusiveAdminDigest, data.LockAdminReferenceID, data.LockAdminFingerprint, data.RetentionReferenceID, data.RetentionFingerprint); err != nil {
+			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+		}
 		return 0
 	}
 	if parsed.commandName() == generated.CommandNameBackupOffsiteRetirementStage {
