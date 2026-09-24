@@ -44,8 +44,8 @@ test("Phase 5 pages retain a useful no-JavaScript fallback", async ({ browser })
     const response = await page.goto(route);
     expect(response).not.toBeNull();
     const html = await response!.text();
-    expect(html).toContain("<noscript");
-    expect(html).toContain(command);
+    const fallbacks = [...html.matchAll(/<noscript(?:\s[^>]*)?>([\s\S]*?)<\/noscript>/gi)].map((match) => match[1]);
+    expect(fallbacks.some((fallback) => fallback?.includes(command))).toBeTruthy();
   }
   await context.close();
 });
