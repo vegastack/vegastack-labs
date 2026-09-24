@@ -71,10 +71,14 @@ test("Phase 5 catalog covers every durable boundary", async () => {
   assert.deepEqual(
     definition.scenarios.filter(({ repeat }) => repeat > 1).map(({ id, repeat, seed }) => ({ id, repeat, seed })),
     [
-      { id: "audit.concurrent-chain-single", repeat: 3, seed: "phase5-concurrency-v1" },
-      { id: "schedule.overlap-single", repeat: 3, seed: "phase5-concurrency-v1" },
+      { id: "suite.deterministic-repeat", repeat: 3, seed: "phase5-concurrency-v1" },
     ],
   );
+
+  const scenarios = Object.fromEntries(definition.scenarios.map(scenario => [scenario.id, scenario]));
+  assert.equal(scenarios["suite.durable-boundary-complete"].selector, "TestPhase5AcceptanceDurableFaultMatrix");
+  assert.equal(scenarios["suite.deterministic-repeat"].selector, "TestPhase5AcceptanceSeededConcurrency");
+  assert.equal(scenarios["surface.cli-api-console-parity"].selector, "TestPhase5AcceptanceBuiltProcessRecoveryAndIsolation");
 });
 
 test("Phase 5 catalog resolves Linux build constraints instead of trusting environment labels", async () => {

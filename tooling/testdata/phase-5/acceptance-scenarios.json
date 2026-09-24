@@ -456,8 +456,8 @@
         "errorCode": null,
         "state": "single-chain"
       },
-      "repeat": 3,
-      "seed": "phase5-concurrency-v1",
+      "repeat": 1,
+      "seed": null,
       "cleanup": "runner-owned-temporary-root",
       "sanitizer": "phase3-private-artifact-scan"
     },
@@ -716,8 +716,8 @@
         "errorCode": null,
         "state": "single-occurrence"
       },
-      "repeat": 3,
-      "seed": "phase5-concurrency-v1",
+      "repeat": 1,
+      "seed": null,
       "cleanup": "runner-owned-temporary-root",
       "sanitizer": "phase3-private-artifact-scan"
     },
@@ -827,14 +827,14 @@
       "ownerIssue": 110,
       "seam": "surface",
       "kind": "go-test",
-      "path": "internal/server/phase5_surface_parity_linux_test.go",
-      "selector": "TestPhase5SurfacesAgreeAndBrowserCannotReachProtectedEffects",
+      "path": "internal/server/phase5_acceptance_linux_test.go",
+      "selector": "TestPhase5AcceptanceBuiltProcessRecoveryAndIsolation",
       "environment": "built-linux",
       "proofClass": "fixture",
       "expected": {
         "result": "pass",
         "errorCode": null,
-        "state": "parity"
+        "state": "parity-and-recovered"
       },
       "repeat": 1,
       "seed": null,
@@ -887,9 +887,9 @@
       "ownerIssue": 111,
       "seam": "suite",
       "kind": "go-test",
-      "path": "internal/run/engine_test.go",
-      "selector": "TestRestartAtEveryDurableBoundaryNeverRepeatsAmbiguousEffect",
-      "environment": "fixture",
+      "path": "internal/run/phase5_acceptance_linux_test.go",
+      "selector": "TestPhase5AcceptanceDurableFaultMatrix",
+      "environment": "built-linux",
       "proofClass": "fixture",
       "expected": {
         "result": "pass",
@@ -926,18 +926,18 @@
       "requirementId": "5.10.suite.deterministic-repeat",
       "ownerIssue": 111,
       "seam": "suite",
-      "kind": "node-test",
-      "path": "tooling/test/phase-5-acceptance.test.mjs",
-      "selector": "Phase 5 exact-pass parsers enforce repeat counts",
-      "environment": "fixture",
+      "kind": "go-test",
+      "path": "internal/run/phase5_acceptance_linux_test.go",
+      "selector": "TestPhase5AcceptanceSeededConcurrency",
+      "environment": "built-linux",
       "proofClass": "fixture",
       "expected": {
         "result": "pass",
         "errorCode": null,
         "state": "deterministic"
       },
-      "repeat": 1,
-      "seed": null,
+      "repeat": 3,
+      "seed": "phase5-concurrency-v1",
       "cleanup": "runner-owned-temporary-root",
       "sanitizer": "phase3-private-artifact-scan"
     }
