@@ -504,6 +504,19 @@ Owner phase: `4` · risk: `mutation` · availability: `available`
 
 - Request server-owned resumption of one safely resumable durable run.: `vsk-labs run resume --config fixture/server-profile.json --run-id run-1 --output json`
 
+### `vsk-labs schedule cancel`
+
+Cancel one exact queued or retry-wait scheduled occurrence.
+
+Owner phase: `5` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected local server profile.
+- `--job-id <id>` — Select one exact durable scheduled job.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Cancel one exact queued or retry-wait scheduled occurrence.: `vsk-labs schedule cancel --config fixture/server-profile.json --job-id scheduled-job-a --output json`
+
 ### `vsk-labs schedule dispatch`
 
 Wake one exact approved schedule through the protected local API.

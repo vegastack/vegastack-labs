@@ -11,7 +11,7 @@ func validPolicy() generated.ScheduledJobPolicy {
 	digest := "sha256:" + strings.Repeat("a", 64)
 	return generated.ScheduledJobPolicy{
 		Schema: generated.SchemaIDScheduledJobPolicy, SchemaVersion: "1.1.0", PolicyID: "policy-a", Revision: 1,
-		DeclarationID: "declaration-a", DeclarationRevision: 1, ApprovalPlanID: "plan-a", ApprovalPlanDigest: digest, ApprovedByHumanID: "human-a",
+		DeclarationID: "declaration-a", DeclarationRevision: 1,
 		ActionKind: "backup-create", OperationType: "backup.local.create", AdapterID: "local.backup", ExactSourceIDs: []string{"source-a"}, ExactSubjectIDs: []string{"subject-a"}, ExactTargetIDs: []string{"target-a"}, MaximumWork: 1,
 		CredentialReferenceIDs: []string{"credential-a"}, GrantRevision: 1, StateRevision: 4, RecoveryEpoch: 2, PolicyVersion: "1.0.0", RetentionRuleDigest: digest,
 		AnchorAt: "2026-09-16T00:00:00Z", IntervalSeconds: 3600, WindowSeconds: 1800, CatchUp: "latest", Concurrency: "forbid", MaxAttempts: 3, InitialBackoffSeconds: 10, MaximumBackoffSeconds: 60,
@@ -55,6 +55,9 @@ func TestActionCatalogRequiresExactMergedOperationAndAdapter(t *testing.T) {
 	} {
 		policy := validPolicy()
 		policy.ActionKind, policy.OperationType, policy.AdapterID = kind, contract[0], contract[1]
+		if kind == "gate-check" || kind == "observation-refresh" {
+			policy.CredentialReferenceIDs = []string{}
+		}
 		if _, _, err := CanonicalPolicy(policy); err != nil {
 			t.Fatalf("%s rejected: %v", kind, err)
 		}

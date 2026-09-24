@@ -305,13 +305,14 @@
         "id": "phase5-issue109-v1",
         "issue": 109,
         "commands": [
+          "schedule cancel",
           "schedule dispatch",
           "schedule policy draft"
         ],
         "imports": [
           "github.com/vegastack/vegastack-labs/internal/schedule"
         ],
-        "mutationBoundaryDigest": "sha256:409e6be447e6827b27adc7ea4da0a9918dfba7ff7d94774075f126c9ea4f87d3"
+        "mutationBoundaryDigest": "sha256:38ac2f0a682e38e7ba51f6e59fec579ce3e48e90f2cd21943123bf2c7c247547"
       }
     ]
   },

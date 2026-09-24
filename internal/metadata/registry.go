@@ -210,7 +210,7 @@ func Current() Registry {
 		backupRetirementDraftCommand(),
 		backupOffsiteRetirementStageCommand(),
 		backupOffsiteRetirementDryRunCommand(),
-		schedulePolicyDraftCommand(), scheduleDispatchCommand(),
+		schedulePolicyDraftCommand(), scheduleDispatchCommand(), scheduleCancelCommand(),
 		backupStatusCommand(), backupRunCommand(), backupVerifyCommand(),
 		restoreCommand("plan", restoreRequestSchemaID, restoreBindingSchemaID, "Create one immutable fenced restore plan."),
 		restoreCommand("run", restoreRunRequestSchemaID, restoreBindingSchemaID, "Stage one exact authorized restore candidate."),
@@ -429,6 +429,12 @@ func scheduleDispatchCommand() CommandDefinition {
 	return phase5GateCommand([]string{"schedule", "dispatch"}, "Wake one exact approved schedule through the protected local API.", scheduledJobRequestSchemaID, scheduledJobSchemaID, RiskMutation,
 		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected local server profile."}, {Name: "--policy-id", Kind: FlagValue, ValueName: "id", Required: true, Summary: "Select one exact active policy; no action field may be overridden."}},
 		[]string{"schedule", "dispatch", "--config", "fixture/server-profile.json", "--policy-id", "policy-a", "--output", "json"})
+}
+
+func scheduleCancelCommand() CommandDefinition {
+	return phase5GateCommand([]string{"schedule", "cancel"}, "Cancel one exact queued or retry-wait scheduled occurrence.", scheduledJobCancelRequestSchemaID, scheduledJobSchemaID, RiskMutation,
+		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected local server profile."}, {Name: "--job-id", Kind: FlagValue, ValueName: "id", Required: true, Summary: "Select one exact durable scheduled job."}},
+		[]string{"schedule", "cancel", "--config", "fixture/server-profile.json", "--job-id", "scheduled-job-a", "--output", "json"})
 }
 
 func backupRunCommand() CommandDefinition {

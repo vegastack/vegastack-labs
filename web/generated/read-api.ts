@@ -728,9 +728,6 @@ export interface ScheduledJobPolicy {
   readonly "revision": number;
   readonly "declarationId": string;
   readonly "declarationRevision": number;
-  readonly "approvalPlanId": string;
-  readonly "approvalPlanDigest": string;
-  readonly "approvedByHumanId": string;
   readonly "actionKind": "gate-check" | "observation-refresh" | "backup-create" | "backup-integrity-verify" | "audit-checkpoint-export";
   readonly "operationType": string;
   readonly "adapterId": string;
@@ -5100,27 +5097,6 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "minimum": 1
-      },
-      {
-        "name": "approvalPlanId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "approvalPlanDigest",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^sha256:[a-f0-9]{64}$"
-      },
-      {
-        "name": "approvedByHumanId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
       },
       {
         "name": "actionKind",

@@ -58,6 +58,7 @@ const (
 	restoreRunRequestSchemaID                = "vegastack-labs.dev/restore-run-request"
 	restoreVerifyRequestSchemaID             = "vegastack-labs.dev/restore-verify-request"
 	scheduledJobRequestSchemaID              = "vegastack-labs.dev/scheduled-job-request"
+	scheduledJobCancelRequestSchemaID        = "vegastack-labs.dev/scheduled-job-cancel-request"
 	credentialReferenceRequestSchemaID       = "vegastack-labs.dev/credential-reference-request"
 	credentialImportRequestSchemaID          = "vegastack-labs.dev/credential-import-request"
 	credentialImportSubmissionSchemaID       = "vegastack-labs.dev/credential-import-submission"
@@ -526,7 +527,6 @@ func phase5RecoveryJobSchemas() []SchemaDefinition {
 		phase5ScheduleSchema(scheduledJobPolicySchemaID,
 			phase5ID("policyId", "PolicyID"), phase5Positive("revision", "Revision"),
 			phase5ID("declarationId", "DeclarationID"), phase5Positive("declarationRevision", "DeclarationRevision"),
-			phase5ID("approvalPlanId", "ApprovalPlanID"), phase5Digest("approvalPlanDigest", "ApprovalPlanDigest"), phase5ID("approvedByHumanId", "ApprovedByHumanID"),
 			phase5Enum("actionKind", "ActionKind", "gate-check", "observation-refresh", "backup-create", "backup-integrity-verify", "audit-checkpoint-export"),
 			phase5ID("operationType", "OperationType"), phase5ID("adapterId", "AdapterID"),
 			phase5IDs("exactSourceIds", "ExactSourceIDs", 64), phase5IDs("exactSubjectIds", "ExactSubjectIDs", 64), phase5IDs("exactTargetIds", "ExactTargetIDs", 64),
@@ -692,6 +692,7 @@ func phase5RequestSchemas() []SchemaDefinition {
 			phase5ID("policyId", "PolicyID"), phase5Positive("policyRevision", "PolicyRevision"),
 			phase5ID("occurrenceToken", "OccurrenceToken"), phase5Timestamp("observedAt", "ObservedAt"),
 		),
+		phase5ScheduleSchema(scheduledJobCancelRequestSchemaID, phase5ID("idempotencyKey", "IdempotencyKey")),
 		phase5CredentialRequest(credentialReferenceRequestSchemaID,
 			phase5ID("referenceId", "ReferenceID"), phase5ID("consumerId", "ConsumerID"),
 			phase5ID("purposeId", "PurposeID"), phase5ID("targetId", "TargetID"), phase5ID("resolverId", "ResolverID"),
@@ -914,6 +915,7 @@ func phase5Endpoints() []EndpointDefinition {
 		phase5AvailableGateEndpoint("api.v1.scheduled-job-policies.get", "GET", "/api/v1/scheduled-job-policies/{policyId}", "", scheduledJobPolicySchemaID, true),
 		phase5AvailableGateEndpoint("api.v1.scheduled-job-policies.drafts.create", "POST", "/api/v1/scheduled-job-policies/drafts", scheduledJobPolicySchemaID, scheduledPolicyDraftSubmissionSchemaID, false),
 		{ID: "api.v1.scheduled-jobs.create", Method: "POST", Path: "/api/v1/scheduled-jobs", RequestSchema: scheduledJobRequestSchemaID, DataSchema: scheduledJobSchemaID, Availability: AvailabilityAvailable, OwnerPhase: "5", Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}, TransportScope: "local"},
+		{ID: "api.v1.scheduled-jobs.cancel", Method: "POST", Path: "/api/v1/scheduled-jobs/{jobId}/cancel", RequestSchema: scheduledJobCancelRequestSchemaID, DataSchema: scheduledJobSchemaID, Availability: AvailabilityAvailable, OwnerPhase: "5", Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}, TransportScope: "local"},
 	}
 }
 

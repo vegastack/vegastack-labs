@@ -13,6 +13,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/schedule"
+	"github.com/vegastack/vegastack-labs/internal/stateexport"
 )
 
 type ScheduledPolicyDraft struct {
@@ -21,14 +22,15 @@ type ScheduledPolicyDraft struct {
 }
 
 type ScheduleActivationRequest struct {
-	DraftID, AuthorizationBranch, ExecutingOperation, PlanID, PlanDigest, AcknowledgementID string
-	Expected                                                                                RevisionToken
-	Attribution                                                                             audit.Attribution
+	DraftID, AuthorizationBranch, ExecutingOperation, PlanID, PlanDigest, AcknowledgementID, ApprovedByHumanID string
+	Expected                                                                                                   RevisionToken
+	Attribution                                                                                                audit.Attribution
 }
 
 type OccurrenceClaim struct {
 	Policy          generated.ScheduledJobPolicy
 	ScheduledAt     time.Time
+	WindowClosesAt  time.Time
 	OccurrenceToken string
 	TargetDigest    string
 	IdempotencyKey  string
@@ -57,7 +59,7 @@ func (repository *ScheduleRepository) CurrentScheduleRevision(ctx context.Contex
 }
 
 func (repository *ScheduleRepository) ClaimScheduledOccurrence(ctx context.Context, policy generated.ScheduledJobPolicy, slot schedule.Slot, token, targetDigest, idempotencyKey string, revision schedule.Revision) (generated.ScheduledJob, error) {
-	return repository.ClaimOccurrence(ctx, OccurrenceClaim{Policy: policy, ScheduledAt: slot.ScheduledAt, OccurrenceToken: token, TargetDigest: targetDigest, IdempotencyKey: idempotencyKey, Expected: RevisionToken{StateRevision: revision.StateRevision, RecoveryEpoch: revision.RecoveryEpoch}})
+	return repository.ClaimOccurrence(ctx, OccurrenceClaim{Policy: policy, ScheduledAt: slot.ScheduledAt, WindowClosesAt: slot.WindowClosesAt, OccurrenceToken: token, TargetDigest: targetDigest, IdempotencyKey: idempotencyKey, Expected: RevisionToken{StateRevision: revision.StateRevision, RecoveryEpoch: revision.RecoveryEpoch}})
 }
 
 func (repository *ScheduleRepository) TransitionScheduledOccurrence(ctx context.Context, jobID, from, to, reason string, planID, runID *string) (generated.ScheduledJob, error) {
@@ -86,7 +88,7 @@ func (repository *ScheduleRepository) StageDraft(ctx context.Context, policy gen
 		if err := tx.QueryRowContext(ctx, `SELECT state_revision,recovery_epoch FROM system_meta WHERE id=1`).Scan(&stateRevision, &recoveryEpoch); err != nil {
 			return err
 		}
-		if stateRevision != policy.StateRevision || recoveryEpoch != policy.RecoveryEpoch {
+		if stateRevision+1 != policy.StateRevision || recoveryEpoch != policy.RecoveryEpoch {
 			return scheduleError(generated.ErrorCodeStateConflict, "scheduled-policy-revision")
 		}
 		_, err := tx.ExecContext(ctx, `INSERT INTO scheduled_policy_drafts(draft_id,policy_id,policy_revision,canonical_json,policy_digest,created_by_human_id,state_revision,recovery_epoch,created_at) VALUES(?,?,?,?,?,?,?,?,?)`, draft.DraftID, policy.PolicyID, policy.Revision, draft.CanonicalJSON, draft.Digest, draft.CreatedByHumanID, stateRevision, recoveryEpoch, draft.CreatedAt)
@@ -129,7 +131,7 @@ func (repository *ScheduleRepository) Activate(ctx context.Context, request Sche
 		return generated.ScheduledJobPolicy{}, err
 	}
 	policy := draft.Policy
-	if request.AuthorizationBranch != "human" || request.ExecutingOperation != "schedule.policy.activate" || request.PlanID == "" || request.PlanDigest == "" || request.AcknowledgementID == "" || request.Expected.StateRevision != policy.StateRevision || request.Expected.RecoveryEpoch != policy.RecoveryEpoch || request.Attribution.AuthenticatedPrincipalID != policy.ApprovedByHumanID {
+	if request.AuthorizationBranch != "human" || request.ExecutingOperation != "schedule.policy.activate" || request.PlanID == "" || request.PlanDigest == "" || request.AcknowledgementID == "" || request.Expected.StateRevision != policy.StateRevision || request.Expected.RecoveryEpoch != policy.RecoveryEpoch || request.ApprovedByHumanID == "" || request.Attribution.ResponsibleHumanPrincipalID == nil || *request.Attribution.ResponsibleHumanPrincipalID != request.ApprovedByHumanID {
 		return generated.ScheduledJobPolicy{}, scheduleError(generated.ErrorCodeAuthorizationDenied, "scheduled-policy-activation")
 	}
 	now := repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339)
@@ -142,7 +144,7 @@ func (repository *ScheduleRepository) Activate(ctx context.Context, request Sche
 			return scheduleError(generated.ErrorCodePlanStale, "scheduled-policy-activation")
 		}
 		activationID := "schedule-activation-" + draft.Digest[7:39]
-		_, err := tx.ExecContext(ctx, `INSERT INTO scheduled_policy_activations(activation_id,draft_id,policy_id,policy_revision,status,approval_plan_id,approval_plan_digest,acknowledgement_id,approved_by_human_id,state_revision,recovery_epoch,activated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, activationID, draft.DraftID, policy.PolicyID, policy.Revision, "active", request.PlanID, request.PlanDigest, request.AcknowledgementID, request.Attribution.AuthenticatedPrincipalID, stateRevision, recoveryEpoch, now)
+		_, err := tx.ExecContext(ctx, `INSERT INTO scheduled_policy_activations(activation_id,draft_id,policy_id,policy_revision,status,approval_plan_id,approval_plan_digest,acknowledgement_id,approved_by_human_id,state_revision,recovery_epoch,activated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, activationID, draft.DraftID, policy.PolicyID, policy.Revision, "active", request.PlanID, request.PlanDigest, request.AcknowledgementID, request.ApprovedByHumanID, stateRevision, recoveryEpoch, now)
 		if err != nil {
 			return classifySQLiteError(ctx, err)
 		}
@@ -227,6 +229,17 @@ func (repository *ScheduleRepository) GetActivePolicy(ctx context.Context, polic
 	return policy, nil
 }
 
+func (repository *ScheduleRepository) GetActivePolicyApprover(ctx context.Context, policyID string, revision int64) (string, error) {
+	var humanID string
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		return tx.queryRow(ctx, `SELECT approved_by_human_id FROM scheduled_policy_activations WHERE policy_id=? AND policy_revision=? AND status='active'`, policyID, revision).Scan(&humanID)
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", scheduleError(generated.ErrorCodeResourceNotFound, "scheduled-policy-approval")
+	}
+	return humanID, err
+}
+
 func (repository *ScheduleRepository) GetActivePolicyByDigest(ctx context.Context, digest string) (generated.ScheduledJobPolicy, error) {
 	var policyID string
 	err := repository.store.Read(ctx, func(tx ReadTx) error {
@@ -242,14 +255,15 @@ func (repository *ScheduleRepository) GetActivePolicyByDigest(ctx context.Contex
 }
 
 func (repository *ScheduleRepository) ClaimOccurrence(ctx context.Context, claim OccurrenceClaim) (generated.ScheduledJob, error) {
-	if claim.Policy.PolicyID == "" || claim.ScheduledAt.IsZero() || claim.OccurrenceToken == "" || claim.IdempotencyKey == "" || claim.Expected.StateRevision != claim.Policy.StateRevision || claim.Expected.RecoveryEpoch != claim.Policy.RecoveryEpoch {
+	if claim.Policy.PolicyID == "" || claim.ScheduledAt.IsZero() || claim.WindowClosesAt.IsZero() || !claim.WindowClosesAt.After(claim.ScheduledAt) || claim.OccurrenceToken == "" || claim.IdempotencyKey == "" || claim.Expected.StateRevision != claim.Policy.StateRevision || claim.Expected.RecoveryEpoch != claim.Policy.RecoveryEpoch {
 		return generated.ScheduledJob{}, scheduleError(generated.ErrorCodeInputInvalid, "scheduled-occurrence")
 	}
 	when := claim.ScheduledAt.UTC().Truncate(time.Second).Format(time.RFC3339)
+	windowCloses := claim.WindowClosesAt.UTC().Truncate(time.Second).Format(time.RFC3339)
 	jobID := "scheduled-job-" + scheduleDigest(fmt.Sprintf("%s\x00%d\x00%s", claim.Policy.PolicyID, claim.Policy.Revision, when))[7:39]
 	now := repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339)
 	err := repository.inTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO scheduled_occurrences(job_id,policy_id,policy_revision,scheduled_at,occurrence_token_digest,target_digest,idempotency_key_digest,state_revision,recovery_epoch,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, jobID, claim.Policy.PolicyID, claim.Policy.Revision, when, scheduleDigest(claim.OccurrenceToken), claim.TargetDigest, scheduleDigest(claim.IdempotencyKey), claim.Expected.StateRevision, claim.Expected.RecoveryEpoch, now)
+		_, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO scheduled_occurrences(job_id,policy_id,policy_revision,scheduled_at,window_closes_at,occurrence_token_digest,target_digest,idempotency_key_digest,state_revision,recovery_epoch,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)`, jobID, claim.Policy.PolicyID, claim.Policy.Revision, when, windowCloses, scheduleDigest(claim.OccurrenceToken), claim.TargetDigest, scheduleDigest(claim.IdempotencyKey), claim.Expected.StateRevision, claim.Expected.RecoveryEpoch, now)
 		if err != nil {
 			return fmt.Errorf("occurrence insert: %w", err)
 		}
@@ -263,6 +277,46 @@ func (repository *ScheduleRepository) ClaimOccurrence(ctx context.Context, claim
 		return generated.ScheduledJob{}, err
 	}
 	return repository.GetOccurrence(ctx, jobID)
+}
+
+func (repository *ScheduleRepository) ScheduledOccurrenceDigest(ctx context.Context, jobID string) (string, error) {
+	var policyID, scheduledAt, windowClosesAt, tokenDigest, targetDigest, keyDigest string
+	var policyRevision, stateRevision, recoveryEpoch int64
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		return tx.queryRow(ctx, `SELECT policy_id,policy_revision,scheduled_at,window_closes_at,occurrence_token_digest,target_digest,idempotency_key_digest,state_revision,recovery_epoch FROM scheduled_occurrences WHERE job_id=?`, jobID).Scan(&policyID, &policyRevision, &scheduledAt, &windowClosesAt, &tokenDigest, &targetDigest, &keyDigest, &stateRevision, &recoveryEpoch)
+	})
+	if err != nil {
+		return "", err
+	}
+	value := struct {
+		JobID, PolicyID                                                                        string
+		PolicyRevision                                                                         int64
+		ScheduledAt, WindowClosesAt, OccurrenceTokenDigest, TargetDigest, IdempotencyKeyDigest string
+		StateRevision, RecoveryEpoch                                                           int64
+	}{jobID, policyID, policyRevision, scheduledAt, windowClosesAt, tokenDigest, targetDigest, keyDigest, stateRevision, recoveryEpoch}
+	bytes, _, err := stateexport.CanonicalJSON(value)
+	if err != nil {
+		return "", err
+	}
+	return scheduleDigest(string(bytes)), nil
+}
+
+func (repository *ScheduleRepository) ScheduledOccurrenceWindowClosesAt(ctx context.Context, jobID string) (time.Time, error) {
+	var value string
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		return tx.queryRow(ctx, `SELECT window_closes_at FROM scheduled_occurrences WHERE job_id=?`, jobID).Scan(&value)
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return time.Time{}, scheduleError(generated.ErrorCodeResourceNotFound, "scheduled-occurrence")
+	}
+	if err != nil {
+		return time.Time{}, err
+	}
+	result, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		return time.Time{}, scheduleError(generated.ErrorCodeIntegrityFailure, "scheduled-occurrence-window")
+	}
+	return result, nil
 }
 
 func (repository *ScheduleRepository) GetOccurrence(ctx context.Context, jobID string) (generated.ScheduledJob, error) {
@@ -328,6 +382,14 @@ func (repository *ScheduleRepository) ValidateScheduledPlan(ctx context.Context,
 	job, err := repository.GetOccurrence(ctx, jobID)
 	if err != nil {
 		return err
+	}
+	current, err := repository.CurrentScheduleRevision(ctx)
+	if err != nil || current.StateRevision != plan.Binding.StateRevision || current.RecoveryEpoch != plan.Binding.RecoveryEpoch {
+		return scheduleError(generated.ErrorCodePlanStale, "scheduled-current-revision")
+	}
+	currentOccurrenceDigest, err := repository.ScheduledOccurrenceDigest(ctx, jobID)
+	if err != nil || currentOccurrenceDigest != occurrenceDigest {
+		return scheduleError(generated.ErrorCodePlanStale, "scheduled-occurrence-digest")
 	}
 	policy, err := repository.GetActivePolicy(ctx, job.PolicyID)
 	if err != nil {

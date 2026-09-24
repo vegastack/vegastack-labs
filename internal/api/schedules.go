@@ -17,10 +17,12 @@ import (
 type ScheduledPolicyStore interface {
 	StageDraft(context.Context, generated.ScheduledJobPolicy, audit.Attribution) (store.ScheduledPolicyDraft, error)
 	GetActivePolicy(context.Context, string) (generated.ScheduledJobPolicy, error)
+	CurrentScheduleRevision(context.Context) (schedule.Revision, error)
 }
 
 type ScheduledDispatcher interface {
 	Dispatch(context.Context, schedule.DispatchRequest) (generated.ScheduledJob, error)
+	Cancel(context.Context, string) (generated.ScheduledJob, error)
 }
 
 type ScheduledRunner interface {
@@ -58,9 +60,10 @@ func RegisterScheduleOperations(app *Application, config ScheduleOperations) err
 		route{id: "api.v1.scheduled-job-policies.drafts.create", method: http.MethodPost, pattern: "/api/v1/scheduled-job-policies/drafts", capability: "schedule.policy.author", kind: "scheduled-policy", action: authorization.ActionAuthor, handler: app.scheduledPolicyDraft(config)},
 		route{id: "api.v1.scheduled-job-policies.get", method: http.MethodGet, pattern: "/api/v1/scheduled-job-policies/{policyId}", capability: "schedule.policy.read", kind: "scheduled-policy", handler: app.scheduledPolicyGet(config)},
 		route{id: "api.v1.scheduled-jobs.create", method: http.MethodPost, pattern: "/api/v1/scheduled-jobs", capability: "schedule.dispatch", kind: "scheduled-job", action: authorization.ActionExecute, handler: app.scheduledDispatch(config)},
+		route{id: "api.v1.scheduled-jobs.cancel", method: http.MethodPost, pattern: "/api/v1/scheduled-jobs/{jobId}/cancel", capability: "schedule.dispatch", kind: "scheduled-job", action: authorization.ActionExecute, handler: app.scheduledCancel(config)},
 	)
 	if !routesAreGeneratedSubset(app.routes) {
-		app.routes = app.routes[:len(app.routes)-3]
+		app.routes = app.routes[:len(app.routes)-4]
 		if combined, ok := app.runs.(combinedRunLifecycle); ok {
 			app.runs = combined.first
 		}
@@ -73,7 +76,7 @@ func (app *Application) scheduledPolicyDraft(config ScheduleOperations) func(htt
 	return func(w http.ResponseWriter, r *http.Request, _ authorization.ReadScope, _ map[string]string) {
 		const op = "api.v1.scheduled-job-policies.drafts.create"
 		var policy generated.ScheduledJobPolicy
-		if err := decodeOperationRequest(r, 65536, []string{"schema", "schemaVersion", "policyId", "revision", "declarationId", "declarationRevision", "approvalPlanId", "approvalPlanDigest", "approvedByHumanId", "actionKind", "operationType", "adapterId", "exactSourceIds", "exactSubjectIds", "exactTargetIds", "maximumWork", "credentialReferenceIds", "grantRevision", "stateRevision", "recoveryEpoch", "policyVersion", "retentionRuleDigest", "anchorAt", "intervalSeconds", "windowSeconds", "catchUp", "concurrency", "maxAttempts", "initialBackoffSeconds", "maximumBackoffSeconds", "expiresAt", "enabled"}, &policy); err != nil {
+		if err := decodeOperationRequest(r, 65536, []string{"schema", "schemaVersion", "policyId", "revision", "declarationId", "declarationRevision", "actionKind", "operationType", "adapterId", "exactSourceIds", "exactSubjectIds", "exactTargetIds", "maximumWork", "credentialReferenceIds", "grantRevision", "stateRevision", "recoveryEpoch", "policyVersion", "retentionRuleDigest", "anchorAt", "intervalSeconds", "windowSeconds", "catchUp", "concurrency", "maxAttempts", "initialBackoffSeconds", "maximumBackoffSeconds", "expiresAt", "enabled"}, &policy); err != nil {
 			app.failure(w, op, err)
 			return
 		}
@@ -157,5 +160,32 @@ func (app *Application) scheduledDispatch(config ScheduleOperations) func(http.R
 			return
 		}
 		app.operationSuccess(w, op, input.IdempotencyKey, true, input.ExpectedStateRevision, input.RecoveryEpoch, job)
+	}
+}
+
+func (app *Application) scheduledCancel(config ScheduleOperations) func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string) {
+	return func(w http.ResponseWriter, r *http.Request, _ authorization.ReadScope, params map[string]string) {
+		const op = "api.v1.scheduled-jobs.cancel"
+		jobID := params["jobId"]
+		if !pathToken.MatchString(jobID) {
+			app.failure(w, op, apiFailure(generated.ErrorCodeInputInvalid, "path"))
+			return
+		}
+		var input generated.ScheduledJobCancelRequest
+		if err := decodeOperationRequest(r, 4096, []string{"schema", "schemaVersion", "idempotencyKey"}, &input); err != nil {
+			app.failure(w, op, err)
+			return
+		}
+		job, err := config.Dispatch.Cancel(r.Context(), jobID)
+		if err != nil {
+			app.operationFailure(w, op, input.IdempotencyKey, err)
+			return
+		}
+		revision, err := config.Policies.CurrentScheduleRevision(r.Context())
+		if err != nil {
+			app.operationFailure(w, op, input.IdempotencyKey, err)
+			return
+		}
+		app.operationSuccess(w, op, input.IdempotencyKey, true, revision.StateRevision, revision.RecoveryEpoch, job)
 	}
 }

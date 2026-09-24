@@ -65,6 +65,7 @@ Contract schema: `1.21.0`
 | `api.v1.runs.resume` | `POST` | `/api/v1/runs/{runId}/resume` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/run-reference-request` | `vegastack-labs.dev/run-presentation` |
 | `api.v1.scheduled-job-policies.drafts.create` | `POST` | `/api/v1/scheduled-job-policies/drafts` | `available` | `operator` | `finite` | `vegastack-labs.dev/scheduled-job-policy` | `vegastack-labs.dev/scheduled-policy-draft-submission` |
 | `api.v1.scheduled-job-policies.get` | `GET` | `/api/v1/scheduled-job-policies/{policyId}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/scheduled-job-policy` |
+| `api.v1.scheduled-jobs.cancel` | `POST` | `/api/v1/scheduled-jobs/{jobId}/cancel` | `available` | `operator` | `finite` | `vegastack-labs.dev/scheduled-job-cancel-request` | `vegastack-labs.dev/scheduled-job` |
 | `api.v1.scheduled-jobs.create` | `POST` | `/api/v1/scheduled-jobs` | `available` | `operator` | `finite` | `vegastack-labs.dev/scheduled-job-request` | `vegastack-labs.dev/scheduled-job` |
 | `api.v1.session.create` | `POST` | `/api/v1/session` | `available` | `browser` | `finite` | `vegastack-labs.dev/api-browser-session-request` | `vegastack-labs.dev/api-browser-session-data` |
 | `api.v1.session.logout` | `POST` | `/api/v1/session/logout` | `available` | `browser` | `finite` | `vegastack-labs.dev/api-browser-session-request` | `vegastack-labs.dev/api-browser-session-data` |

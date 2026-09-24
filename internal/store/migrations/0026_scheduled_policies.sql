@@ -19,7 +19,7 @@ CREATE TRIGGER scheduled_policy_activations_no_update BEFORE UPDATE ON scheduled
 CREATE TRIGGER scheduled_policy_activations_no_delete BEFORE DELETE ON scheduled_policy_activations BEGIN SELECT RAISE(ABORT,'scheduled policy activations are durable'); END;
 
 CREATE TABLE scheduled_occurrences (
- job_id TEXT PRIMARY KEY, policy_id TEXT NOT NULL, policy_revision INTEGER NOT NULL CHECK(policy_revision>0), scheduled_at TEXT NOT NULL,
+ job_id TEXT PRIMARY KEY, policy_id TEXT NOT NULL, policy_revision INTEGER NOT NULL CHECK(policy_revision>0), scheduled_at TEXT NOT NULL, window_closes_at TEXT NOT NULL,
  occurrence_token_digest TEXT NOT NULL, target_digest TEXT NOT NULL, idempotency_key_digest TEXT NOT NULL,
  state_revision INTEGER NOT NULL CHECK(state_revision>=0), recovery_epoch INTEGER NOT NULL CHECK(recovery_epoch>=0), created_at TEXT NOT NULL,
  UNIQUE(policy_id,policy_revision,scheduled_at), UNIQUE(policy_id,occurrence_token_digest)

@@ -86,6 +86,9 @@ func (service *Service) Dispatch(ctx context.Context, request DispatchRequest) (
 		return generated.ScheduledJob{}, failure.New(generated.ErrorCodePlanStale, "scheduled-policy", false)
 	}
 	slot, dueErr := Due(policy, now)
+	if dueErr == nil && policy.CatchUp == "latest" && !now.Before(slot.WindowClosesAt) {
+		slot.WindowClosesAt = now.Add(time.Duration(policy.WindowSeconds) * time.Second)
+	}
 	if dueErr != nil && !errors.Is(dueErr, ErrWindowMissed) {
 		return generated.ScheduledJob{}, failure.New(generated.ErrorCodeStateConflict, "scheduled-slot", false)
 	}
@@ -112,6 +115,9 @@ func (service *Service) Cancel(ctx context.Context, jobID string) (generated.Sch
 	job, err := reader.GetOccurrence(ctx, jobID)
 	if err != nil {
 		return job, err
+	}
+	if job.Status == "cancelled" {
+		return job, nil
 	}
 	if job.Status != "queued" && job.Status != "retry-wait" {
 		return job, failure.New(generated.ErrorCodeStateConflict, "scheduled-cancel", false)

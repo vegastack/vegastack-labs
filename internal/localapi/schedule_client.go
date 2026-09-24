@@ -59,3 +59,18 @@ func (client *client) DispatchSchedule(ctx context.Context, profile serverconfig
 		return data.Schema == generated.SchemaIDScheduledJob && data.PolicyID == policyID && data.PolicyRevision == input.PolicyRevision && data.RecoveryEpoch == result.RecoveryEpoch
 	})
 }
+
+func (client *client) CancelSchedule(ctx context.Context, profile serverconfig.Profile, jobID string) (TypedResponse[generated.ScheduledJob], error) {
+	var zero TypedResponse[generated.ScheduledJob]
+	if !validPathToken(jobID) {
+		return zero, failure.New(generated.ErrorCodeInputInvalid, "scheduled-job", false)
+	}
+	key, err := client.results.RequestID()
+	if err != nil {
+		return zero, err
+	}
+	input := generated.ScheduledJobCancelRequest{Schema: generated.SchemaIDScheduledJobCancelRequest, SchemaVersion: "1.1.0", IdempotencyKey: key}
+	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodPost, "/api/v1/scheduled-jobs/" + jobID + "/cancel", "api.v1.scheduled-jobs.cancel", maxOperationResponseBodyBytes, operationTimeout, true}, input, func(data generated.ScheduledJob, result generated.RunResult) bool {
+		return data.Schema == generated.SchemaIDScheduledJob && data.JobID == jobID && data.Status == "cancelled" && data.RecoveryEpoch == result.RecoveryEpoch
+	})
+}

@@ -107,7 +107,7 @@ func validateEndpoints(endpoints []EndpointDefinition, schemas map[string]struct
 			if endpoint.ID != "api.v1.credential-references.import-stream" || endpoint.Method != "POST" || endpoint.TransportScope != "local" || endpoint.MaxRequestBytes != 4096 || endpoint.RequestSchema != credentialImportRequestSchemaID || endpoint.DataSchema != credentialImportSubmissionSchemaID || seenAudiences[AudienceBrowser] || seenAudiences[AudienceExecutor] || !seenAudiences[AudienceOperator] {
 				return validationError("METADATA_INVALID", location+".requestEncoding")
 			}
-		} else if (endpoint.RequestEncoding != "" && endpoint.RequestEncoding != "json") || (endpoint.TransportScope != "" && endpoint.TransportScope != "any" && !(endpoint.ID == "api.v1.scheduled-jobs.create" && endpoint.TransportScope == "local")) || endpoint.MaxRequestBytes != 0 {
+		} else if (endpoint.RequestEncoding != "" && endpoint.RequestEncoding != "json") || (endpoint.TransportScope != "" && endpoint.TransportScope != "any" && !((endpoint.ID == "api.v1.scheduled-jobs.create" || endpoint.ID == "api.v1.scheduled-jobs.cancel") && endpoint.TransportScope == "local")) || endpoint.MaxRequestBytes != 0 {
 			return validationError("METADATA_INVALID", location+".requestEncoding")
 		}
 		switch endpoint.Stream {
@@ -211,7 +211,7 @@ func validateCommands(commands []CommandDefinition, schemas map[string]struct{})
 			switch name {
 			case "server run", "server api-ssh":
 				wantRisk = RiskLocalService
-			case "apply", "run cancel", "run resume", "gate evidence", "gate profile draft", "credential import", "backup policy draft", "backup retention-locks draft", "backup retirement draft", "backup offsite-retirement stage", "backup run", "backup verify", "restore plan", "restore run", "restore verify", "credential stage", "credential activate", "credential rotate", "credential revoke", "credential recover", "recovery witness collect", "schedule policy draft", "schedule dispatch":
+			case "apply", "run cancel", "run resume", "gate evidence", "gate profile draft", "credential import", "backup policy draft", "backup retention-locks draft", "backup retirement draft", "backup offsite-retirement stage", "backup run", "backup verify", "restore plan", "restore run", "restore verify", "credential stage", "credential activate", "credential rotate", "credential revoke", "credential recover", "recovery witness collect", "schedule policy draft", "schedule dispatch", "schedule cancel":
 				wantRisk = RiskMutation
 			}
 			if command.Risk != wantRisk {

@@ -44,10 +44,14 @@ func CanonicalPolicy(policy generated.ScheduledJobPolicy) ([]byte, string, error
 	if !ok || allowed.OperationType != policy.OperationType || allowed.AdapterID != policy.AdapterID || !authorization.IsPreauthorizedOperation(policy.OperationType) {
 		return nil, "", errors.New("scheduled action is not preauthorized")
 	}
-	for _, ids := range [][]string{policy.ExactSourceIDs, policy.ExactSubjectIDs, policy.ExactTargetIDs, policy.CredentialReferenceIDs} {
+	for _, ids := range [][]string{policy.ExactSourceIDs, policy.ExactSubjectIDs, policy.ExactTargetIDs} {
 		if !sortedUnique(ids) {
 			return nil, "", errors.New("scheduled bindings must be sorted and unique")
 		}
+	}
+	credentialCount := len(policy.CredentialReferenceIDs)
+	if (policy.ActionKind == "gate-check" || policy.ActionKind == "observation-refresh") && credentialCount != 0 || (policy.ActionKind == "backup-create" || policy.ActionKind == "backup-integrity-verify" || policy.ActionKind == "audit-checkpoint-export") && (credentialCount != 1 || !sortedUnique(policy.CredentialReferenceIDs)) {
+		return nil, "", errors.New("scheduled credentials do not match action")
 	}
 	canonical, sum, err := stateexport.CanonicalJSON(policy)
 	if err != nil {
@@ -89,6 +93,6 @@ func BuildAction(policy generated.ScheduledJobPolicy) (ActionBinding, error) {
 	return ActionBinding{
 		Kind: policy.ActionKind, OperationType: policy.OperationType, AdapterID: policy.AdapterID,
 		SourceIDs: append([]string(nil), policy.ExactSourceIDs...), SubjectIDs: append([]string(nil), policy.ExactSubjectIDs...), TargetIDs: append([]string(nil), policy.ExactTargetIDs...),
-		MaximumWork: policy.MaximumWork, CredentialReferenceIDs: append([]string(nil), policy.CredentialReferenceIDs...), InputDigest: policy.RetentionRuleDigest, ArtifactDigest: policy.ApprovalPlanDigest,
+		MaximumWork: policy.MaximumWork, CredentialReferenceIDs: append([]string(nil), policy.CredentialReferenceIDs...), InputDigest: policy.RetentionRuleDigest, ArtifactDigest: policy.RetentionRuleDigest,
 	}, nil
 }

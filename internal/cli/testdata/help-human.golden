@@ -203,6 +203,11 @@ Available commands:
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --run-id <id>          Select the exact durable run.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  schedule cancel          Cancel one exact queued or retry-wait scheduled occurrence.
+    --config <path>        Read one protected local server profile.
+    --job-id <id>          Select one exact durable scheduled job.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   schedule dispatch        Wake one exact approved schedule through the protected local API.
     --config <path>        Read one protected local server profile.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.

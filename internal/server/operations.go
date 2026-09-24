@@ -364,7 +364,7 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	scheduleCore, err := runengine.NewSchedulePolicyEffect(store.NewScheduleRepository(authority))
+	scheduleCore, err := runengine.NewSchedulePolicyEffect(store.NewScheduleRepository(authority), store.NewAcknowledgementRepository(authority))
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err
@@ -395,8 +395,15 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		}
 	}
 	scheduleRepository := store.NewScheduleRepository(authority)
-	prerequisiteReader := schedulePrerequisiteReader{authority: authority, policies: scheduleRepository, gates: gateRepository, backups: backupRepository, clock: time.Now, backupReady: recoveryBackupAdapter != nil, auditReady: false}
-	scheduledAdmission := scheduleAdmission{repository: scheduleRepository, prerequisites: prerequisiteReader}
+	runnerPrincipalID := "schedule-runner-disabled"
+	if profile.ScheduledRunner != nil {
+		runnerPrincipalID = profile.ScheduledRunner.PrincipalID
+	}
+	prerequisiteReader := schedulePrerequisiteReader{authority: authority, policies: scheduleRepository, gates: gateRepository, backups: backupRepository, offsite: recovery.SQLOffsiteSourceReader{Local: backupRepository, Offsite: store.NewOffsiteRepository(authority)}, clock: time.Now, backupReady: recoveryBackupAdapter != nil, auditReady: false}
+	scheduledAdmission := scheduleAdmission{repository: scheduleRepository, declarations: declarationRepository, authorizer: application, principalID: runnerPrincipalID, prerequisites: prerequisiteReader}
+	if recoveryBackupAdapter != nil {
+		secretGate = scheduledBackupLiveGate{admission: scheduledAdmission, fallback: secretGate, clock: time.Now}
+	}
 	credentialStep := &runengine.CredentialStep{Bindings: credentialRepository, Resolvers: adapters, Profiles: gateRepository, Plans: plans, ScheduledPlans: scheduledAdmission, Clock: time.Now}
 	credentialCore, err := runengine.NewCoreCredentialEffect(credentialRepository, store.NewAcknowledgementRepository(authority), runengine.UnavailableGateVerifier{}, composeNativeCredentialLifecycleVerifier(ctx, operations.databasePath, profile.SocketOwnerUID), runengine.UnavailableCredentialRecoveryVerifier{}, time.Now)
 	if err != nil {
@@ -428,10 +435,6 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		return err
 	}
 	authorityReader := schedule.AuthorityReader{Revisions: scheduleRepository, Clock: time.Now}
-	runnerPrincipalID := "schedule-runner-disabled"
-	if profile.ScheduledRunner != nil {
-		runnerPrincipalID = profile.ScheduledRunner.PrincipalID
-	}
 	scheduledRunner, err := schedule.NewRunner(scheduleRepository, scheduledPlans, application, scheduledEngineSubmitter{engine: runs}, authorityReader, prerequisiteReader, time.Now, runnerPrincipalID)
 	if err != nil {
 		_ = application.Shutdown(ctx)
@@ -786,6 +789,14 @@ func (operations *Operations) SubmitScheduledPolicyDraft(ctx context.Context, co
 		return localapi.TypedResponse[generated.ScheduledPolicyDraftSubmission]{}, err
 	}
 	return client.SubmitScheduledPolicyDraft(ctx, profile, input)
+}
+
+func (operations *Operations) CancelSchedule(ctx context.Context, configPath, jobID string) (localapi.TypedResponse[generated.ScheduledJob], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.ScheduledJob]{}, err
+	}
+	return client.CancelSchedule(ctx, profile, jobID)
 }
 
 func (operations *Operations) DispatchSchedule(ctx context.Context, configPath, policyID string) (localapi.TypedResponse[generated.ScheduledJob], error) {

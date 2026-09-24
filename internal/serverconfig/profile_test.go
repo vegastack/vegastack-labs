@@ -255,3 +255,15 @@ func TestDecodeGeneratedProfileIsStrictAndBounded(t *testing.T) {
 		t.Fatalf("valid decode = %v", err)
 	}
 }
+
+func TestScheduledRunnerRequiresExactPrincipalBinding(t *testing.T) {
+	profile := validGeneratedProfile()
+	profile.ScheduledRunner = &generated.ScheduledRunnerProfile{UID: 1001, PrincipalID: "principal.operator", BinaryPath: "/opt/vsk/bin/vsk-labs", ConfigPath: "/etc/vsk-labs/server.json"}
+	if _, err := convertGeneratedProfile(profile, 1001); err != nil {
+		t.Fatalf("exact scheduled runner binding rejected: %v", err)
+	}
+	profile.ScheduledRunner.UID = 1002
+	if _, err := convertGeneratedProfile(profile, 1001); err == nil {
+		t.Fatal("scheduled runner UID/principal mismatch accepted")
+	}
+}

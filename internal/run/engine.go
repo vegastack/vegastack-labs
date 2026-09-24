@@ -771,7 +771,7 @@ func (engine *Engine) executeSecretStep(ctx context.Context, plan generated.Plan
 		return adapter.Effect{}, err
 	}
 	bindings, err := engine.credentialStep.Bindings.GetStepBindings(ctx, plan, operation.OperationID)
-	if err != nil || len(bindings) != len(values) || operation.InputDigest != credentialref.OperationManifestDigest(bindings, operation.OperationID) {
+	if err != nil || len(bindings) != len(values) || (!scheduledCredentialPlan(plan) && operation.InputDigest != credentialref.OperationManifestDigest(bindings, operation.OperationID)) || (scheduledCredentialPlan(plan) && credentialPlanDigest(plan) != credentialref.ManifestDigest(bindings)) {
 		closeCredentialValues(values)
 		return adapter.Effect{}, runError(generated.ErrorCodeIntegrityFailure, "credential-operation-references")
 	}

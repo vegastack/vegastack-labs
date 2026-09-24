@@ -190,7 +190,16 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 		if runner.UID < 0 || runner.UID > int64(^uint32(0)) || runner.PrincipalID == "" || !filepath.IsAbs(runner.BinaryPath) || filepath.Clean(runner.BinaryPath) != runner.BinaryPath || !scheduledRunnerPath.MatchString(runner.BinaryPath) || !filepath.IsAbs(runner.ConfigPath) || filepath.Clean(runner.ConfigPath) != runner.ConfigPath || !scheduledRunnerPath.MatchString(runner.ConfigPath) {
 			return invalid()
 		}
-		scheduledRunner = &ScheduledRunner{UID: uint32(runner.UID), PrincipalID: runner.PrincipalID, BinaryPath: runner.BinaryPath, ConfigPath: runner.ConfigPath}
+		uid, matched := uint32(runner.UID), false
+		for _, binding := range bindings {
+			if binding.UID == uid && binding.PrincipalID == runner.PrincipalID {
+				matched = true
+			}
+		}
+		if !matched {
+			return invalid()
+		}
+		scheduledRunner = &ScheduledRunner{UID: uid, PrincipalID: runner.PrincipalID, BinaryPath: runner.BinaryPath, ConfigPath: runner.ConfigPath}
 	}
 	return Profile{
 		SocketPath:                       input.SocketPath,

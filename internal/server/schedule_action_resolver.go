@@ -57,7 +57,7 @@ func (resolver scheduledActionResolver) ResolveScheduledAction(ctx context.Conte
 		}
 		checkpoint, readErr := resolver.audit.GetAuditCheckpoint(ctx, policy.ExactSourceIDs[0])
 		authority, authorityErr := resolver.audit.CurrentAuthority(ctx)
-		if readErr != nil || authorityErr != nil || checkpoint.Status != "pending" || checkpoint.RecoveryEpoch != policy.RecoveryEpoch || checkpoint.InstanceID != authority.InstanceID || policy.ExactTargetIDs[0] != authority.InstanceID {
+		if readErr != nil || authorityErr != nil || checkpoint.Status != "pending" || checkpoint.RecoveryEpoch != policy.RecoveryEpoch || checkpoint.InstanceID != authority.InstanceID || policy.ExactTargetIDs[0] != authority.InstanceID || len(policy.CredentialReferenceIDs) != 1 || policy.CredentialReferenceIDs[0] != checkpoint.SignerReferenceID {
 			return action, nil, failure.New(generated.ErrorCodePrerequisiteBlocked, "scheduled-audit-checkpoint", false)
 		}
 		action.OperationID, action.InputDigest, action.ArtifactDigest = checkpoint.CheckpointID, checkpoint.ChainDigest, checkpoint.ChainDigest

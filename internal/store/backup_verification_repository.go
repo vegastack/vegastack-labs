@@ -431,3 +431,57 @@ func nullTrust(value sql.NullString) string {
 	}
 	return ""
 }
+
+type QualifiedLocalLastGood struct {
+	PointID, VerificationID, ProofDigest, RepositoryClass string
+	ObservedAt                                            time.Time
+	StateRevision, RecoveryEpoch                          int64
+}
+
+// CurrentQualifiedLocalLastGood proves the class-wide predecessor from one
+// complete SQLite snapshot. It never derives qualification from a capped status projection.
+func (repository *BackupRepository) CurrentQualifiedLocalLastGood(ctx context.Context, class string, epoch int64, now time.Time) (QualifiedLocalLastGood, error) {
+	var result QualifiedLocalLastGood
+	if repository == nil || repository.store == nil || (class != "standard" && class != "critical") {
+		return result, backupStoreError(generated.ErrorCodeInputInvalid, "backup-last-good")
+	}
+	var fullText, restoredText, policyJSON, observed string
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		return tx.queryRow(ctx, `SELECT g.point_id,g.verification_id,v.proof_digest,g.repository_class,v.functional_restored_at,v.full_read_at,d.canonical_json,g.advanced_at,m.state_revision,m.recovery_epoch FROM backup_local_last_good g JOIN backup_local_verifications v ON v.verification_id=g.verification_id AND v.point_id=g.point_id JOIN recovery_points p ON p.point_id=g.point_id JOIN backup_policy_drafts d ON d.policy_digest=p.policy_digest AND d.recovery_epoch=p.recovery_epoch CROSS JOIN system_meta m WHERE m.id=1 AND g.repository_class=? AND g.recovery_epoch=? AND g.state_revision=m.state_revision AND g.recovery_epoch=m.recovery_epoch AND v.status='local-verified' AND v.proof_class='live' AND v.state_revision=m.state_revision AND v.recovery_epoch=m.recovery_epoch AND v.manifest_digest=p.manifest_digest AND v.inventory_digest=p.inventory_digest`, class, epoch).Scan(&result.PointID, &result.VerificationID, &result.ProofDigest, &result.RepositoryClass, &restoredText, &fullText, &policyJSON, &observed, &result.StateRevision, &result.RecoveryEpoch)
+	})
+	if err != nil {
+		return result, backupStoreError(generated.ErrorCodePrerequisiteBlocked, "backup-last-good")
+	}
+	var policy generated.BackupPolicy
+	fullAt, e1 := time.Parse(time.RFC3339, fullText)
+	restoredAt, e2 := time.Parse(time.RFC3339, restoredText)
+	result.ObservedAt, err = time.Parse(time.RFC3339, observed)
+	if json.Unmarshal([]byte(policyJSON), &policy) != nil || e1 != nil || e2 != nil || err != nil || !now.UTC().Before(fullAt.Add(time.Duration(policy.FullPayloadIntervalHours)*time.Hour)) || !now.UTC().Before(restoredAt.Add(time.Duration(policy.FunctionalTestIntervalHours)*time.Hour)) {
+		return QualifiedLocalLastGood{}, backupStoreError(generated.ErrorCodePrerequisiteBlocked, "backup-last-good-cadence")
+	}
+	return result, nil
+}
+
+func (repository *BackupRepository) CurrentRetirementCertainty(ctx context.Context, class, pointID string, epoch int64, fallback time.Time) (time.Time, error) {
+	if repository == nil || repository.store == nil || pointID == "" {
+		return time.Time{}, backupStoreError(generated.ErrorCodeInputInvalid, "backup-retirement-certainty")
+	}
+	observed := fallback
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		var unresolved int
+		if err := tx.queryRow(ctx, `SELECT COUNT(1) FROM backup_retirement_intents i WHERE i.repository_class=? AND i.recovery_epoch=? AND (NOT EXISTS (SELECT 1 FROM backup_retirement_receipts r WHERE r.intent_id=i.intent_id AND r.status='verified') OR EXISTS (SELECT 1 FROM backup_retirement_leases l WHERE l.intent_id=i.intent_id AND l.released_at IS NULL) OR EXISTS (SELECT 1 FROM backup_retirement_mutation_attempts a JOIN backup_retirement_leases l ON l.lease_id=a.lease_id LEFT JOIN backup_retirement_mutation_outcomes o ON o.mutation_id=a.mutation_id WHERE l.intent_id=i.intent_id AND (o.mutation_id IS NULL OR o.status IN ('denied','uncertain'))))`, class, epoch).Scan(&unresolved); err != nil {
+			return err
+		}
+		if unresolved != 0 {
+			return backupStoreError(generated.ErrorCodePrerequisiteBlocked, "backup-local-retirement-certainty")
+		}
+		if err := tx.queryRow(ctx, `SELECT COUNT(1) FROM backup_offsite_retirement_intents i WHERE i.recovery_epoch=? AND (i.point_id=? OR EXISTS (SELECT 1 FROM backup_offsite_retirement_survivors s WHERE s.intent_id=i.intent_id AND s.point_id=?)) AND (NOT EXISTS (SELECT 1 FROM backup_offsite_retirement_receipts r WHERE r.intent_id=i.intent_id AND r.status='verified') OR EXISTS (SELECT 1 FROM backup_offsite_retirement_attempts a JOIN backup_offsite_retirement_leases l ON l.lease_id=a.lease_id WHERE l.intent_id=i.intent_id AND a.status IN ('denied','uncertain')))`, epoch, pointID, pointID).Scan(&unresolved); err != nil {
+			return err
+		}
+		if unresolved != 0 {
+			return backupStoreError(generated.ErrorCodePrerequisiteBlocked, "backup-offsite-retirement-certainty")
+		}
+		return nil
+	})
+	return observed, err
+}

@@ -798,6 +798,20 @@
       ]
     },
     {
+      "id": "api.v1.scheduled-jobs.cancel",
+      "method": "POST",
+      "path": "/api/v1/scheduled-jobs/{jobId}/cancel",
+      "availability": "available",
+      "ownerPhase": "5",
+      "requestSchema": "vegastack-labs.dev/scheduled-job-cancel-request",
+      "dataSchema": "vegastack-labs.dev/scheduled-job",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ],
+      "transportScope": "local"
+    },
+    {
       "id": "api.v1.scheduled-jobs.create",
       "method": "POST",
       "path": "/api/v1/scheduled-jobs",

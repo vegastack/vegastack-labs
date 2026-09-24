@@ -12,6 +12,7 @@ import (
 type ScheduleControlOperations interface {
 	SubmitScheduledPolicyDraft(context.Context, string, generated.ScheduledJobPolicy) (localapi.TypedResponse[generated.ScheduledPolicyDraftSubmission], error)
 	DispatchSchedule(context.Context, string, string) (localapi.TypedResponse[generated.ScheduledJob], error)
+	CancelSchedule(context.Context, string, string) (localapi.TypedResponse[generated.ScheduledJob], error)
 }
 
 func (app *App) runScheduleCommand(ctx context.Context, mode outputMode, parsed parsedArguments) int {
@@ -42,6 +43,23 @@ func (app *App) runScheduleCommand(ctx context.Context, mode outputMode, parsed 
 			return writeRemoteJSON(app.stdout, response.Raw, response.ExitCode)
 		}
 		_, err = fmt.Fprintf(app.stdout, "Stored inert scheduled policy draft %s for policy %s revision %d (digest %s); activation still requires its exact human-approved plan.\n", response.Data.DraftID, response.Data.PolicyID, response.Data.PolicyRevision, response.Data.PolicyDigest)
+		if err != nil {
+			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+		}
+		return 0
+	}
+	if parsed.commandName() == generated.CommandNameScheduleCancel {
+		response, err := control.CancelSchedule(ctx, parsed.Value(generated.FlagConfig), parsed.Value(generated.FlagJobID))
+		if err != nil {
+			return app.failServer(mode, parsed.commandName(), err)
+		}
+		if response.ExitCode != 0 {
+			return app.remoteFailure(mode, response.Raw, response.Result, response.ExitCode)
+		}
+		if mode == outputJSON {
+			return writeRemoteJSON(app.stdout, response.Raw, response.ExitCode)
+		}
+		_, err = fmt.Fprintf(app.stdout, "Scheduled job %s is %s (%s).\n", response.Data.JobID, response.Data.Status, response.Data.ReasonCode)
 		if err != nil {
 			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
 		}

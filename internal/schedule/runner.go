@@ -2,15 +2,12 @@ package schedule
 
 import (
 	"context"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/runprotocol"
-	"github.com/vegastack/vegastack-labs/internal/stateexport"
 )
 
 type PlanRequest struct {
@@ -42,6 +39,7 @@ type AttemptRecord struct {
 }
 type RuntimeRepository interface {
 	GetActivePolicy(context.Context, string) (generated.ScheduledJobPolicy, error)
+	GetActivePolicyApprover(context.Context, string, int64) (string, error)
 	CurrentScheduleRevision(context.Context) (Revision, error)
 	AppendScheduledAttempt(context.Context, string, int64, string, string, string, bool, time.Time) error
 	TransitionScheduledOccurrence(context.Context, string, string, string, string, *string, *string) (generated.ScheduledJob, error)
@@ -50,6 +48,8 @@ type RuntimeRepository interface {
 	ListRecoverableOccurrences(context.Context) ([]generated.ScheduledJob, error)
 	LatestScheduledAttempt(context.Context, string) (AttemptRecord, bool, error)
 	ReleaseExpiredOccurrenceLeases(context.Context, time.Time) error
+	ScheduledOccurrenceWindowClosesAt(context.Context, string) (time.Time, error)
+	ScheduledOccurrenceDigest(context.Context, string) (string, error)
 }
 
 type Runner struct {
@@ -87,7 +87,11 @@ func (runner *Runner) Run(ctx context.Context, job generated.ScheduledJob, attri
 	if attribution.AuthenticatedPrincipalID == "" || attribution.AuthenticatedPrincipalMethod == "" {
 		return runner.block(ctx, job, "runner-principal-missing")
 	}
-	attribution.ResponsibleHumanPrincipalID = &policy.ApprovedByHumanID
+	approver, err := runner.repository.GetActivePolicyApprover(ctx, policy.PolicyID, policy.Revision)
+	if err != nil || approver == "" {
+		return runner.block(ctx, job, "policy-approver-unavailable")
+	}
+	attribution.ResponsibleHumanPrincipalID = &approver
 	now := runner.clock().UTC().Truncate(time.Second)
 	fromStatus, attempt := job.Status, job.Attempt
 	if job.Status == "retry-wait" {
@@ -105,9 +109,9 @@ func (runner *Runner) Run(ctx context.Context, job generated.ScheduledJob, attri
 	if err != nil {
 		return runner.block(ctx, job, "scheduled-at-invalid")
 	}
-	windowCloses := scheduledAt.Add(time.Duration(policy.WindowSeconds) * time.Second)
-	if policy.CatchUp == "latest" && !now.Before(windowCloses) {
-		windowCloses = now.Add(time.Duration(policy.WindowSeconds) * time.Second)
+	windowCloses, err := runner.repository.ScheduledOccurrenceWindowClosesAt(ctx, job.JobID)
+	if err != nil {
+		return runner.block(ctx, job, "window-unavailable")
 	}
 	if !now.Before(windowCloses) {
 		return runner.block(ctx, job, "window-closed")
@@ -140,11 +144,10 @@ func (runner *Runner) Run(ctx context.Context, job generated.ScheduledJob, attri
 	if err != nil {
 		return runner.block(ctx, job, "policy-invalid")
 	}
-	jobBytes, _, err := stateexport.CanonicalJSON(job)
+	occurrenceDigest, err := runner.repository.ScheduledOccurrenceDigest(ctx, job.JobID)
 	if err != nil {
 		return runner.block(ctx, job, "occurrence-invalid")
 	}
-	occurrenceDigest := scheduleBytesDigest(jobBytes)
 	plan, err := runner.plans.CreateScheduledPlan(ctx, PlanRequest{Policy: policy, PolicyDigest: policyDigest, JobID: job.JobID, OccurrenceDigest: occurrenceDigest, ObservationFingerprint: observation, Attempt: attempt, ScheduledAt: scheduledAt, WindowClosesAt: windowCloses, Expected: revision})
 	if err != nil {
 		return runner.block(ctx, job, "plan-create-failed")
@@ -223,8 +226,8 @@ func (runner *Runner) settleRecovered(ctx context.Context, job generated.Schedul
 			if err != nil {
 				return job, err
 			}
-			scheduledAt, parseErr := time.Parse(time.RFC3339, job.ScheduledAt)
-			if parseErr == nil && job.Attempt < policy.MaxAttempts && now.Add(Backoff(policy, job.Attempt)).Before(scheduledAt.Add(time.Duration(policy.WindowSeconds)*time.Second)) {
+			windowCloses, windowErr := runner.repository.ScheduledOccurrenceWindowClosesAt(ctx, job.JobID)
+			if windowErr == nil && job.Attempt < policy.MaxAttempts && now.Add(Backoff(policy, job.Attempt)).Before(windowCloses) {
 				return runner.repository.TransitionScheduledOccurrence(ctx, job.JobID, "running", "retry-wait", "restart-before-effect", job.PlanID, job.RunID)
 			}
 			return runner.repository.TransitionScheduledOccurrence(ctx, job.JobID, "running", "failed", "restart-retry-exhausted", job.PlanID, job.RunID)
@@ -238,12 +241,6 @@ func (runner *Runner) block(ctx context.Context, job generated.ScheduledJob, rea
 		return runner.repository.TransitionScheduledOccurrence(ctx, job.JobID, "retry-wait", "failed", reason, job.PlanID, job.RunID)
 	}
 	return runner.repository.TransitionScheduledOccurrence(ctx, job.JobID, "queued", "blocked", reason, nil, nil)
-}
-func scheduleBytesDigest(value []byte) string {
-	_, sum, _ := stateexport.CanonicalJSON(struct {
-		Bytes json.RawMessage `json:"bytes"`
-	}{value})
-	return "sha256:" + hex.EncodeToString(sum[:])
 }
 func hasUncertainEffect(run generated.Run) bool {
 	for _, step := range run.Steps {

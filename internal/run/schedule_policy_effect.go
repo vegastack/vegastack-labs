@@ -8,13 +8,16 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/store"
 )
 
-type SchedulePolicyEffect struct{ repository *store.ScheduleRepository }
+type SchedulePolicyEffect struct {
+	repository *store.ScheduleRepository
+	approvals  GateApprovalSource
+}
 
-func NewSchedulePolicyEffect(repository *store.ScheduleRepository) (*SchedulePolicyEffect, error) {
-	if repository == nil {
+func NewSchedulePolicyEffect(repository *store.ScheduleRepository, approvals GateApprovalSource) (*SchedulePolicyEffect, error) {
+	if repository == nil || approvals == nil {
 		return nil, runError(generated.ErrorCodeInputInvalid, "schedule-policy-effect")
 	}
-	return &SchedulePolicyEffect{repository: repository}, nil
+	return &SchedulePolicyEffect{repository: repository, approvals: approvals}, nil
 }
 
 func (effect *SchedulePolicyEffect) Execute(ctx context.Context, binding ExactStepBinding) (adapter.Effect, error) {
@@ -28,7 +31,14 @@ func (effect *SchedulePolicyEffect) Execute(ctx context.Context, binding ExactSt
 	if draft.Digest != binding.Step.InputDigest || binding.Step.ArtifactDigest != draft.Digest || !hasSchedulePolicyExtension(binding.Plan, draft.Digest) {
 		return adapter.Effect{}, runError(generated.ErrorCodePlanStale, "schedule-policy-activation")
 	}
-	policy, err := effect.repository.Activate(ctx, store.ScheduleActivationRequest{DraftID: draft.DraftID, AuthorizationBranch: binding.Plan.AuthorizationBranch, ExecutingOperation: binding.Step.OperationType, PlanID: binding.Plan.PlanID, PlanDigest: binding.Plan.PlanDigest, AcknowledgementID: *binding.Run.AcknowledgementID, Expected: store.RevisionToken{StateRevision: binding.Plan.Binding.StateRevision, RecoveryEpoch: binding.Plan.Binding.RecoveryEpoch}, Attribution: binding.Attribution})
+	approval, err := effect.approvals.Get(ctx, binding.Plan.PlanID)
+	if err != nil || !approval.Consumed || approval.Acknowledgement.Status != "approved" || approval.Acknowledgement.AcknowledgementID != *binding.Run.AcknowledgementID || approval.Acknowledgement.PlanDigest != binding.Plan.PlanDigest || approval.Acknowledgement.HumanID == "" {
+		return adapter.Effect{}, runError(generated.ErrorCodeApprovalRequired, "schedule-policy-human")
+	}
+	attribution := binding.Attribution
+	humanID := approval.Acknowledgement.HumanID
+	attribution.ResponsibleHumanPrincipalID = &humanID
+	policy, err := effect.repository.Activate(ctx, store.ScheduleActivationRequest{DraftID: draft.DraftID, AuthorizationBranch: binding.Plan.AuthorizationBranch, ExecutingOperation: binding.Step.OperationType, PlanID: binding.Plan.PlanID, PlanDigest: binding.Plan.PlanDigest, AcknowledgementID: *binding.Run.AcknowledgementID, ApprovedByHumanID: humanID, Expected: store.RevisionToken{StateRevision: binding.Plan.Binding.StateRevision, RecoveryEpoch: binding.Plan.Binding.RecoveryEpoch}, Attribution: attribution})
 	if err != nil {
 		return adapter.Effect{}, err
 	}
