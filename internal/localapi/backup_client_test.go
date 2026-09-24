@@ -37,7 +37,7 @@ func TestBackupStatusAcceptsOnlySanitizedProjection(t *testing.T) {
 	raw, profile, captured := serveFixedResponse(t, http.StatusOK, operationEnvelope(t, "api.v1.backups.status", false, 2, 7, status))
 	response, err := NewClient(clientTestFactory()).BackupStatus(context.Background(), profile)
 	request := <-captured
-	if err != nil || !bytes.Equal(response.Raw, raw) || request.method != http.MethodGet || request.path != "/api/v1/backups/status" || len(request.body) != 0 || response.Data.RecoveryEpoch != 2 {
+	if err != nil || !bytes.Equal(response.Raw, raw) || request.method != http.MethodGet || request.path != "/api/v1/backups/status" || len(request.body) != 0 || response.Data.Status != status.Status || response.Data.SafeNextAction != status.SafeNextAction || response.Data.StateRevision != status.StateRevision {
 		t.Fatalf("status response/request = %#v/%#v err=%v", response, request, err)
 	}
 

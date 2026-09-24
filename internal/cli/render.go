@@ -132,26 +132,21 @@ func renderHumanDatabaseStatus(output io.Writer, data generated.DatabaseStatusDa
 	return 0
 }
 
-func renderHumanAuditCheckpoints(output io.Writer, data generated.AuditCheckpointListData) int {
-	if _, err := fmt.Fprintf(output, "Audit checkpoints %d\nRecovery epoch %d\n", len(data.Checkpoints), data.RecoveryEpoch); err != nil {
+func renderHumanAuditCheckpoints(output io.Writer, data generated.BrowserAuditCheckpointListData) int {
+	if _, err := fmt.Fprintf(output, "Audit checkpoints %d\nState revision %d\nRecovery epoch %d\n", len(data.Items), data.StateRevision, data.RecoveryEpoch); err != nil {
 		return exitCodeFor(generated.ErrorCodeIntegrityFailure)
 	}
-	for _, checkpoint := range data.Checkpoints {
-		if _, err := fmt.Fprintf(output, "Checkpoint %s events %d-%d status %s reason %s digest %s\n", checkpoint.CheckpointID, checkpoint.FirstEventID, checkpoint.LastEventID, checkpoint.Status, checkpoint.ReasonCode, checkpoint.ChainDigest); err != nil {
+	for _, checkpoint := range data.Items {
+		if _, err := fmt.Fprintf(output, "Checkpoint %s events %d-%d status %s reason %s source %s proof %s verification %s digest %s\n", checkpoint.CheckpointID, checkpoint.FirstEventID, checkpoint.LastEventID, checkpoint.Status, checkpoint.ReasonCode, checkpoint.SourceKind, checkpoint.ProofClass, checkpoint.VerificationStatus, checkpoint.ChainDigest); err != nil {
 			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
 		}
 	}
 	return 0
 }
 
-func renderHumanAuditVerification(output io.Writer, data generated.AuditVerificationData) int {
-	if _, err := fmt.Fprintf(output, "Audit verification %s\nReason %s\nInstance %s\nRecovery epoch %d\nLocal digest %s\nIndependent match %t\nLast anchored sequence %d\nPre-anchor %t\n", data.Status, data.ReasonCode, data.InstanceID, data.RecoveryEpoch, data.LocalDigest, data.IndependentMatch, data.LastAnchoredSequence, data.PreAnchor); err != nil {
+func renderHumanAuditVerification(output io.Writer, data generated.BrowserAuditVerificationData) int {
+	if _, err := fmt.Fprintf(output, "Audit verification %s\nReason %s\nSource %s\nProof %s\nIndependent match %t\nLast anchored sequence %d\nPre-anchor %t\nState revision %d\nRecovery epoch %d\nSafe next action %s\n", data.Status, data.ReasonCode, data.SourceKind, data.ProofClass, data.IndependentMatch, data.LastAnchoredSequence, data.PreAnchor, data.StateRevision, data.RecoveryEpoch, data.SafeNextAction); err != nil {
 		return exitCodeFor(generated.ErrorCodeIntegrityFailure)
-	}
-	if data.IndependentDigest != nil {
-		if _, err := fmt.Fprintf(output, "Independent digest %s\n", *data.IndependentDigest); err != nil {
-			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
-		}
 	}
 	if data.Status == "incident" {
 		if _, err := fmt.Fprintln(output, "Mutations are blocked. Compare the independent signed checkpoint, fence the old controller, and use the documented recovery plan."); err != nil {

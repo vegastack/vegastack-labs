@@ -9,7 +9,9 @@ import (
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/audit"
+	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/identity"
 )
 
 func scheduledPolicyFixture() generated.ScheduledJobPolicy {
@@ -102,5 +104,109 @@ func TestOccurrenceTransitionsAttemptsAndLeaseFailClosed(t *testing.T) {
 	}
 	if _, err := repository.TransitionOccurrence(ctx, job.JobID, "uncertain", "running", "retry", nil, nil); err == nil {
 		t.Fatal("uncertain effect retried")
+	}
+}
+
+func TestScopedScheduledPolicyListFiltersPartialGrantAndRejectsRevocation(t *testing.T) {
+	ctx := context.Background()
+	authority, repository, policies, _ := seedScopedScheduleRecords(t)
+	seedReadGrant(t, authority, "schedule-policy-reader", "schedule.policy.read", "scheduled-policy", policies[1].PolicyID, 5, "active")
+	scope, err := NewReadAuthorizer(authority).AuthorizeRead(ctx, identity.Principal{ID: "schedule-policy-reader", Method: identity.LocalOSPeerMethod}, authorization.ReadTarget{Capability: "schedule.policy.read", ResourceKind: "scheduled-policy"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := NewPlanRepository(authority).CurrentRevision(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	items, _, err := repository.ListActivePolicies(ctx, scope, snapshot, "", 10)
+	if err != nil || len(items) != 1 || items[0].PolicyID != policies[1].PolicyID {
+		t.Fatalf("items=%#v err=%v", items, err)
+	}
+	if _, err := authority.conn.ExecContext(ctx, `UPDATE read_grants SET status='revoked' WHERE principal_id='schedule-policy-reader'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := repository.ListActivePolicies(ctx, scope, snapshot, "", 10); Code(err) != generated.ErrorCodeAuthorizationDenied {
+		t.Fatalf("revoked scope err=%v", err)
+	}
+}
+
+func TestScopedScheduledOccurrenceListFiltersPartialGrantAndRejectsRevocation(t *testing.T) {
+	ctx := context.Background()
+	authority, repository, _, jobs := seedScopedScheduleRecords(t)
+	seedReadGrant(t, authority, "schedule-job-reader", "schedule.policy.read", "scheduled-job", jobs[1].JobID, 6, "active")
+	scope, err := NewReadAuthorizer(authority).AuthorizeRead(ctx, identity.Principal{ID: "schedule-job-reader", Method: identity.LocalOSPeerMethod}, authorization.ReadTarget{Capability: "schedule.policy.read", ResourceKind: "scheduled-job"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := NewPlanRepository(authority).CurrentRevision(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	items, _, err := repository.ListOccurrences(ctx, scope, snapshot, "", 10)
+	if err != nil || len(items) != 1 || items[0].JobID != jobs[1].JobID {
+		t.Fatalf("items=%#v err=%v", items, err)
+	}
+	if _, err := authority.conn.ExecContext(ctx, `UPDATE read_grants SET status='revoked' WHERE principal_id='schedule-job-reader'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := repository.ListOccurrences(ctx, scope, snapshot, "", 10); Code(err) != generated.ErrorCodeAuthorizationDenied {
+		t.Fatalf("revoked scope err=%v", err)
+	}
+}
+
+func seedScopedScheduleRecords(t *testing.T) (*Store, *ScheduleRepository, []generated.ScheduledJobPolicy, []generated.ScheduledJob) {
+	t.Helper()
+	ctx := context.Background()
+	authority := openTestStore(t)
+	repository := NewScheduleRepository(authority)
+	attribution := audit.Attribution{AuthenticatedPrincipalID: "human-a", AuthenticatedPrincipalMethod: "local-os-peer"}
+	policies := []generated.ScheduledJobPolicy{scheduledPolicyFixture(), scheduledPolicyFixture()}
+	policies[1].PolicyID = "policy-b"
+	policies[1].DeclarationID = "declaration-b"
+	policies[1].RetentionRuleDigest = string(digestForText("retention-policy-b"))
+
+	drafts := make([]ScheduledPolicyDraft, len(policies))
+	for index, policy := range policies {
+		draft, err := repository.StageDraft(ctx, policy, attribution)
+		if err != nil {
+			t.Fatal(err)
+		}
+		drafts[index] = draft
+	}
+	if _, err := authority.conn.ExecContext(ctx, `UPDATE system_meta SET state_revision=1 WHERE id=1`); err != nil {
+		t.Fatal(err)
+	}
+	attribution.ResponsibleHumanPrincipalID = &attribution.AuthenticatedPrincipalID
+	for index, policy := range policies {
+		suffix := string(rune('a' + index))
+		planID := "plan-" + suffix
+		seedScheduleActivationPlanFor(t, authority, policy, planID)
+		if _, err := repository.Activate(ctx, ScheduleActivationRequest{DraftID: drafts[index].DraftID, AuthorizationBranch: "human", ExecutingOperation: "schedule.policy.activate", PlanID: planID, PlanDigest: policy.RetentionRuleDigest, AcknowledgementID: "ack-" + suffix, ApprovedByHumanID: "human-a", Expected: RevisionToken{StateRevision: 1}, Attribution: attribution}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	jobs := make([]generated.ScheduledJob, 0, len(policies))
+	for index, policy := range policies {
+		due := time.Date(2026, 9, 16, 1+index, 0, 0, 0, time.UTC)
+		job, err := repository.ClaimOccurrence(ctx, OccurrenceClaim{Policy: policy, ScheduledAt: due, WindowClosesAt: due.Add(30 * time.Minute), OccurrenceToken: "scoped-token-" + policy.PolicyID, TargetDigest: policy.RetentionRuleDigest, IdempotencyKey: "scoped-key-" + policy.PolicyID, Expected: RevisionToken{StateRevision: 1}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		jobs = append(jobs, job)
+	}
+	return authority, repository, policies, jobs
+}
+
+func seedScheduleActivationPlanFor(t *testing.T, authority *Store, policy generated.ScheduledJobPolicy, planID string) {
+	t.Helper()
+	now := "2026-09-16T00:00:00Z"
+	canonical := `{"authorizationBranch":"human","executorMode":"central"}`
+	if _, err := authority.conn.ExecContext(context.Background(), `INSERT INTO declaration_revisions(declaration_id,declaration_revision,declaration_type,state_revision,recovery_epoch,content_digest,reason_digest,status,canonical_bytes,created_at,created_by,agent_session_id) VALUES(?,?,'scheduled-policy',?,?,?,?,'committed',X'7B7D',?,'human-a','session-a')`, policy.DeclarationID, policy.DeclarationRevision, policy.StateRevision, policy.RecoveryEpoch, policy.RetentionRuleDigest, policy.RetentionRuleDigest, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := authority.conn.ExecContext(context.Background(), `INSERT INTO immutable_plans(plan_id,plan_digest,declaration_id,declaration_revision,state_revision,recovery_epoch,observation_fingerprint,idempotency_key_digest,request_digest,canonical_bytes,readable_plan,readable_digest,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,'schedule activation',?,?,?)`, planID, policy.RetentionRuleDigest, policy.DeclarationID, policy.DeclarationRevision, policy.StateRevision, policy.RecoveryEpoch, policy.RetentionRuleDigest, digestForText("schedule-idempotency-"+planID), digestForText("schedule-request-"+planID), []byte(canonical), digestForText("schedule-readable-"+planID), now, "2026-09-16T01:00:00Z"); err != nil {
+		t.Fatal(err)
 	}
 }

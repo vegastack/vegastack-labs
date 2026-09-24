@@ -78,8 +78,8 @@ type GateControlOperations interface {
 }
 
 type AuditControlOperations interface {
-	AuditCheckpoints(context.Context, string) (localapi.TypedResponse[generated.AuditCheckpointListData], error)
-	VerifyAudit(context.Context, string) (localapi.TypedResponse[generated.AuditVerificationData], error)
+	AuditCheckpoints(context.Context, string) (localapi.TypedResponse[generated.BrowserAuditCheckpointListData], error)
+	VerifyAudit(context.Context, string) (localapi.TypedResponse[generated.BrowserAuditVerificationData], error)
 }
 
 type BackupControlOperations interface {
@@ -99,7 +99,7 @@ type BackupOffsiteRetirementControlOperations interface {
 }
 
 type BackupRunControlOperations interface {
-	BackupStatus(context.Context, string) (localapi.TypedResponse[generated.BackupStatusData], error)
+	BackupStatus(context.Context, string) (localapi.TypedResponse[generated.BrowserBackupStatusData], error)
 	RunBackup(context.Context, string, generated.BackupRunRequest) (localapi.TypedResponse[generated.BackupJob], error)
 	VerifyBackup(context.Context, string, generated.BackupVerifyRequest) (localapi.TypedResponse[generated.BackupJob], error)
 }

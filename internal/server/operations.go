@@ -763,18 +763,18 @@ func (operations *Operations) CreateCredentialLifecycleDraft(ctx context.Context
 	return client.CreateCredentialLifecycleDraft(ctx, profile, input)
 }
 
-func (operations *Operations) AuditCheckpoints(ctx context.Context, configPath string) (localapi.TypedResponse[generated.AuditCheckpointListData], error) {
+func (operations *Operations) AuditCheckpoints(ctx context.Context, configPath string) (localapi.TypedResponse[generated.BrowserAuditCheckpointListData], error) {
 	client, profile, err := operations.controlClient(ctx, configPath)
 	if err != nil {
-		return localapi.TypedResponse[generated.AuditCheckpointListData]{}, err
+		return localapi.TypedResponse[generated.BrowserAuditCheckpointListData]{}, err
 	}
 	return client.AuditCheckpoints(ctx, profile)
 }
 
-func (operations *Operations) VerifyAudit(ctx context.Context, configPath string) (localapi.TypedResponse[generated.AuditVerificationData], error) {
+func (operations *Operations) VerifyAudit(ctx context.Context, configPath string) (localapi.TypedResponse[generated.BrowserAuditVerificationData], error) {
 	client, profile, err := operations.controlClient(ctx, configPath)
 	if err != nil {
-		return localapi.TypedResponse[generated.AuditVerificationData]{}, err
+		return localapi.TypedResponse[generated.BrowserAuditVerificationData]{}, err
 	}
 	return client.VerifyAudit(ctx, profile)
 }
@@ -835,6 +835,22 @@ func (operations *Operations) SubmitScheduledPolicyDraft(ctx context.Context, co
 	return client.SubmitScheduledPolicyDraft(ctx, profile, input)
 }
 
+func (operations *Operations) ListScheduledPolicies(ctx context.Context, configPath string) (localapi.TypedResponse[generated.BrowserScheduledJobPolicyListData], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.BrowserScheduledJobPolicyListData]{}, err
+	}
+	return client.ListScheduledPolicies(ctx, profile)
+}
+
+func (operations *Operations) InspectScheduledPolicy(ctx context.Context, configPath, policyID string) (localapi.TypedResponse[generated.BrowserScheduledJobPolicy], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.BrowserScheduledJobPolicy]{}, err
+	}
+	return client.InspectScheduledPolicy(ctx, profile, policyID)
+}
+
 func (operations *Operations) CancelSchedule(ctx context.Context, configPath, jobID string) (localapi.TypedResponse[generated.ScheduledJob], error) {
 	client, profile, err := operations.controlClient(ctx, configPath)
 	if err != nil {
@@ -883,10 +899,10 @@ func (operations *Operations) DryRunBackupOffsiteRetirement(ctx context.Context,
 	return client.DryRunBackupOffsiteRetirement(ctx, profile, input)
 }
 
-func (operations *Operations) BackupStatus(ctx context.Context, configPath string) (localapi.TypedResponse[generated.BackupStatusData], error) {
+func (operations *Operations) BackupStatus(ctx context.Context, configPath string) (localapi.TypedResponse[generated.BrowserBackupStatusData], error) {
 	client, profile, err := operations.controlClient(ctx, configPath)
 	if err != nil {
-		return localapi.TypedResponse[generated.BackupStatusData]{}, err
+		return localapi.TypedResponse[generated.BrowserBackupStatusData]{}, err
 	}
 	return client.BackupStatus(ctx, profile)
 }

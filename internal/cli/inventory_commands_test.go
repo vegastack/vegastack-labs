@@ -26,15 +26,15 @@ type stubControlOperations struct {
 	retirementResponse        localapi.TypedResponse[generated.BackupRetirementDraftSubmission]
 	offsiteRetirementResponse localapi.TypedResponse[generated.BackupOffsiteRetirementStageSubmission]
 	offsiteDryRunResponse     localapi.TypedResponse[generated.BackupOffsiteRetirementDryRunData]
-	backupStatusResponse      localapi.TypedResponse[generated.BackupStatusData]
+	backupStatusResponse      localapi.TypedResponse[generated.BrowserBackupStatusData]
 	backupJobResponse         localapi.TypedResponse[generated.BackupJob]
 	restoreBindingResponse    localapi.TypedResponse[generated.RestoreBinding]
 	restoreVerifyResponse     localapi.TypedResponse[generated.RestoreVerification]
 	databaseExportResponse    localapi.TypedResponse[generated.DatabaseExportDraftSubmission]
 	summaryResponse           localapi.TypedResponse[generated.ApiSummaryData]
 	databaseResponse          localapi.TypedResponse[generated.DatabaseStatusData]
-	auditListResponse         localapi.TypedResponse[generated.AuditCheckpointListData]
-	auditVerifyResponse       localapi.TypedResponse[generated.AuditVerificationData]
+	auditListResponse         localapi.TypedResponse[generated.BrowserAuditCheckpointListData]
+	auditVerifyResponse       localapi.TypedResponse[generated.BrowserAuditVerificationData]
 	importResponse            localapi.TypedResponse[generated.InventoryImportData]
 	diffResponse              localapi.TypedResponse[generated.InventoryDiffData]
 	exportResponse            localapi.TypedResponse[generated.InventoryExportData]
@@ -99,7 +99,7 @@ func (stub *stubControlOperations) StageBackupOffsiteRetirement(context.Context,
 func (stub *stubControlOperations) DryRunBackupOffsiteRetirement(context.Context, string, generated.BackupOffsiteRetirementDryRunRequest) (localapi.TypedResponse[generated.BackupOffsiteRetirementDryRunData], error) {
 	return stub.offsiteDryRunResponse, stub.err
 }
-func (stub *stubControlOperations) BackupStatus(_ context.Context, _ string) (localapi.TypedResponse[generated.BackupStatusData], error) {
+func (stub *stubControlOperations) BackupStatus(_ context.Context, _ string) (localapi.TypedResponse[generated.BrowserBackupStatusData], error) {
 	return stub.backupStatusResponse, stub.err
 }
 func (stub *stubControlOperations) RunBackup(_ context.Context, _ string, _ generated.BackupRunRequest) (localapi.TypedResponse[generated.BackupJob], error) {
@@ -142,13 +142,13 @@ func (stub *stubControlOperations) DatabaseStatus(_ context.Context, config stri
 	return stub.databaseResponse, stub.err
 }
 
-func (stub *stubControlOperations) AuditCheckpoints(_ context.Context, config string) (localapi.TypedResponse[generated.AuditCheckpointListData], error) {
+func (stub *stubControlOperations) AuditCheckpoints(_ context.Context, config string) (localapi.TypedResponse[generated.BrowserAuditCheckpointListData], error) {
 	stub.calls++
 	stub.config = config
 	return stub.auditListResponse, stub.err
 }
 
-func (stub *stubControlOperations) VerifyAudit(_ context.Context, config string) (localapi.TypedResponse[generated.AuditVerificationData], error) {
+func (stub *stubControlOperations) VerifyAudit(_ context.Context, config string) (localapi.TypedResponse[generated.BrowserAuditVerificationData], error) {
 	stub.calls++
 	stub.config = config
 	return stub.auditVerifyResponse, stub.err
@@ -216,8 +216,8 @@ func successfulControlOperations(t *testing.T) *stubControlOperations {
 	t.Helper()
 	summary := generated.ApiSummaryData{DatabaseMode: "read-write", ReadAvailable: true, DraftCount: 2, ValidDraftCount: 1, BlockedDraftCount: 1, LastEventID: 9, StateRevision: 7, RecoveryEpoch: 2, SourceCounts: generated.ApiSourceCountsData{Total: 7, Healthy: 1, Stale: 1, Unknown: 1, Unavailable: 3, Failed: 1}, WorstSourceState: "failed"}
 	database := generated.DatabaseStatusData{Mode: "read-write", SchemaVersion: 1, SQLiteVersion: "3.synthetic", IntegrityStatus: "ok"}
-	auditList := generated.AuditCheckpointListData{Schema: generated.SchemaIDAuditCheckpointListData, SchemaVersion: "1.0.0", Checkpoints: []generated.AuditCheckpoint{}, RecoveryEpoch: 2}
-	auditVerify := generated.AuditVerificationData{Schema: generated.SchemaIDAuditVerificationData, SchemaVersion: "1.1.0", Status: "degraded", InstanceID: "instance-test", RecoveryEpoch: 2, LocalDigest: "sha256:" + strings.Repeat("5", 64), IndependentMatch: false, LastAnchoredSequence: 0, ReasonCode: "no-independent-anchor", PreAnchor: false}
+	auditList := generated.BrowserAuditCheckpointListData{Schema: generated.SchemaIDBrowserAuditCheckpointListData, SchemaVersion: "1.0.0", Items: []generated.BrowserAuditCheckpoint{}, StateRevision: 7, RecoveryEpoch: 2}
+	auditVerify := generated.BrowserAuditVerificationData{Schema: generated.SchemaIDBrowserAuditVerificationData, SchemaVersion: "1.0.0", Status: "degraded", ReasonCode: "no-independent-anchor", SourceKind: "none", ProofClass: "none", IndependentMatch: false, LastAnchoredSequence: 0, PreAnchor: false, StateRevision: 7, RecoveryEpoch: 2, SafeNextAction: "collect and compare an independent audit checkpoint"}
 	imported := generated.InventoryImportData{DraftID: "draft-test", DraftRevision: 1, ValidationStatus: "valid", StateRevision: 8, RecoveryEpoch: 2, Created: true, Findings: []generated.InventoryFinding{}}
 	diff := generated.InventoryDiffData{CandidateKind: "draft", CandidateDigest: "sha256:" + strings.Repeat("1", 64), BaselineKind: "draft", BaselineDraft: generated.InventoryDraftRef{DraftID: "draft-base", DraftRevision: 1}, StateRevision: 8, RecoveryEpoch: 2, Records: []generated.InventoryDiffRecord{}, Findings: []generated.InventoryFinding{}}
 	exported := generated.InventoryExportData{ExportID: "sha256:" + strings.Repeat("2", 64), SubjectKind: "draft", Draft: generated.InventoryDraftRef{DraftID: "draft-test", DraftRevision: 1}, StateRevision: 9, RecoveryEpoch: 2, ContentDigest: "sha256:" + strings.Repeat("3", 64), Algorithm: "ed25519", KeyID: "synthetic-key", KeyFingerprint: "sha256:" + strings.Repeat("4", 64), VerificationStatus: "verified", PublicationStatus: "published", SignedBytesBase64: "e30K"}
@@ -235,7 +235,8 @@ func successfulControlOperations(t *testing.T) *stubControlOperations {
 	offsiteRetirement := generated.BackupOffsiteRetirementStageSubmission{Schema: generated.SchemaIDBackupOffsiteRetirementStageSubmission, SchemaVersion: "1.1.0", IntentID: "offsite-retirement-test", GenerationID: "generation-old", PointID: "point-old", RuleSetDigest: "sha256:" + strings.Repeat("a", 64), SurvivorRuleDigest: "sha256:" + strings.Repeat("b", 64), PreRuleCount: 10, SurvivorRuleCount: 5, SurvivorPointIDs: []string{"point-good"}, ExpectedReclaimBytes: 8, Status: "staged", StateRevision: 7, RecoveryEpoch: 2}
 	dryRunDigest := "sha256:" + strings.Repeat("a", 64)
 	offsiteDryRun := generated.BackupOffsiteRetirementDryRunData{Schema: generated.SchemaIDBackupOffsiteRetirementDryRunData, SchemaVersion: "1.1.0", IntentDigest: dryRunDigest, SelectionDigest: dryRunDigest, GenerationID: "generation-old", PointID: "point-old", BucketID: "bucket-a", RuleSetDigest: dryRunDigest, SurvivorRuleDigest: dryRunDigest, ManifestDigest: dryRunDigest, CatalogDigest: dryRunDigest, InventoryDigest: dryRunDigest, SurvivorPointIDs: []string{"point-good"}, SurvivorKeyReferenceIDs: []string{"key-good"}, Rules: []generated.BackupOffsiteRetirementRule{{RuleID: "old-config", Prefix: "critical/generation-old/config"}, {RuleID: "old-data", Prefix: "critical/generation-old/data/"}, {RuleID: "old-index", Prefix: "critical/generation-old/index/"}, {RuleID: "old-keys", Prefix: "critical/generation-old/keys/"}, {RuleID: "old-snapshots", Prefix: "critical/generation-old/snapshots/"}}, Objects: []generated.BackupOffsiteRetirementObject{{Key: "critical/generation-old/data/a", Digest: dryRunDigest, Bytes: 8}}, SurvivorBindings: []generated.BackupOffsiteRetirementSurvivorBinding{{PointID: "point-good", GenerationID: "generation-good", ReferenceID: "key-good", DependencyDigest: dryRunDigest}}, ObjectCount: 1, ExpectedReclaimBytes: 8, RetainedBytes: 21, MaxWorkObjects: 1, MaxMutationBytes: 8, PreRuleCount: 10, SurvivorRuleCount: 5, StateRevision: 7, RecoveryEpoch: 2}
-	backupStatus := generated.BackupStatusData{Schema: generated.SchemaIDBackupStatusData, SchemaVersion: "1.3.0", Policies: []generated.BackupPolicy{}, Jobs: []generated.BackupJob{}, Verifications: []generated.BackupVerificationAttempt{}, LastGood: []generated.BackupLastGood{}, Retirements: []generated.BackupLocalRetirementStatus{}, Offsite: []generated.BackupOffsiteStatus{}, RecoveryEpoch: 2}
+	lastGoodPoint := "point-last-good"
+	backupStatus := generated.BrowserBackupStatusData{Schema: generated.SchemaIDBrowserBackupStatusData, SchemaVersion: "1.0.0", Status: "recovery-required", ReasonCode: "verification-overdue", SourceKind: "local", ProofClass: "live", LastGoodPointID: &lastGoodPoint, RecoveryRequired: true, StateRevision: 7, RecoveryEpoch: 2, SafeNextAction: "verify the latest local recovery point"}
 	backupJob := generated.BackupJob{Schema: generated.SchemaIDBackupJob, SchemaVersion: "1.1.0", JobID: "job-test", PolicyID: "policy-a", SourceKind: "fixture", ProofClass: "fixture", Status: "pending", RecoveryEpoch: 2}
 	restoreRequest, restoreRun, _ := syntheticRestoreValues()
 	restoreBinding := generated.RestoreBinding{Schema: generated.SchemaIDRestoreBinding, SchemaVersion: "1.1.0", Source: restoreRequest.Source, PointID: restoreRequest.PointID, DependencyIDs: restoreRequest.DependencyIDs, TargetIDs: restoreRequest.TargetIDs, TargetDigest: restoreRequest.TargetDigest, PlanID: restoreRun.PlanID, PlanDigest: restoreRun.PlanDigest, HumanAcknowledgementID: restoreRun.HumanAcknowledgementID, FenceSetDigest: restoreRequest.FenceSetDigest, AuditDecisionDigest: restoreRequest.AuditDecisionDigest, CandidateDigest: restoreRequest.CandidateDigest, PriorInstanceID: restoreRequest.PriorInstanceID, NewInstanceID: restoreRequest.NewInstanceID, PriorRecoveryEpoch: 2, NextRecoveryEpoch: 3, Status: "planned"}
@@ -366,6 +367,19 @@ func TestControlHumanOutputsMatchGoldens(t *testing.T) {
 		if code != 0 || stderr != "" || stdout != string(want) {
 			t.Fatalf("%s = code %d stdout %q stderr %q want %q", test.golden, code, stdout, stderr, want)
 		}
+	}
+}
+
+func TestBackupStatusHumanOutputPreservesSanitizedProjectionFacts(t *testing.T) {
+	operations := successfulControlOperations(t)
+	code, stdout, stderr := runTestAppWithOptions(t, context.Background(), []string{"backup", "status", "--config", "profile.json"}, nil, WithControlOperations(operations, nil))
+	for _, fact := range []string{"Backup status recovery-required", "Reason verification-overdue", "Source local", "Proof live", "Last good point point-last-good", "Recovery required true", "State revision 7", "Recovery epoch 2", "Safe next action verify the latest local recovery point"} {
+		if !strings.Contains(stdout, fact) {
+			t.Fatalf("human backup output missing %q: %s", fact, stdout)
+		}
+	}
+	if code != 0 || stderr != "" {
+		t.Fatalf("human backup output = code %d stdout %q stderr %q", code, stdout, stderr)
 	}
 }
 

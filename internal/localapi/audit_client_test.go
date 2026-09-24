@@ -17,7 +17,7 @@ func TestAuditClientUsesFixedSanitizedRoutes(t *testing.T) {
 	raw, profile, captured := serveFixedResponse(t, http.StatusOK, operationEnvelope(t, "api.v1.audit-checkpoints.list", false, 2, 7, checkpoints))
 	response, err := NewClient(clientTestFactory()).AuditCheckpoints(context.Background(), profile)
 	request := <-captured
-	if err != nil || !bytes.Equal(response.Raw, raw) || request.method != http.MethodGet || request.path != "/api/v1/audit-checkpoints" || len(request.body) != 0 || len(response.Data.Checkpoints) != 1 || response.Data.Checkpoints[0].CheckpointID != checkpoint.CheckpointID {
+	if err != nil || !bytes.Equal(response.Raw, raw) || request.method != http.MethodGet || request.path != "/api/v1/audit-checkpoints" || len(request.body) != 0 || len(response.Data.Items) != 1 || response.Data.Items[0] != checkpoint {
 		t.Fatalf("checkpoint response/request = %#v/%#v err=%v", response, request, err)
 	}
 

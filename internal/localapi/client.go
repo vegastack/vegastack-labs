@@ -66,6 +66,8 @@ type TypedResponse[T any] struct {
 
 type Client interface {
 	SubmitScheduledPolicyDraft(context.Context, serverconfig.Profile, generated.ScheduledJobPolicy) (TypedResponse[generated.ScheduledPolicyDraftSubmission], error)
+	ListScheduledPolicies(context.Context, serverconfig.Profile) (TypedResponse[generated.BrowserScheduledJobPolicyListData], error)
+	InspectScheduledPolicy(context.Context, serverconfig.Profile, string) (TypedResponse[generated.BrowserScheduledJobPolicy], error)
 	GetScheduledPolicy(context.Context, serverconfig.Profile, string) (TypedResponse[generated.BrowserScheduledJobPolicy], error)
 	DispatchSchedule(context.Context, serverconfig.Profile, string) (TypedResponse[generated.ScheduledJob], error)
 	CancelSchedule(context.Context, serverconfig.Profile, string) (TypedResponse[generated.ScheduledJob], error)
@@ -81,7 +83,7 @@ type Client interface {
 	SubmitBackupRetirementDraft(context.Context, serverconfig.Profile, generated.BackupRetirementDraftRequest) (TypedResponse[generated.BackupRetirementDraftSubmission], error)
 	DryRunBackupOffsiteRetirement(context.Context, serverconfig.Profile, generated.BackupOffsiteRetirementDryRunRequest) (TypedResponse[generated.BackupOffsiteRetirementDryRunData], error)
 	StageBackupOffsiteRetirement(context.Context, serverconfig.Profile, generated.BackupOffsiteRetirementStageRequest) (TypedResponse[generated.BackupOffsiteRetirementStageSubmission], error)
-	BackupStatus(context.Context, serverconfig.Profile) (TypedResponse[generated.BackupStatusData], error)
+	BackupStatus(context.Context, serverconfig.Profile) (TypedResponse[generated.BrowserBackupStatusData], error)
 	RunBackup(context.Context, serverconfig.Profile, generated.BackupRunRequest) (TypedResponse[generated.BackupJob], error)
 	VerifyBackup(context.Context, serverconfig.Profile, generated.BackupVerifyRequest) (TypedResponse[generated.BackupJob], error)
 	PlanRestore(context.Context, serverconfig.Profile, generated.RestoreRequest) (TypedResponse[generated.RestoreBinding], error)
@@ -94,8 +96,8 @@ type Client interface {
 	VerifyDatabase(context.Context, serverconfig.Profile, generated.BackupVerifyRequest) (TypedResponse[generated.BackupJob], error)
 	PlanDatabaseRestore(context.Context, serverconfig.Profile, generated.RestoreRequest) (TypedResponse[generated.RestoreBinding], error)
 	DraftDatabaseExport(context.Context, serverconfig.Profile, generated.DatabaseExportRequest) (TypedResponse[generated.DatabaseExportDraftSubmission], error)
-	AuditCheckpoints(context.Context, serverconfig.Profile) (TypedResponse[generated.AuditCheckpointListData], error)
-	VerifyAudit(context.Context, serverconfig.Profile) (TypedResponse[generated.AuditVerificationData], error)
+	AuditCheckpoints(context.Context, serverconfig.Profile) (TypedResponse[generated.BrowserAuditCheckpointListData], error)
+	VerifyAudit(context.Context, serverconfig.Profile) (TypedResponse[generated.BrowserAuditVerificationData], error)
 	ImportInventory(context.Context, serverconfig.Profile, generated.InventoryImportRequest) (TypedResponse[generated.InventoryImportData], error)
 	DiffInventory(context.Context, serverconfig.Profile, generated.InventoryDiffRequest) (TypedResponse[generated.InventoryDiffData], error)
 	ExportInventory(context.Context, serverconfig.Profile, generated.InventoryExportRequest) (TypedResponse[generated.InventoryExportData], error)

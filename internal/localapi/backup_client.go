@@ -67,20 +67,11 @@ func (client *client) DryRunBackupOffsiteRetirement(ctx context.Context, profile
 	})
 }
 
-func (client *client) BackupStatus(ctx context.Context, profile serverconfig.Profile) (TypedResponse[generated.BackupStatusData], error) {
-	response, err := requestTyped(client, ctx, profile, requestSpec{localtransport.MethodGet, "/api/v1/backups/status", "api.v1.backups.status", maxOperationResponseBodyBytes, statusTimeout, false}, nil, func(data generated.BrowserBackupStatusData, result generated.RunResult) bool {
+func (client *client) BackupStatus(ctx context.Context, profile serverconfig.Profile) (TypedResponse[generated.BrowserBackupStatusData], error) {
+	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodGet, "/api/v1/backups/status", "api.v1.backups.status", maxOperationResponseBodyBytes, statusTimeout, false}, nil, func(data generated.BrowserBackupStatusData, result generated.RunResult) bool {
 		raw, err := json.Marshal(data)
 		return err == nil && generated.ValidateContractJSON(generated.SchemaIDBrowserBackupStatusData, raw, generated.ContractExact) == nil && data.StateRevision == result.StateRevision && data.RecoveryEpoch == result.RecoveryEpoch
 	})
-	if err != nil {
-		return TypedResponse[generated.BackupStatusData]{}, err
-	}
-	// Keep the established CLI method signature while treating the sanitized
-	// browser projection as the only wire contract. JSON output retains Raw;
-	// human output can still report the recovery epoch without reconstructing
-	// private catalog rows that the server deliberately omitted.
-	legacy := generated.BackupStatusData{Schema: generated.SchemaIDBackupStatusData, SchemaVersion: "1.3.0", Policies: []generated.BackupPolicy{}, Jobs: []generated.BackupJob{}, Verifications: []generated.BackupVerificationAttempt{}, LastGood: []generated.BackupLastGood{}, Retirements: []generated.BackupLocalRetirementStatus{}, Offsite: []generated.BackupOffsiteStatus{}, RecoveryEpoch: response.Data.RecoveryEpoch}
-	return TypedResponse[generated.BackupStatusData]{Raw: response.Raw, Result: response.Result, Data: legacy, ExitCode: response.ExitCode}, nil
 }
 
 func (client *client) RunBackup(ctx context.Context, profile serverconfig.Profile, input generated.BackupRunRequest) (TypedResponse[generated.BackupJob], error) {
