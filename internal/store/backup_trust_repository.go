@@ -132,7 +132,8 @@ func (repository *BackupRepository) ApplyBackupTrustSource(ctx context.Context, 
 		return zero, err
 	}
 	now := repository.store.config.Clock().UTC().Truncate(time.Second)
-	after := audit.Fingerprint(draft.Digest + ":" + request.Status)
+	afterSum := sha256.Sum256([]byte(draft.Digest + ":" + request.Status))
+	after := audit.Fingerprint("sha256:" + hex.EncodeToString(afterSum[:]))
 	event := audit.EventDraft{Type: audit.EventType("backup.trust-source-" + request.Status), CorrelationID: request.BindingID, Attribution: request.Attribution,
 		Target: audit.Target{Kind: "backup-trust-source", ID: request.SourceID}, After: &after}
 	keySum := sha256.Sum256([]byte(request.BindingID + ":" + request.PlanDigest))

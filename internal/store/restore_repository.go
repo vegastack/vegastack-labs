@@ -125,7 +125,7 @@ func (repository *RestoreRepository) CreatePlan(ctx context.Context, request Res
 	now := repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339)
 	repository.store.mu.Lock()
 	defer repository.store.mu.Unlock()
-	transaction, err := repository.store.db.BeginTx(ctx, nil)
+	transaction, err := repository.store.conn.BeginTx(ctx, nil)
 	if err != nil {
 		return RestoreSession{}, err
 	}
@@ -278,7 +278,7 @@ func (repository *RestoreRepository) AppendTransition(ctx context.Context, reque
 	}
 	repository.store.mu.Lock()
 	defer repository.store.mu.Unlock()
-	tx, err := repository.store.db.BeginTx(ctx, nil)
+	tx, err := repository.store.conn.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -320,7 +320,7 @@ func (repository *RestoreRepository) BindCandidate(ctx context.Context, request 
 	}
 	repository.store.mu.Lock()
 	defer repository.store.mu.Unlock()
-	tx, err := repository.store.db.BeginTx(ctx, nil)
+	tx, err := repository.store.conn.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
