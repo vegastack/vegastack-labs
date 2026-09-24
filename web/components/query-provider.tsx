@@ -5,7 +5,7 @@ import { createContext, useContext, useMemo, useState, type ReactNode } from "re
 import { ReadClientError } from "@/generated/read-api";
 import { isHardReadFailure } from "@/lib/read-queries";
 
-type FailureScope = "all" | "inventory" | "overview" | "gates" | "changes" | `source:${string}`;
+type FailureScope = "all" | "inventory" | "overview" | "gates" | "changes" | "phase5" | `source:${string}`;
 type FailureNotice = { error: unknown; scope: FailureScope } | null;
 const FailureContext = createContext<{ notice: FailureNotice; clear: () => void }>({ notice: null, clear: () => undefined });
 
@@ -14,6 +14,7 @@ function isInventoryKey(key: readonly unknown[]): boolean {
 }
 
 function keyScope(key: readonly unknown[]): Exclude<FailureScope, "all"> {
+  if ((key[0] === "read" || key[0] === "change") && key[1] === "phase5") return "phase5";
   if (key[0] === "change") return "changes";
   if (isInventoryKey(key)) return "inventory";
   if (key[0] === "read" && key[1] === "sources") {

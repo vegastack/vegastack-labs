@@ -2,7 +2,8 @@ import { expect, test, type Page } from "@playwright/test";
 import { fixtureAudit, installReadFixture } from "./api-fixture";
 
 const ORIGIN = "http://127.0.0.1:4173";
-const GENERATED_READ_PATH = /^(?:\/api\/v1\/(?:summary|sources|health|database\/status|events|gates)|\/api\/v1\/inventory-drafts(?:\/[^/]+\/revisions\/\d+(?:\/(?:assets|nodes|aliases|observations)(?:\/[^/]+)?)?)?)$/;
+const GENERATED_READ_PATH = /^(?:\/api\/v1\/(?:summary|sources|health|database\/status|events|gates|backups\/status|recovery-points|audit-checkpoints|audit-history\/verification|restore-plans|scheduled-job-policies|scheduled-jobs)|\/api\/v1\/plans\/[^/]+|\/api\/v1\/inventory-drafts(?:\/[^/]+\/revisions\/\d+(?:\/(?:assets|nodes|aliases|observations)(?:\/[^/]+)?)?)?)$/;
+const GENERATED_PHASE5_WRITE_PATH = /^\/api\/v1\/(?:gates\/[^/]+\/(?:check|evidence)|recovery-points\/[^/]+\/restore-drafts)$/;
 const SOURCE_IDS = new Set(["database", "nodes", "gates", "people", "services", "backups", "providers"]);
 const SOURCE_STATES = new Set(["healthy", "stale", "unknown", "unavailable", "failed"]);
 
@@ -42,6 +43,10 @@ function isGeneratedReadRequest(url: URL) {
     && (url.searchParams.get("sort") === null || ["id-asc", "id-desc"].includes(url.searchParams.get("sort")!))
     && (url.searchParams.get("source") === null || SOURCE_IDS.has(url.searchParams.get("source")!))
     && (url.searchParams.get("state") === null || SOURCE_STATES.has(url.searchParams.get("state")!));
+  if (["/api/v1/recovery-points", "/api/v1/audit-checkpoints", "/api/v1/restore-plans", "/api/v1/scheduled-job-policies", "/api/v1/scheduled-jobs"].includes(url.pathname)) return keys.every(key => ["cursor", "limit", "sort"].includes(key))
+    && (url.searchParams.get("limit") === null || (/^[1-9]\d*$/.test(url.searchParams.get("limit")!) && Number(url.searchParams.get("limit")) <= 100))
+    && validLength(url.searchParams.get("sort"), 64)
+    && validLength(url.searchParams.get("cursor"), 2048);
   if (url.pathname === "/api/v1/inventory-drafts" || /\/(?:assets|nodes|aliases|observations)$/.test(url.pathname)) return keys.every(key => ["cursor", "limit", "sort"].includes(key))
     && validLimit(url.searchParams.get("limit"))
     && validLength(url.searchParams.get("sort"), 64)
@@ -57,7 +62,8 @@ function monitorBrowser(page: Page) {
   page.on("request", request => {
     const url = new URL(request.url());
     const allowedRead = url.origin === ORIGIN && request.method() === "GET" && isGeneratedReadRequest(url) && request.resourceType() === "fetch";
-    if (url.origin !== ORIGIN || (["fetch", "xhr", "websocket", "eventsource"].includes(request.resourceType()) && !allowedRead)) failures.push(`unexpected: ${request.resourceType()} ${url.href}`);
+    const allowedPhase5Write = url.origin === ORIGIN && request.method() === "POST" && GENERATED_PHASE5_WRITE_PATH.test(url.pathname) && url.search === "" && request.resourceType() === "fetch";
+    if (url.origin !== ORIGIN || (["fetch", "xhr", "websocket", "eventsource"].includes(request.resourceType()) && !allowedRead && !allowedPhase5Write)) failures.push(`unexpected: ${request.resourceType()} ${url.href}`);
   });
   page.on("response", response => response.status() >= 400 && failures.push(`response: ${response.status()} ${response.url()}`));
   return { failures, assertClean: () => expect(failures).toEqual([]) };
@@ -87,7 +93,7 @@ test("skip link, focus order, and named landmarks work", async ({ page }) => {
 
 test("each route has a unique browser title", async ({ page }) => {
   const { assertClean } = monitorBrowser(page);
-  const routes = new Map([["/", "Overview"], ["/nodes", "Nodes — VegaStack Labs Console"], ["/people", "People — VegaStack Labs Console"], ["/services", "Services — VegaStack Labs Console"], ["/backups", "Backups — VegaStack Labs Console"], ["/providers", "Providers — VegaStack Labs Console"], ["/gates", "Gates — VegaStack Labs Console"], ["/changes", "Changes — VegaStack Labs Console"], ["/dashboard", "Console foundation — VegaStack Labs Console"], ["/states", "Foundation states — VegaStack Labs Console"], ["/unavailable", "Service unavailable — VegaStack Labs Console"]]);
+  const routes = new Map([["/", "Overview"], ["/nodes", "Nodes — VegaStack Labs Console"], ["/people", "People — VegaStack Labs Console"], ["/services", "Services — VegaStack Labs Console"], ["/backups", "Backups — VegaStack Labs Console"], ["/audit", "Audit — VegaStack Labs Console"], ["/providers", "Providers — VegaStack Labs Console"], ["/gates", "Gates — VegaStack Labs Console"], ["/changes", "Changes — VegaStack Labs Console"], ["/dashboard", "Console foundation — VegaStack Labs Console"], ["/states", "Foundation states — VegaStack Labs Console"], ["/unavailable", "Service unavailable — VegaStack Labs Console"]]);
   const titles = new Set<string>();
   for (const [route, title] of routes) {
     await page.goto(route);

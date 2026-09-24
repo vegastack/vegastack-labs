@@ -29,12 +29,12 @@ const controlNav: readonly NavItem[] = [
   { label: "Backups", href: "/backups", icon: DatabaseBackup },
   { label: "Providers", href: "/providers", icon: Plug },
   { label: "Gates", href: "/gates", icon: ShieldCheck },
+  { label: "Audit", href: "/audit", icon: FileClock },
   { label: "Changes", href: "/changes", icon: ClipboardCheck },
 ];
 
 // Not yet implemented — the links resolve to the honest "unavailable" screen.
 const plannedNav: readonly NavItem[] = [
-  { label: "Audit", href: "/unavailable", icon: FileClock },
   { label: "Settings", href: "/unavailable", icon: Settings },
 ];
 

@@ -7,6 +7,14 @@ const maximumTraceEntries = 20_000;
 const maximumTraceEntryBytes = 64 * 1024 * 1024;
 const maximumTraceBytes = 512 * 1024 * 1024;
 
+export const phase5PrivateCanaries = Object.freeze([
+  "op://phase5-private-reference-canary",
+  "/var/lib/vegastack/private-backup-canary",
+  "phase5-former-controller-fence-canary",
+  "phase5-human-acknowledgement-canary",
+  "phase5-provider-error-canary",
+]);
+
 export function assertPrivacyEvidence(value, needles, surface) {
   const text = Buffer.isBuffer(value) ? value.toString("utf8") : typeof value === "string" ? value : JSON.stringify(value);
   for (const needle of needles) {
