@@ -29,7 +29,19 @@ type labsR2RetirementProviders struct {
 	local     *serverconfig.LocalBackup
 	authority *store.Store
 	inspector store.RestoredSQLiteInspector
+	// The protocol seams are nil in shipped composition. Focused acceptance
+	// supplies hermetic endpoints while retaining this production verifier.
+	rules     r2retention.RuleClient
+	objects   r2retention.ObjectClient
+	inventory offsiteRetirementInventoryClient
+	restore   offsiteRetirementRestoreVerifier
 }
+
+type offsiteRetirementInventoryClient interface {
+	Inventory(context.Context, string, r2.S3Credentials, int64, int64) (backup.OffsiteInventoryObservation, error)
+}
+
+type offsiteRetirementRestoreVerifier func(context.Context, r2.RetirementSurvivorVerificationConfig, string) (backup.OffsiteSurvivorProof, error)
 
 func (providers labsR2RetirementProviders) Clients(_ context.Context, intent store.OffsiteRetirementIntent, binding adapter.ExactExecutionBinding, lockAdmin, retention *credentialref.Value, repositoryKeys map[string]*credentialref.Value) (r2retention.RuleClient, r2retention.ObjectClient, backup.OffsiteSurvivorVerifier, error) {
 	if providers.profile == nil || lockAdmin == nil || retention == nil || intent.BucketID != providers.profile.Bucket || intent.GenerationID == "" ||
@@ -65,8 +77,23 @@ func (providers labsR2RetirementProviders) Clients(_ context.Context, intent sto
 		}
 		return nil, nil, nil, copyErr
 	}
-	verifier := &labsR2SurvivorVerifier{authority: providers.authority, profile: providers.profile, local: providers.local, inspector: providers.inspector, intent: intent, binding: binding, repository: store.NewOffsiteRetirementRepository(providers.authority), client: r2.S3Client{Endpoint: providers.profile.Endpoint, Bucket: providers.profile.Bucket, Clock: time.Now}, credentials: verifierCredentials, parent: parentCopy, repositoryKeys: keyCopies, prefix: strings.TrimSuffix(providers.profile.Prefix, "/"), clock: time.Now}
-	return rules, objects, verifier, nil
+	inventory := providers.inventory
+	if inventory == nil {
+		inventory = r2.S3Client{Endpoint: providers.profile.Endpoint, Bucket: providers.profile.Bucket, Clock: time.Now}
+	}
+	restore := providers.restore
+	if restore == nil {
+		restore = r2.VerifyRetirementSurvivor
+	}
+	verifier := &labsR2SurvivorVerifier{authority: providers.authority, profile: providers.profile, local: providers.local, inspector: providers.inspector, intent: intent, binding: binding, repository: store.NewOffsiteRetirementRepository(providers.authority), inventory: inventory, restore: restore, credentials: verifierCredentials, parent: parentCopy, repositoryKeys: keyCopies, prefix: strings.TrimSuffix(providers.profile.Prefix, "/"), clock: time.Now}
+	ruleClient, objectClient := r2retention.RuleClient(rules), r2retention.ObjectClient(objects)
+	if providers.rules != nil {
+		ruleClient = providers.rules
+	}
+	if providers.objects != nil {
+		objectClient = providers.objects
+	}
+	return ruleClient, objectClient, verifier, nil
 }
 
 type labsR2SurvivorVerifier struct {
@@ -77,7 +104,8 @@ type labsR2SurvivorVerifier struct {
 	intent         store.OffsiteRetirementIntent
 	binding        adapter.ExactExecutionBinding
 	repository     *store.OffsiteRetirementRepository
-	client         r2.S3Client
+	inventory      offsiteRetirementInventoryClient
+	restore        offsiteRetirementRestoreVerifier
 	credentials    r2.S3Credentials
 	parent         *credentialref.Value
 	repositoryKeys map[string]*credentialref.Value
@@ -93,7 +121,10 @@ func (verifier *labsR2SurvivorVerifier) VerifyOffsiteSurvivor(ctx context.Contex
 	if err != nil {
 		return backup.OffsiteSurvivorProof{}, err
 	}
-	observed, err := verifier.client.Inventory(ctx, verifier.prefix+"/"+expected.GenerationID, verifier.credentials, 1_000_000, 1<<50)
+	if verifier.inventory == nil || verifier.restore == nil {
+		return backup.OffsiteSurvivorProof{}, errors.New("fresh survivor protocol unavailable")
+	}
+	observed, err := verifier.inventory.Inventory(ctx, verifier.prefix+"/"+expected.GenerationID, verifier.credentials, 1_000_000, 1<<50)
 	if err != nil || observed.InventoryDigest != expected.InventoryDigest {
 		return backup.OffsiteSurvivorProof{}, errors.New("fresh survivor full read failed")
 	}
@@ -107,7 +138,7 @@ func (verifier *labsR2SurvivorVerifier) VerifyOffsiteSurvivor(ctx context.Contex
 	if verifier.local == nil || password == nil {
 		return backup.OffsiteSurvivorProof{}, errors.New("fresh survivor restore binding unavailable")
 	}
-	proof, err := r2.VerifyRetirementSurvivor(ctx, r2.RetirementSurvivorVerificationConfig{Authority: verifier.authority, Intent: verifier.intent, Binding: verifier.binding, Endpoint: verifier.profile.Endpoint, Bucket: verifier.profile.Bucket, Prefix: verifier.prefix, ParentReferenceID: verifier.profile.ParentReferenceID, ParentFingerprint: verifier.profile.ParentFingerprint, ResticBinaryPath: verifier.local.ResticBinaryPath, CustodyPolicyPath: verifier.local.CustodyPolicyPath, Parent: verifier.parent, RepositoryKey: password, Inspector: verifier.inspector, Clock: verifier.clock}, pointID)
+	proof, err := verifier.restore(ctx, r2.RetirementSurvivorVerificationConfig{Authority: verifier.authority, Intent: verifier.intent, Binding: verifier.binding, Endpoint: verifier.profile.Endpoint, Bucket: verifier.profile.Bucket, Prefix: verifier.prefix, ParentReferenceID: verifier.profile.ParentReferenceID, ParentFingerprint: verifier.profile.ParentFingerprint, ResticBinaryPath: verifier.local.ResticBinaryPath, CustodyPolicyPath: verifier.local.CustodyPolicyPath, Parent: verifier.parent, RepositoryKey: password, Inspector: verifier.inspector, Clock: verifier.clock}, pointID)
 	if err != nil {
 		return backup.OffsiteSurvivorProof{}, err
 	}

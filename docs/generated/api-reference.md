@@ -142,6 +142,16 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 - `manifestDigest`
 - `catalogDigest`
 - `inventoryDigest`
+- `oneOwnerProofId`
+- `lockAdminReferenceId`
+- `lockAdminFingerprint`
+- `retentionReferenceId`
+- `retentionFingerprint`
+- `g008BundleDigest`
+- `qualificationDigest`
+- `putCutoffDigest`
+- `multipartCutoffDigest`
+- `exclusiveAdminDigest`
 - `survivorPointIds`
 - `survivorKeyReferenceIds`
 - `rules`
@@ -154,6 +164,7 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 - `maxMutationBytes`
 - `preRuleCount`
 - `survivorRuleCount`
+- `sourceRevision`
 - `stateRevision`
 - `recoveryEpoch`
 

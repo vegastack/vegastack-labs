@@ -11,10 +11,12 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -22,6 +24,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/acknowledgement"
 	"github.com/vegastack/vegastack-labs/internal/adapter"
 	"github.com/vegastack/vegastack-labs/internal/adapter/r2retention"
+	"github.com/vegastack/vegastack-labs/internal/adapters/r2"
 	"github.com/vegastack/vegastack-labs/internal/api"
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/authorization"
@@ -116,11 +119,36 @@ func (p acceptanceProviders) Clients(context.Context, store.OffsiteRetirementInt
 	return p.rules, p.objects, p.verifier, nil
 }
 
-type acceptanceRetirementSource struct{ providers acceptanceProviders }
+type acceptanceRetirementSource struct {
+	providers backup.OffsiteRetirementProviderFactory
+	clock     func() time.Time
+}
 
 func (s acceptanceRetirementSource) Execution(_ context.Context, _ serverconfig.Profile, authority *store.Store) (runengine.OffsiteRetirementExecution, bool, error) {
-	execution, err := backup.NewSQLRetirementExecution(authority, s.providers, func() time.Time { return s.providers.verifier.(acceptanceVerifier).now })
+	execution, err := backup.NewSQLRetirementExecution(authority, s.providers, s.clock)
 	return execution, err == nil, err
+}
+
+type acceptanceInventory struct {
+	observation backup.OffsiteInventoryObservation
+}
+
+func (inventory acceptanceInventory) Inventory(context.Context, string, r2.S3Credentials, int64, int64) (backup.OffsiteInventoryObservation, error) {
+	return inventory.observation, nil
+}
+
+type acceptanceLocalRetirementSource struct{ intent store.LocalRetirementIntent }
+
+func (source acceptanceLocalRetirementSource) GetLocalRetirementIntentBySelection(context.Context, string) (store.LocalRetirementIntent, error) {
+	return source.intent, nil
+}
+
+type acceptanceRetirementCatalogSource struct {
+	catalog backup.OffsiteRetirementCatalog
+}
+
+func (source acceptanceRetirementCatalogSource) CurrentOffsiteRetirementCatalog(context.Context) (backup.OffsiteRetirementCatalog, error) {
+	return source.catalog, nil
 }
 
 type acceptanceAdmission struct{}
@@ -185,7 +213,7 @@ func (source acceptanceAcknowledgementSource) Status(ctx context.Context, planID
 	return stored.Acknowledgement, err
 }
 
-func TestProductionOffsiteRetirementSQLRunAcceptance(t *testing.T) {
+func TestProductionOffsiteRetirementHTTPCompositionAcceptance(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now().UTC().Truncate(time.Second)
 	clock := now
@@ -199,6 +227,20 @@ func TestProductionOffsiteRetirementSQLRunAcceptance(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = authority.Close() })
 	d := "sha256:" + strings.Repeat("a", 64)
+	credentialDirectory := t.TempDir()
+	lockSecret := []byte("fixture-lock-admin-token")
+	retentionSecret := []byte(`{"accountId":"fixture-account","accessKeyId":"fixture-access","secretAccessKey":"fixture-secret"}`)
+	repositorySecret := []byte("fixture-repository-password")
+	credentialFingerprint := func(value []byte) string {
+		sum := sha256.Sum256(value)
+		return "sha256:" + hex.EncodeToString(sum[:])
+	}
+	for name, value := range map[string][]byte{"lock-admin": lockSecret, "retention": retentionSecret, "key-good": repositorySecret} {
+		if err := os.WriteFile(filepath.Join(credentialDirectory, name), value, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("CREDENTIALS_DIRECTORY", credentialDirectory)
 	bundle, bundleBytes, bundleDigest := acceptanceG008Bundle(t, now, d)
 	attribution := audit.Attribution{AuthenticatedPrincipalID: "human-a", AuthenticatedPrincipalMethod: "local-os-peer"}
 	repository := store.NewBackupRepository(authority)
@@ -243,7 +285,7 @@ func TestProductionOffsiteRetirementSQLRunAcceptance(t *testing.T) {
 		}
 	}
 	selection := backup.RetirementSelection{Targets: []backup.RetirementCandidate{{PointID: old.SourcePointID}}, Survivors: []backup.RetirementCandidate{{PointID: good.SourcePointID}}, RecoveryEpoch: 0}
-	catalog := backup.OffsiteRetirementCatalog{Generations: []backup.PendingOffsiteGeneration{good, old}, GenerationCreatedAt: map[string]time.Time{old.GenerationID: now.Add(-15 * 24 * time.Hour), good.GenerationID: now}, VerifiedPointIDs: []string{old.SourcePointID, good.SourcePointID}, LastGoodPointIDs: []string{good.SourcePointID}, BucketID: "bucket-a", CatalogDigest: d, G008BundleDigest: bundleDigest, QualificationDigest: d, PutCutoffDigest: d, MultipartCutoffDigest: d, ExclusiveAdminDigest: d, RuleCount: len(allRules), RuleLimit: 1000, TotalBytes: 100, AvailableBytes: 80, ObservedAt: now}
+	catalog := backup.OffsiteRetirementCatalog{Generations: []backup.PendingOffsiteGeneration{good, old}, GenerationCreatedAt: map[string]time.Time{old.GenerationID: now.Add(-15 * 24 * time.Hour), good.GenerationID: now}, VerifiedPointIDs: []string{old.SourcePointID, good.SourcePointID}, LastGoodPointIDs: []string{good.SourcePointID}, BucketID: "bucket-a", CatalogDigest: d, G008BundleDigest: bundleDigest, QualificationDigest: d, PutCutoffDigest: d, MultipartCutoffDigest: d, ExclusiveAdminDigest: d, LockAdminReferenceID: "lock-admin", LockAdminFingerprint: credentialFingerprint(lockSecret), RetentionReferenceID: "retention", RetentionFingerprint: credentialFingerprint(retentionSecret), RuleCount: len(allRules), RuleLimit: 1000, TotalBytes: 100, AvailableBytes: 80, ObservedAt: now}
 	for _, rule := range allRules {
 		catalog.CurrentRules = append(catalog.CurrentRules, backup.RetentionRuleRef{RuleID: rule.RuleID, Prefix: rule.Prefix})
 	}
@@ -251,6 +293,28 @@ func TestProductionOffsiteRetirementSQLRunAcceptance(t *testing.T) {
 	candidate, err := backup.SelectOffsiteRetirement(catalog, selection, now)
 	if err != nil {
 		t.Fatal(err)
+	}
+	localSelectionDigest := "sha256:" + strings.Repeat("b", 64)
+	localIntent := store.LocalRetirementIntent{Request: store.LocalRetirementStageRequest{SelectionDigest: localSelectionDigest, StateRevision: 4, RecoveryEpoch: 0, Targets: []store.LocalRetirementTarget{{PointID: old.SourcePointID}}, Survivors: []store.LocalRetirementSurvivor{{PointID: good.SourcePointID}}}}
+	stageService, err := api.NewOffsiteRetirementStageService(acceptanceLocalRetirementSource{intent: localIntent}, store.NewOffsiteRetirementRepository(authority), acceptanceRetirementCatalogSource{catalog: catalog})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stageResults := result.NewFactory(result.BuildInfo{ToolVersion: "1.0.0", ReleaseBuildID: "test-build"}, func() (string, error) { return "request-offsite-stage", nil })
+	stageApplication, err := api.NewApplication(api.Config{Authority: authority, Authorizer: acceptanceReadAuthorizer{}, Reads: store.NewReadRepository(authority), Results: stageResults})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := api.RegisterBackupOperations(stageApplication, api.BackupOperations{Drafts: repository, OffsiteRetirements: stageService, Results: stageResults}); err != nil {
+		t.Fatal(err)
+	}
+	principal := identity.Principal{ID: attribution.AuthenticatedPrincipalID, Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}
+	dryRequest := generated.BackupOffsiteRetirementDryRunRequest{Schema: generated.SchemaIDBackupOffsiteRetirementDryRunRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: 4, RecoveryEpoch: 0, SelectionDigest: localSelectionDigest, OneOwnerProofID: "owner-proof", LockAdminReferenceID: "lock-admin", RetentionReferenceID: "retention"}
+	var dryEnvelope struct {
+		Data generated.BackupOffsiteRetirementDryRunData `json:"data"`
+	}
+	if response := acceptanceHTTP(t, stageApplication, "/api/v1/backups/offsite-retirements/dry-run", dryRequest, principal, &dryEnvelope); response.Code != http.StatusOK {
+		t.Fatalf("dry-run status=%d body=%s", response.Code, response.Body.String())
 	}
 
 	operationID := "retire-offsite-a"
@@ -262,77 +326,110 @@ func TestProductionOffsiteRetirementSQLRunAcceptance(t *testing.T) {
 	credentialDigest := credentialref.OperationManifestDigest(bindings, operationID)
 	intent := acceptanceIntent(candidate, credentialDigest)
 	intent.IntentDigest, _, err = store.OffsiteRetirementIntentDigests(intent)
-	if err != nil {
-		t.Fatal(err)
+	if err != nil || intent.IntentDigest != dryEnvelope.Data.IntentDigest {
+		t.Fatalf("HTTP dry-run mismatch: computed=%s response=%s err=%v", intent.IntentDigest, dryEnvelope.Data.IntentDigest, err)
 	}
-	plan := commitAcceptancePlan(t, ctx, authority, intent, bindings, operationID, attribution, now)
-	intent.PlanID, intent.PlanDigest = plan.PlanID, plan.PlanDigest
-	if _, err := store.NewOffsiteRetirementRepository(authority).StageOffsiteRetirement(ctx, intent); err != nil {
-		t.Fatal(err)
-	}
+	seedAcceptanceCredentials(t, filepath.Join(directory, "control.db"), intent, attribution, now)
+	// The qualified G008 evidence, deployment profile, and effective grant are
+	// observed authority inputs. Establish them before the immutable plan is
+	// committed, then leave them unchanged through the restarted server run.
 	seedAcceptanceGate(t, filepath.Join(directory, "control.db"), intent, bundle, bundleBytes, bundleDigest, attribution, now)
+	plan := commitAcceptancePlan(t, ctx, authority, intent, bindings, operationID, attribution, now)
+	stageRequest := generated.BackupOffsiteRetirementStageRequest{Schema: generated.SchemaIDBackupOffsiteRetirementStageRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: 4, RecoveryEpoch: 0, TargetDigest: dryEnvelope.Data.IntentDigest, IdempotencyKey: "retire-a", SelectionDigest: localSelectionDigest, PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, OneOwnerProofID: "owner-proof", LockAdminReferenceID: "lock-admin", RetentionReferenceID: "retention", CredentialBindingDigest: credentialDigest}
+	var stageEnvelope struct {
+		Data generated.BackupOffsiteRetirementStageSubmission `json:"data"`
+	}
+	if response := acceptanceHTTP(t, stageApplication, "/api/v1/backups/offsite-retirements/stage", stageRequest, principal, &stageEnvelope); response.Code != http.StatusOK || stageEnvelope.Data.Status != "staged" {
+		t.Fatalf("stage status=%d body=%s", response.Code, response.Body.String())
+	}
+	stagedIntent, err := store.NewOffsiteRetirementRepository(authority).GetOffsiteRetirementIntentByDigest(ctx, dryEnvelope.Data.IntentDigest)
+	if err != nil || stagedIntent.IntentID != stageEnvelope.Data.IntentID {
+		t.Fatalf("durable staged intent unavailable for restart reconciliation: %+v %v", stagedIntent, err)
+	}
 	authorizeAcceptancePlan(t, ctx, authority, plan, attribution, now)
+	assertAcceptancePlanCurrent(t, ctx, authority, plan)
+	assertAcceptanceAcknowledgementAuthority(t, ctx, authority, plan, attribution.AuthenticatedPrincipalID)
 
 	providerRules := &acceptanceRules{current: r2retention.RuleSet{Rules: append([]r2retention.Rule(nil), allRules...)}}
 	providerObjects := &acceptanceObjects{}
 	for _, object := range old.Objects {
 		providerObjects.values = append(providerObjects.values, r2retention.Object{Key: object.Key, Digest: object.Digest, Bytes: object.Bytes})
 	}
-	source := acceptanceRetirementSource{providers: acceptanceProviders{rules: providerRules, objects: providerObjects, verifier: acceptanceVerifier{now: now, ruleDigest: good.RuleDigest, offsiteInventoryDigest: good.OffsiteInventoryDigest}}}
-	effectAdapter, err := NewProductionOffsiteRetirementEffectFactory(source)(ctx, serverconfig.Profile{OffsiteBackup: &serverconfig.OffsiteBackup{}}, authority)
-	if err != nil {
-		t.Fatal(err)
+	providerProfile := &serverconfig.OffsiteBackup{Endpoint: "https://fixture.invalid", Bucket: "bucket-a", Prefix: "critical", ParentReferenceID: "parent-a", ParentFingerprint: d, ObserverReferenceID: "observer-a", LockAdminReferenceID: "lock-admin", LockAdminFingerprint: credentialFingerprint(lockSecret), RetentionReferenceID: "retention", RetentionFingerprint: credentialFingerprint(retentionSecret)}
+	parentValue, _ := credentialref.NewValue(retentionSecret)
+	repositoryValue, _ := credentialref.NewValue(repositorySecret)
+	failingVerifier := &labsR2SurvivorVerifier{authority: authority, profile: providerProfile, local: &serverconfig.LocalBackup{ResticBinaryPath: "/opt/vsk/restic", CustodyPolicyPath: "/etc/vsk/custody.json"}, intent: stagedIntent, binding: adapter.ExactExecutionBinding{PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, RunID: "restore-failure-run", StepID: "restore-failure-step", LeaseID: "restore-failure-lease", RecoveryEpoch: 0, MaximumExpiresAt: now.Add(time.Hour).Format(time.RFC3339)}, repository: store.NewOffsiteRetirementRepository(authority), inventory: acceptanceInventory{observation: backup.OffsiteInventoryObservation{InventoryDigest: good.OffsiteInventoryDigest, ObjectCount: int64(len(good.Objects)), ObjectBytes: good.ObjectBytes, Objects: append([]backup.OffsiteObject(nil), good.Objects...)}}, restore: func(context.Context, r2.RetirementSurvivorVerificationConfig, string) (backup.OffsiteSurvivorProof, error) {
+		return backup.OffsiteSurvivorProof{}, errors.New("hermetic isolated restore failed")
+	}, credentials: r2.S3Credentials{AccessKeyID: []byte("fixture-access"), SecretAccessKey: []byte("fixture-secret")}, parent: parentValue, repositoryKeys: map[string]*credentialref.Value{"key-good": repositoryValue}, prefix: "critical", clock: func() time.Time { return now }}
+	if _, err := failingVerifier.VerifyOffsiteSurvivor(ctx, good.SourcePointID); err == nil {
+		t.Fatal("isolated restore failure was accepted")
 	}
-	registry := adapter.NewRegistry()
-	if err := registry.Register("r2.retention", effectAdapter); err != nil {
-		t.Fatal(err)
-	}
-	if err := registry.RegisterCredentialResolver(adapter.CredentialCapabilityScope{ResolverID: "native-systemd", ConsumerID: "r2.retention", ProfileID: "vegastack-labs", CapabilityID: "credential.native.read", Enabled: true}, acceptanceCredentialResolver{}); err != nil {
-		t.Fatal(err)
-	}
-	activated := now.Add(-time.Minute).Format(time.RFC3339)
-	references := map[string]generated.CredentialReference{}
-	for _, binding := range bindings {
-		references[binding.ReferenceID] = generated.CredentialReference{Schema: generated.SchemaIDCredentialReference, SchemaVersion: "1.1.0", ReferenceID: binding.ReferenceID, ConsumerID: binding.ConsumerID, PurposeID: binding.PurposeID, TargetID: binding.TargetID, ResolverID: binding.ResolverID, MaterialVersion: binding.MaterialVersion, Fingerprint: "sha256:" + strings.Repeat("a", 64), Status: "active", StateRevision: binding.StateRevision, RecoveryEpoch: binding.RecoveryEpoch, ActivatedAt: &activated, VerifiedConsumerIDs: []string{binding.ConsumerID}}
-	}
-	planRepository := store.NewPlanRepository(authority)
-	observations, err := planengine.NewStateObservationReader(planRepository)
-	if err != nil {
-		t.Fatal(err)
-	}
-	plans, err := planengine.NewService(planengine.Config{Repository: planRepository, Observations: observations, Clock: func() time.Time { return now }, PolicyVersion: "1.0.0", ToolVersion: "1.0.0", ContractVersion: "1.0.0", Risk: "destructive", AuthorizationBranch: "human", ExecutorMode: "central", OperationExecutorID: "executor-central"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	engine, err := runengine.NewEngine(runengine.Config{Repository: store.NewRunRepository(authority), Plans: plans, Admission: acceptanceAdmission{}, Adapters: registry, SecretGate: r2RetirementLiveGate{gates: store.NewGateRepository(authority), retirements: store.NewOffsiteRetirementRepository(authority), clock: func() time.Time { return now }}, CredentialStep: &runengine.CredentialStep{Bindings: acceptanceCredentialSource{bindings: store.NewCredentialRepository(authority), references: references}, Resolvers: registry, Profiles: store.NewGateRepository(authority), Plans: plans, Clock: func() time.Time { return now }}, Clock: func() time.Time { return now }})
-	if err != nil {
-		t.Fatal(err)
+	_ = failingVerifier.Close()
+	restoreCalls := 0
+	restore := func(_ context.Context, config r2.RetirementSurvivorVerificationConfig, pointID string) (backup.OffsiteSurvivorProof, error) {
+		restoreCalls++
+		if config.Intent.IntentDigest != dryEnvelope.Data.IntentDigest || config.RepositoryKey == nil || pointID != good.SourcePointID {
+			return backup.OffsiteSurvivorProof{}, errors.New("isolated restore binding mismatch")
+		}
+		return backup.OffsiteSurvivorProof{PointID: pointID, GenerationID: good.GenerationID, RuleDigest: good.RuleDigest, InventoryDigest: good.OffsiteInventoryDigest, FullReadDigest: "sha256:" + strings.Repeat("b", 64), RestoreDigest: "sha256:" + strings.Repeat("c", 64), FullReadAt: now, RestoredAt: now, ObservedAt: now, RecoveryEpoch: 0}, nil
 	}
 	requestBody := generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, RecoveryEpoch: 0, IdempotencyKey: "submit-a", Extensions: []generated.ContractExtension{}}
 	rawRequest, err := json.Marshal(requestBody)
 	if err != nil {
 		t.Fatal(err)
 	}
-	requestIDs := 0
-	results := result.NewFactory(result.BuildInfo{ToolVersion: "1.0.0", ReleaseBuildID: "test-build"}, func() (string, error) {
-		requestIDs++
-		return "request-offsite-" + string(rune('a'+requestIDs)), nil
-	})
-	application, err := api.NewApplication(api.Config{Authority: authority, Authorizer: acceptanceReadAuthorizer{}, Reads: store.NewReadRepository(authority), Results: results})
-	if err != nil {
+	profilePath, socketPath := writeOffsiteAcceptanceProfile(t, directory, bundleDigest, d, credentialFingerprint(lockSecret), credentialFingerprint(retentionSecret))
+	if err := authority.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if err := api.RegisterRunOperations(application, api.RunOperationConfig{Runs: engine, Plans: plans, Acknowledgements: acceptanceAcknowledgementSource{repository: store.NewAcknowledgementRepository(authority)}, Results: results, Authorization: api.EffectiveAuthorizationConfig{Authorizer: acceptanceExecutionAuthorizer{}, Recorder: acceptanceDecisionRecorder{}, Clock: func() time.Time { return now }}}); err != nil {
-		t.Fatal(err)
+	operations := NewOperations(result.BuildInfo{ToolVersion: "1.0.0", ReleaseBuildID: "test-build"}, func() (string, error) { return "request-offsite-operations", nil },
+		WithOffsiteRetirementEffectFactory(func(_ context.Context, _ serverconfig.Profile, opened *store.Store) (adapter.Adapter, error) {
+			source := acceptanceRetirementSource{providers: labsR2RetirementProviders{profile: providerProfile, local: &serverconfig.LocalBackup{ResticBinaryPath: "/opt/vsk/restic", CustodyPolicyPath: "/etc/vsk/custody.json"}, authority: opened, rules: providerRules, objects: providerObjects, inventory: acceptanceInventory{observation: backup.OffsiteInventoryObservation{InventoryDigest: good.OffsiteInventoryDigest, ObjectCount: int64(len(good.Objects)), ObjectBytes: good.ObjectBytes, Objects: append([]backup.OffsiteObject(nil), good.Objects...)}}, restore: restore}, clock: func() time.Time { return now }}
+			return NewProductionOffsiteRetirementEffectFactory(source)(context.Background(), serverconfig.Profile{OffsiteBackup: providerProfile}, opened)
+		}),
+		WithOffsiteRetirementCatalogSource(acceptanceRetirementCatalogSource{catalog: catalog}),
+	)
+	operations.databasePath = filepath.Join(directory, "control.db")
+	operations.platformProbe = fixedPlatformProbe{platform: testSupportedPlatform()}
+	operations.openStore = func(openContext context.Context, config store.Config) (*store.Store, error) {
+		config.Filesystem = acceptanceFilesystem{}
+		config.Clock = func() time.Time { return now }
+		return store.Open(openContext, config)
 	}
-	httpRequest := httptest.NewRequest(http.MethodPost, "/api/v1/plans/"+plan.PlanID+"/execute", bytes.NewReader(rawRequest))
+	serverContext, stopServer := context.WithCancel(ctx)
+	serverDone := make(chan error, 1)
+	go func() { serverDone <- operations.Run(serverContext, profilePath) }()
+	for deadline := time.Now().Add(5 * time.Second); ; {
+		if _, statErr := os.Stat(socketPath); statErr == nil {
+			break
+		}
+		select {
+		case startErr := <-serverDone:
+			stopServer()
+			t.Fatalf("Operations.Run startup failed: %v", startErr)
+		default:
+		}
+		if time.Now().After(deadline) {
+			stopServer()
+			t.Fatalf("Operations.Run did not create control socket")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	transport := &http.Transport{DialContext: func(dialContext context.Context, _, _ string) (net.Conn, error) {
+		return (&net.Dialer{}).DialContext(dialContext, "unix", socketPath)
+	}}
+	httpRequest, _ := http.NewRequestWithContext(ctx, http.MethodPost, "http://control/api/v1/plans/"+plan.PlanID+"/execute", bytes.NewReader(rawRequest))
 	httpRequest.Header.Set("Content-Type", "application/json")
-	httpRequest = httpRequest.WithContext(identity.WithVerifiedPrincipal(httpRequest.Context(), identity.Principal{ID: attribution.AuthenticatedPrincipalID, Method: identity.LocalOSPeerMethod}))
-	httpResponse := httptest.NewRecorder()
-	application.ServeHTTP(httpResponse, httpRequest)
-	run, found, existingErr := engine.Existing(ctx, requestBody)
-	if httpResponse.Code != http.StatusOK || existingErr != nil || !found || run.Status != "succeeded" || len(providerObjects.values) != 0 || len(providerRules.current.Rules) != 5 {
-		t.Fatalf("response=%d %s run=%+v found=%t objects=%d rules=%d err=%v", httpResponse.Code, httpResponse.Body.String(), run, found, len(providerObjects.values), len(providerRules.current.Rules), existingErr)
+	httpResponse, requestErr := (&http.Client{Transport: transport, Timeout: 10 * time.Second}).Do(httpRequest)
+	var responseBody []byte
+	if httpResponse != nil {
+		responseBody, _ = io.ReadAll(httpResponse.Body)
+		_ = httpResponse.Body.Close()
+	}
+	stopServer()
+	serverErr := <-serverDone
+	if requestErr != nil || serverErr != nil || httpResponse == nil || httpResponse.StatusCode != http.StatusOK || !bytes.Contains(responseBody, []byte(`"status":"succeeded"`)) || len(providerObjects.values) != 0 || len(providerRules.current.Rules) != 5 || restoreCalls != 1 {
+		t.Fatalf("Operations.Run execute response=%v body=%s requestErr=%v serverErr=%v objects=%d rules=%d restores=%d", httpResponse, responseBody, requestErr, serverErr, len(providerObjects.values), len(providerRules.current.Rules), restoreCalls)
 	}
 }
 
@@ -361,6 +458,9 @@ func seedAcceptanceGate(t *testing.T, databasePath string, intent store.OffsiteR
 		{`INSERT INTO gate_evidence_drafts(draft_id,evidence_id,gate_id,subject_id,definition_version,evaluator_version,source_kind,proof_class,artifact_digest,bundle_digest,bundle_bytes,observed_at,state_revision,recovery_epoch,human_id,created_at) VALUES('gate-draft','owner-proof','G-008',?,'1.0.0','1.0.0','local','live',?,?,?,?,4,0,?,?)`, []any{intent.BucketID, d, bundleDigest, bundleBytes, bundle.ObservedAt, attribution.AuthenticatedPrincipalID, now.Format(time.RFC3339)}},
 		{`INSERT INTO gate_applied_evidence(evidence_id,draft_id,gate_id,subject_id,status,source_kind,proof_class,bundle_digest,canonical_bytes,state_revision,recovery_epoch,declaration_id,declaration_revision,plan_id,plan_digest,run_id,step_id,lease_id,applied_at) VALUES('owner-proof','gate-draft','G-008',?,'applied','local','live',?,?,4,0,'gate-declaration',1,'gate-plan',?,'gate-run','gate-step','gate-lease',?)`, []any{intent.BucketID, bundleDigest, evidenceBytes, d, now.Format(time.RFC3339)}},
 		{`INSERT INTO gate_applied_profiles(binding_id,profile_id,profile_version,policy_id,policy_version,capabilities_bytes,state_revision,recovery_epoch,declaration_id,declaration_revision,plan_id,plan_digest,run_id,step_id,lease_id,human_id,applied_at) VALUES('profile-binding','vegastack-labs','1.0.0','policy-a','1.0.0',?,4,0,'gate-declaration',1,'gate-plan',?,'gate-run','gate-step','gate-lease',?,?)`, []any{[]byte(`["credential.native.read"]`), d, attribution.AuthenticatedPrincipalID, now.Format(time.RFC3339)}},
+		{`INSERT INTO effective_authorization_principals(principal_id,principal_kind,status,grant_revision,created_at,updated_at) VALUES(?,'human','active',1,?,?)`, []any{attribution.AuthenticatedPrincipalID, now.Format(time.RFC3339), now.Format(time.RFC3339)}},
+		{`INSERT INTO effective_authorization_grants(grant_id,principal_id,role_id,action,capability,resource_kind,resource_id,branch,grant_revision,status,created_at,updated_at) VALUES('grant-offsite-execute',?,'infrastructure-admin','execute','backup.retire.offsite','execution-target',?,'human',1,'active',?,?)`, []any{attribution.AuthenticatedPrincipalID, intent.GenerationID, now.Format(time.RFC3339), now.Format(time.RFC3339)}},
+		{`INSERT INTO effective_authorization_grants(grant_id,principal_id,role_id,action,capability,resource_kind,resource_id,branch,grant_revision,status,created_at,updated_at) VALUES('grant-offsite-acknowledge',?,'infrastructure-admin','acknowledge','plan.acknowledge','plan-target',?,'human',1,'active',?,?)`, []any{attribution.AuthenticatedPrincipalID, intent.GenerationID, now.Format(time.RFC3339), now.Format(time.RFC3339)}},
 	}
 	for index, statement := range statements {
 		if _, err := database.ExecContext(context.Background(), statement.query, statement.args...); err != nil {
@@ -369,23 +469,85 @@ func seedAcceptanceGate(t *testing.T, databasePath string, intent store.OffsiteR
 	}
 }
 
+func seedAcceptanceCredentials(t *testing.T, databasePath string, intent store.OffsiteRetirementIntent, attribution audit.Attribution, now time.Time) {
+	t.Helper()
+	database, err := sql.Open("sqlite3", "file:"+databasePath+"?mode=rw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	d := "sha256:" + strings.Repeat("a", 64)
+	credentials := []struct{ id, purpose, fingerprint string }{{intent.LockAdminReferenceID, "lock-admin", intent.LockAdminFingerprint}, {intent.RetentionReferenceID, "retention", intent.RetentionFingerprint}}
+	for _, survivor := range intent.SurvivorKeyReferences {
+		credentials = append(credentials, struct{ id, purpose, fingerprint string }{survivor.ReferenceID, "repository-key", d})
+	}
+	for index, credential := range credentials {
+		if _, err := database.ExecContext(context.Background(), `INSERT INTO credential_reference_versions(version_id,reference_id,consumer_id,purpose_id,target_id,resolver_id,material_version,fingerprint,status,state_revision,recovery_epoch,activated_at,verified_consumers_bytes,declaration_id,declaration_revision,plan_id,plan_digest,run_id,step_id,lease_id,human_id,created_at) VALUES(?,?,?,?,?,'native-systemd','v1',?,'active',1,0,?,?,'credential-declaration',1,'credential-plan',?,'credential-run','credential-step','credential-lease',?,?)`, "credential-version-"+credential.id, credential.id, "r2.retention", credential.purpose, intent.GenerationID, credential.fingerprint, now.Format(time.RFC3339), []byte(`["r2.retention"]`), d, attribution.AuthenticatedPrincipalID, now.Format(time.RFC3339)); err != nil {
+			t.Fatalf("seed credential reference %d: %v", index, err)
+		}
+	}
+}
+
 func authorizeAcceptancePlan(t *testing.T, ctx context.Context, authority *store.Store, plan generated.Plan, attribution audit.Attribution, now time.Time) generated.Acknowledgement {
 	t.Helper()
 	request := generated.AcknowledgementRequest{Schema: generated.SchemaIDAcknowledgementRequest, SchemaVersion: "1.0.0", PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, TargetDigest: plan.Binding.TargetDigest, ReasonDigest: plan.Binding.ReasonDigest, HumanID: attribution.AuthenticatedPrincipalID, AuthorityID: "infra-admin", NonceDigest: "sha256:" + strings.Repeat("b", 64), StateRevision: plan.Binding.StateRevision, RecoveryEpoch: plan.Binding.RecoveryEpoch, ExpiresAt: plan.ExpiresAt, Extensions: []generated.ContractExtension{}}
-	pending := generated.Acknowledgement{Schema: generated.SchemaIDAcknowledgement, SchemaVersion: "1.0.0", PlanID: request.PlanID, PlanDigest: request.PlanDigest, TargetDigest: request.TargetDigest, ReasonDigest: request.ReasonDigest, HumanID: request.HumanID, AuthorityID: request.AuthorityID, NonceDigest: request.NonceDigest, StateRevision: request.StateRevision, RecoveryEpoch: request.RecoveryEpoch, ExpiresAt: request.ExpiresAt, AcknowledgementID: "ack-retirement-a", ProofDigest: "sha256:" + strings.Repeat("c", 64), Status: "pending", ReceivedAt: now.Format(time.RFC3339), Extensions: []generated.ContractExtension{}}
+	receivedAt := now.UTC().Truncate(time.Second)
+	pending := generated.Acknowledgement{Schema: generated.SchemaIDAcknowledgement, SchemaVersion: "1.0.0", PlanID: request.PlanID, PlanDigest: request.PlanDigest, TargetDigest: request.TargetDigest, ReasonDigest: request.ReasonDigest, HumanID: request.HumanID, AuthorityID: request.AuthorityID, NonceDigest: request.NonceDigest, StateRevision: request.StateRevision, RecoveryEpoch: request.RecoveryEpoch, ExpiresAt: request.ExpiresAt, AcknowledgementID: "ack-retirement-a", Status: "pending", ReceivedAt: receivedAt.Format(time.RFC3339), Extensions: []generated.ContractExtension{}}
+	pending.ProofDigest = acceptanceAcknowledgementProofDigest(request, pending.Status, receivedAt)
 	repository := store.NewAcknowledgementRepository(authority)
 	if _, _, err := repository.Create(ctx, acknowledgement.CreateRecord{Request: request, Pending: pending, CreatedAt: now, Attribution: attribution}); err != nil {
 		t.Fatal(err)
 	}
 	approved := pending
 	approved.Status = "approved"
+	approved.ProofDigest = acceptanceAcknowledgementProofDigest(request, approved.Status, receivedAt)
 	if _, _, err := repository.Decide(ctx, acknowledgement.DecisionRecord{Expected: request, Outcome: approved, DecidedAt: now, Attribution: attribution}); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := repository.Consume(ctx, plan.PlanID, now); err != nil {
+	return approved
+}
+
+func acceptanceAcknowledgementProofDigest(request generated.AcknowledgementRequest, status string, receivedAt time.Time) string {
+	preimage := strings.Join([]string{"acknowledgement-proof-v1", request.PlanID, request.PlanDigest, request.TargetDigest, request.ReasonDigest, request.HumanID, request.AuthorityID, request.NonceDigest, request.ExpiresAt, status, receivedAt.UTC().Truncate(time.Second).Format(time.RFC3339), strconv.FormatInt(request.StateRevision, 10), strconv.FormatInt(request.RecoveryEpoch, 10)}, "\x00")
+	sum := sha256.Sum256([]byte(preimage))
+	return "sha256:" + hex.EncodeToString(sum[:])
+}
+
+func assertAcceptancePlanCurrent(t *testing.T, ctx context.Context, authority *store.Store, plan generated.Plan) {
+	t.Helper()
+	repository := store.NewPlanRepository(authority)
+	current, err := repository.CurrentRevision(ctx)
+	if err != nil {
 		t.Fatal(err)
 	}
-	return approved
+	if current != (store.RevisionToken{StateRevision: plan.Binding.StateRevision, RecoveryEpoch: plan.Binding.RecoveryEpoch}) {
+		t.Fatalf("authority drift before restarted execution: current=%+v plan=%+v", current, plan.Binding)
+	}
+	declaration, err := repository.GetDeclaration(ctx, plan.DeclarationID, plan.Binding.DeclarationRevision)
+	if err != nil {
+		t.Fatal(err)
+	}
+	observations, err := planengine.NewStateObservationReader(repository)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fingerprint, err := observations.CurrentFingerprint(ctx, declaration.DeclarationID, declaration.Operations)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fingerprint != plan.Binding.ObservationFingerprint {
+		t.Fatalf("observation drift before restarted execution: current=%s plan=%s", fingerprint, plan.Binding.ObservationFingerprint)
+	}
+}
+
+func assertAcceptanceAcknowledgementAuthority(t *testing.T, ctx context.Context, authority *store.Store, plan generated.Plan, humanID string) {
+	t.Helper()
+	principal := identity.Principal{ID: humanID, Method: identity.SlackSocketModeMethod, Kind: identity.PrincipalHuman}
+	target := authorization.Target{Capability: "plan.acknowledge", ResourceKind: "plan-target", ResourceID: plan.Operations[0].TargetID}
+	decision, err := authorization.NewEvaluator(store.NewEffectiveAuthorizationRepository(authority)).Authorize(ctx, principal, authorization.Request{Action: authorization.ActionAcknowledge, Target: target, Plan: &plan, Branches: []authorization.Branch{authorization.BranchHuman}})
+	if err != nil || !decision.Allowed {
+		t.Fatalf("acknowledgement authority drift before restarted execution: decision=%+v err=%v", decision, err)
+	}
 }
 
 func acceptanceG008Bundle(t *testing.T, now time.Time, digest string) (generated.GateEvidenceBundle, []byte, string) {
@@ -448,6 +610,9 @@ func acceptanceGeneration(id, pointID, key string, point store.PendingRecoveryPo
 func appendAcceptanceGeneration(t *testing.T, ctx context.Context, repository *store.OffsiteRepository, value backup.PendingOffsiteGeneration) {
 	t.Helper()
 	body, _ := json.Marshal(value)
+	if err := repository.AppendRunSpec(ctx, store.OffsiteRunSpecRecord{GenerationID: value.GenerationID, SourcePointID: value.SourcePointID, SnapshotPath: "/srv/backup/control.db", RepositoryURL: "s3:https://fixture.invalid/bucket-a/critical/" + value.GenerationID, ParentReferenceID: "parent-a", RepositoryKeyReferenceID: value.KeyReferenceID, ObserverReferenceID: "observer-a", RuleDigest: value.RuleDigest, G008EvidenceDigest: "sha256:" + strings.Repeat("a", 64), CanonicalJSON: []byte(`{}`), MaximumBytes: 1024, MaximumPUTs: 10, MaximumLISTs: 10, MaximumRetainedGenerations: 10, RuleLimit: 1000, RetentionSeconds: 86400, SessionTTLSeconds: 60, SourceRevision: value.SourceRevision, StateRevision: value.StateRevision, RecoveryEpoch: value.RecoveryEpoch}); err != nil {
+		t.Fatal(err)
+	}
 	rules := make([]store.OffsiteRuleRecord, len(value.ProtectedRules))
 	for i, rule := range value.ProtectedRules {
 		rules[i] = store.OffsiteRuleRecord{RuleID: rule.RuleID, Prefix: rule.Prefix}
@@ -462,8 +627,7 @@ func appendAcceptanceGeneration(t *testing.T, ctx context.Context, repository *s
 }
 
 func acceptanceIntent(candidate backup.OffsiteRetirementCandidate, credentialDigest string) store.OffsiteRetirementIntent {
-	d := "sha256:" + strings.Repeat("a", 64)
-	intent := store.OffsiteRetirementIntent{IntentID: "intent-a", GenerationID: candidate.GenerationID, PointID: candidate.PointID, BucketID: candidate.BucketID, RuleSetDigest: candidate.RuleSetDigest, SurvivorRuleDigest: candidate.SurvivorRuleDigest, ManifestDigest: candidate.ManifestDigest, CatalogDigest: candidate.CatalogDigest, InventoryDigest: candidate.InventoryDigest, OneOwnerProofID: "owner-proof", LockAdminReferenceID: "lock-admin", RetentionReferenceID: "retention", LockAdminFingerprint: d, RetentionFingerprint: d, G008BundleDigest: candidate.G008BundleDigest, QualificationDigest: candidate.QualificationDigest, PutCutoffDigest: candidate.PutCutoffDigest, MultipartCutoffDigest: candidate.MultipartCutoffDigest, ExclusiveAdminDigest: candidate.ExclusiveAdminDigest, CredentialBindingDigest: credentialDigest, SurvivorPointIDs: append([]string(nil), candidate.SurvivorPointIDs...), SurvivorKeyReferences: []store.OffsiteRetirementSurvivorKey{{PointID: "point-good", GenerationID: "generation-good", ReferenceID: "key-good", DependencyDigest: backup.ExpectedDependencyInventoryDigest(nil)}}, SourceRevision: candidate.SourceRevision, StateRevision: 4, RecoveryEpoch: 0, MaxWorkObjects: candidate.MaxWorkObjects, MaxMutationBytes: candidate.MaxMutationBytes, PreRuleCount: candidate.PreRuleCount, SurvivorRuleCount: candidate.SurvivorRuleCount}
+	intent := store.OffsiteRetirementIntent{IntentID: "intent-a", GenerationID: candidate.GenerationID, PointID: candidate.PointID, BucketID: candidate.BucketID, RuleSetDigest: candidate.RuleSetDigest, SurvivorRuleDigest: candidate.SurvivorRuleDigest, ManifestDigest: candidate.ManifestDigest, CatalogDigest: candidate.CatalogDigest, InventoryDigest: candidate.InventoryDigest, OneOwnerProofID: "owner-proof", LockAdminReferenceID: candidate.LockAdminReferenceID, RetentionReferenceID: candidate.RetentionReferenceID, LockAdminFingerprint: candidate.LockAdminFingerprint, RetentionFingerprint: candidate.RetentionFingerprint, G008BundleDigest: candidate.G008BundleDigest, QualificationDigest: candidate.QualificationDigest, PutCutoffDigest: candidate.PutCutoffDigest, MultipartCutoffDigest: candidate.MultipartCutoffDigest, ExclusiveAdminDigest: candidate.ExclusiveAdminDigest, CredentialBindingDigest: credentialDigest, SurvivorPointIDs: append([]string(nil), candidate.SurvivorPointIDs...), SurvivorKeyReferences: []store.OffsiteRetirementSurvivorKey{{PointID: "point-good", GenerationID: "generation-good", ReferenceID: "key-good", DependencyDigest: backup.ExpectedDependencyInventoryDigest(nil)}}, SourceRevision: candidate.SourceRevision, StateRevision: 4, RecoveryEpoch: 0, MaxWorkObjects: candidate.MaxWorkObjects, MaxMutationBytes: candidate.MaxMutationBytes, PreRuleCount: candidate.PreRuleCount, SurvivorRuleCount: candidate.SurvivorRuleCount}
 	for _, rule := range candidate.Rules {
 		intent.Rules = append(intent.Rules, store.OffsiteRetirementRule{RuleID: rule.RuleID, Prefix: rule.Prefix})
 	}
@@ -529,4 +693,58 @@ func acceptanceDeclarationDigest(document generated.DeclarationRevision, reasonD
 	}{document.DeclarationID, document.DeclarationType, document.Operations, reasonDigest, document.Extensions})
 	sum := sha256.Sum256(body)
 	return "sha256:" + hex.EncodeToString(sum[:])
+}
+
+func acceptanceHTTP(t *testing.T, handler http.Handler, path string, input any, principal identity.Principal, output any) *httptest.ResponseRecorder {
+	t.Helper()
+	raw, err := json.Marshal(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPost, path, bytes.NewReader(raw))
+	request.Header.Set("Content-Type", "application/json")
+	request = request.WithContext(identity.WithVerifiedPrincipal(request.Context(), principal))
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code == http.StatusOK && output != nil {
+		if err := json.Unmarshal(response.Body.Bytes(), output); err != nil {
+			t.Fatalf("decode %s response: %v; body=%s", path, err, response.Body.String())
+		}
+	}
+	return response
+}
+
+func writeOffsiteAcceptanceProfile(t *testing.T, directory, bundleDigest, digest, lockFingerprint, retentionFingerprint string) (string, string) {
+	t.Helper()
+	shortDirectory, err := os.MkdirTemp(os.TempDir(), "p.")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(shortDirectory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(shortDirectory) })
+	directory = shortDirectory
+	pointer := func(value string) *string { return &value }
+	integer := func(value int64) *int64 { return &value }
+	socketPath := filepath.Join(directory, "control.sock")
+	exportRoot := filepath.Join(directory, "exports")
+	if err := os.Mkdir(exportRoot, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	account := strings.Repeat("a", 32)
+	endpoint := "https://" + account + ".r2.cloudflarestorage.com"
+	standardRoot, criticalRoot := filepath.Join(directory, "standard"), filepath.Join(directory, "critical")
+	resticPath, custodyPath := filepath.Join(directory, "restic"), filepath.Join(directory, "custody.json")
+	profile := generated.ServerProfile{Schema: generated.SchemaIDServerProfile, SchemaVersion: "1.3.0", SocketPath: socketPath, SocketOwnerUID: int64(os.Getuid()), SocketMode: "0600", ShutdownGraceSeconds: 5, InventoryExportRoot: exportRoot, PrincipalBindings: []generated.LocalPrincipalBinding{{UID: int64(os.Getuid()), PrincipalID: "human-a"}}, RemoteRead: generated.RemoteReadProfile{Enabled: false}, AcknowledgementAdapterConfigPath: filepath.Join(directory, "acknowledgement.json"), StandardBackupRoot: &standardRoot, CriticalBackupRoot: &criticalRoot, ResticBinaryPath: &resticPath, CustodyPolicyPath: &custodyPath, OffsiteEndpoint: &endpoint, OffsiteBucket: pointer("bucket-a"), OffsitePrefix: pointer("critical"), OffsiteParentReferenceID: pointer("parent-a"), OffsiteObserverReferenceID: pointer("observer-a"), OffsiteLockAdminReferenceID: pointer("lock-admin"), OffsiteLockAdminFingerprint: &lockFingerprint, OffsiteRetentionReferenceID: pointer("retention"), OffsiteRetentionFingerprint: &retentionFingerprint, OffsiteParentFingerprint: &digest, OffsiteRuleDigest: &digest, OffsiteG008EvidenceDigest: &bundleDigest, OffsiteAccountID: &account, OffsiteQualificationDigest: &digest, OffsitePutCutoffDigest: &digest, OffsiteMultipartCutoffDigest: &digest, OffsiteAvailableBytes: integer(80), OffsiteAvailablePUTs: integer(100), OffsiteAvailableLISTs: integer(100), OffsiteRuleCount: integer(10), OffsiteRetainedGenerations: integer(2)}
+	raw, err := json.Marshal(profile)
+	contractErr := generated.ValidateContractJSON(generated.SchemaIDServerProfile, raw, generated.ContractExact)
+	if err != nil || contractErr != nil {
+		t.Fatalf("acceptance server profile invalid: marshal=%v contract=%v body=%s", err, contractErr, raw)
+	}
+	profilePath := filepath.Join(directory, "server.json")
+	if err := os.WriteFile(profilePath, raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return profilePath, socketPath
 }

@@ -55,6 +55,18 @@ func TestOffsiteRetirementStageFailsClosedWithoutQualifiedCatalog(t *testing.T) 
 	if apiErrorCode(err) != generated.ErrorCodePrerequisiteBlocked {
 		t.Fatalf("error=%v", err)
 	}
+	dry := generated.BackupOffsiteRetirementDryRunRequest{Schema: generated.SchemaIDBackupOffsiteRetirementDryRunRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: 7, RecoveryEpoch: 2, SelectionDigest: d, OneOwnerProofID: "proof-a", LockAdminReferenceID: "lock-admin", RetentionReferenceID: "retention"}
+	if _, err := service.DryRun(context.Background(), dry, identity.Principal{ID: "human-a", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}); apiErrorCode(err) != generated.ErrorCodePrerequisiteBlocked {
+		t.Fatalf("missing G-008 dry-run error=%v", err)
+	}
+	dry.ExpectedStateRevision++
+	if _, err := service.DryRun(context.Background(), dry, identity.Principal{ID: "human-a", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}); apiErrorCode(err) != generated.ErrorCodePlanStale {
+		t.Fatalf("stale revision dry-run error=%v", err)
+	}
+	dry.ExpectedStateRevision, dry.RecoveryEpoch = 7, 3
+	if _, err := service.DryRun(context.Background(), dry, identity.Principal{ID: "human-a", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}); apiErrorCode(err) != generated.ErrorCodePlanStale {
+		t.Fatalf("stale epoch dry-run error=%v", err)
+	}
 }
 
 func TestOffsiteRetirementRouteDryRunBindsSurvivorKeysBeforeStage(t *testing.T) {
