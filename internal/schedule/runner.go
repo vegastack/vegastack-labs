@@ -133,7 +133,7 @@ func (runner *Runner) Run(ctx context.Context, job generated.ScheduledJob, attri
 	if err != nil {
 		return runner.block(ctx, job, "prerequisite-unavailable")
 	}
-	if RequireCurrent(statuses, now) != nil {
+	if RequireCurrent(requirements, statuses, now) != nil {
 		return runner.block(ctx, job, "prerequisite-blocked")
 	}
 	observation, err := runner.observations.CurrentObservationFingerprint(ctx, policy)
@@ -264,16 +264,25 @@ func allNotStarted(run generated.Run) bool {
 
 func Requirements(policy generated.ScheduledJobPolicy) []PrerequisiteRequirement {
 	maximum := policy.IntervalSeconds * 2
-	requirements := []PrerequisiteRequirement{{Kind: "recovery-authority", SubjectID: policy.ExactSubjectIDs[0], PolicyID: policy.PolicyID, PolicyRevision: policy.Revision, RecoveryEpoch: policy.RecoveryEpoch, MaximumAgeSeconds: maximum}}
+	base := PrerequisiteRequirement{SourceID: policy.ExactSourceIDs[0], SubjectID: policy.ExactSubjectIDs[0], TargetID: policy.ExactTargetIDs[0], PolicyID: policy.PolicyID, PolicyRevision: policy.Revision, RecoveryEpoch: policy.RecoveryEpoch, MaximumAgeSeconds: maximum}
+	recovery := base
+	recovery.Kind = "recovery-authority"
+	requirements := []PrerequisiteRequirement{recovery}
+	add := func(kind string) {
+		requirement := base
+		requirement.Kind = kind
+		requirements = append(requirements, requirement)
+	}
 	switch policy.ActionKind {
 	case "gate-check":
-		requirements = append(requirements, PrerequisiteRequirement{Kind: "applicable-gate-current", SubjectID: policy.ExactSubjectIDs[0], PolicyID: policy.PolicyID, PolicyRevision: policy.Revision, RecoveryEpoch: policy.RecoveryEpoch, MaximumAgeSeconds: maximum})
+		add("applicable-gate-current")
 	case "observation-refresh":
-		requirements = append(requirements, PrerequisiteRequirement{Kind: "observation-authority-current", SubjectID: policy.ExactSubjectIDs[0], PolicyID: policy.PolicyID, PolicyRevision: policy.Revision, RecoveryEpoch: policy.RecoveryEpoch, MaximumAgeSeconds: maximum})
+		add("observation-authority-current")
 	case "backup-create", "backup-integrity-verify":
-		requirements = append(requirements, PrerequisiteRequirement{Kind: "local-backup-qualification", SubjectID: policy.ExactSubjectIDs[0], PolicyID: policy.PolicyID, PolicyRevision: policy.Revision, RecoveryEpoch: policy.RecoveryEpoch, MaximumAgeSeconds: maximum}, PrerequisiteRequirement{Kind: "retirement-certainty", SubjectID: policy.ExactSubjectIDs[0], PolicyID: policy.PolicyID, PolicyRevision: policy.Revision, RecoveryEpoch: policy.RecoveryEpoch, MaximumAgeSeconds: maximum})
+		add("local-backup-qualification")
+		add("retirement-certainty")
 	case "audit-checkpoint-export":
-		requirements = append(requirements, PrerequisiteRequirement{Kind: "audit-chain-current", SubjectID: policy.ExactSubjectIDs[0], PolicyID: policy.PolicyID, PolicyRevision: policy.Revision, RecoveryEpoch: policy.RecoveryEpoch, MaximumAgeSeconds: maximum})
+		add("audit-chain-current")
 	}
 	return requirements
 }

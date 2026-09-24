@@ -438,16 +438,16 @@ type QualifiedLocalLastGood struct {
 	StateRevision, RecoveryEpoch                          int64
 }
 
-// CurrentQualifiedLocalLastGood proves the class-wide predecessor from one
-// complete SQLite snapshot. It never derives qualification from a capped status projection.
-func (repository *BackupRepository) CurrentQualifiedLocalLastGood(ctx context.Context, class string, epoch int64, now time.Time) (QualifiedLocalLastGood, error) {
+// CurrentQualifiedLocalLastGood proves the exact policy/source/owner/restore-target
+// predecessor from one complete SQLite snapshot.
+func (repository *BackupRepository) CurrentQualifiedLocalLastGood(ctx context.Context, policyDigest, sourceID, ownerID, restoreTargetID, requiredPointID, class string, epoch int64, now time.Time) (QualifiedLocalLastGood, error) {
 	var result QualifiedLocalLastGood
-	if repository == nil || repository.store == nil || (class != "standard" && class != "critical") {
+	if repository == nil || repository.store == nil || policyDigest == "" || sourceID == "" || ownerID == "" || restoreTargetID == "" || (class != "standard" && class != "critical") {
 		return result, backupStoreError(generated.ErrorCodeInputInvalid, "backup-last-good")
 	}
 	var fullText, restoredText, policyJSON, observed string
 	err := repository.store.Read(ctx, func(tx ReadTx) error {
-		return tx.queryRow(ctx, `SELECT g.point_id,g.verification_id,v.proof_digest,g.repository_class,v.functional_restored_at,v.full_read_at,d.canonical_json,g.advanced_at,m.state_revision,m.recovery_epoch FROM backup_local_last_good g JOIN backup_local_verifications v ON v.verification_id=g.verification_id AND v.point_id=g.point_id JOIN recovery_points p ON p.point_id=g.point_id JOIN backup_policy_drafts d ON d.policy_digest=p.policy_digest AND d.recovery_epoch=p.recovery_epoch CROSS JOIN system_meta m WHERE m.id=1 AND g.repository_class=? AND g.recovery_epoch=? AND g.state_revision=m.state_revision AND g.recovery_epoch=m.recovery_epoch AND v.status='local-verified' AND v.proof_class='live' AND v.state_revision=m.state_revision AND v.recovery_epoch=m.recovery_epoch AND v.manifest_digest=p.manifest_digest AND v.inventory_digest=p.inventory_digest`, class, epoch).Scan(&result.PointID, &result.VerificationID, &result.ProofDigest, &result.RepositoryClass, &restoredText, &fullText, &policyJSON, &observed, &result.StateRevision, &result.RecoveryEpoch)
+		return tx.queryRow(ctx, `SELECT g.point_id,g.verification_id,v.proof_digest,g.repository_class,v.functional_restored_at,v.full_read_at,d.canonical_json,g.advanced_at,m.state_revision,m.recovery_epoch FROM backup_local_last_good g JOIN backup_local_verifications v ON v.verification_id=g.verification_id AND v.point_id=g.point_id JOIN recovery_points p ON p.point_id=g.point_id JOIN backup_policy_drafts d ON d.policy_digest=p.policy_digest AND d.recovery_epoch=p.recovery_epoch CROSS JOIN system_meta m WHERE m.id=1 AND g.repository_class=? AND g.recovery_epoch=? AND p.policy_digest=? AND (?='' OR g.point_id=?) AND g.state_revision=m.state_revision AND g.recovery_epoch=m.recovery_epoch AND v.status='local-verified' AND v.proof_class='live' AND v.state_revision=m.state_revision AND v.recovery_epoch=m.recovery_epoch AND v.manifest_digest=p.manifest_digest AND v.inventory_digest=p.inventory_digest`, class, epoch, policyDigest, requiredPointID, requiredPointID).Scan(&result.PointID, &result.VerificationID, &result.ProofDigest, &result.RepositoryClass, &restoredText, &fullText, &policyJSON, &observed, &result.StateRevision, &result.RecoveryEpoch)
 	})
 	if err != nil {
 		return result, backupStoreError(generated.ErrorCodePrerequisiteBlocked, "backup-last-good")
@@ -456,7 +456,7 @@ func (repository *BackupRepository) CurrentQualifiedLocalLastGood(ctx context.Co
 	fullAt, e1 := time.Parse(time.RFC3339, fullText)
 	restoredAt, e2 := time.Parse(time.RFC3339, restoredText)
 	result.ObservedAt, err = time.Parse(time.RFC3339, observed)
-	if json.Unmarshal([]byte(policyJSON), &policy) != nil || e1 != nil || e2 != nil || err != nil || !now.UTC().Before(fullAt.Add(time.Duration(policy.FullPayloadIntervalHours)*time.Hour)) || !now.UTC().Before(restoredAt.Add(time.Duration(policy.FunctionalTestIntervalHours)*time.Hour)) {
+	if json.Unmarshal([]byte(policyJSON), &policy) != nil || policy.SourceID != sourceID || policy.OwnerID != ownerID || policy.RestoreTargetID != restoreTargetID || e1 != nil || e2 != nil || err != nil || !now.UTC().Before(fullAt.Add(time.Duration(policy.FullPayloadIntervalHours)*time.Hour)) || !now.UTC().Before(restoredAt.Add(time.Duration(policy.FunctionalTestIntervalHours)*time.Hour)) {
 		return QualifiedLocalLastGood{}, backupStoreError(generated.ErrorCodePrerequisiteBlocked, "backup-last-good-cadence")
 	}
 	return result, nil

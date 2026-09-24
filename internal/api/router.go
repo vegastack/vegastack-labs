@@ -267,6 +267,9 @@ func (app *Application) serve(writer http.ResponseWriter, request *http.Request)
 		if policyID, exists := params["policyId"]; exists {
 			resourceID = policyID
 		}
+		if jobID, exists := params["jobId"]; exists {
+			resourceID = jobID
+		}
 		if candidate.id == "api.v1.gate-profile-drafts.create" {
 			resourceID = "profile-drafts"
 		}

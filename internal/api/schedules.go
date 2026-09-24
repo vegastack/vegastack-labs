@@ -59,8 +59,8 @@ func RegisterScheduleOperations(app *Application, config ScheduleOperations) err
 	app.routes = append(app.routes,
 		route{id: "api.v1.scheduled-job-policies.drafts.create", method: http.MethodPost, pattern: "/api/v1/scheduled-job-policies/drafts", capability: "schedule.policy.author", kind: "scheduled-policy", action: authorization.ActionAuthor, handler: app.scheduledPolicyDraft(config)},
 		route{id: "api.v1.scheduled-job-policies.get", method: http.MethodGet, pattern: "/api/v1/scheduled-job-policies/{policyId}", capability: "schedule.policy.read", kind: "scheduled-policy", handler: app.scheduledPolicyGet(config)},
-		route{id: "api.v1.scheduled-jobs.create", method: http.MethodPost, pattern: "/api/v1/scheduled-jobs", capability: "schedule.dispatch", kind: "scheduled-job", action: authorization.ActionExecute, handler: app.scheduledDispatch(config)},
-		route{id: "api.v1.scheduled-jobs.cancel", method: http.MethodPost, pattern: "/api/v1/scheduled-jobs/{jobId}/cancel", capability: "schedule.dispatch", kind: "scheduled-job", action: authorization.ActionExecute, handler: app.scheduledCancel(config)},
+		route{id: "api.v1.scheduled-jobs.create", method: http.MethodPost, pattern: "/api/v1/scheduled-jobs", deferredAuthorization: true, handler: app.scheduledDispatch(config)},
+		route{id: "api.v1.scheduled-jobs.cancel", method: http.MethodPost, pattern: "/api/v1/scheduled-jobs/{jobId}/cancel", capability: "schedule.dispatch", kind: "scheduled-job", action: authorization.ActionAuthor, handler: app.scheduledCancel(config)},
 	)
 	if !routesAreGeneratedSubset(app.routes) {
 		app.routes = app.routes[:len(app.routes)-4]

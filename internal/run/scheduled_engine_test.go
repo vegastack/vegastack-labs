@@ -1,0 +1,91 @@
+package run
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/vegastack/vegastack-labs/internal/adapter"
+	"github.com/vegastack/vegastack-labs/internal/generated"
+)
+
+type scheduledAdmissionProbe struct{ calls int }
+
+func (probe *scheduledAdmissionProbe) ValidateScheduledPlan(context.Context, generated.Plan, time.Time) error {
+	probe.calls++
+	return nil
+}
+
+type scheduledCoreProbe struct{ calls int }
+
+func (probe *scheduledCoreProbe) Execute(_ context.Context, binding ExactStepBinding) (adapter.Effect, error) {
+	probe.calls++
+	return adapter.Effect{Status: "succeeded", ResultDigest: binding.Step.InputDigest, Changed: false, EffectObserved: true}, nil
+}
+func (*scheduledCoreProbe) Verify(_ context.Context, _ ExactStepBinding, effect adapter.Effect) (adapter.Verification, error) {
+	return adapter.Verification{Verified: true, Digest: effect.ResultDigest}, nil
+}
+
+func TestScheduledFiveActionKindsCrossBothEngineAdmissionBoundaries(t *testing.T) {
+	cases := []struct{ name, operation, adapterID string }{
+		{"gate-check", "schedule.gate.check", "core.schedule-observe"},
+		{"observation-refresh", "schedule.observation.refresh", "core.schedule-observe"},
+		{"backup-create", "backup.local.create", "local.backup"},
+		{"backup-integrity-verify", "backup.local.verify", "local.backup"},
+		{"audit-checkpoint-export", "audit.checkpoint.anchor", "core.audit"},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			now := time.Date(2026, 9, 24, 0, 0, 0, 0, time.UTC)
+			plan := testPlan(now)
+			plan.AuthorizationBranch = "preauthorized"
+			plan.Operations[0].OperationType = test.operation
+			plan.Operations[0].AdapterID = test.adapterID
+			plan.Operations[0].InputDigest = digest("scheduled-effect")
+			plan.Operations[0].ArtifactDigest = plan.Operations[0].InputDigest
+			plan.Extensions = []generated.ContractExtension{{Name: "x-scheduled-policy", ValueDigest: digest("policy")}, {Name: "x-scheduled-occurrence", ValueDigest: digest("occurrence")}}
+			repository := newMemoryRepository(plan)
+			registry := adapter.NewRegistry()
+			implementation := &fakeAdapter{verify: true}
+			if test.adapterID == "local.backup" {
+				if err := registry.Register(test.adapterID, implementation); err != nil {
+					t.Fatal(err)
+				}
+			}
+			admission := &scheduledAdmissionProbe{}
+			core := &scheduledCoreProbe{}
+			engine, err := NewEngine(Config{Repository: repository, Plans: repository, Admission: allowAdmission{}, Adapters: registry, Core: core, Scheduled: admission, Clock: func() time.Time { return now }, IDs: &deterministicIDs{}, LeaseContext: testLeaseContext})
+			if err != nil {
+				t.Fatal(err)
+			}
+			branch := "preauthorized"
+			request := SubmitRequest{Reference: generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, RecoveryEpoch: plan.Binding.RecoveryEpoch, IdempotencyKey: "scheduled-" + test.name, Extensions: []generated.ContractExtension{}}, Authorization: generated.AuthorizationDecision{Schema: generated.SchemaIDAuthorizationDecision, SchemaVersion: "1.0.0", DecisionID: "decision-" + test.name, PrincipalID: "policy-test", Action: "execute", TargetID: plan.Operations[0].TargetID, Allowed: true, Branch: &branch, ReasonCode: "allowed", GrantRevision: 1, RecoveryEpoch: plan.Binding.RecoveryEpoch, PlanDigest: plan.PlanDigest, DecidedAt: now.Format(time.RFC3339), Extensions: []generated.ContractExtension{}}}
+			completed, err := engine.Submit(context.Background(), request)
+			if err != nil || completed.Status != "succeeded" || admission.calls != 2 {
+				t.Fatalf("run=%#v admission-calls=%d err=%v", completed, admission.calls, err)
+			}
+			if test.adapterID == "local.backup" && implementation.calls != 1 || test.adapterID != "local.backup" && core.calls != 1 {
+				t.Fatalf("adapter-calls=%d core-calls=%d", implementation.calls, core.calls)
+			}
+		})
+	}
+}
+
+func TestScheduledEngineFailsClosedWithoutAdmissionOrAdapter(t *testing.T) {
+	now := time.Date(2026, 9, 24, 0, 0, 0, 0, time.UTC)
+	plan := testPlan(now)
+	plan.AuthorizationBranch = "preauthorized"
+	plan.Operations[0].OperationType = "backup.local.create"
+	plan.Operations[0].AdapterID = "local.backup"
+	plan.Extensions = []generated.ContractExtension{{Name: "x-scheduled-policy", ValueDigest: digest("policy")}, {Name: "x-scheduled-occurrence", ValueDigest: digest("occurrence")}}
+	repository := newMemoryRepository(plan)
+	engine, err := NewEngine(Config{Repository: repository, Plans: repository, Admission: allowAdmission{}, Adapters: adapter.NewRegistry(), Clock: func() time.Time { return now }, IDs: &deterministicIDs{}, LeaseContext: testLeaseContext})
+	if err != nil {
+		t.Fatal(err)
+	}
+	branch := "preauthorized"
+	request := SubmitRequest{Reference: generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, RecoveryEpoch: 0, IdempotencyKey: "scheduled-denied", Extensions: []generated.ContractExtension{}}, Authorization: generated.AuthorizationDecision{Schema: generated.SchemaIDAuthorizationDecision, SchemaVersion: "1.0.0", DecisionID: "decision-denied", PrincipalID: "policy-test", Action: "execute", TargetID: plan.Operations[0].TargetID, Allowed: true, Branch: &branch, ReasonCode: "allowed", GrantRevision: 1, RecoveryEpoch: 0, PlanDigest: plan.PlanDigest, DecidedAt: now.Format(time.RFC3339), Extensions: []generated.ContractExtension{}}}
+	if _, err := engine.Submit(context.Background(), request); Code(err) != generated.ErrorCodePrerequisiteBlocked {
+		t.Fatalf("missing scheduled admission code=%q err=%v", Code(err), err)
+	}
+}

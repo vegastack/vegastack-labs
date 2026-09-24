@@ -143,6 +143,14 @@ func (repository *ScheduleRepository) Activate(ctx context.Context, request Sche
 		if request.Expected != (RevisionToken{StateRevision: stateRevision, RecoveryEpoch: recoveryEpoch}) {
 			return scheduleError(generated.ErrorCodePlanStale, "scheduled-policy-activation")
 		}
+		var declarationID, storedDigest, authorizationBranch, executorMode string
+		var declarationRevision, planStateRevision, planRecoveryEpoch int64
+		if err := tx.QueryRowContext(ctx, `SELECT declaration_id,declaration_revision,plan_digest,state_revision,recovery_epoch,json_extract(canonical_bytes,'$.authorizationBranch'),json_extract(canonical_bytes,'$.executorMode') FROM immutable_plans WHERE plan_id=?`, request.PlanID).Scan(&declarationID, &declarationRevision, &storedDigest, &planStateRevision, &planRecoveryEpoch, &authorizationBranch, &executorMode); err != nil {
+			return scheduleError(generated.ErrorCodeAuthorizationDenied, "scheduled-policy-activation-plan")
+		}
+		if declarationID != policy.DeclarationID || declarationRevision != policy.DeclarationRevision || storedDigest != request.PlanDigest || planStateRevision != stateRevision || planRecoveryEpoch != recoveryEpoch || authorizationBranch != "human" || executorMode != "central" {
+			return scheduleError(generated.ErrorCodeAuthorizationDenied, "scheduled-policy-activation-plan")
+		}
 		activationID := "schedule-activation-" + draft.Digest[7:39]
 		_, err := tx.ExecContext(ctx, `INSERT INTO scheduled_policy_activations(activation_id,draft_id,policy_id,policy_revision,status,approval_plan_id,approval_plan_digest,acknowledgement_id,approved_by_human_id,state_revision,recovery_epoch,activated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, activationID, draft.DraftID, policy.PolicyID, policy.Revision, "active", request.PlanID, request.PlanDigest, request.AcknowledgementID, request.ApprovedByHumanID, stateRevision, recoveryEpoch, now)
 		if err != nil {

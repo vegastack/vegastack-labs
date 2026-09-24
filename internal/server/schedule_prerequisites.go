@@ -61,7 +61,7 @@ func (admission scheduleAdmission) ValidateScheduledPlan(ctx context.Context, pl
 	if err != nil {
 		return err
 	}
-	if err := schedule.RequireCurrent(statuses, now); err != nil {
+	if err := schedule.RequireCurrent(schedule.Requirements(policy), statuses, now); err != nil {
 		return failure.New(generated.ErrorCodePrerequisiteBlocked, "scheduled-prerequisite", false)
 	}
 	return nil
@@ -127,17 +127,25 @@ func (reader schedulePrerequisiteReader) Current(ctx context.Context, requiremen
 			}
 			draft, readErr := reader.backups.GetBackupPolicyDraftByDigest(ctx, policy.RetentionRuleDigest, requirement.RecoveryEpoch)
 			var backupPolicy generated.BackupPolicy
-			if readErr != nil || json.Unmarshal([]byte(draft.CanonicalJSON), &backupPolicy) != nil || !containsString(policy.ExactSourceIDs, backupPolicy.PolicyID) {
+			if readErr != nil || json.Unmarshal([]byte(draft.CanonicalJSON), &backupPolicy) != nil || !containsString(policy.ExactSourceIDs, backupPolicy.PolicyID) || !containsString(policy.ExactSourceIDs, backupPolicy.SourceID) || !containsString(policy.ExactSubjectIDs, backupPolicy.OwnerID) {
 				break
 			}
-			qualified, readErr := reader.backups.CurrentQualifiedLocalLastGood(ctx, backupPolicy.RepositoryClass, requirement.RecoveryEpoch, now)
+			requiredPointID := ""
+			if policy.ActionKind == "backup-create" {
+				if policy.ExactTargetIDs[0] != backupPolicy.RestoreTargetID {
+					break
+				}
+			} else {
+				requiredPointID = policy.ExactTargetIDs[0]
+			}
+			qualified, readErr := reader.backups.CurrentQualifiedLocalLastGood(ctx, policy.RetentionRuleDigest, backupPolicy.SourceID, backupPolicy.OwnerID, backupPolicy.RestoreTargetID, requiredPointID, backupPolicy.RepositoryClass, requirement.RecoveryEpoch, now)
 			if readErr != nil {
 				break
 			}
 			proofObserved := qualified.ObservedAt
 			if backupPolicy.RepositoryClass == "critical" {
 				offsite, offsiteErr := reader.offsite.CurrentOffsiteRecoverySource(ctx, qualified.PointID)
-				if offsiteErr != nil || offsite.CurrentStateRevision != policy.StateRevision || offsite.CurrentRecoveryEpoch != requirement.RecoveryEpoch {
+				if offsiteErr != nil || offsite.StateRevision != offsite.CurrentStateRevision || offsite.CurrentStateRevision != policy.StateRevision || offsite.RecoveryEpoch != offsite.CurrentRecoveryEpoch || offsite.CurrentRecoveryEpoch != requirement.RecoveryEpoch {
 					break
 				}
 				if offsite.VerifiedAt.Before(proofObserved) {
