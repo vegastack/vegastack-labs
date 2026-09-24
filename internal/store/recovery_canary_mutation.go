@@ -109,7 +109,7 @@ func (store *Store) executeRecoveryCanaryAuditMutation(ctx context.Context, requ
 	requestSum := sha256.Sum256([]byte(request.PlanDigest + "\x00" + correlationID + "\x00" + digest))
 	after := audit.Fingerprint(digest)
 	human := "recovery-operator"
-	event := audit.EventDraft{Type: audit.EventType(scope), CorrelationID: correlationID, Attribution: audit.Attribution{AuthenticatedPrincipalID: human, AuthenticatedPrincipalMethod: "recovery-canary", ResponsibleHumanPrincipalID: &human}, Target: audit.Target{Kind: "recovery", ID: request.InstanceID}, After: &after}
+	event := audit.EventDraft{Type: "recovery.canary-checkpoint", CorrelationID: correlationID, Attribution: audit.Attribution{AuthenticatedPrincipalID: human, AuthenticatedPrincipalMethod: "recovery-canary", ResponsibleHumanPrincipalID: &human}, Target: audit.Target{Kind: "recovery", ID: request.InstanceID}, After: &after}
 	_, err := store.executeAuditIntent(ctx, intentRequest{Idempotency: audit.IntentKey{Scope: scope, KeyDigest: audit.Fingerprint("sha256:" + hex.EncodeToString(keySum[:])), RequestDigest: audit.Fingerprint("sha256:" + hex.EncodeToString(requestSum[:]))}, Event: event, Context: audit.ContextIDs{PlanID: request.PlanID, RunID: request.RunID}}, false, func(_ context.Context, tx *sql.Tx) error {
 		return business(tx, store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339))
 	})

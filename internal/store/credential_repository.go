@@ -177,7 +177,10 @@ func (repository *CredentialRepository) CommitScheduledStepBinding(ctx context.C
 	raw, _ := json.Marshal(binding)
 	return (&ScheduleRepository{store: repository.store}).inTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO scheduled_credential_bindings(plan_id,operation_id,manifest_digest,binding_digest,binding_bytes,recovery_epoch,created_at) VALUES(?,?,?,?,?,?,?)`, plan.PlanID, binding.OperationID, manifest, binding.Digest(), raw, binding.RecoveryEpoch, repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339))
-		return classifySQLiteError(ctx, err)
+		if err != nil {
+			return classifySQLiteError(ctx, err)
+		}
+		return nil
 	})
 }
 

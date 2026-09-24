@@ -126,10 +126,11 @@ func NewApplication(config Config) (*Application, error) {
 }
 
 func (app *Application) Start(ctx context.Context) error {
-	if _, err := app.config.Authority.Health(ctx); err != nil {
+	health, err := app.config.Authority.Health(ctx)
+	if err != nil {
 		return err
 	}
-	if app.runs != nil {
+	if app.runs != nil && !health.RecoveryPending {
 		return app.runs.Startup(ctx)
 	}
 	return nil
