@@ -108,6 +108,8 @@ export function runCommand(command, args = [], options = {}) {
           args,
           code,
           signal,
+          stderr,
+          stdout,
           timedOut: true,
         });
       }
@@ -116,6 +118,8 @@ export function runCommand(command, args = [], options = {}) {
         args,
         code,
         signal: signal ?? interruptedBy,
+        stderr,
+        stdout,
       });
     }
 

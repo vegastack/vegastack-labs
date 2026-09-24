@@ -49,7 +49,7 @@
       "kind": "go-test",
       "path": "internal/server/schedule_composition_test.go",
       "selector": "TestScheduledGateCheckRejectsChangedDurableEvidenceAndProfile",
-      "environment": "fixture",
+      "environment": "built-linux",
       "proofClass": "fixture",
       "expected": {
         "result": "pass",
@@ -269,7 +269,7 @@
       "kind": "go-test",
       "path": "internal/backup/process_test.go",
       "selector": "TestPublishedCorruptionRemainsPresentButIsRejected",
-      "environment": "fixture",
+      "environment": "built-linux",
       "proofClass": "fixture",
       "expected": {
         "result": "pass",
@@ -549,7 +549,7 @@
       "kind": "go-test",
       "path": "internal/store/audit_process_test.go",
       "selector": "TestAuditArtifactsExcludeEveryPublicCanary",
-      "environment": "fixture",
+      "environment": "built-linux",
       "proofClass": "fixture",
       "expected": {
         "result": "pass",
@@ -809,7 +809,7 @@
       "kind": "go-test",
       "path": "internal/server/schedule_composition_test.go",
       "selector": "TestScheduledAuditPrerequisiteUnavailableFailsClosedWithDurableDependencies",
-      "environment": "fixture",
+      "environment": "built-linux",
       "proofClass": "fixture",
       "expected": {
         "result": "pass",

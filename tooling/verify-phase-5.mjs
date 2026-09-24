@@ -19,6 +19,18 @@ const FAILURE_STAGES = new Set([
   "scenario-execution", "scenario-result", "source-commit", "source-dirty", "source-drift", "static-contract", "web-build",
 ]);
 
+async function runPhase5Command(command, args, options) {
+  try {
+    const result = await runCommand(command, args, options);
+    scanPhase5Captured(result);
+    return result;
+  } catch (error) {
+    if (error?.message === "PHASE5_FAILED:evidence-sanitizer") throw error;
+    scanPhase5Captured(error);
+    throw error;
+  }
+}
+
 function requiredScenario(id, requirementPrefix, ownerIssue, seam, kind, path, selector, environment, state, repeat = 1, seed = null) {
   return Object.freeze({
     id,
@@ -46,7 +58,7 @@ export const REQUIRED_PHASE5_SCENARIOS = Object.freeze([
   requiredScenario("gate.expired-evidence-denied", "5.3", 104, "gate", "go-test",
     "internal/run/admission_test.go", "TestAdmissionGateBindsCurrentHumanProofAndDeniesExpiredOrMissingProof", "fixture", "denied"),
   requiredScenario("gate.replaced-evidence-denied", "5.3", 104, "gate", "go-test",
-    "internal/server/schedule_composition_test.go", "TestScheduledGateCheckRejectsChangedDurableEvidenceAndProfile", "fixture", "denied"),
+    "internal/server/schedule_composition_test.go", "TestScheduledGateCheckRejectsChangedDurableEvidenceAndProfile", "built-linux", "denied"),
   requiredScenario("gate.fixture-not-live", "5.3", 104, "gate", "go-test",
     "internal/api/gates_integration_linux_test.go", "TestGateEvidenceAPIOnlyAuthorsFixtureDraftAndRejectsPrivateAttachments", "built-linux", "fixture-only"),
   requiredScenario("gate.not-applicable-not-pass", "5.3", 104, "gate", "browser-test",
@@ -68,7 +80,7 @@ export const REQUIRED_PHASE5_SCENARIOS = Object.freeze([
   requiredScenario("backup.writer-lock-exclusive", "5.5.2", 115, "backup-local", "go-test",
     "internal/store/retirement_repository_linux_test.go", "TestUnreconciledRetentionLeaseExcludesBackupWriterAndReader", "built-linux", "exclusive"),
   requiredScenario("backup.corruption-denied", "5.5.3", 117, "backup-local", "go-test",
-    "internal/backup/process_test.go", "TestPublishedCorruptionRemainsPresentButIsRejected", "fixture", "denied"),
+    "internal/backup/process_test.go", "TestPublishedCorruptionRemainsPresentButIsRejected", "built-linux", "denied"),
   requiredScenario("backup.missing-key-denied", "5.5.3", 117, "backup-local", "go-test",
     "internal/backup/custody_systemd_linux_test.go", "TestBrokeredResticRejectsCallerSelectedAuthority", "built-linux", "denied"),
   requiredScenario("backup.local-restore-isolated", "5.5.3", 117, "backup-local", "go-test",
@@ -96,7 +108,7 @@ export const REQUIRED_PHASE5_SCENARIOS = Object.freeze([
   requiredScenario("audit.export-failure-pending", "5.6", 107, "audit", "go-test",
     "internal/stateexport/service_test.go", "TestTerminalAuditUncertaintyLeavesPendingForFailClosedReconciliation", "fixture", "pending"),
   requiredScenario("audit.private-payload-redacted", "5.6", 107, "audit", "go-test",
-    "internal/store/audit_process_test.go", "TestAuditArtifactsExcludeEveryPublicCanary", "fixture", "redacted"),
+    "internal/store/audit_process_test.go", "TestAuditArtifactsExcludeEveryPublicCanary", "built-linux", "redacted"),
   requiredScenario("restore.pending-source-denied", "5.7", 108, "restore", "go-test",
     "internal/recovery/source_test.go", "TestSourceVerifierAcceptsOnlyExactCurrentQualifiedOffsiteGeneration", "fixture", "denied"),
   requiredScenario("restore.old-plan-denied", "5.7", 108, "restore", "go-test",
@@ -122,7 +134,7 @@ export const REQUIRED_PHASE5_SCENARIOS = Object.freeze([
   requiredScenario("schedule.human-only-denied", "5.8", 109, "schedule", "go-test",
     "internal/schedule/policy_test.go", "TestScheduledRequestCannotCarryPlanOrHumanAcknowledgement", "fixture", "denied"),
   requiredScenario("schedule.provider-outage-isolated", "5.8", 109, "schedule", "go-test",
-    "internal/server/schedule_composition_test.go", "TestScheduledAuditPrerequisiteUnavailableFailsClosedWithDurableDependencies", "fixture", "isolated"),
+    "internal/server/schedule_composition_test.go", "TestScheduledAuditPrerequisiteUnavailableFailsClosedWithDurableDependencies", "built-linux", "isolated"),
   requiredScenario("surface.cli-api-console-parity", "5.9", 110, "surface", "go-test",
     "internal/server/phase5_surface_parity_linux_test.go", "TestPhase5SurfacesAgreeAndBrowserCannotReachProtectedEffects", "built-linux", "parity"),
   requiredScenario("browser.no-direct-effect", "5.9", 110, "surface", "browser-test",
@@ -154,8 +166,47 @@ export function phase5ScenarioDigest(definition) {
   return acceptanceScenarioDigest(definition);
 }
 
+async function goTestPathsForOS(root, packages, goos) {
+  const template = "{{.Dir}}|{{join .TestGoFiles \",\"}}|{{join .XTestGoFiles \",\"}}";
+  let result;
+  try {
+    result = await runPhase5Command("go", ["list", "-e", "-f", template, ...packages], {
+      cwd: root,
+      capture: true,
+      env: { ...process.env, CGO_ENABLED: "0", GOOS: goos },
+      timeoutMs: 60_000,
+    });
+  } catch (error) {
+    if (error?.message === "PHASE5_FAILED:evidence-sanitizer") throw error;
+    throw new Error("PHASE5_FAILED:definition");
+  }
+  const found = new Set();
+  for (const line of result.stdout.trim().split("\n")) {
+    if (!line) continue;
+    const [directory, internal, external] = line.split("|");
+    if (!directory || internal === undefined || external === undefined) throw new Error("PHASE5_FAILED:definition");
+    const files = [internal, external].flatMap(value => value === "" ? [] : value.split(","));
+    for (const file of files) found.add(path.relative(root, path.join(directory, file)).split(path.sep).join("/"));
+  }
+  return found;
+}
+
+export async function resolveLinuxOnlyAcceptancePaths(root, scenarios) {
+  const packages = [...new Set(scenarios.filter(({ kind }) => kind === "go-test").map(({ path: file }) => `./${path.dirname(file)}`))].sort();
+  const [linux, portable] = await Promise.all([
+    goTestPathsForOS(root, packages, "linux"),
+    goTestPathsForOS(root, packages, "darwin"),
+  ]);
+  return new Set([...linux].filter(file => !portable.has(file)));
+}
+
 export async function validatePhase5AcceptanceDefinition(root, definition, evidence) {
-  return validateAcceptanceDefinition({ root, phase: 5, definition, evidence, requiredScenarios: REQUIRED_PHASE5_SCENARIOS });
+  await validateAcceptanceDefinition({ root, phase: 5, definition, evidence, requiredScenarios: REQUIRED_PHASE5_SCENARIOS });
+  const linuxOnly = await resolveLinuxOnlyAcceptancePaths(root, definition.scenarios);
+  if (definition.scenarios.some(scenario => linuxOnly.has(scenario.path) && scenario.environment !== "built-linux")) {
+    throw new Error("PHASE5_FAILED:definition");
+  }
+  return true;
 }
 
 export async function phase5Definitions(root = ROOT) {
@@ -176,10 +227,10 @@ export function scanPhase5Captured(result) {
   return true;
 }
 
-async function cleanSourceState(root) {
+export async function cleanPhase5SourceState(root) {
   const [revision, status] = await Promise.all([
-    runCommand("git", ["rev-parse", "HEAD"], { cwd: root, capture: true, timeoutMs: 30_000 }),
-    runCommand("git", ["status", "--porcelain=v1", "--untracked-files=no"], { cwd: root, capture: true, timeoutMs: 30_000 }),
+    runPhase5Command("git", ["rev-parse", "HEAD"], { cwd: root, capture: true, timeoutMs: 30_000 }),
+    runPhase5Command("git", ["status", "--porcelain=v1", "--untracked-files=all"], { cwd: root, capture: true, timeoutMs: 30_000 }),
   ]);
   const commit = revision.stdout.trim();
   if (!SHA_PATTERN.test(commit)) throw new Error("PHASE5_FAILED:source-commit");
@@ -194,27 +245,46 @@ async function createLinuxRuntime(root) {
   const osRelease = path.join(runtimeRoot, "os-release");
   try {
     await writeFile(osRelease, "ID=debian\nVERSION_ID=13\n", { mode: 0o600 });
-    await runCommand("go", ["build", "-race", "-ldflags", phase3LinkerFlags({ database, osRelease }), "-o", binary, "./cmd/vsk-labs"], {
+    await runPhase5Command("go", ["build", "-race", "-ldflags", phase3LinkerFlags({ database, osRelease }), "-o", binary, "./cmd/vsk-labs"], {
       cwd: root, capture: true, timeoutMs: 180_000,
     });
-  } catch {
+  } catch (error) {
     await rm(runtimeRoot, { recursive: true, force: true });
+    if (error?.message === "PHASE5_FAILED:evidence-sanitizer") throw error;
     throw new Error("PHASE5_FAILED:real-server");
   }
   return { root: runtimeRoot, binary };
 }
 
-export async function executePhase5Scenarios(root, definition, { runtime, artifactRoot } = {}) {
-  return executeAcceptanceScenarios({
-    root, phase: 5, definition, runtime, artifactRoot,
-    scanCaptured: scanPhase5Captured,
-  });
+export async function executePhase5Scenarios(root, definition, {
+  runtime,
+  artifactRoot,
+  executeScenarios = executeAcceptanceScenarios,
+  verifyArtifacts = verifyPhase3,
+} = {}) {
+  let outcomes;
+  let failure;
+  try {
+    outcomes = await executeScenarios({
+      root, phase: 5, definition, runtime, artifactRoot,
+      scanCaptured: scanPhase5Captured,
+    });
+  } catch (error) {
+    failure = error;
+  }
+  try {
+    const sanitized = await verifyArtifacts({ artifacts: artifactRoot, root });
+    if (sanitized?.status !== "pass") failure = new Error("PHASE5_FAILED:evidence-sanitizer");
+  } catch {
+    failure = new Error("PHASE5_FAILED:evidence-sanitizer");
+  }
+  if (failure) throw failure;
+  return outcomes;
 }
 
 async function runPrerequisite(command, args, root, stage) {
   try {
-    const result = await runCommand(command, args, { cwd: root, capture: true, timeoutMs: 180_000 });
-    scanPhase5Captured(result);
+    await runPhase5Command(command, args, { cwd: root, capture: true, timeoutMs: 180_000 });
   } catch (error) {
     if (error?.message === "PHASE5_FAILED:evidence-sanitizer") throw error;
     throw new Error(`PHASE5_FAILED:${stage}`);
@@ -222,7 +292,7 @@ async function runPrerequisite(command, args, root, stage) {
 }
 
 export async function runPhase5(root = ROOT, { prepared = false } = {}) {
-  const sourceCommit = await cleanSourceState(root);
+  const sourceCommit = await cleanPhase5SourceState(root);
   const { definition } = await phase5Definitions(root);
   if (!prepared) {
     const build = packageManagerInvocation(["--filter", "@vegastack/labs-web", "build"]);
@@ -232,14 +302,12 @@ export async function runPhase5(root = ROOT, { prepared = false } = {}) {
   await runPrerequisite(process.execPath, ["tooling/verify-cli.mjs"], root, "cli-contract");
   await runPrerequisite(process.execPath, ["tooling/verify-static.mjs"], root, "static-contract");
   const artifacts = await mkdtemp(path.join(tmpdir(), "vsk-phase5-browser-"));
-  const runtime = process.platform === "linux" ? await createLinuxRuntime(root) : undefined;
-  let sanitized;
+  let runtime;
   try {
+    runtime = process.platform === "linux" ? await createLinuxRuntime(root) : undefined;
     const orderedOutcomes = await executePhase5Scenarios(root, definition, { runtime, artifactRoot: artifacts });
     const scenarioOutcomes = Object.fromEntries(orderedOutcomes.map(({ id, ...outcome }) => [id, outcome]));
-    sanitized = await verifyPhase3({ artifacts, root });
-    if (sanitized?.status !== "pass") throw new Error("PHASE5_FAILED:evidence-sanitizer");
-    if (await cleanSourceState(root) !== sourceCommit) throw new Error("PHASE5_FAILED:source-drift");
+    if (await cleanPhase5SourceState(root) !== sourceCommit) throw new Error("PHASE5_FAILED:source-drift");
     return {
       schemaVersion: 1,
       check: "phase-5",

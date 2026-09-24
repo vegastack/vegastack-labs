@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -10,11 +10,15 @@ import {
   parseNodeScenarioPass,
   parsePlaywrightScenarioPass,
 } from "../lib/acceptance-scenarios.mjs";
+import { runCommand } from "../lib/process.mjs";
 import {
+  cleanPhase5SourceState,
+  executePhase5Scenarios,
   phase5Definitions,
   phase5FailureDiagnostic,
   phase5ScenarioDigest,
   REQUIRED_PHASE5_SCENARIOS,
+  resolveLinuxOnlyAcceptancePaths,
   scanPhase5Captured,
   validatePhase5AcceptanceDefinition,
 } from "../verify-phase-5.mjs";
@@ -71,6 +75,22 @@ test("Phase 5 catalog covers every durable boundary", async () => {
       { id: "schedule.overlap-single", repeat: 3, seed: "phase5-concurrency-v1" },
     ],
   );
+});
+
+test("Phase 5 catalog resolves Linux build constraints instead of trusting environment labels", async () => {
+  const { definition } = await phase5Definitions(ROOT);
+  const linuxOnly = await resolveLinuxOnlyAcceptancePaths(ROOT, definition.scenarios);
+  const classified = definition.scenarios.filter(({ path: file }) => linuxOnly.has(file));
+  assert.ok(classified.length > 0);
+  assert.ok(classified.every(({ environment }) => environment === "built-linux"));
+  for (const id of [
+    "gate.replaced-evidence-denied",
+    "backup.corruption-denied",
+    "audit.private-payload-redacted",
+    "schedule.provider-outage-isolated",
+  ]) {
+    assert.equal(classified.find(scenario => scenario.id === id)?.environment, "built-linux");
+  }
 });
 
 test("Phase 5 exact-pass parsers enforce repeat counts", () => {
@@ -138,5 +158,76 @@ test("Phase 5 repeated scenarios receive the fixed named seed on every execution
     assert.deepEqual(outcomes, [{ id: "suite.seed-test", environment: "fixture", status: "pass" }]);
   } finally {
     await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("Phase 5 source binding rejects an untracked executable source", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "vsk-phase5-source-test-"));
+  try {
+    const runGit = (...args) => runCommand("git", args, { cwd: root, capture: true, timeoutMs: 30_000 });
+    await runGit("init", "--quiet");
+    await writeFile(path.join(root, "tracked.txt"), "tracked\n");
+    await runGit("add", "tracked.txt");
+    await runGit("-c", "user.name=Phase Five Test", "-c", "user.email=phase5@example.invalid", "commit", "--quiet", "-m", "fixture");
+    assert.match(await cleanPhase5SourceState(root), /^[0-9a-f]{40}$/);
+
+    await writeFile(path.join(root, "untracked-probe.mjs"), "process.exit(0);\n", { mode: 0o755 });
+    await assert.rejects(() => cleanPhase5SourceState(root), /PHASE5_FAILED:source-dirty/);
+    await rm(path.join(root, "untracked-probe.mjs"));
+
+    const externalArtifact = path.join(await mkdtemp(path.join(tmpdir(), "vsk-phase5-external-artifact-")), "result.json");
+    try {
+      await writeFile(externalArtifact, "{}\n");
+      assert.match(await cleanPhase5SourceState(root), /^[0-9a-f]{40}$/);
+    } finally {
+      await rm(path.dirname(externalArtifact), { recursive: true, force: true });
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("Phase 5 scans failed child output before replacing it with a closed diagnostic", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "vsk-phase5-failure-output-"));
+  const selector = "private failed child";
+  try {
+    await writeFile(path.join(root, "failure.test.mjs"), `
+      import test from "node:test";
+      test(${JSON.stringify(selector)}, () => {
+        process.stderr.write("Authorization: Bearer private-child-value\\n");
+        throw new Error("opaque child failure");
+      });
+    `);
+    await assert.rejects(
+      () => executeAcceptanceScenarios({
+        root,
+        phase: 5,
+        definition: { scenarios: [{
+          id: "suite.failed-child", kind: "node-test", path: "failure.test.mjs", selector,
+          environment: "fixture", repeat: 1, seed: null,
+        }] },
+        scanCaptured: scanPhase5Captured,
+      }),
+      error => error.message === "PHASE5_FAILED:evidence-sanitizer" && !error.message.includes("private-child-value"),
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("Phase 5 scans browser artifacts after scenario failure and before caller cleanup", async () => {
+  const artifacts = await mkdtemp(path.join(tmpdir(), "vsk-phase5-failed-artifacts-"));
+  try {
+    const canaries = JSON.parse(await readFile(path.join(ROOT, "tooling/testdata/phase-3/private-canaries.json"), "utf8"));
+    await writeFile(path.join(artifacts, "failed-browser.txt"), `${canaries.canaries[0]}\n`);
+    await assert.rejects(
+      () => executePhase5Scenarios(ROOT, { scenarios: [] }, {
+        artifactRoot: artifacts,
+        executeScenarios: async () => { throw new Error("PHASE5_FAILED:scenario-execution:browser.artifact-private-free"); },
+      }),
+      error => error.message === "PHASE5_FAILED:evidence-sanitizer" && !error.message.includes(canaries.canaries[0]),
+    );
+  } finally {
+    await rm(artifacts, { recursive: true, force: true });
   }
 });

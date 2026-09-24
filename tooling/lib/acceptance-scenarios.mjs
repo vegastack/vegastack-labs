@@ -130,6 +130,12 @@ export function parseNodeScenarioPass(stdout, selector, expectedPasses = 1, phas
   }
 }
 
+async function scanCommandFailure(scanCaptured, error) {
+  if (scanCaptured && (typeof error?.stdout === "string" || typeof error?.stderr === "string")) {
+    await scanCaptured({ stdout: error.stdout ?? "", stderr: error.stderr ?? "" });
+  }
+}
+
 async function runGoScenario(root, phase, scenario, runtime, scanCaptured) {
   const outputs = [];
   for (let index = 0; index < (scenario.repeat ?? 1); index++) {
@@ -144,7 +150,10 @@ async function runGoScenario(root, phase, scenario, runtime, scanCaptured) {
           }) },
         timeoutMs: 300_000,
       });
-    } catch { throw new Error(`${prefix(phase)}_FAILED:scenario-execution`); }
+    } catch (error) {
+      await scanCommandFailure(scanCaptured, error);
+      throw new Error(`${prefix(phase)}_FAILED:scenario-execution`);
+    }
     await scanCaptured?.(result);
     outputs.push(result.stdout);
   }
@@ -165,14 +174,21 @@ async function runBrowserScenario(root, phase, scenario, artifactRoot, scanCaptu
       timeoutMs: 180_000,
     });
     await scanCaptured?.(result);
-    parsePlaywrightScenarioPass(JSON.parse(await readFile(reportPath, "utf8")), scenario.selector, 1, phase);
+    const rawReport = await readFile(reportPath, "utf8");
+    await scanCaptured?.({ stdout: rawReport, stderr: "" });
+    parsePlaywrightScenarioPass(JSON.parse(rawReport), scenario.selector, 1, phase);
   } catch (error) {
-    const failure = error?.message?.startsWith(`${prefix(phase)}_FAILED:`) ? error : new Error(`${prefix(phase)}_FAILED:scenario-execution`);
-    if (browserFailureSummary) {
-      let report = {};
-      try { report = JSON.parse(await readFile(reportPath, "utf8")); } catch { /* absent or malformed report */ }
-      failure.browserSummary = browserFailureSummary(report, scenario.selector, root);
+    await scanCommandFailure(scanCaptured, error);
+    let report = {};
+    try {
+      const rawReport = await readFile(reportPath, "utf8");
+      await scanCaptured?.({ stdout: rawReport, stderr: "" });
+      report = JSON.parse(rawReport);
+    } catch (reportError) {
+      if (reportError?.message?.startsWith(`${prefix(phase)}_FAILED:`)) throw reportError;
     }
+    const failure = error?.message?.startsWith(`${prefix(phase)}_FAILED:`) ? error : new Error(`${prefix(phase)}_FAILED:scenario-execution`);
+    if (browserFailureSummary) failure.browserSummary = browserFailureSummary(report, scenario.selector, root);
     throw failure;
   } finally {
     await rm(reportRoot, { recursive: true, force: true });
@@ -196,7 +212,10 @@ async function runNodeScenario(root, phase, scenario, scanCaptured) {
         env,
         timeoutMs: 60_000,
       });
-    } catch { throw new Error(`${prefix(phase)}_FAILED:scenario-execution`); }
+    } catch (error) {
+      await scanCommandFailure(scanCaptured, error);
+      throw new Error(`${prefix(phase)}_FAILED:scenario-execution`);
+    }
     await scanCaptured?.(result);
     outputs.push(result.stdout);
   }
