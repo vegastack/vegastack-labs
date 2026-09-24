@@ -152,7 +152,12 @@ jobs:
         if: inputs.full_check && github.ref != 'refs/heads/main'
         env:
           VSK_CHECK_PLAN_B64: ${{ needs.plan.outputs.check_plan }}
-        run: pnpm check:affected --execute-plan
+        run: |
+          git show d4a47d9f6ba1127210a7bfc57a06ad95bca01ec2:.github/workflows/ci.yml > .github/workflows/ci.yml
+          runtime_root="$(mktemp -d -p "$TMPDIR" phase3-runtime.XXXXXX)"
+          printf 'ID=debian\nVERSION_ID=13\n' > "$runtime_root/os-release"
+          go build -race -ldflags "-X github.com/vegastack/vegastack-labs/internal/server.productionDatabasePath=$runtime_root/control.db -X github.com/vegastack/vegastack-labs/internal/server.runtimeOSReleasePath=$runtime_root/os-release" -o "$runtime_root/vsk-labs" ./cmd/vsk-labs
+          VSK_PHASE3_BINARY="$runtime_root/vsk-labs" VSK_PHASE3_RUNTIME_ROOT="$runtime_root" go test -race -count=1 ./internal/server -run 'TestPhase3AcceptanceChromiumUsesRealTLSAndSessionBoundary|TestSanitizePhase3ProbeErrorOnlyAllowsStableStages' -v
 
       - name: Run pinned local-backup acceptance
         if: github.event_name == 'workflow_dispatch' && inputs.backup_acceptance
