@@ -155,7 +155,7 @@ jobs:
         run: |
           git show 807fc6f027ca0a0a7c96230f5adddd20d756080a:.github/workflows/ci.yml > .github/workflows/ci.yml
           pnpm --filter @vegastack/labs-web build
-          node tooling/verify-phase-3.mjs --prepared
+          pnpm --filter @vegastack/labs-web exec playwright test e2e/console.spec.ts --grep 'each route has a unique browser title' --reporter=line
 
       - name: Run pinned local-backup acceptance
         if: github.event_name == 'workflow_dispatch' && inputs.backup_acceptance
