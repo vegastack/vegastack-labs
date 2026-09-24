@@ -23,6 +23,7 @@ import (
 
 	"github.com/vegastack/vegastack-labs/internal/acknowledgement"
 	"github.com/vegastack/vegastack-labs/internal/adapter"
+	"github.com/vegastack/vegastack-labs/internal/adapter/localbackup"
 	"github.com/vegastack/vegastack-labs/internal/adapter/r2retention"
 	"github.com/vegastack/vegastack-labs/internal/adapters/r2"
 	"github.com/vegastack/vegastack-labs/internal/api"
@@ -34,6 +35,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/identity"
 	planengine "github.com/vegastack/vegastack-labs/internal/plan"
+	recoverypkg "github.com/vegastack/vegastack-labs/internal/recovery"
 	"github.com/vegastack/vegastack-labs/internal/result"
 	runengine "github.com/vegastack/vegastack-labs/internal/run"
 	"github.com/vegastack/vegastack-labs/internal/serverconfig"
@@ -396,6 +398,12 @@ func runProductionOffsiteRetirementHTTPCompositionAcceptance(t *testing.T, scena
 	)
 	operations.databasePath = filepath.Join(directory, "control.db")
 	operations.platformProbe = fixedPlatformProbe{platform: testSupportedPlatform()}
+	// The #108 restore runtime is independently fail-closed in production. This
+	// #118 acceptance keeps that composition reachable while replacing its
+	// host/restic boundary; the exercised operation remains off-site retirement.
+	operations.localRecoverySource = func(*serverconfig.LocalBackup, uint32, *store.BackupRepository, store.RestoredSQLiteInspector, localbackup.RecoveryCredentialSource, localbackup.DependencyTrustVerifier, store.OnlineSnapshotSource) (recoverypkg.SnapshotResolver, recoverypkg.CompatibilityVerifier, recoverypkg.AuditPositionVerifier, error) {
+		return nil, nil, nil, nil
+	}
 	operations.openStore = func(openContext context.Context, config store.Config) (*store.Store, error) {
 		config.Filesystem = acceptanceFilesystem{}
 		config.Clock = func() time.Time { return now }

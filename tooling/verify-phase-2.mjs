@@ -263,16 +263,23 @@ const REVIEWED_OFFSITE_GENERATION_WAVE = Object.freeze({
   mutationBoundaryDigest: "sha256:6c6a3ab5f366603d73c1bd07d91097d0062f49a48231aca42a4c1f500af0455d",
 });
 
-// #118 adds the closed destructive off-site retirement contract and a typed
-// staging command. Production mutation remains unavailable until actual G-008
-// one-owner, credential, and recovery evidence qualifies the site.
+// #108 adds the three operator restore commands and the reviewed typed HTTPS
+// direct-denial adapter used by the protected recovery runtime.
+const REVIEWED_CONTROL_RECOVERY_WAVE = Object.freeze({
+  id: "phase5-issue108-v1", issue: 108,
+  commands: Object.freeze(["restore plan", "restore run", "restore verify"]), imports: Object.freeze(["github.com/vegastack/vegastack-labs/internal/adapter/recoverydenial"]),
+  mutationBoundaryDigest: "sha256:d6aeb5bc5a09d0f5ca3d23f574d72542a9e99aa7613668f611bf01deeb9c5312",
+});
+
+// #118 adds the qualified destructive off-site retirement dry-run and staging
+// surfaces plus the exact credential-bound R2 retention adapter.
 const REVIEWED_OFFSITE_RETIREMENT_WAVE = Object.freeze({
   id: "phase5-issue118-v1", issue: 118,
   commands: Object.freeze(["backup offsite-retirement dry-run", "backup offsite-retirement stage"]), imports: Object.freeze(["github.com/vegastack/vegastack-labs/internal/adapter/r2retention"]),
-  mutationBoundaryDigest: "sha256:56b54092ad210c8cc6446d2c756c1df8cde6774f09c9a972344915e52ebb8c9b",
+  mutationBoundaryDigest: "sha256:85e6ba71118938c37b8e2ce90b4d2b8ca17941b8a39d1ad8234008bdb681b64a",
 });
 
-const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE, REVIEWED_AUDIT_WAVE, REVIEWED_CREDENTIAL_EXECUTION_CORE_WAVE, REVIEWED_CREDENTIAL_LIFECYCLE_SURFACE_WAVE, REVIEWED_CREDENTIAL_VERIFIER_HARDENING_WAVE, REVIEWED_CREDENTIAL_RECOVERY_CUSTODY_WAVE, REVIEWED_BACKUP_WAVE, REVIEWED_WITNESS_RECOVERY_CONTRACT_WAVE, REVIEWED_NATIVE_READER_MAP_WAVE, REVIEWED_NATIVE_AUTHORITY_WAVE, REVIEWED_NATIVE_LIFECYCLE_WAVE, REVIEWED_WITNESS_COLLECTION_WAVE, REVIEWED_BROWSER_RECONNECT_WAVE, REVIEWED_BACKUP_VERIFY_WAVE, REVIEWED_RECOVERY_SOURCE_ADMISSION_WAVE, REVIEWED_CLEAN_HOST_RECOVERY_WAVE, REVIEWED_REPOSITORY_CUSTODY_WAVE, REVIEWED_BACKUP_DEPENDENCY_TRUST_WAVE, REVIEWED_CREDENTIAL_LIFECYCLE_ACCEPTANCE_WAVE, REVIEWED_LOCAL_RETIREMENT_WAVE, REVIEWED_OFFSITE_GENERATION_WAVE, REVIEWED_OFFSITE_RETIREMENT_WAVE]);
+const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE, REVIEWED_AUDIT_WAVE, REVIEWED_CREDENTIAL_EXECUTION_CORE_WAVE, REVIEWED_CREDENTIAL_LIFECYCLE_SURFACE_WAVE, REVIEWED_CREDENTIAL_VERIFIER_HARDENING_WAVE, REVIEWED_CREDENTIAL_RECOVERY_CUSTODY_WAVE, REVIEWED_BACKUP_WAVE, REVIEWED_WITNESS_RECOVERY_CONTRACT_WAVE, REVIEWED_NATIVE_READER_MAP_WAVE, REVIEWED_NATIVE_AUTHORITY_WAVE, REVIEWED_NATIVE_LIFECYCLE_WAVE, REVIEWED_WITNESS_COLLECTION_WAVE, REVIEWED_BROWSER_RECONNECT_WAVE, REVIEWED_BACKUP_VERIFY_WAVE, REVIEWED_RECOVERY_SOURCE_ADMISSION_WAVE, REVIEWED_CLEAN_HOST_RECOVERY_WAVE, REVIEWED_REPOSITORY_CUSTODY_WAVE, REVIEWED_BACKUP_DEPENDENCY_TRUST_WAVE, REVIEWED_CREDENTIAL_LIFECYCLE_ACCEPTANCE_WAVE, REVIEWED_LOCAL_RETIREMENT_WAVE, REVIEWED_OFFSITE_GENERATION_WAVE, REVIEWED_CONTROL_RECOVERY_WAVE, REVIEWED_OFFSITE_RETIREMENT_WAVE]);
 const ONEPASSWORD_SDK_VERSION = "v0.4.1";
 const CREDENTIAL_FOUNDATION_MIGRATION = Object.freeze({ file: "0012_credential_refs.sql", sha256: "302b2bedb4eee771436e3772c49b3c0c6cdaefbd5a1a17d11370e10a44c8e0c7" });
 const CREDENTIAL_IMPORT_MIGRATION = Object.freeze({ file: "0013_credential_import_drafts.sql", sha256: "2dd9895e6a06a6789635cbe787fc89c6c56597f2192b39395ffa5186388e5204" });
@@ -772,7 +779,7 @@ export function validateEvidence(manifest, facts) {
       manifest.contract.postPhase2MutationBoundaryDigest !== PHASE2_BASELINE_MUTATION_DIGEST)) {
     codes.add("PHASE2_TRACEABILITY_GAP");
   }
-  const reviewedCommandPrefixes = ["gate ", "credential ", "audit ", "backup ", "recovery witness "];
+  const reviewedCommandPrefixes = ["gate ", "credential ", "audit ", "backup ", "recovery witness ", "restore "];
   const availableReviewedCommands = facts.availableCommands.filter((name) =>
     reviewedCommandPrefixes.some((prefix) => name.startsWith(prefix)));
   const expectedReviewedCommands = REVIEWED_PHASE5_WAVES.flatMap(({ commands }) => commands).sort();

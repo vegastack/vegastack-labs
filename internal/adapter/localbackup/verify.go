@@ -46,7 +46,7 @@ func (adapterImpl *Adapter) executeBoundVerify(ctx context.Context, operation ad
 		return adapter.Effect{}, backupError(generated.ErrorCodePlanStale, "local-backup-verify-binding")
 	}
 	if !backupProfileMatches(adapterImpl.config.LocalBackup, policy) ||
-		serverconfig.VerifyLocalBackup(adapterImpl.config.LocalBackup, adapterImpl.config.ExpectedUID) != nil {
+		adapterImpl.config.ProfileVerifier(adapterImpl.config.LocalBackup, adapterImpl.config.ExpectedUID) != nil {
 		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-verify-profile")
 	}
 	root, ok := adapterImpl.repositoryRoot(point.RepositoryClass)
@@ -103,7 +103,7 @@ func (adapterImpl *Adapter) executeBoundVerify(ctx context.Context, operation ad
 	}()
 	readLease := backup.ReadLease{LeaseID: leaseID, PointID: point.PointID, RepositoryID: point.RepositoryID,
 		RecoveryEpoch: binding.RecoveryEpoch, MaximumExpiresAt: deadline}
-	custodyPolicy, err := backup.LoadCustodyPolicy(adapterImpl.config.LocalBackup.CustodyPolicyPath)
+	custodyPolicy, err := adapterImpl.config.CustodyPolicy(adapterImpl.config.LocalBackup.CustodyPolicyPath)
 	if err != nil || custodyPolicy.ControllerUID != adapterImpl.config.ExpectedUID || custodyPolicy.StandardRoot != adapterImpl.config.LocalBackup.StandardRoot || custodyPolicy.CriticalRoot != adapterImpl.config.LocalBackup.CriticalRoot {
 		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-verify-custody-policy")
 	}
@@ -112,9 +112,7 @@ func (adapterImpl *Adapter) executeBoundVerify(ctx context.Context, operation ad
 		RunID: binding.RunID, StepID: binding.StepID, LeaseID: leaseID, RepositoryID: point.RepositoryID, RepositoryClass: point.RepositoryClass,
 		PointID: point.PointID, SourceID: policy.SourceID, SourceRevision: point.SourceRevision, RecoveryEpoch: binding.RecoveryEpoch, MaximumExpiresAt: deadline,
 		MaximumObjects: int64(len(effectiveObjects)) + 100_000, MaximumBytes: totalBytes(effectiveObjects) + policy.ExpectedGrowthBytes, ReadLease: &readLease}
-	launcher := backup.CustodyLauncher{PolicyPath: adapterImpl.config.LocalBackup.CustodyPolicyPath, Reader: readVerifier,
-		Journal: &custodyJournal{backups: adapterImpl.config.Backups, read: &leaseRequest}, Clock: adapterImpl.config.Clock}
-	custody, err := launcher.Start(ctx, session)
+	custody, err := adapterImpl.startCustody(ctx, session, nil, readVerifier, &custodyJournal{backups: adapterImpl.config.Backups, read: &leaseRequest})
 	if err != nil {
 		return adapter.Effect{}, backupError(generated.ErrorCodePrerequisiteBlocked, "local-backup-verify-custody")
 	}

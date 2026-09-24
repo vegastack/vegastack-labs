@@ -24,6 +24,12 @@ type PlanCommitRequest struct {
 	KeyDigest                 string
 	RequestDigest             string
 	Attribution               audit.Attribution
+	RestoreQualification      *RestorePlanQualification
+}
+
+type RestorePlanQualification struct {
+	Request generated.RestoreRequest
+	Binding generated.RestoreBinding
 }
 
 type PlanCommitResult struct {
@@ -64,6 +70,18 @@ func (repository *PlanRepository) ExistingPlan(ctx context.Context, keyDigest, r
 func (repository *PlanRepository) CommitDeclarationAndPlan(ctx context.Context, request PlanCommitRequest) (PlanCommitResult, error) {
 	if repository == nil || repository.store == nil || request.Plan.Binding.PriorStateRevision != request.Expected.StateRevision || request.Plan.Binding.StateRevision != request.Expected.StateRevision+1 || request.Plan.Binding.RecoveryEpoch != request.Expected.RecoveryEpoch || request.SourceDeclarationRevision < 1 || len(request.CanonicalBytes) == 0 || request.Readable == "" {
 		return PlanCommitResult{}, newStoreError(generated.ErrorCodeInputInvalid, "plan", false, nil)
+	}
+	var restoreRequestBytes, restoreBindingBytes []byte
+	var err error
+	if request.RestoreQualification != nil {
+		restoreRequestBytes, err = json.Marshal(request.RestoreQualification.Request)
+		if err != nil || generated.ValidateContractJSON(generated.SchemaIDRestoreRequest, restoreRequestBytes, generated.ContractExact) != nil {
+			return PlanCommitResult{}, newStoreError(generated.ErrorCodeInputInvalid, "restore-plan-qualification", false, err)
+		}
+		restoreBindingBytes, err = json.Marshal(request.RestoreQualification.Binding)
+		if err != nil || generated.ValidateContractJSON(generated.SchemaIDRestoreBinding, restoreBindingBytes, generated.ContractExact) != nil || !validRestorePlanQualification(*request.RestoreQualification, request.Plan) {
+			return PlanCommitResult{}, newStoreError(generated.ErrorCodeInputInvalid, "restore-plan-qualification", false, err)
+		}
 	}
 	desiredCanonical, desiredErr := json.Marshal(request.DesiredDeclaration)
 	if desiredErr != nil || generated.ValidateContractJSON(generated.SchemaIDDeclarationRevision, desiredCanonical, generated.ContractExact) != nil || !validDeclarationContent(request.DesiredDeclaration, request.ReasonDigest) || request.DesiredDeclaration.Status != "committed" || request.DesiredDeclaration.DeclarationID != request.Plan.DeclarationID || request.DesiredDeclaration.Revision != request.Plan.Binding.DeclarationRevision || request.DesiredDeclaration.Revision != request.SourceDeclarationRevision+1 || request.DesiredDeclaration.StateRevision != request.Plan.Binding.StateRevision || request.DesiredDeclaration.RecoveryEpoch != request.Expected.RecoveryEpoch {
@@ -122,8 +140,15 @@ func (repository *PlanRepository) CommitDeclarationAndPlan(ctx context.Context, 
 				return err
 			}
 		}
-		_, err := transaction.ExecContext(ctx, `INSERT INTO immutable_plans(plan_id,plan_digest,declaration_id,declaration_revision,state_revision,recovery_epoch,observation_fingerprint,idempotency_key_digest,request_digest,canonical_bytes,readable_plan,readable_digest,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, request.Plan.PlanID, request.Plan.PlanDigest, request.Plan.DeclarationID, request.Plan.Binding.DeclarationRevision, request.Plan.Binding.StateRevision, request.Plan.Binding.RecoveryEpoch, request.Plan.Binding.ObservationFingerprint, request.KeyDigest, request.RequestDigest, request.CanonicalBytes, request.Readable, request.Plan.ReadableDigest, request.Plan.CreatedAt, request.Plan.ExpiresAt)
-		return err
+		if _, err := transaction.ExecContext(ctx, `INSERT INTO immutable_plans(plan_id,plan_digest,declaration_id,declaration_revision,state_revision,recovery_epoch,observation_fingerprint,idempotency_key_digest,request_digest,canonical_bytes,readable_plan,readable_digest,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, request.Plan.PlanID, request.Plan.PlanDigest, request.Plan.DeclarationID, request.Plan.Binding.DeclarationRevision, request.Plan.Binding.StateRevision, request.Plan.Binding.RecoveryEpoch, request.Plan.Binding.ObservationFingerprint, request.KeyDigest, request.RequestDigest, request.CanonicalBytes, request.Readable, request.Plan.ReadableDigest, request.Plan.CreatedAt, request.Plan.ExpiresAt); err != nil {
+			return err
+		}
+		if request.RestoreQualification != nil {
+			qualification := request.RestoreQualification
+			_, err := transaction.ExecContext(ctx, `INSERT INTO restore_plan_qualifications(plan_id,plan_digest,request_bytes,binding_bytes,source_digest,fence_set_digest,audit_decision_digest,created_at) VALUES(?,?,?,?,?,?,?,?)`, request.Plan.PlanID, request.Plan.PlanDigest, restoreRequestBytes, restoreBindingBytes, qualification.Request.Source.VerificationDigest, qualification.Request.FenceSetDigest, qualification.Request.AuditDecisionDigest, request.Plan.CreatedAt)
+			return err
+		}
+		return nil
 	})
 	if err != nil {
 		return PlanCommitResult{}, err

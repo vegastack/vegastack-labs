@@ -1,4 +1,216 @@
 {
+  "$defs": {
+    "restore-canary-result": {
+      "additionalProperties": false,
+      "properties": {
+        "auditCheckpointId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "backupPointId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "formerWriterDenied": {
+          "type": "boolean"
+        },
+        "noopRunId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "oldEpochDenied": {
+          "type": "boolean"
+        },
+        "readVerified": {
+          "type": "boolean"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/restore-canary-result"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.1.0"
+          ],
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "pending",
+            "verified",
+            "failed"
+          ],
+          "type": "string"
+        },
+        "verifiedAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "readVerified",
+        "oldEpochDenied",
+        "noopRunId",
+        "auditCheckpointId",
+        "backupPointId",
+        "formerWriterDenied",
+        "status",
+        "verifiedAt"
+      ],
+      "type": "object"
+    },
+    "restore-dependency-binding": {
+      "additionalProperties": false,
+      "properties": {
+        "dependencyId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "binary",
+            "schema",
+            "config",
+            "image",
+            "signature"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "dependencyId",
+        "kind",
+        "digest"
+      ],
+      "type": "object"
+    },
+    "restore-source-binding": {
+      "additionalProperties": false,
+      "properties": {
+        "createdAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "declaredRpoSeconds": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "dependencyDigests": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 256,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "keyReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "manifestDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "pointDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "pointId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "repositoryGenerationId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "requiredDependencies": {
+          "items": {
+            "$ref": "#/$defs/restore-dependency-binding"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/restore-source-binding"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.1.0"
+          ],
+          "type": "string"
+        },
+        "sourceClass": {
+          "enum": [
+            "local",
+            "off-site"
+          ],
+          "type": "string"
+        },
+        "targetReleaseBuildId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "targetSchemaVersion": {
+          "maxLength": 20,
+          "pattern": "^[1-9][0-9]*$",
+          "type": "string"
+        },
+        "targetToolVersion": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
+          "type": "string"
+        },
+        "verificationDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "verifiedAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "pointId",
+        "pointDigest",
+        "manifestDigest",
+        "verificationDigest",
+        "sourceClass",
+        "repositoryGenerationId",
+        "keyReferenceId",
+        "declaredRpoSeconds",
+        "createdAt",
+        "verifiedAt",
+        "recoveryEpoch",
+        "dependencyDigests",
+        "requiredDependencies",
+        "targetReleaseBuildId",
+        "targetToolVersion",
+        "targetSchemaVersion"
+      ],
+      "type": "object"
+    }
+  },
   "$id": "vegastack-labs.dev/restore-verification",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
@@ -33,14 +245,33 @@
     }
   ],
   "properties": {
+    "auditDecisionDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
     "auditVerified": {
       "type": "boolean"
+    },
+    "canary": {
+      "$ref": "#/$defs/restore-canary-result"
+    },
+    "candidateDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
     },
     "databaseVerified": {
       "type": "boolean"
     },
+    "fenceSetDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
     "fenceVerified": {
       "type": "boolean"
+    },
+    "newInstanceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
     },
     "nextRecoveryEpoch": {
       "minimum": 1,
@@ -58,6 +289,14 @@
       "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
       "type": "string"
     },
+    "priorInstanceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "priorRecoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
     "schema": {
       "enum": [
         "vegastack-labs.dev/restore-verification"
@@ -66,9 +305,12 @@
     },
     "schemaVersion": {
       "enum": [
-        "1.0.0"
+        "1.1.0"
       ],
       "type": "string"
+    },
+    "source": {
+      "$ref": "#/$defs/restore-source-binding"
     },
     "status": {
       "enum": [
@@ -93,6 +335,7 @@
   "required": [
     "schema",
     "schemaVersion",
+    "source",
     "planId",
     "planDigest",
     "pointId",
@@ -101,7 +344,14 @@
     "databaseVerified",
     "auditVerified",
     "verifiedAt",
+    "priorInstanceId",
+    "newInstanceId",
+    "priorRecoveryEpoch",
     "nextRecoveryEpoch",
+    "fenceSetDigest",
+    "auditDecisionDigest",
+    "candidateDigest",
+    "canary",
     "status"
   ],
   "title": "VegaStack Labs restore verification",

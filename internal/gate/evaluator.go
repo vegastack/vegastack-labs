@@ -20,6 +20,14 @@ type EvidenceReader interface {
 	ListAppliedGateEvidence(context.Context, string, string) ([]generated.GateEvidence, error)
 }
 
+// CurrentEvidenceReader is the read-only exact-current view used by recovery
+// scope composition. Historical evidence remains available through
+// EvidenceReader for audit/display, but cannot become current again after a
+// superseding or revoking row is appended.
+type CurrentEvidenceReader interface {
+	ListCurrentAppliedGateEvidence(context.Context, string, string) ([]generated.GateEvidence, error)
+}
+
 type evaluationContext struct {
 	reader      EvidenceReader
 	scope       ResolvedScope
@@ -99,7 +107,13 @@ func (state *evaluationContext) check(ctx context.Context, gateID string) (gener
 		evaluation.Outcome, evaluation.ReasonCode = "unknown", "evidence-reader-unavailable"
 		return evaluation, nil
 	}
-	rows, err := state.reader.ListAppliedGateEvidence(ctx, gateID, state.subject.ID)
+	var rows []generated.GateEvidence
+	var err error
+	if current, ok := state.reader.(CurrentEvidenceReader); ok {
+		rows, err = current.ListCurrentAppliedGateEvidence(ctx, gateID, state.subject.ID)
+	} else {
+		rows, err = state.reader.ListAppliedGateEvidence(ctx, gateID, state.subject.ID)
+	}
 	if err != nil {
 		return evaluation, err
 	}

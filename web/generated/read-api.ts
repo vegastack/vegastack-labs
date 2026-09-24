@@ -5852,6 +5852,7 @@ export type ReadClient = {
   readonly getApprovalStatus: (path: { readonly planId: string }, options?: RequestOptions) => Promise<ReadResult<ApprovalStatus>>;
   readonly getPlan: (path: { readonly planId: string }, options?: RequestOptions) => Promise<ReadResult<PlanPresentation>>;
   readonly resolveRun: (path: { readonly planId: string; readonly idempotencyKey: string }, options?: RequestOptions) => Promise<ReadResult<RunPresentation>>;
+  readonly getRestoreStatus: (path: { readonly planId: string }, options?: RequestOptions) => Promise<ReadResult<BrowserRestoreStatus>>;
   readonly getRun: (path: { readonly runId: string }, options?: RequestOptions) => Promise<ReadResult<RunPresentation>>;
   readonly listSources: (query?: ApiSourceListQuery, options?: RequestOptions) => Promise<ReadResult<ApiSourceListData>>;
   readonly getSummary: (options?: RequestOptions) => Promise<ReadResult<ApiSummaryData>>;
@@ -5949,6 +5950,10 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
     async resolveRun(path, options = {}) {
       const operation = "api.v1.plans.run-resolution.get";
       return performRead(fetchTransport, "/api/v1/plans/" + encodePathString(path.planId, "planId") + "/runs/" + encodePathString(path.idempotencyKey, "idempotencyKey") + "", options, operation, decodeRunPresentation);
+    },
+    async getRestoreStatus(path, options = {}) {
+      const operation = "api.v1.restores.get";
+      return performRead(fetchTransport, "/api/v1/restores/plans/" + encodePathString(path.planId, "planId") + "", options, operation, decodeBrowserRestoreStatus);
     },
     async getRun(path, options = {}) {
       const operation = "api.v1.runs.get";

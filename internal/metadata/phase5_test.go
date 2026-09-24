@@ -49,9 +49,9 @@ func TestCredentialV11SourceIsScopedAndImportDescriptorIsLocalBinary(t *testing.
 	if versions[auditCheckpointSchemaID] != "1.1.0" || versions[auditVerificationDataSchemaID] != "1.1.0" {
 		t.Errorf("audit schemas were not versioned together")
 	}
-	for _, id := range []string{restoreBindingSchemaID} {
-		if versions[id] != "1.0.0" {
-			t.Errorf("unowned schema %s version = %s", id, versions[id])
+	for _, id := range []string{restoreBindingSchemaID, restoreVerificationSchemaID, restoreRequestSchemaID, restoreRunRequestSchemaID, restoreVerifyRequestSchemaID, restoreSourceBindingSchemaID, restoreFenceItemSchemaID, restoreAuditDecisionSchemaID, restoreCanaryResultSchemaID} {
+		if versions[id] != "1.1.0" {
+			t.Errorf("restore schema %s version = %s", id, versions[id])
 		}
 	}
 	found := false
@@ -177,7 +177,7 @@ func TestPhase5RecoveryJobSchemas(t *testing.T) {
 			}
 		}
 		if schema.ID == "vegastack-labs.dev/restore-binding" {
-			for _, name := range []string{"pointId", "dependencyIds", "targetIds", "targetDigest", "planId", "planDigest", "humanAcknowledgementId", "formerControllerFenceDigest", "priorInstanceId", "newInstanceId", "priorRecoveryEpoch", "nextRecoveryEpoch"} {
+			for _, name := range []string{"source", "pointId", "dependencyIds", "targetIds", "targetDigest", "planId", "planDigest", "humanAcknowledgementId", "fenceSetDigest", "auditDecisionDigest", "candidateDigest", "priorInstanceId", "newInstanceId", "priorRecoveryEpoch", "nextRecoveryEpoch"} {
 				if !fields[name] {
 					t.Errorf("missing restore binding %s", name)
 				}
@@ -198,7 +198,7 @@ func TestPhase5SurfaceRemainsPlanned(t *testing.T) {
 			continue
 		}
 		found = true
-		available := endpoint.ID == "api.v1.backup-offsite-retirements.dry-run" || endpoint.ID == "api.v1.backup-offsite-retirements.stage" || endpoint.ID == "api.v1.gate-profile-drafts.create" || endpoint.ID == "api.v1.gates.list" || endpoint.ID == "api.v1.gates.get" || endpoint.ID == "api.v1.gates.check" || endpoint.ID == "api.v1.gate-evidence.create" || endpoint.ID == "api.v1.credential-references.import-stream" || endpoint.ID == "api.v1.credential-lifecycle-drafts.create" || endpoint.ID == "api.v1.audit-checkpoints.list" || endpoint.ID == "api.v1.audit-checkpoints.create" || endpoint.ID == "api.v1.audit-history.verification" || endpoint.ID == "api.v1.backup-policy-drafts.create" || endpoint.ID == "api.v1.backup-retention-lock-drafts.create" || endpoint.ID == "api.v1.backup-retirement-drafts.create" || endpoint.ID == "api.v1.backups.status" || endpoint.ID == "api.v1.backups.run" || endpoint.ID == "api.v1.backups.verify"
+		available := endpoint.ID == "api.v1.gate-profile-drafts.create" || endpoint.ID == "api.v1.gates.list" || endpoint.ID == "api.v1.gates.get" || endpoint.ID == "api.v1.gates.check" || endpoint.ID == "api.v1.gate-evidence.create" || endpoint.ID == "api.v1.credential-references.import-stream" || endpoint.ID == "api.v1.credential-lifecycle-drafts.create" || endpoint.ID == "api.v1.audit-checkpoints.list" || endpoint.ID == "api.v1.audit-checkpoints.create" || endpoint.ID == "api.v1.audit-history.verification" || endpoint.ID == "api.v1.backup-policy-drafts.create" || endpoint.ID == "api.v1.backup-retention-lock-drafts.create" || endpoint.ID == "api.v1.backup-retirement-drafts.create" || endpoint.ID == "api.v1.backup-offsite-retirements.dry-run" || endpoint.ID == "api.v1.backup-offsite-retirements.stage" || endpoint.ID == "api.v1.backups.status" || endpoint.ID == "api.v1.backups.run" || endpoint.ID == "api.v1.backups.verify" || endpoint.ID == "api.v1.restores.plan" || endpoint.ID == "api.v1.restores.get" || endpoint.ID == "api.v1.restores.run" || endpoint.ID == "api.v1.restores.verify"
 		if (!available && endpoint.Availability != AvailabilityPlanned) || (available && endpoint.Availability != AvailabilityAvailable) || endpoint.DataSchema == "" {
 			t.Errorf("unsafe Phase 5 endpoint %s", endpoint.ID)
 		}

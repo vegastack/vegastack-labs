@@ -21,7 +21,7 @@ func TestOffsiteRetirementSchemaRejectsDuplicateLeaseAndCrossIntentReceipt(t *te
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = db.Exec(catalog[23].SQL); err != nil {
+	if _, err = db.Exec(catalog[24].SQL); err != nil {
 		t.Fatal(err)
 	}
 	d := "sha256:" + strings.Repeat("a", 64)

@@ -49,7 +49,7 @@ func (store *Store) VerifyAuditHistory(ctx context.Context, independent adapter.
 func (store *Store) auditVerificationInputs(ctx context.Context) ([]audit.ChainLink, []audit.Event, []generated.AuditCheckpoint, string, int64, error) {
 	var instanceID string
 	var epoch int64
-	if err := store.conn.QueryRowContext(ctx, `SELECT instance_id FROM audit_instances WHERE id=1`).Scan(&instanceID); err != nil {
+	if err := store.conn.QueryRowContext(ctx, `SELECT instance_id FROM system_meta WHERE id=1`).Scan(&instanceID); err != nil {
 		return nil, nil, nil, "", 0, store.transactionError(ctx, err)
 	}
 	if err := store.conn.QueryRowContext(ctx, `SELECT recovery_epoch FROM system_meta WHERE id=1`).Scan(&epoch); err != nil {

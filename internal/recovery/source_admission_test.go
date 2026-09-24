@@ -4,8 +4,10 @@ import (
 	"crypto/ecdh"
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestSourceAdmissionDigestIsCanonicalAndRejectsInvalidRecipient(t *testing.T) {
@@ -27,7 +29,7 @@ func TestSourceAdmissionDigestIsCanonicalAndRejectsInvalidRecipient(t *testing.T
 		DraftID: "draft-a", CiphertextFingerprint: "sha256:" + strings.Repeat("a", 64), PriorEpoch: 3, NewEpoch: 4,
 		WitnessKeyID: "witness-key", WitnessInstanceID: "outside-instance", RecipientKeyID: "recipient-key",
 		WitnessPublicKey: witnessPublic, RecipientPublicKey: recipient.PublicKey().Bytes(),
-		AdminRootDigest: "sha256:" + strings.Repeat("b", 64), FenceQualificationDigest: "sha256:" + strings.Repeat("c", 64), Requirements: required,
+		AdminRootDigest: "sha256:" + strings.Repeat("b", 64), FenceQualificationDigest: "sha256:" + strings.Repeat("c", 64), TargetReleaseBuildID: "build-a", TargetToolVersion: "1.0.0", TargetSchemaVersion: "24", RequiredDependencies: testRestoreDependencies(), Requirements: required,
 	}
 	digest := SourceAdmissionDigest(admission)
 	if digest == "" {
@@ -45,5 +47,48 @@ func TestSourceAdmissionDigestIsCanonicalAndRejectsInvalidRecipient(t *testing.T
 	invalid.RecipientPublicKey = make([]byte, 32)
 	if got := SourceAdmissionDigest(invalid); got != "" {
 		t.Fatalf("unusable X25519 recipient admitted: %q", got)
+	}
+}
+
+func TestSignedSourceAdmissionIsPrePlanAndExact(t *testing.T) {
+	adminPublic, adminPrivate, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	witnessPublic, _, _ := ed25519.GenerateKey(rand.Reader)
+	recipient, _ := ecdh.X25519().GenerateKey(rand.Reader)
+	admission := SourceAdmission{
+		FormerHostID: "former-host", FormerInstanceID: "former-instance", ReplacementHostID: "replacement-host", ReplacementInstanceID: "replacement-instance",
+		DraftID: "draft-a", CiphertextFingerprint: "sha256:" + strings.Repeat("a", 64), PriorEpoch: 3, NewEpoch: 4,
+		WitnessKeyID: "witness-key", WitnessInstanceID: "outside-instance", RecipientKeyID: "recipient-key",
+		WitnessPublicKey: witnessPublic, RecipientPublicKey: recipient.PublicKey().Bytes(), AdminRootDigest: recoveryAdminRootDigest(adminPublic),
+		FenceQualificationDigest: "sha256:" + strings.Repeat("c", 64), TargetReleaseBuildID: "build-a", TargetToolVersion: "1.0.0", TargetSchemaVersion: "24", RequiredDependencies: testRestoreDependencies(), Requirements: []BoundaryRequirement{
+			{Kind: "host-service", SubjectID: "service-a", TargetID: "former-host", AdapterID: "host-denial-v1", FormerIdentityID: "former-instance", ProbeID: "alternate-process-denied"},
+			{Kind: "host-service", SubjectID: "service-a", TargetID: "former-host", AdapterID: "host-denial-v1", FormerIdentityID: "former-instance", ProbeID: "service-denied"},
+		},
+	}
+	validFrom, expiresAt := time.Date(2026, 9, 24, 5, 0, 0, 0, time.UTC), time.Date(2026, 9, 24, 6, 0, 0, 0, time.UTC)
+	_, err = canonicalSourceAdmission(admission)
+	if err != nil {
+		t.Fatal(err)
+	}
+	timed, _ := json.Marshal(struct {
+		Payload   SourceAdmission `json:"payload"`
+		ValidFrom time.Time       `json:"validFrom"`
+		ExpiresAt time.Time       `json:"expiresAt"`
+	}{admission, validFrom, expiresAt})
+	raw, _ := json.Marshal(SignedSourceAdmission{Payload: admission, ValidFrom: validFrom, ExpiresAt: expiresAt, Signature: ed25519.Sign(adminPrivate, append([]byte(sourceAdmissionDomain+"signed\x00"), timed...))})
+	expected := SourceAdmissionExpectation{FormerHostID: admission.FormerHostID, FormerInstanceID: admission.FormerInstanceID, ReplacementHostID: admission.ReplacementHostID, ReplacementInstanceID: admission.ReplacementInstanceID, DraftID: admission.DraftID, CiphertextFingerprint: admission.CiphertextFingerprint, SourceAdmissionDigest: SourceAdmissionDigest(admission), FenceQualificationDigest: admission.FenceQualificationDigest, TargetReleaseBuildID: admission.TargetReleaseBuildID, TargetToolVersion: admission.TargetToolVersion, TargetSchemaVersion: admission.TargetSchemaVersion, RequiredDependencies: admission.RequiredDependencies, PriorEpoch: admission.PriorEpoch, NewEpoch: admission.NewEpoch}
+	if _, err := ParseSignedSourceAdmission(raw, adminPublic, expected, validFrom.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	expected.SourceAdmissionDigest = "sha256:" + strings.Repeat("d", 64)
+	if _, err := ParseSignedSourceAdmission(raw, adminPublic, expected, validFrom.Add(time.Minute)); err == nil {
+		t.Fatal("wrong pre-plan source admission digest accepted")
+	}
+	// A plan digest is intentionally absent: this artifact closes the stable
+	// admission stage, while the later witness package binds the exact plan/run.
+	if strings.Contains(string(raw), "planDigest") {
+		t.Fatal("pre-plan source admission contains circular plan binding")
 	}
 }

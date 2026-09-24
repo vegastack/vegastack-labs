@@ -30,7 +30,7 @@ func TestCollectWitnessSignsExactBundleAndSealsCustody(t *testing.T) {
 	pin.pinSeal = pin.seal()
 	request := CollectRequest{Pin: pin, Binding: binding, Required: required, Adapters: map[string]recoverydenial.Adapter{"adapter-1": collectorAdapter{now: now}}, SigningKey: io.NopCloser(bytes.NewReader(private.Seed())), Material: io.NopCloser(bytes.NewReader([]byte("synthetic-private-canary"))), Now: func() time.Time { return now }}
 	signed, sealed, err := CollectWitness(context.Background(), request)
-	if err != nil || sealed.ReceiptID != binding.ReceiptID || signed.Payload.Binding != binding {
+	if err != nil || sealed.ReceiptID != binding.ReceiptID || !sameWitnessBinding(signed.Payload.Binding, binding) {
 		t.Fatalf("collection failed: %v", err)
 	}
 	qualified := NewQualifiedAdapters()

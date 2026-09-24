@@ -173,6 +173,21 @@ Available commands:
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --policy <path>        Read the supplied local trust policy at this path.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  restore plan             Create one immutable fenced restore plan.
+    --config <path>        Read one protected server profile.
+    --file <path>          Read one exact material-free restore request JSON file (256 KiB max).
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  restore run              Stage one exact authorized restore candidate.
+    --config <path>        Read one protected server profile.
+    --file <path>          Read one exact material-free restore request JSON file (256 KiB max).
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  restore verify           Verify the recovered authority and complete its canary.
+    --config <path>        Read one protected server profile.
+    --file <path>          Read one exact material-free restore request JSON file (256 KiB max).
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   run cancel               Request server-owned cancellation of one durable run at a safe boundary.
     --config <path>        Read the protected server profile at this explicit path.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
@@ -230,9 +245,6 @@ Planned commands (unavailable):
   node nominate            Create an inert role-nomination change.
   node quarantine          Create an inert node-quarantine change.
   node replace             Create an inert node-replacement change.
-  restore plan             Create an immutable restore plan.
-  restore run              Run one authorized restore plan.
-  restore verify           Verify a completed restore.
   service deploy           Create an inert service-deployment change.
   service plan             Create an inert service change and request its plan.
   service rollback         Create an inert service-rollback change.

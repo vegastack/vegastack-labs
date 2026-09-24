@@ -19,7 +19,7 @@ import (
 // 0009 to #74, 0010 to #69, 0011 to #104, 0012 to #123, 0013 to #124, and
 // 0014 to #107, 0015 to #125, 0016 to #133, 0017 to #106,
 // 0018 to #140, 0019 to #117, 0020 to #163, 0021 to #154, 0022 to #115,
-// 0023 to #114, and 0024 to #118.
+// 0023 to #114, 0024 to #108, and 0025 to #118.
 
 //go:embed migrations/*.sql
 var embeddedMigrations embed.FS
@@ -63,7 +63,8 @@ var embeddedMigrationManifest = []migrationManifestEntry{
 	{ID: 21, Name: "0021_backup_trust_sources", SHA256: mustSHA256("6eae197a770216dc8bca36b60fb25473f6676d5a341fcb320b5c3444abc9f5b7")},
 	{ID: 22, Name: "0022_local_retirements", SHA256: mustSHA256("b36d561f02055342c7166a51c25f41c1acf096023e0714ffab87e28ed8cb55e6")},
 	{ID: 23, Name: "0023_offsite_generations", SHA256: mustSHA256("0cfdfbcc3e36776c0fcb4ceae4eccda48e7af8b6b40c03823cdb80cb05b7cb25")},
-	{ID: 24, Name: "0024_offsite_retirements", SHA256: mustSHA256("741a6d7ec87aadf3dc5672367794adc2ea64e28fa47aae4a53a03017ceb2c8d4")},
+	{ID: 24, Name: "0024_recovery_authority", SHA256: mustSHA256("e24f66a23616bd73c4fc1c05595dd518b4729d02d5a19327933393422e724055")},
+	{ID: 25, Name: "0025_offsite_retirements", SHA256: mustSHA256("741a6d7ec87aadf3dc5672367794adc2ea64e28fa47aae4a53a03017ceb2c8d4")},
 }
 
 func Catalog() ([]Migration, error) {

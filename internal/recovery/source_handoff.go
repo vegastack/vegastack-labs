@@ -9,6 +9,8 @@ import (
 	"io"
 	"sync/atomic"
 	"time"
+
+	"github.com/vegastack/vegastack-labs/internal/generated"
 )
 
 const sourceHandoffDomain = "vegastack-labs.dev/recovery-source-handoff/v1\x00"
@@ -87,7 +89,7 @@ func VerifyInstalledSource(ctx context.Context, expected WitnessBinding, require
 	if VerifyWitnessBundle(ctx, installed.Pin, expected, installed.Witness, required, qualified, now) != nil || validateProtectedEnvelope(installed.Envelope, installed.Pin, expected) != nil || ctx.Err() != nil {
 		return unavailable, ErrWitnessUnavailable
 	}
-	admissionDigest := SourceAdmissionDigest(SourceAdmission{FormerHostID: expected.FormerHostID, FormerInstanceID: expected.FormerInstanceID, ReplacementHostID: expected.ReplacementHostID, ReplacementInstanceID: expected.ReplacementInstanceID, DraftID: expected.DraftID, CiphertextFingerprint: expected.CiphertextFingerprint, PriorEpoch: expected.PriorEpoch, NewEpoch: expected.NewEpoch, WitnessKeyID: installed.Pin.KeyID, WitnessInstanceID: installed.Pin.WitnessInstanceID, RecipientKeyID: installed.Pin.RecipientKeyID, WitnessPublicKey: installed.Pin.PublicKey, RecipientPublicKey: installed.Pin.RecipientPublicKey, AdminRootDigest: installed.Pin.adminRootDigest, FenceQualificationDigest: qualified.qualificationDigest, Requirements: required})
+	admissionDigest := SourceAdmissionDigest(SourceAdmission{FormerHostID: expected.FormerHostID, FormerInstanceID: expected.FormerInstanceID, ReplacementHostID: expected.ReplacementHostID, ReplacementInstanceID: expected.ReplacementInstanceID, DraftID: expected.DraftID, CiphertextFingerprint: expected.CiphertextFingerprint, PriorEpoch: expected.PriorEpoch, NewEpoch: expected.NewEpoch, WitnessKeyID: installed.Pin.KeyID, WitnessInstanceID: installed.Pin.WitnessInstanceID, RecipientKeyID: installed.Pin.RecipientKeyID, WitnessPublicKey: installed.Pin.PublicKey, RecipientPublicKey: installed.Pin.RecipientPublicKey, AdminRootDigest: installed.Pin.adminRootDigest, FenceQualificationDigest: qualified.qualificationDigest, TargetReleaseBuildID: expected.TargetReleaseBuildID, TargetToolVersion: expected.TargetToolVersion, TargetSchemaVersion: expected.TargetSchemaVersion, RequiredDependencies: append([]generated.RestoreDependencyBinding(nil), expected.RequiredDependencies...), Requirements: required})
 	if admissionDigest == "" || admissionDigest != expected.SourceAdmissionDigest || qualified.qualificationDigest != expected.FenceQualificationDigest {
 		return unavailable, ErrWitnessUnavailable
 	}

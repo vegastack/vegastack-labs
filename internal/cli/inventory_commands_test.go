@@ -28,6 +28,8 @@ type stubControlOperations struct {
 	offsiteDryRunResponse     localapi.TypedResponse[generated.BackupOffsiteRetirementDryRunData]
 	backupStatusResponse      localapi.TypedResponse[generated.BackupStatusData]
 	backupJobResponse         localapi.TypedResponse[generated.BackupJob]
+	restoreBindingResponse    localapi.TypedResponse[generated.RestoreBinding]
+	restoreVerifyResponse     localapi.TypedResponse[generated.RestoreVerification]
 	summaryResponse           localapi.TypedResponse[generated.ApiSummaryData]
 	databaseResponse          localapi.TypedResponse[generated.DatabaseStatusData]
 	auditListResponse         localapi.TypedResponse[generated.AuditCheckpointListData]
@@ -83,6 +85,15 @@ func (stub *stubControlOperations) RunBackup(_ context.Context, _ string, _ gene
 }
 func (stub *stubControlOperations) VerifyBackup(_ context.Context, _ string, _ generated.BackupVerifyRequest) (localapi.TypedResponse[generated.BackupJob], error) {
 	return stub.backupJobResponse, stub.err
+}
+func (stub *stubControlOperations) PlanRestore(_ context.Context, _ string, _ generated.RestoreRequest) (localapi.TypedResponse[generated.RestoreBinding], error) {
+	return stub.restoreBindingResponse, stub.err
+}
+func (stub *stubControlOperations) RunRestore(_ context.Context, _ string, _ generated.RestoreRunRequest) (localapi.TypedResponse[generated.RestoreBinding], error) {
+	return stub.restoreBindingResponse, stub.err
+}
+func (stub *stubControlOperations) VerifyRestore(_ context.Context, _ string, _ generated.RestoreVerifyRequest) (localapi.TypedResponse[generated.RestoreVerification], error) {
+	return stub.restoreVerifyResponse, stub.err
 }
 
 func (stub *stubControlOperations) Summary(_ context.Context, config string) (localapi.TypedResponse[generated.ApiSummaryData], error) {
@@ -192,6 +203,10 @@ func successfulControlOperations(t *testing.T) *stubControlOperations {
 	offsiteDryRun := generated.BackupOffsiteRetirementDryRunData{Schema: generated.SchemaIDBackupOffsiteRetirementDryRunData, SchemaVersion: "1.1.0", IntentDigest: dryRunDigest, SelectionDigest: dryRunDigest, GenerationID: "generation-old", PointID: "point-old", BucketID: "bucket-a", RuleSetDigest: dryRunDigest, SurvivorRuleDigest: dryRunDigest, ManifestDigest: dryRunDigest, CatalogDigest: dryRunDigest, InventoryDigest: dryRunDigest, SurvivorPointIDs: []string{"point-good"}, SurvivorKeyReferenceIDs: []string{"key-good"}, Rules: []generated.BackupOffsiteRetirementRule{{RuleID: "old-config", Prefix: "critical/generation-old/config"}, {RuleID: "old-data", Prefix: "critical/generation-old/data/"}, {RuleID: "old-index", Prefix: "critical/generation-old/index/"}, {RuleID: "old-keys", Prefix: "critical/generation-old/keys/"}, {RuleID: "old-snapshots", Prefix: "critical/generation-old/snapshots/"}}, Objects: []generated.BackupOffsiteRetirementObject{{Key: "critical/generation-old/data/a", Digest: dryRunDigest, Bytes: 8}}, SurvivorBindings: []generated.BackupOffsiteRetirementSurvivorBinding{{PointID: "point-good", GenerationID: "generation-good", ReferenceID: "key-good", DependencyDigest: dryRunDigest}}, ObjectCount: 1, ExpectedReclaimBytes: 8, RetainedBytes: 21, MaxWorkObjects: 1, MaxMutationBytes: 8, PreRuleCount: 10, SurvivorRuleCount: 5, StateRevision: 7, RecoveryEpoch: 2}
 	backupStatus := generated.BackupStatusData{Schema: generated.SchemaIDBackupStatusData, SchemaVersion: "1.3.0", Policies: []generated.BackupPolicy{}, Jobs: []generated.BackupJob{}, Verifications: []generated.BackupVerificationAttempt{}, LastGood: []generated.BackupLastGood{}, Retirements: []generated.BackupLocalRetirementStatus{}, Offsite: []generated.BackupOffsiteStatus{}, RecoveryEpoch: 2}
 	backupJob := generated.BackupJob{Schema: generated.SchemaIDBackupJob, SchemaVersion: "1.1.0", JobID: "job-test", PolicyID: "policy-a", SourceKind: "fixture", ProofClass: "fixture", Status: "pending", RecoveryEpoch: 2}
+	restoreRequest, restoreRun, _ := syntheticRestoreValues()
+	restoreBinding := generated.RestoreBinding{Schema: generated.SchemaIDRestoreBinding, SchemaVersion: "1.1.0", Source: restoreRequest.Source, PointID: restoreRequest.PointID, DependencyIDs: restoreRequest.DependencyIDs, TargetIDs: restoreRequest.TargetIDs, TargetDigest: restoreRequest.TargetDigest, PlanID: restoreRun.PlanID, PlanDigest: restoreRun.PlanDigest, HumanAcknowledgementID: restoreRun.HumanAcknowledgementID, FenceSetDigest: restoreRequest.FenceSetDigest, AuditDecisionDigest: restoreRequest.AuditDecisionDigest, CandidateDigest: restoreRequest.CandidateDigest, PriorInstanceID: restoreRequest.PriorInstanceID, NewInstanceID: restoreRequest.NewInstanceID, PriorRecoveryEpoch: 2, NextRecoveryEpoch: 3, Status: "planned"}
+	verifiedAt := "2026-09-24T06:00:00Z"
+	restoreVerification := generated.RestoreVerification{Schema: generated.SchemaIDRestoreVerification, SchemaVersion: "1.1.0", Source: restoreRequest.Source, PlanID: restoreRun.PlanID, PlanDigest: restoreRun.PlanDigest, PointID: restoreRequest.PointID, TargetDigest: restoreRequest.TargetDigest, FenceVerified: true, DatabaseVerified: true, AuditVerified: true, VerifiedAt: &verifiedAt, PriorInstanceID: restoreRequest.PriorInstanceID, NewInstanceID: restoreRequest.NewInstanceID, PriorRecoveryEpoch: 2, NextRecoveryEpoch: 3, FenceSetDigest: restoreRequest.FenceSetDigest, AuditDecisionDigest: restoreRequest.AuditDecisionDigest, CandidateDigest: restoreRequest.CandidateDigest, Canary: generated.RestoreCanaryResult{Schema: generated.SchemaIDRestoreCanaryResult, SchemaVersion: "1.1.0", ReadVerified: true, OldEpochDenied: true, NoopRunID: "run-canary", AuditCheckpointID: "checkpoint-canary", BackupPointID: "point-canary", FormerWriterDenied: true, Status: "verified", VerifiedAt: &verifiedAt}, Status: "verified"}
 	return &stubControlOperations{
 		gateListResponse:          operationResponse(t, "api.v1.gates.list", false, 2, 7, list),
 		gateViewResponse:          operationResponse(t, "api.v1.gates.get", false, 2, 7, view),
@@ -205,6 +220,8 @@ func successfulControlOperations(t *testing.T) *stubControlOperations {
 		offsiteDryRunResponse:     operationResponse(t, "api.v1.backup-offsite-retirements.dry-run", false, 2, 7, offsiteDryRun),
 		backupStatusResponse:      operationResponse(t, "api.v1.backups.status", false, 2, 7, backupStatus),
 		backupJobResponse:         operationResponse(t, "api.v1.backups.run", true, 2, 8, backupJob),
+		restoreBindingResponse:    operationResponse(t, "api.v1.restores.plan", true, 2, 10, restoreBinding),
+		restoreVerifyResponse:     operationResponse(t, "api.v1.restores.verify", true, 3, 12, restoreVerification),
 		summaryResponse:           operationResponse(t, "api.v1.summary.get", false, 2, 7, summary),
 		databaseResponse:          operationResponse(t, "api.v1.database-status.get", false, 2, 7, database),
 		auditListResponse:         operationResponse(t, "api.v1.audit-checkpoints.list", false, 2, 7, auditList),

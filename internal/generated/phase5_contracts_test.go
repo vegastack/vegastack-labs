@@ -159,10 +159,13 @@ func TestPhase5NestedBackupStatusRejectsFixturePromotion(t *testing.T) {
 
 func TestPhase5RestoreBindingRejectsAmbiguousEpochAndController(t *testing.T) {
 	binding := map[string]any{
-		"schema": SchemaIDRestoreBinding, "schemaVersion": "1.0.0", "pointId": "point-a",
+		"schema": SchemaIDRestoreBinding, "schemaVersion": "1.1.0", "source": validRestoreSourceV11(), "pointId": "point-a",
 		"dependencyIds": []string{"point-b"}, "targetIds": []string{"control-a"}, "targetDigest": phase5DigestFixture(),
 		"planId": "plan-a", "planDigest": phase5DigestFixture(), "humanAcknowledgementId": "ack-a",
-		"formerControllerFenceDigest": phase5DigestFixture(), "priorInstanceId": "instance-old", "newInstanceId": "instance-new",
+		"fenceSetDigest": phase5DigestFixture(), "auditDecisionDigest": phase5DigestFixture(), "candidateDigest": phase5DigestFixture(), "priorInstanceId": "instance-old", "newInstanceId": "instance-new",
+		"formerHostId": "former-host", "replacementHostId": "replacement-host", "recoveryDraftId": "draft-a", "ciphertextFingerprint": phase5DigestFixture(), "sourceAdmissionDigest": phase5DigestFixture(), "fenceQualificationDigest": phase5DigestFixture(),
+		"recoveryRunId": "run-a", "recoveryStepId": "step-a", "recoveryLeaseId": "lease-a", "recoveryChallengeId": "challenge-a", "recoveryReceiptId": "receipt-a",
+		"canaryRunId": "canary-run-a", "canaryStepId": "canary-step-a", "canaryLeaseId": "canary-lease-a", "canaryChallengeId": "canary-challenge-a", "canaryReceiptId": "canary-receipt-a", "canaryBindingDigest": phase5DigestFixture(),
 		"priorRecoveryEpoch": 2, "nextRecoveryEpoch": 3, "status": "planned",
 	}
 	if err := ValidateContractJSON(SchemaIDRestoreBinding, phase5Document(t, binding), ContractExact); err != nil {
@@ -229,12 +232,14 @@ func TestPhase5RestoreAndJobRequestsRequireExactBindingFields(t *testing.T) {
 		value    map[string]any
 	}{
 		{"restore", SchemaIDRestoreRunRequest, map[string]any{
-			"schema": SchemaIDRestoreRunRequest, "schemaVersion": "1.0.0", "expectedStateRevision": 3,
+			"schema": SchemaIDRestoreRunRequest, "schemaVersion": "1.1.0", "expectedStateRevision": 3,
 			"recoveryEpoch": 2, "targetDigest": phase5DigestFixture(), "idempotencyKey": "restore-key",
-			"pointId": "point-a", "planId": "plan-a", "planDigest": phase5DigestFixture(),
-			"humanAcknowledgementId": "ack-a", "formerControllerFenceDigest": phase5DigestFixture(),
+			"source": validRestoreSourceV11(), "pointId": "point-a", "planId": "plan-a", "planDigest": phase5DigestFixture(),
+			"humanAcknowledgementId": "ack-a", "fenceSetDigest": phase5DigestFixture(), "auditDecisionDigest": phase5DigestFixture(), "candidateDigest": phase5DigestFixture(),
 			"priorInstanceId": "instance-old", "newInstanceId": "instance-new",
 			"priorRecoveryEpoch": 2, "nextRecoveryEpoch": 3,
+			"recoveryRunId": "run-a", "recoveryStepId": "step-a", "recoveryLeaseId": "lease-a", "recoveryChallengeId": "challenge-a", "recoveryReceiptId": "receipt-a",
+			"canaryRunId": "canary-run-a", "canaryStepId": "canary-step-a", "canaryLeaseId": "canary-lease-a", "canaryChallengeId": "canary-challenge-a", "canaryReceiptId": "canary-receipt-a", "canaryBindingDigest": phase5DigestFixture(),
 		}},
 		{"job", SchemaIDScheduledJobRequest, map[string]any{
 			"schema": SchemaIDScheduledJobRequest, "schemaVersion": "1.0.0", "expectedStateRevision": 3,
@@ -257,6 +262,62 @@ func TestPhase5RestoreAndJobRequestsRequireExactBindingFields(t *testing.T) {
 				request.value[field] = original
 			}
 		})
+	}
+}
+
+func validRestoreSourceV11() map[string]any {
+	return map[string]any{
+		"schema": SchemaIDRestoreSourceBinding, "schemaVersion": "1.1.0", "pointId": "point-a",
+		"pointDigest": phase5DigestFixture(), "manifestDigest": phase5DigestFixture(), "verificationDigest": phase5DigestFixture(),
+		"sourceClass": "local", "repositoryGenerationId": "generation-a", "keyReferenceId": "key-a", "declaredRpoSeconds": 3600,
+		"createdAt": "2026-09-15T07:00:00Z", "verifiedAt": "2026-09-15T08:00:00Z", "recoveryEpoch": 2,
+		"dependencyDigests":    []string{phase5DigestFixture()},
+		"requiredDependencies": []any{map[string]any{"dependencyId": "restic-binary", "kind": "binary", "digest": phase5DigestFixture()}},
+		"targetReleaseBuildId": "build-a", "targetToolVersion": "1.0.0", "targetSchemaVersion": "24",
+	}
+}
+
+func TestRestoreV11BindsFenceAuditCandidateAndAdjacentEpoch(t *testing.T) {
+	request := map[string]any{
+		"schema": SchemaIDRestoreRunRequest, "schemaVersion": "1.1.0", "expectedStateRevision": 3,
+		"recoveryEpoch": 2, "targetDigest": phase5DigestFixture(), "idempotencyKey": "restore-key",
+		"source": validRestoreSourceV11(), "pointId": "point-a", "planId": "plan-a", "planDigest": phase5DigestFixture(),
+		"humanAcknowledgementId": "ack-a", "fenceSetDigest": phase5DigestFixture(), "auditDecisionDigest": phase5DigestFixture(), "candidateDigest": phase5DigestFixture(),
+		"priorInstanceId": "instance-old", "newInstanceId": "instance-new", "priorRecoveryEpoch": 2, "nextRecoveryEpoch": 3,
+		"recoveryRunId": "run-a", "recoveryStepId": "step-a", "recoveryLeaseId": "lease-a", "recoveryChallengeId": "challenge-a", "recoveryReceiptId": "receipt-a",
+		"canaryRunId": "canary-run-a", "canaryStepId": "canary-step-a", "canaryLeaseId": "canary-lease-a", "canaryChallengeId": "canary-challenge-a", "canaryReceiptId": "canary-receipt-a", "canaryBindingDigest": phase5DigestFixture(),
+	}
+	if err := ValidateContractJSON(SchemaIDRestoreRunRequest, phase5Document(t, request), ContractExact); err != nil {
+		t.Fatal(err)
+	}
+	for _, field := range []string{"fenceSetDigest", "auditDecisionDigest", "candidateDigest", "source"} {
+		value := request[field]
+		delete(request, field)
+		if err := ValidateContractJSON(SchemaIDRestoreRunRequest, phase5Document(t, request), ContractExact); err == nil {
+			t.Fatalf("restore run without %s accepted", field)
+		}
+		request[field] = value
+	}
+	request["nextRecoveryEpoch"] = 4
+	if err := ValidateContractJSON(SchemaIDRestoreRunRequest, phase5Document(t, request), ContractExact); err == nil {
+		t.Fatal("non-adjacent recovery epoch accepted")
+	}
+}
+
+func TestRestoreV10IsDisplayOnly(t *testing.T) {
+	legacy := map[string]any{
+		"schema": SchemaIDRestoreBinding, "schemaVersion": "1.0.0", "pointId": "point-a",
+		"dependencyIds": []string{"point-b"}, "targetIds": []string{"control-a"}, "targetDigest": phase5DigestFixture(),
+		"planId": "plan-a", "planDigest": phase5DigestFixture(), "humanAcknowledgementId": "ack-a",
+		"formerControllerFenceDigest": phase5DigestFixture(), "priorInstanceId": "instance-old", "newInstanceId": "instance-new",
+		"priorRecoveryEpoch": 2, "nextRecoveryEpoch": 3, "status": "planned",
+	}
+	encoded := phase5Document(t, legacy)
+	if err := ValidateContractJSON(SchemaIDRestoreBinding, encoded, ContractCompatibleRead); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateContractJSON(SchemaIDRestoreBinding, encoded, ContractExact); err == nil {
+		t.Fatal("historical restore binding retained execution authority")
 	}
 }
 

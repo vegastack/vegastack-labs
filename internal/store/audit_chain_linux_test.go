@@ -166,3 +166,22 @@ func TestAuditChainStoresReconstructableContext(t *testing.T) {
 		t.Fatal("stored chain context cannot be independently reconstructed")
 	}
 }
+
+func TestReadAuditSuffixReturnsOnlyCanonicalBoundedEvidence(t *testing.T) {
+	authority := openAuditTestStore(t)
+	for index := range 3 {
+		if _, err := authority.writeIntent(context.Background(), chainTestIntent(t, index), insertSyntheticBusiness); err != nil {
+			t.Fatal(err)
+		}
+	}
+	suffix, err := authority.ReadAuditSuffix(context.Background(), 2, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(suffix.Events) != 2 || len(suffix.Chain.Links) != 2 || suffix.Events[0].EventID != 2 || suffix.Events[1].EventID != 3 || !audit.ValidFingerprint(suffix.Digest) {
+		t.Fatalf("suffix=%#v", suffix)
+	}
+	if _, err := authority.ReadAuditSuffix(context.Background(), 1, MaxRecoveryAuditSuffixEvents+1); err == nil {
+		t.Fatal("unbounded audit suffix accepted")
+	}
+}
