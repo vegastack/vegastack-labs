@@ -4,6 +4,17 @@ export type FixtureMode = "healthy" | "recovery-required" | "dependency" | "depe
 type DomainFixtureState = "healthy" | "stale" | "unknown" | "unavailable" | "failed";
 export const fixtureState: { mode: FixtureMode; delay: number; domainState: DomainFixtureState } = { mode: "healthy", delay: 0, domainState: "unavailable" };
 export const fixtureAudit: { requests: string[]; responses: string[]; domainProjections: Array<{ source: string; candidates: number; excluded: number }> } = { requests: [], responses: [], domainProjections: [] };
+export const phase5ProtectedEffectPaths = [
+  "/api/v1/backup-policies/policy-a/jobs",
+  "/api/v1/backup-policies/policy-a/retirements",
+  "/api/v1/recovery-points/point-a/verifications",
+  "/api/v1/audit-checkpoints",
+  "/api/v1/restore-plans/plan-a/runs",
+  "/api/v1/restore-plans/plan-a/verifications",
+  "/api/v1/database/recovery",
+  "/api/v1/database/exports",
+  "/api/v1/scheduled-job-policies/policy-a/occurrences",
+] as const;
 const digest = `sha256:${"a".repeat(64)}`;
 const gateFixtures = [
   { gateId: "G-008", applicability: "profile", outcome: "blocked", reasonCode: "proof-unavailable", applicabilityReasonCode: "applicable" },
@@ -69,6 +80,11 @@ async function respond(route: Route) {
   if (fixtureState.mode === "dependency-node-page" && isSecondNodePage) return fulfill(route, 503, JSON.stringify(envelope("read", {}, "failed", [{ code: "DEPENDENCY_UNAVAILABLE", target: "source", retryable: true }])));
   if (fixtureState.mode === "dependency-summary" && path === "/api/v1/summary") return fulfill(route, 503, JSON.stringify(envelope("read", {}, "failed", [{ code: "DEPENDENCY_UNAVAILABLE", target: "summary", retryable: true }])));
   if (fixtureState.mode === "dependency" || fixtureState.mode === "unavailable") return fulfill(route, 503, JSON.stringify(envelope("read", {}, "failed", [{ code: "DEPENDENCY_UNAVAILABLE", target: "source", retryable: fixtureState.mode === "dependency" }])));
+  if (method === "POST" && phase5ProtectedEffectPaths.includes(path as typeof phase5ProtectedEffectPaths[number])) {
+    return fulfill(route, 403, JSON.stringify(envelope("phase5.protected-effect.denied", {}, "failed", [
+      { code: "AUTHORIZATION_DENIED", target: "protected-effect", retryable: false },
+    ])));
+  }
   if (method === "POST" && /^\/api\/v1\/recovery-points\/[^/]+\/restore-drafts$/.test(path)) return fulfill(route, 200, JSON.stringify(envelope("api.v1.restore-drafts.create", { schema: "vegastack-labs.dev/browser-restore-draft-submission", schemaVersion: "1.0.0", draftId: "draft-restore-a", changeId: "change-restore-a", pointId: "point-a", status: "draft", stateRevision: 9, recoveryEpoch: 2 })));
   if (method === "POST" && /^\/api\/v1\/gates\/[^/]+\/check$/.test(path)) return fulfill(route, 200, JSON.stringify(envelope("api.v1.gates.check", gateViewFixture(gateFixtures[0]).evaluation)));
   if (method === "POST" && /^\/api\/v1\/gates\/[^/]+\/evidence$/.test(path)) return fulfill(route, 200, JSON.stringify(envelope("api.v1.gate-evidence.create", { schema: "vegastack-labs.dev/gate-evidence-submission", schemaVersion: "1.1.0", draftId: "draft-gate-a", changeId: "change-gate-a", evidenceId: "evidence-a", status: "draft", stateRevision: 9, recoveryEpoch: 2 })));

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { fixtureAudit, fixtureState, installReadFixture } from "./api-fixture";
+import { fixtureAudit, fixtureState, installReadFixture, phase5ProtectedEffectPaths } from "./api-fixture";
 import {
   assertPrivacyEvidence,
   captureVisibleBrowserEvidence,
@@ -16,14 +16,23 @@ test("Phase 5 acceptance keeps protected recovery authority out of the browser",
   await expect(page.getByRole("button", { name: "Create inert restore draft" })).toBeDisabled();
   await expect(page.getByRole("button", { name: /force|run restore|delete|reveal|start run/i })).toHaveCount(0);
 
+  const denials = await page.evaluate(async (paths) => Promise.all(paths.map(async (path) => {
+    const response = await fetch(path, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{}",
+      credentials: "same-origin",
+    });
+    const result = await response.json();
+    return { path, status: response.status, code: result.errors?.[0]?.code ?? null };
+  })), phase5ProtectedEffectPaths);
+  expect(denials).toEqual(phase5ProtectedEffectPaths.map((path) => ({
+    path,
+    status: 403,
+    code: "AUTHORIZATION_DENIED",
+  })));
   const requested = fixtureAudit.requests.map((value) => new URL(value).pathname);
-  for (const protectedPath of [
-    "/api/v1/backup-policies/policy-a/jobs",
-    "/api/v1/recovery-points/point-a/verifications",
-    "/api/v1/restore-plans/plan-a/runs",
-    "/api/v1/database/exports",
-    "/api/v1/scheduled-job-policies/policy-a/occurrences",
-  ]) expect(requested).not.toContain(protectedPath);
+  for (const protectedPath of phase5ProtectedEffectPaths) expect(requested).toContain(protectedPath);
 });
 
 test("Phase 5 acceptance artifacts contain no private or secret material", async ({ page }) => {
