@@ -17,6 +17,11 @@ on:
         required: false
         default: false
         type: boolean
+      go_unit_diagnostic:
+        description: Run only the Linux Go unit catalog for Phase 5 failure diagnosis
+        required: false
+        default: false
+        type: boolean
 
 
 permissions:
@@ -57,9 +62,10 @@ jobs:
           HEAD_SHA: ${{ github.sha }}
           NATIVE_CREDENTIAL_SHA: ${{ inputs.native_credential_sha || '' }}
           BACKUP_ACCEPTANCE: ${{ inputs.backup_acceptance || false }}
+          GO_UNIT_DIAGNOSTIC: ${{ inputs.go_unit_diagnostic || false }}
           REF_NAME: ${{ github.ref }}
         run: |
-          if [ "$FULL_CHECK" != true ] && [ -z "$NATIVE_CREDENTIAL_SHA" ] && [ "$BACKUP_ACCEPTANCE" != true ]; then
+          if [ "$FULL_CHECK" != true ] && [ -z "$NATIVE_CREDENTIAL_SHA" ] && [ "$BACKUP_ACCEPTANCE" != true ] && [ "$GO_UNIT_DIAGNOSTIC" != true ]; then
             echo "dispatch must explicitly select final full_check or a named native acceptance lane" >&2
             exit 1
           fi
@@ -173,6 +179,10 @@ jobs:
           printf '%s  %s\n' "$binary_sha" "$TMPDIR/restic-acceptance/restic" | sha256sum --check --status
           VSK_RESTIC_0191_BINARY="$TMPDIR/restic-acceptance/restic" \
             go test ./internal/backup ./internal/adapter/localbackup -run 'TestPinnedResticEndToEnd|TestPinnedResticRejectsAuthenticatedV1Repository|TestPinnedResticOffsiteS3IAM|TestLocalBackupComposition' -count=1 -timeout 45s -v
+
+      - name: Run Linux Go unit diagnostic
+        if: github.event_name == 'workflow_dispatch' && inputs.go_unit_diagnostic
+        run: go test ./...
 
       - name: Run exact Phase 5 exit acceptance
         if: inputs.full_check && github.ref == 'refs/heads/main'
