@@ -96,12 +96,8 @@ test("each route has a unique browser title", async ({ page }) => {
   const routes = new Map([["/", "Overview"], ["/nodes", "Nodes — VegaStack Labs Console"], ["/people", "People — VegaStack Labs Console"], ["/services", "Services — VegaStack Labs Console"], ["/backups", "Backups — VegaStack Labs Console"], ["/audit", "Audit — VegaStack Labs Console"], ["/providers", "Providers — VegaStack Labs Console"], ["/gates", "Gates — VegaStack Labs Console"], ["/changes", "Changes — VegaStack Labs Console"], ["/dashboard", "Console foundation — VegaStack Labs Console"], ["/states", "Foundation states — VegaStack Labs Console"], ["/unavailable", "Service unavailable — VegaStack Labs Console"]]);
   const titles = new Set<string>();
   for (const [route, title] of routes) {
-    const planRead = route === "/changes"
-      ? page.waitForResponse((response) => new URL(response.url()).pathname === "/api/v1/plans/plan-a" && response.request().method() === "GET")
-      : undefined;
-    await page.goto(route);
+    await page.goto(route, { waitUntil: "networkidle" });
     await expect(page).toHaveTitle(title);
-    await planRead;
     titles.add(await page.title());
   }
   expect(titles.size).toBe(routes.size);
