@@ -147,7 +147,7 @@ jobs:
           sudo -n env VSK_NATIVE_AUTHORITY_DISPOSABLE=1 VSK143_RUN_ID="$GITHUB_RUN_ID" VSK143_SHA="$VSK143_SHA" VSK143_WORKSPACE="$GITHUB_WORKSPACE" VSK143_BINARY="$RUNNER_TEMP/vsk143-binary" bash tooling/native-credential-authority-ci-fixture.sh
 
       - name: Install public dependencies
-        if: inputs.full_check
+        if: inputs.full_check || inputs.go_unit_diagnostic
         run: pnpm install --frozen-lockfile
 
       - name: Install pinned Chromium
