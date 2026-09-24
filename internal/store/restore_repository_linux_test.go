@@ -137,8 +137,28 @@ func TestRestorePlanIsInertAndTransitionJournalIsAppendOnly(t *testing.T) {
 	payloadSum := sha256.Sum256(payload)
 	checkpoint := generated.AuditCheckpoint{Schema: generated.SchemaIDAuditCheckpoint, SchemaVersion: "1.1.0", CheckpointID: "checkpoint-recovery-canary", FirstEventID: eventID, LastEventID: eventID, ChainDigest: string(chain.RangeDigest), InstanceID: binding.NewInstanceID, FirstSegmentSequence: chain.Links[0].SegmentSequence, LastSegmentSequence: chain.Links[0].SegmentSequence, SignerReferenceID: "signer-recovery-canary", SignerMaterialVersion: "version-recovery-canary", SignatureDigest: &signature, PublicKeyID: &publicKey, ExportReceiptDigest: &receipt, IndependentReadDigest: &independent, IndependentCopyDigest: &independent, Status: "anchored", ReasonCode: "independent-match", SourceKind: "independent", ProofClass: "live", VerifiedAt: &verified, VerificationStatus: "verified", RecoveryEpoch: binding.NextRecoveryEpoch}
 	mutation := RecoveryCanaryMutationRequest{PlanID: binding.PlanID, PlanDigest: binding.PlanDigest, RunID: binding.CanaryRunID, StepID: binding.CanaryStepID, LeaseID: binding.CanaryLeaseID, InstanceID: binding.NewInstanceID, StateRevision: health.Revision.StateRevision, RecoveryEpoch: binding.NextRecoveryEpoch}
+	for name, mutateRecord := range map[string]func(*RecoveryCanaryCheckpointRecord){
+		"future inner timestamp": func(record *RecoveryCanaryCheckpointRecord) {
+			stamp := eventAt.Add(time.Second).Format(time.RFC3339)
+			record.Checkpoint.VerifiedAt = &stamp
+		},
+		"future outer timestamp": func(record *RecoveryCanaryCheckpointRecord) {
+			record.CapabilityObservedAt = eventAt.Add(time.Second)
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			record := RecoveryCanaryCheckpointRecord{Checkpoint: checkpoint, ExactPath: "audit-anchor/checkpoint-recovery-canary.json.enc", EncryptedPayload: payload, PayloadDigest: "sha256:" + hex.EncodeToString(payloadSum[:]), CapabilityObservedAt: eventAt}
+			mutateRecord(&record)
+			err := authority.WithRecoveryCanaryMutation(context.Background(), mutation, func(scoped context.Context) error {
+				return authority.RecordRecoveryCanaryCheckpoint(scoped, mutation, eventAt, record)
+			})
+			if Code(err) != generated.ErrorCodeIntegrityFailure {
+				t.Fatalf("timestamp accepted: %v", err)
+			}
+		})
+	}
 	err = authority.WithRecoveryCanaryMutation(context.Background(), mutation, func(scoped context.Context) error {
-		return authority.RecordRecoveryCanaryCheckpoint(scoped, mutation, eventAt, RecoveryCanaryCheckpointRecord{Checkpoint: checkpoint, ExactPath: "audit-anchor/checkpoint-recovery-canary.json.enc", EncryptedPayload: payload, PayloadDigest: "sha256:" + hex.EncodeToString(payloadSum[:])})
+		return authority.RecordRecoveryCanaryCheckpoint(scoped, mutation, eventAt, RecoveryCanaryCheckpointRecord{Checkpoint: checkpoint, ExactPath: "audit-anchor/checkpoint-recovery-canary.json.enc", EncryptedPayload: payload, PayloadDigest: "sha256:" + hex.EncodeToString(payloadSum[:]), CapabilityObservedAt: eventAt})
 	})
 	if err != nil {
 		t.Fatal(err)

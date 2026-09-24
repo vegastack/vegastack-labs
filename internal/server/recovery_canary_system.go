@@ -68,10 +68,16 @@ func NewSystemRecoveryCanaryCapabilities() *systemRecoveryCanaryCapabilities {
 
 func (capability *systemRecoveryCanaryCapabilities) ProduceRecoveryCheckpoint(ctx context.Context, request recovery.CanaryRequest, noopRunID string) (store.RecoveryCanaryCheckpointRecord, error) {
 	result, err := capability.invoke(ctx, recoveryCanaryCapabilityRequest{Action: "append-checkpoint", Canary: request, NoopRunID: noopRunID})
-	if err != nil || result.RepositoryClass != "" || noopRunID != request.CanaryRunID || result.Checkpoint == nil || result.Checkpoint.Checkpoint.CheckpointID != result.OutputID {
+	verifiedAt := time.Time{}
+	if result.Checkpoint != nil && result.Checkpoint.Checkpoint.VerifiedAt != nil {
+		verifiedAt, _ = time.Parse(time.RFC3339, *result.Checkpoint.Checkpoint.VerifiedAt)
+	}
+	if err != nil || result.RepositoryClass != "" || noopRunID != request.CanaryRunID || result.Checkpoint == nil || result.Checkpoint.Checkpoint.CheckpointID != result.OutputID || verifiedAt.IsZero() || verifiedAt.Before(request.StartedAt) || verifiedAt.After(result.ObservedAt) || verifiedAt.After(capability.clock().UTC()) {
 		return store.RecoveryCanaryCheckpointRecord{}, failure.New(generated.ErrorCodePrerequisiteBlocked, "recovery-canary-audit", false)
 	}
-	return *result.Checkpoint, nil
+	record := *result.Checkpoint
+	record.CapabilityObservedAt = result.ObservedAt
+	return record, nil
 }
 
 func (capability *systemRecoveryCanaryCapabilities) CreateRecoveryBackup(ctx context.Context, request recovery.CanaryRequest) (string, string, error) {

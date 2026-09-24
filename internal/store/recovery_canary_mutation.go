@@ -66,6 +66,9 @@ type RecoveryCanaryCheckpointRecord struct {
 	ExactPath        string                    `json:"exactPath"`
 	EncryptedPayload []byte                    `json:"encryptedPayload"`
 	PayloadDigest    string                    `json:"payloadDigest"`
+	// CapabilityObservedAt is authenticated by the outer capability response.
+	// It is intentionally excluded from the nested checkpoint wire payload.
+	CapabilityObservedAt time.Time `json:"-"`
 }
 
 // RecordRecoveryCanaryCheckpoint is a narrow server-owned import of an
@@ -85,10 +88,11 @@ func (store *Store) RecordRecoveryCanaryCheckpoint(ctx context.Context, request 
 	if cp.VerifiedAt != nil {
 		verifiedAt, _ = time.Parse(time.RFC3339, *cp.VerifiedAt)
 	}
+	now := store.config.Clock().UTC()
 	raw, marshalErr := json.Marshal(cp)
 	payloadSum := sha256.Sum256(record.EncryptedPayload)
 	if err != nil || marshalErr != nil || generated.ValidateContractJSON(generated.SchemaIDAuditCheckpoint, raw, generated.ContractExact) != nil ||
-		cp.CheckpointID == "" || cp.InstanceID != request.InstanceID || cp.RecoveryEpoch != request.RecoveryEpoch || cp.FirstEventID != eventID || cp.LastEventID != eventID || cp.FirstSegmentSequence != chain.Links[0].SegmentSequence || cp.LastSegmentSequence != chain.Links[0].SegmentSequence || cp.ChainDigest != string(chain.RangeDigest) || cp.Status != "anchored" || cp.VerificationStatus != "verified" || cp.SourceKind != "independent" || cp.ProofClass != "live" || cp.SignatureDigest == nil || cp.PublicKeyID == nil || cp.ExportReceiptDigest == nil || cp.IndependentReadDigest == nil || cp.IndependentCopyDigest == nil || verifiedAt.Before(eventAt) || verifiedAt.Before(startedAt) || record.ExactPath == "" || len(record.EncryptedPayload) == 0 || record.PayloadDigest != "sha256:"+hex.EncodeToString(payloadSum[:]) {
+		cp.CheckpointID == "" || cp.InstanceID != request.InstanceID || cp.RecoveryEpoch != request.RecoveryEpoch || cp.FirstEventID != eventID || cp.LastEventID != eventID || cp.FirstSegmentSequence != chain.Links[0].SegmentSequence || cp.LastSegmentSequence != chain.Links[0].SegmentSequence || cp.ChainDigest != string(chain.RangeDigest) || cp.Status != "anchored" || cp.VerificationStatus != "verified" || cp.SourceKind != "independent" || cp.ProofClass != "live" || cp.SignatureDigest == nil || cp.PublicKeyID == nil || cp.ExportReceiptDigest == nil || cp.IndependentReadDigest == nil || cp.IndependentCopyDigest == nil || verifiedAt.Before(eventAt) || verifiedAt.Before(startedAt) || record.CapabilityObservedAt.Before(verifiedAt) || record.CapabilityObservedAt.Before(startedAt) || record.CapabilityObservedAt.After(now) || now.Sub(record.CapabilityObservedAt) > 60*time.Second || record.ExactPath == "" || len(record.EncryptedPayload) == 0 || record.PayloadDigest != "sha256:"+hex.EncodeToString(payloadSum[:]) {
 		return newStoreError(generated.ErrorCodeIntegrityFailure, "recovery-canary-checkpoint", false, errors.Join(err, marshalErr))
 	}
 	return store.executeRecoveryCanaryAuditMutation(ctx, request, "recovery-canary-checkpoint", cp.CheckpointID, string(chain.RangeDigest), func(tx *sql.Tx, now string) error {

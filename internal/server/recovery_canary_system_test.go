@@ -17,7 +17,9 @@ import (
 )
 
 func TestSystemRecoveryCanaryCapabilitiesBindExactFreshOutputs(t *testing.T) {
-	now := time.Date(2026, 9, 24, 1, 0, 0, 0, time.UTC)
+	now := time.Date(2026, 9, 24, 1, 0, 10, 0, time.UTC)
+	observedAt := now.Add(-time.Second)
+	verifiedAt := now.Add(-2 * time.Second).Format(time.RFC3339)
 	public, private, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		t.Fatal(err)
@@ -28,7 +30,7 @@ func TestSystemRecoveryCanaryCapabilitiesBindExactFreshOutputs(t *testing.T) {
 			http.Error(writer, "bad request", http.StatusBadRequest)
 			return
 		}
-		result := recoveryCanaryCapabilityResult{Action: input.Action, PlanID: input.Canary.PlanID, PlanDigest: input.Canary.PlanDigest, CanaryRunID: input.Canary.CanaryRunID, CanaryStepID: input.Canary.CanaryStepID, CanaryChallengeID: input.Canary.CanaryChallengeID, CanaryReceiptID: input.Canary.CanaryReceiptID, ObserverID: "independent-recovery-operator", OutputID: "checkpoint-new", ObservedAt: now, Checkpoint: &store.RecoveryCanaryCheckpointRecord{Checkpoint: generated.AuditCheckpoint{CheckpointID: "checkpoint-new"}}}
+		result := recoveryCanaryCapabilityResult{Action: input.Action, PlanID: input.Canary.PlanID, PlanDigest: input.Canary.PlanDigest, CanaryRunID: input.Canary.CanaryRunID, CanaryStepID: input.Canary.CanaryStepID, CanaryChallengeID: input.Canary.CanaryChallengeID, CanaryReceiptID: input.Canary.CanaryReceiptID, ObserverID: "independent-recovery-operator", OutputID: "checkpoint-new", ObservedAt: observedAt, Checkpoint: &store.RecoveryCanaryCheckpointRecord{Checkpoint: generated.AuditCheckpoint{CheckpointID: "checkpoint-new", VerifiedAt: &verifiedAt}}}
 		if input.Action == "create-backup" {
 			result.OutputID, result.RepositoryClass = "point-new", "critical"
 		}
@@ -42,10 +44,23 @@ func TestSystemRecoveryCanaryCapabilitiesBindExactFreshOutputs(t *testing.T) {
 	root := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw})
 	config := recoveryCanaryCapabilityConfig{Schema: "vegastack-labs.dev/recovery-canary-capabilities", SchemaVersion: "1.0.0", Endpoint: server.URL + "/v1/canary", ObserverID: "independent-recovery-operator", ObserverPublicKey: public, RootCAPEM: root, ClientCertificate: server.TLS.Certificates[0]}
 	capability := &systemRecoveryCanaryCapabilities{load: func() (recoveryCanaryCapabilityConfig, error) { return config, nil }, clock: func() time.Time { return now }}
-	request := recovery.CanaryRequest{PlanID: "plan-a", PlanDigest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", NewInstanceID: "instance-new", FenceSetDigest: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", CanaryRunID: "canary-run-a", CanaryStepID: "canary-step-a", CanaryLeaseID: "canary-lease-a", CanaryChallengeID: "canary-challenge-a", CanaryReceiptID: "canary-receipt-a", RecoveryEpoch: 3, ExpectedStateRevision: 8, StartedAt: now.Add(-time.Second)}
+	request := recovery.CanaryRequest{PlanID: "plan-a", PlanDigest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", NewInstanceID: "instance-new", FenceSetDigest: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", CanaryRunID: "canary-run-a", CanaryStepID: "canary-step-a", CanaryLeaseID: "canary-lease-a", CanaryChallengeID: "canary-challenge-a", CanaryReceiptID: "canary-receipt-a", RecoveryEpoch: 3, ExpectedStateRevision: 8, StartedAt: now.Add(-5 * time.Second)}
 	if record, err := capability.ProduceRecoveryCheckpoint(t.Context(), request, request.CanaryRunID); err != nil || record.Checkpoint.CheckpointID != "checkpoint-new" {
 		t.Fatalf("checkpoint = %#v, %v", record, err)
 	}
+	for name, stamp := range map[string]time.Time{
+		"future":               now.Add(time.Second),
+		"before noop":          request.StartedAt.Add(-time.Second),
+		"after outer observed": observedAt.Add(time.Second),
+	} {
+		t.Run(name, func(t *testing.T) {
+			verifiedAt = stamp.Format(time.RFC3339)
+			if _, err := capability.ProduceRecoveryCheckpoint(t.Context(), request, request.CanaryRunID); err == nil {
+				t.Fatalf("checkpoint timestamp %s accepted", stamp)
+			}
+		})
+	}
+	verifiedAt = now.Add(-2 * time.Second).Format(time.RFC3339)
 	config.ObserverPublicKey = append(ed25519.PublicKey(nil), public...)
 	config.ObserverPublicKey[0] ^= 0xff
 	if _, err := capability.ProduceRecoveryCheckpoint(t.Context(), request, request.CanaryRunID); err == nil {
