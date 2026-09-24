@@ -118,7 +118,7 @@ async function respond(route: Route) {
     data = { plan, readablePlan: "Exact fixture restore plan", canonicalPlan: JSON.stringify(plan) };
   } else if (path === "/api/v1/scheduled-job-policies") {
     command = "api.v1.scheduled-job-policies.list";
-    const item = { schema: "vegastack-labs.dev/browser-scheduled-job-policy", schemaVersion: "1.0.0", policyId: "policy-a", revision: 1, actionKind: "backup-create", enabled: true, status: "active", reasonCode: "policy-current", stateRevision: 8, recoveryEpoch: 2 };
+    const item = { schema: "vegastack-labs.dev/browser-scheduled-job-policy", schemaVersion: "1.0.0", policyId: "policy-a", revision: 1, actionKind: "backup-create", enabled: true, status: "active", reasonCode: "policy-current", targetDigest: digest, stateRevision: 8, recoveryEpoch: 2 };
     data = { schema: "vegastack-labs.dev/browser-scheduled-job-policy-list-data", schemaVersion: "1.0.0", items: fixtureState.mode === "empty" ? [] : [item], nextCursor: null, stateRevision: 8, recoveryEpoch: 2 };
   } else if (path === "/api/v1/scheduled-jobs") {
     command = "api.v1.scheduled-jobs.list";
