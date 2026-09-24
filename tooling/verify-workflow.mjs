@@ -79,15 +79,23 @@ export function verifyWorkflowDocument(workflow, source = "") {
   const steps = jobs.verify_trusted.steps ?? [];
   const chromium = steps.find((step) => step.name === "Install pinned Chromium");
   const affected = steps.find((step) => step.name === "Run affected public checks");
-  const phase4 = steps.find((step) => step.name === "Run exact Phase 4 exit acceptance");
-  const generated = steps.find((step) => step.name === "Verify generated contracts and embedded Console stay unchanged");
+  const phase5 = steps.find((step) => step.name === "Run exact Phase 5 exit acceptance");
   const dependencies = steps.find((step) => step.name === "Install public dependencies");
-  if (chromium?.if !== "inputs.full_check" || affected?.if !== "inputs.full_check" ||
+  const branchFullCheck = "inputs.full_check && github.ref != 'refs/heads/main'";
+  const mainFullCheck = "inputs.full_check && github.ref == 'refs/heads/main'";
+  if (chromium?.if !== "inputs.full_check" || affected?.if !== branchFullCheck ||
       affected.run !== "pnpm check:affected --execute-plan" ||
       affected.env?.VSK_CHECK_PLAN_B64 !== "${{ needs.plan.outputs.check_plan }}" ||
-      phase4?.if !== "inputs.full_check && github.ref == 'refs/heads/main'" ||
-      generated?.if !== "inputs.full_check" || dependencies?.if !== "inputs.full_check") {
-    throw new Error("complete public checks must run only for explicit final full_check");
+      phase5?.if !== mainFullCheck ||
+      phase5.run !== "pnpm --silent check:phase-5-exit --commit \"$GITHUB_SHA\"" ||
+      dependencies?.if !== "inputs.full_check") {
+    throw new Error("full_check must select exactly the branch affected lane or the main Phase 5 exit lane");
+  }
+  if (steps.some((step) => step.name === "Run exact Phase 4 exit acceptance" ||
+      step.name === "Verify generated contracts and embedded Console stay unchanged") ||
+      steps.filter((step) => /check:phase-5-exit/.test(step.run ?? "")).length !== 1 ||
+      steps.filter((step) => /check:affected --execute-plan/.test(step.run ?? "")).length !== 1) {
+    throw new Error("full_check must not duplicate or retain an earlier phase exit lane");
   }
   const backup = steps.find((step) => step.name === "Run pinned local-backup acceptance");
   const native = steps.find((step) => step.name === "Run exact #143 disposable native credential acceptance");

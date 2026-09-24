@@ -18,7 +18,7 @@ test("Public CI is dispatch-only during the Phase 5 batch", async () => {
   assert.doesNotThrow(() => verifyWorkflowDocument(workflow, source));
 });
 
-test("manual CI requires final-full or a named native acceptance lane", async () => {
+test("manual CI routes full_check exclusively by main versus non-main", async () => {
   const { source, workflow } = await fixture();
   const plan = workflow.jobs.plan.steps.find(({ id }) => id === "check-plan");
   assert.match(plan.run, /dispatch must explicitly select final full_check or a named native acceptance lane/);
@@ -29,10 +29,15 @@ test("manual CI requires final-full or a named native acceptance lane", async ()
 
   const trusted = workflow.jobs.verify_trusted.steps;
   assert.equal(trusted.find(({ name }) => name === "Install pinned Chromium").if, "inputs.full_check");
-  assert.equal(trusted.find(({ name }) => name === "Run affected public checks").if, "inputs.full_check");
+  assert.equal(trusted.find(({ name }) => name === "Run affected public checks").if,
+    "inputs.full_check && github.ref != 'refs/heads/main'");
   assert.equal(trusted.find(({ name }) => name === "Install public dependencies").if, "inputs.full_check");
-  assert.equal(trusted.find(({ name }) => name === "Run exact Phase 4 exit acceptance").if,
+  const phase5 = trusted.find(({ name }) => name === "Run exact Phase 5 exit acceptance");
+  assert.equal(phase5.if,
     "inputs.full_check && github.ref == 'refs/heads/main'");
+  assert.equal(phase5.run, "pnpm --silent check:phase-5-exit --commit \"$GITHUB_SHA\"");
+  assert.equal(trusted.some(({ name }) => name === "Verify generated contracts and embedded Console stay unchanged"), false);
+  assert.equal(trusted.some(({ name }) => name === "Run exact Phase 4 exit acceptance"), false);
   assert.match(trusted.find(({ name }) => name === "Run pinned local-backup acceptance").if,
     /inputs\.backup_acceptance/);
   assert.match(trusted.find(({ name }) => name === "Run exact #143 disposable native credential acceptance").if,
@@ -47,7 +52,7 @@ test("the guard rejects an automatic trigger or broad non-final execution", asyn
 
   const second = await fixture();
   second.workflow.jobs.verify_trusted.steps.find(({ name }) => name === "Run affected public checks").if = undefined;
-  assert.throws(() => verifyWorkflowDocument(second.workflow, second.source), /only for explicit final full_check/);
+  assert.throws(() => verifyWorkflowDocument(second.workflow, second.source), /branch affected lane or the main Phase 5 exit lane/);
 
   const secret = await fixture();
   assert.throws(

@@ -1,0 +1,624 @@
+{
+  "schema": "vegastack-labs.dev/phase-evidence-definition",
+  "version": "1.0.0",
+  "phase": 5,
+  "status": "implemented-awaiting-operator-acceptance",
+  "children": [
+    {
+      "issue": 102,
+      "phaseIssue": "5.1",
+      "pr": 116,
+      "reviewedHead": "07a5aaaf4a8d836f11c5968682321de18c67c8ea",
+      "mergeCommit": "1ecb381118e36e6690c2ca58801debf925b14565",
+      "evidence": "https://github.com/vegastack/vegastack-labs/issues/102#issuecomment-5677629534",
+      "review": "https://github.com/vegastack/vegastack-labs/issues/102#issuecomment-5677401350",
+      "postMergeProof": "https://github.com/vegastack/vegastack-labs/actions/runs/34987844982"
+    },
+    {
+      "issue": 104,
+      "phaseIssue": "5.3",
+      "pr": 119,
+      "reviewedHead": "aa15f04d9b937d44cdf52b5f2f44b6522e897cfa",
+      "mergeCommit": "415947561ea16b04e2b9c8415274728c0d3704df",
+      "evidence": "https://github.com/vegastack/vegastack-labs/issues/104#issuecomment-5688572518",
+      "review": "https://github.com/vegastack/vegastack-labs/issues/104#issuecomment-5688139011",
+      "postMergeProof": "https://github.com/vegastack/vegastack-labs/actions/runs/35033299381"
+    },
+    {
+      "issue": 123,
+      "phaseIssue": "5.4.1",
+      "pr": 127,
+      "reviewedHead": "302eb3967cc7899775b94f70cf9edce2496d2a9a",
+      "mergeCommit": "4a31f1880658224477bf772ba5c547aee964db29",
+      "evidence": "https://github.com/vegastack/vegastack-labs/issues/123#issuecomment-5693601865",
+      "review": "https://github.com/vegastack/vegastack-labs/issues/123#issuecomment-5693561812",
+      "postMergeProof": "epic-phase-5-exit"
+    },
+    {
+      "issue": 124,
+      "phaseIssue": "5.4.2",
+      "pr": 130,
+      "reviewedHead": "6980ef33d7e0c81df6efa84f2a92af05459c1d38",
+      "mergeCommit": "0d8b764ddb4eeaadb31659bbf6a43ef4ee67ea01",
+      "evidence": "https://github.com/vegastack/vegastack-labs/issues/124#issuecomment-5696465590",
+      "review": "https://github.com/vegastack/vegastack-labs/issues/124#issuecomment-5710919400",
+      "postMergeProof": "epic-phase-5-exit"
+    },
+    {
+      "issue": 125,
+      "phaseIssue": "5.4.3-core",
+      "pr": 136,
+      "reviewedHead": "a9c944a46997ccd805aedc7f017cf696ffd6fe14",
+      "mergeCommit": "72ae25d2b5bd3e9c57ad0e1a0667716043583f01",
+      "evidence": "https://github.com/vegastack/vegastack-labs/issues/125#issuecomment-5718755092",
+      "review": "https://github.com/vegastack/vegastack-labs/issues/125#issuecomment-5728101178",
+      "postMergeProof": "https://github.com/vegastack/vegastack-labs/actions/runs/35340028367"
+    },
+    {
+      "issue": 132,
+      "phaseIssue": "5.4.3-surface",
+      "pr": 137,
+      "reviewedHead": "0da51a21e41f6e61560055d3dc32daddc62f88f4",
+      "mergeCommit": "a60db1f74243088ff9ea2f38a1ebd6a1705306d3",
+      "evidence": "https://github.com/vegastack/vegastack-labs/issues/132#issuecomment-5763511842",
+      "review": "https://github.com/vegastack/vegastack-labs/issues/132#issuecomment-5763065633",
+      "postMergeProof": "https://github.com/vegastack/vegastack-labs/actions/runs/35651853344"
+    },
+    {
+      "issue": 133,
+      "phaseIssue": "5.4.3-verifiers",
+      "pr": 147,
+      "reviewedHead": "4b06a2240ab7ed374422836239b868b3ae295986",
+      "mergeCommit": "f235cb867732e36bd3b5576e1710030b45dbb8d4",
+      "evidence": "https://github.com/vegastack/vegastack-labs/issues/133#issuecomment-5767704651",
+      "review": "https://github.com/vegastack/vegastack-labs/issues/133#issuecomment-5767871869",
+      "postMergeProof": "https://github.com/vegastack/vegastack-labs/actions/runs/35659615148"
+    },
+    {
+      "issue": 134,
+      "phaseIssue": "5.4.3-recovery",
+      "pr": 150,
+      "reviewedHead": "8c2b20b48687e0001bd2f44966781241a9361ea1",
+      "mergeCommit": "5bcf84fdf5d1e5c28500ac761c30e49aebbff104",
+      "evidence": "https://github.com/vegastack/vegastack-labs/issues/134#issuecomment-5809902006",
+      "review": "https://github.com/vegastack/vegastack-labs/issues/134#issuecomment-5768486614",
+      "postMergeProof": "https://github.com/vegastack/vegastack-labs/actions/runs/35664326736"
+    },
+    {
+      "issue": 135,
+      "phaseIssue": "5.4.3-acceptance",
+      "pr": 175,
+      "reviewedHead": "04610dadb34193c1856f409bc2c194d496c4e34d",
+      "mergeCommit": "0c2b85aed23f95dc98ab6988207af947c439b51c",
+      "evidence": "https://github.com/vegastack/vegastack-labs/issues/135#issuecomment-5769977276",
+      "review": "https://github.com/vegastack/vegastack-labs/issues/135#issuecomment-5793211656",
+      "postMergeProof": "epic-phase-5-exit"
+    },
+    {
+      "issue": 140,
+      "phaseIssue": "5.4.3-native-consumer",
+      "pr": 155,
+      "reviewedHead": "68c64714677165d4d4923ddda2215c4502d9dea5",
+      "mergeCommit": "0cfc4dbd18ddb2016de755afbf9cae4e2e89b4e1",
+      "evidence": "https://github.com/vegastack/vegastack-labs/issues/140#issuecomment-5769655915",
+      "review": "https://github.com/vegastack/vegastack-labs/issues/140#issuecomment-5769270758",
+      "postMergeProof": "https://github.com/vegastack/vegastack-labs/actions/runs/35671710676"
+    },
+    {
+      "issue": 141,
+      "phaseIssue": "5.4.3-native-lifecycle",
+      "pr": 162,
+      "reviewedHead": "fd884bddd8c0c518f77eef22e5b39a26cad6f844",
+      "mergeCommit": "01ece4a9b5431834e9197b34c5b5081823c0a5de",
+      "evidence": "https://github.com/vegastack/vegastack-labs/issues/141#issuecomment-5770167592",
+      "review": "https://github.com/vegastack/vegastack-labs/issues/141#issuecomment-5769410332",
+      "postMergeProof": "https://github.com/vegastack/vegastack-labs/actions/runs/35677327180"
+    },
+    {
+      "issue": 143,
+      "phaseIssue": "5.4.3-native-authority",
+      "pr": 158,
+      "reviewedHead": "3263c9be5ea2aa688ebae46e8b5db830da559179",
+      "mergeCommit": "df96edbf03c11c19b0738ab28b6b6965bb517424",
+      "evidence": "https://github.com/vegastack/vegastack-labs/issues/143#issuecomment-5769990123",
+      "review": "https://github.com/vegastack/vegastack-labs/issues/143#issuecomment-5769398958",
+      "postMergeProof": "https://github.com/vegastack/vegastack-labs/actions/runs/35675714812"
+    },
+    {
+      "issue": 144,
+      "phaseIssue": "5.4.3-clean-host",
+      "pr": 171,
+      "reviewedHead": "59f035b3491f0ab95cc220313ae59f42d3ccef77",
+      "mergeCommit": "db698c15ec4b05e80113ac36f34ae4a5099c6302",
+      "evidence": "https://github.com/vegastack/vegastack-labs/issues/144#issuecomment-5768399391",
+      "review": "https://github.com/vegastack/vegastack-labs/issues/144#issuecomment-5767826187",
+      "postMergeProof": "epic-phase-5-exit"
+    },
+    {
+      "issue": 146,
+      "phaseIssue": "5.4.3-recovery-reconciliation",
+      "pr": 151,
+      "reviewedHead": "6627fd03b3628c62ee6d5306d0ab5173a62ef679",
+      "mergeCommit": "a5431d69c7a3e33003419ebe949380f54851bf72",
+      "evidence": "https://github.com/vegastack/vegastack-labs/issues/146#issuecomment-5768052456",
+      "review": "https://github.com/vegastack/vegastack-labs/issues/146#issuecomment-5769046422",
+      "postMergeProof": "https://github.com/vegastack/vegastack-labs/actions/runs/35669094022"
+    },
+    {
+      "issue": 153,
+      "phaseIssue": "5.4.3-custodian-witness",
+      "pr": 157,
+      "reviewedHead": "1badb8fd50883731f73e735f7d068a343367370b",
+      "mergeCommit": "9a11ebd56fa2dcd7e6de84f31b7c3523fd543711",
+      "evidence": "https://github.com/vegastack/vegastack-labs/issues/153#issuecomment-5790663555",
+      "review": "https://github.com/vegastack/vegastack-labs/issues/153#issuecomment-5769362209",
+      "postMergeProof": "https://github.com/vegastack/vegastack-labs/actions/runs/35829780375"
+    },
+    {
+      "issue": 159,
+      "phaseIssue": "5.4.3-source-admission",
+      "pr": 167,
+      "reviewedHead": "baf362a073dcb334c115bbf6e34140c5545e0d5c",
+      "mergeCommit": "97b22cdabb2aa5369a21a1d9dc092306a8168539",
+      "evidence": "https://github.com/vegastack/vegastack-labs/issues/159#issuecomment-5792114571",
+      "review": "https://github.com/vegastack/vegastack-labs/issues/159#issuecomment-5790811105",
+      "postMergeProof": "epic-phase-5-exit"
+    },
+    {
+      "issue": 106,
+      "phaseIssue": "5.5",
+      "pr": 152,
+      "reviewedHead": "cedc7b6f50c5e0f61f07e2fc61a6bf46ae8c6d2b",
+      "mergeCommit": "874eb38db5bfc1c4210f782fa50b6c1c668d9956",
+      "evidence": "https://github.com/vegastack/vegastack-labs/issues/106#issuecomment-5768605684",
+      "review": "https://github.com/vegastack/vegastack-labs/issues/106#issuecomment-5768723761",
+      "postMergeProof": "epic-phase-5-exit"
+    },
+    {
+      "issue": 114,
+      "phaseIssue": "5.5.1",
+      "pr": 177,
+      "reviewedHead": "bceccb0d3f97c5cac07f6e777235e4a514899631",
+      "mergeCommit": "59ec3810eb4dc677ebbf0100e14af5b4a29d14f4",
+      "evidence": "https://github.com/vegastack/vegastack-labs/issues/114#issuecomment-5809901474",
+      "review": "https://github.com/vegastack/vegastack-labs/issues/114#issuecomment-5802095385",
+      "postMergeProof": "epic-phase-5-exit"
+    },
+    {
+      "issue": 115,
+      "phaseIssue": "5.5.2",
+      "pr": 176,
+      "reviewedHead": "fa112cfa8e898ed4aa09a8f32c38c369369add89",
+      "mergeCommit": "1c450981875bb53f16f36548f8d3259fc5e4d89f",
+      "evidence": "https://github.com/vegastack/vegastack-labs/issues/115#issuecomment-5809901723",
+      "review": "https://github.com/vegastack/vegastack-labs/issues/115#issuecomment-5798114337",
+      "postMergeProof": "epic-phase-5-exit"
+    },
+    {
+      "issue": 117,
+      "phaseIssue": "5.5.3",
+      "pr": 164,
+      "reviewedHead": "68d3f2f0a0f9cf0cf63a3fb3a439743676e98854",
+      "mergeCommit": "9014829e89873dfdb54c6e4a2a2f4ba17f421c20",
+      "evidence": "https://github.com/vegastack/vegastack-labs/issues/117#issuecomment-5790598246",
+      "review": "https://github.com/vegastack/vegastack-labs/issues/117#issuecomment-5769768403",
+      "postMergeProof": "epic-phase-5-exit"
+    },
+    {
+      "issue": 118,
+      "phaseIssue": "5.5.4",
+      "pr": 179,
+      "reviewedHead": "bd3528e38b914ea614e73c4f5eda72159a2de909",
+      "mergeCommit": "fce5944d7d055965d3036ad4c0511ffa31b81131",
+      "evidence": "https://github.com/vegastack/vegastack-labs/issues/118#issuecomment-5803761949",
+      "review": "https://github.com/vegastack/vegastack-labs/issues/118#issuecomment-5805900198",
+      "postMergeProof": "epic-phase-5-exit"
+    },
+    {
+      "issue": 154,
+      "phaseIssue": "5.5-trust",
+      "pr": 174,
+      "reviewedHead": "f77caeeda9b73ebf1571fa759aa416251141e3bc",
+      "mergeCommit": "f4688d688b5eddd4a2d7d60dda4072236afaaf3d",
+      "evidence": "https://github.com/vegastack/vegastack-labs/issues/154#issuecomment-5793688121",
+      "review": "https://github.com/vegastack/vegastack-labs/issues/154#issuecomment-5793817955",
+      "postMergeProof": "epic-phase-5-exit"
+    },
+    {
+      "issue": 107,
+      "phaseIssue": "5.6",
+      "pr": 131,
+      "reviewedHead": "8b9325f605b05182081f072cba3a99ea7ba7d911",
+      "mergeCommit": "f9187ee04cc02ec5da9d14a9d8ce28de572a50ce",
+      "evidence": "https://github.com/vegastack/vegastack-labs/issues/107#issuecomment-5696440283",
+      "review": "https://github.com/vegastack/vegastack-labs/issues/107#issuecomment-5716556768",
+      "postMergeProof": "epic-phase-5-exit"
+    },
+    {
+      "issue": 108,
+      "phaseIssue": "5.7",
+      "pr": 178,
+      "reviewedHead": "c307f226a4e09bfd15a06b9247a17fb344b821ce",
+      "mergeCommit": "94d123cb81787b04d4aff6ee786cc6b82bd3eb64",
+      "evidence": "https://github.com/vegastack/vegastack-labs/issues/108#issuecomment-5805671977",
+      "review": "https://github.com/vegastack/vegastack-labs/issues/108#issuecomment-5805667068",
+      "postMergeProof": "epic-phase-5-exit"
+    },
+    {
+      "issue": 109,
+      "phaseIssue": "5.8",
+      "pr": 180,
+      "reviewedHead": "28c2f7fc31473b454e562649c733dee7862b6183",
+      "mergeCommit": "f05644dc204feb90e04dd317717a30f8f9f7469e",
+      "evidence": "https://github.com/vegastack/vegastack-labs/issues/109#issuecomment-5806560555",
+      "review": "https://github.com/vegastack/vegastack-labs/issues/109#issuecomment-5807470437",
+      "postMergeProof": "epic-phase-5-exit"
+    },
+    {
+      "issue": 110,
+      "phaseIssue": "5.9",
+      "pr": 181,
+      "reviewedHead": "17910be7373619177baab4fec1e3aa7e32fbef1e",
+      "mergeCommit": "c32f92ebfea86f485f6e6d46a4380f7088b21ce0",
+      "evidence": "https://github.com/vegastack/vegastack-labs/issues/110#issuecomment-5809004917",
+      "review": "https://github.com/vegastack/vegastack-labs/issues/110#issuecomment-5809000973",
+      "postMergeProof": "epic-phase-5-exit"
+    },
+    {
+      "issue": 111,
+      "phaseIssue": "5.10",
+      "pr": 182,
+      "reviewedHead": "6c7427db8c071c4908bff634c7b838df34d54ca6",
+      "mergeCommit": "bdd69aea16b6a4f7e6a0b0f9f847aafac03e6483",
+      "evidence": "https://github.com/vegastack/vegastack-labs/issues/111#issuecomment-5809774672",
+      "review": "https://github.com/vegastack/vegastack-labs/issues/111#issuecomment-5809241942",
+      "postMergeProof": "epic-phase-5-exit"
+    }
+  ],
+  "research": [
+    {
+      "issue": 103,
+      "status": "closed",
+      "evidence": "https://github.com/vegastack/vegastack-labs/issues/103#issuecomment-5680252812",
+      "review": "https://github.com/vegastack/vegastack-labs/issues/103#issuecomment-5680242980",
+      "sourceSnapshot": "7ca357a6fd8472b373fe0ad4dbc747874722ab82"
+    },
+    {
+      "issue": 139,
+      "status": "closed",
+      "evidence": "https://github.com/vegastack/vegastack-labs/issues/139#issuecomment-5767295325",
+      "review": "https://github.com/vegastack/vegastack-labs/issues/139#issuecomment-5809902478",
+      "sourceSnapshot": "a60db1f74243088ff9ea2f38a1ebd6a1705306d3"
+    },
+    {
+      "issue": 145,
+      "status": "closed",
+      "evidence": "https://github.com/vegastack/vegastack-labs/issues/145#issuecomment-5767725199",
+      "review": "https://github.com/vegastack/vegastack-labs/issues/145#issuecomment-5809902674",
+      "sourceSnapshot": "a60db1f74243088ff9ea2f38a1ebd6a1705306d3"
+    }
+  ],
+  "maps": [
+    {
+      "issue": 105,
+      "childIssues": [
+        123,
+        124,
+        125,
+        132,
+        133,
+        134,
+        135,
+        140,
+        141,
+        143,
+        144,
+        146,
+        153,
+        159
+      ],
+      "status": "closed",
+      "evidence": "https://github.com/vegastack/vegastack-labs/issues/105#issuecomment-5809902263"
+    }
+  ],
+  "requirements": [
+    {
+      "id": "roadmap.phase-5",
+      "ownerIssue": 112,
+      "module": "cross-module",
+      "proofIds": [
+        "gate.invalid-evidence-denied",
+        "gate.expired-evidence-denied",
+        "gate.replaced-evidence-denied",
+        "gate.fixture-not-live",
+        "gate.not-applicable-not-pass",
+        "credential.resolve-after-admission",
+        "credential.wrong-consumer-denied",
+        "credential.rotation-overlap-revoke",
+        "credential.clean-host-old-key-denied",
+        "credential.private-canary-redacted",
+        "backup.pending-not-verified",
+        "backup.capacity-never-prunes",
+        "backup.writer-lock-exclusive",
+        "backup.corruption-denied",
+        "backup.missing-key-denied",
+        "backup.local-restore-isolated",
+        "backup.local-retirement-survivors",
+        "offsite.session-expiry-seal",
+        "offsite.rule-drift-denied",
+        "offsite.rule-capacity-denied",
+        "offsite.partial-delete-uncertain",
+        "offsite.provider-outage-local-survives",
+        "audit.concurrent-chain-single",
+        "audit.fork-incident",
+        "audit.rollback-incident",
+        "audit.bad-signature-incident",
+        "audit.export-failure-pending",
+        "audit.private-payload-redacted",
+        "restore.pending-source-denied",
+        "restore.old-plan-denied",
+        "restore.old-writer-denied",
+        "restore.partial-fence-denied",
+        "restore.lost-suffix-explicit",
+        "restore.failed-canary-recovery-required",
+        "restore.single-authority",
+        "schedule.overlap-single",
+        "schedule.catch-up-latest",
+        "schedule.clock-rollback-no-reopen",
+        "schedule.uncertain-no-retry",
+        "schedule.human-only-denied",
+        "schedule.provider-outage-isolated",
+        "surface.cli-api-console-parity",
+        "browser.no-direct-effect",
+        "browser.artifact-private-free",
+        "suite.durable-boundary-complete",
+        "suite.no-hidden-quarantine",
+        "suite.deterministic-repeat"
+      ],
+      "environment": "fixture",
+      "expectedStatus": "pass"
+    },
+    {
+      "id": "gates.evidence-readiness",
+      "ownerIssue": 104,
+      "module": "gates",
+      "proofIds": [
+        "gate.invalid-evidence-denied",
+        "gate.expired-evidence-denied",
+        "gate.replaced-evidence-denied",
+        "gate.fixture-not-live",
+        "gate.not-applicable-not-pass"
+      ],
+      "environment": "fixture",
+      "expectedStatus": "pass"
+    },
+    {
+      "id": "secrets.consumer-bound-resolution",
+      "ownerIssue": 135,
+      "module": "credentials",
+      "proofIds": [
+        "credential.resolve-after-admission",
+        "credential.wrong-consumer-denied",
+        "credential.rotation-overlap-revoke",
+        "credential.clean-host-old-key-denied",
+        "credential.private-canary-redacted"
+      ],
+      "environment": "fixture",
+      "expectedStatus": "pass"
+    },
+    {
+      "id": "backup.local-recovery-points",
+      "ownerIssue": 117,
+      "module": "backup-local",
+      "proofIds": [
+        "backup.pending-not-verified",
+        "backup.capacity-never-prunes",
+        "backup.writer-lock-exclusive",
+        "backup.corruption-denied",
+        "backup.missing-key-denied",
+        "backup.local-restore-isolated",
+        "backup.local-retirement-survivors"
+      ],
+      "environment": "fixture",
+      "expectedStatus": "pass"
+    },
+    {
+      "id": "backup.offsite-generations-retention",
+      "ownerIssue": 118,
+      "module": "backup-offsite",
+      "proofIds": [
+        "offsite.session-expiry-seal",
+        "offsite.rule-drift-denied",
+        "offsite.rule-capacity-denied",
+        "offsite.partial-delete-uncertain",
+        "offsite.provider-outage-local-survives"
+      ],
+      "environment": "fixture",
+      "expectedStatus": "pass"
+    },
+    {
+      "id": "audit.tamper-evident-checkpoints",
+      "ownerIssue": 107,
+      "module": "audit",
+      "proofIds": [
+        "audit.concurrent-chain-single",
+        "audit.fork-incident",
+        "audit.rollback-incident",
+        "audit.bad-signature-incident",
+        "audit.export-failure-pending",
+        "audit.private-payload-redacted"
+      ],
+      "environment": "fixture",
+      "expectedStatus": "pass"
+    },
+    {
+      "id": "recovery.authority-fencing",
+      "ownerIssue": 108,
+      "module": "recovery",
+      "proofIds": [
+        "restore.pending-source-denied",
+        "restore.old-plan-denied",
+        "restore.old-writer-denied",
+        "restore.partial-fence-denied",
+        "restore.lost-suffix-explicit",
+        "restore.failed-canary-recovery-required",
+        "restore.single-authority"
+      ],
+      "environment": "fixture",
+      "expectedStatus": "pass"
+    },
+    {
+      "id": "scheduling.exact-policies",
+      "ownerIssue": 109,
+      "module": "schedule",
+      "proofIds": [
+        "schedule.overlap-single",
+        "schedule.catch-up-latest",
+        "schedule.clock-rollback-no-reopen",
+        "schedule.uncertain-no-retry",
+        "schedule.human-only-denied",
+        "schedule.provider-outage-isolated"
+      ],
+      "environment": "fixture",
+      "expectedStatus": "pass"
+    },
+    {
+      "id": "surface.cli-api-console-parity",
+      "ownerIssue": 110,
+      "module": "surface",
+      "proofIds": [
+        "surface.cli-api-console-parity",
+        "browser.no-direct-effect",
+        "browser.artifact-private-free"
+      ],
+      "environment": "fixture",
+      "expectedStatus": "pass"
+    },
+    {
+      "id": "shared.hostile-recovery-privacy",
+      "ownerIssue": 111,
+      "module": "shared",
+      "proofIds": [
+        "browser.artifact-private-free",
+        "suite.durable-boundary-complete",
+        "suite.no-hidden-quarantine",
+        "suite.deterministic-repeat"
+      ],
+      "environment": "fixture",
+      "expectedStatus": "pass"
+    },
+    {
+      "id": "shared.fixture-live-boundary",
+      "ownerIssue": 112,
+      "module": "shared",
+      "proofIds": [
+        "gate.fixture-not-live",
+        "browser.no-direct-effect",
+        "suite.no-hidden-quarantine"
+      ],
+      "environment": "fixture",
+      "expectedStatus": "pass"
+    }
+  ],
+  "proofCatalog": {
+    "path": "tooling/testdata/phase-5/acceptance-scenarios.json",
+    "evidence": "tooling/phase-5-evidence.json",
+    "expectedScenarioCount": 47,
+    "expectedStatus": "pass",
+    "quarantined": false
+  },
+  "commands": [
+    {
+      "id": "public-check-catalog",
+      "argv": [
+        "pnpm",
+        "check"
+      ],
+      "environment": "fixture",
+      "expectedStatus": "pass"
+    },
+    {
+      "id": "go-race-phase-5",
+      "argv": [
+        "go",
+        "test",
+        "-race",
+        "-count=1",
+        "./internal/backup",
+        "./internal/recovery",
+        "./internal/run",
+        "./internal/schedule",
+        "./internal/store"
+      ],
+      "environment": "fixture",
+      "expectedStatus": "pass"
+    }
+  ],
+  "artifacts": [
+    {
+      "id": "static-definition",
+      "path": "tooling/phase-5-exit-evidence.json",
+      "digestAtRuntime": true
+    },
+    {
+      "id": "phase-5-definition",
+      "path": "tooling/testdata/phase-5/acceptance-scenarios.json",
+      "digestAtRuntime": true
+    },
+    {
+      "id": "phase-5-acceptance",
+      "path": "tooling/phase-5-evidence.json",
+      "digestAtRuntime": true
+    },
+    {
+      "id": "accepted-phase-4-definition",
+      "path": "tooling/phase-4-exit-evidence.json",
+      "digestAtRuntime": true
+    },
+    {
+      "id": "command-registry",
+      "path": "schemas/v1/command-registry.json",
+      "digestAtRuntime": true
+    },
+    {
+      "id": "endpoint-registry",
+      "path": "schemas/v1/endpoint-registry.json",
+      "digestAtRuntime": true
+    },
+    {
+      "id": "generated-browser-client",
+      "path": "web/generated/read-api.ts",
+      "digestAtRuntime": true
+    },
+    {
+      "id": "console-asset-manifest",
+      "path": "internal/consoleassets/manifest.json",
+      "digestAtRuntime": true
+    },
+    {
+      "id": "phase-document",
+      "path": "docs/development/phases/05-evidence-secrets-backups-recovery.md",
+      "digestAtRuntime": true
+    }
+  ],
+  "limitations": [
+    {
+      "id": "g-007.live-secret-custody",
+      "environment": "live",
+      "status": "not-exercised",
+      "statement": "G-007 physical vault partitions, live secret-provider custody, provider access, and direct-provider denial remain unqualified by fixture proof."
+    },
+    {
+      "id": "g-008.live-recovery",
+      "environment": "live",
+      "status": "not-exercised",
+      "statement": "G-008 live storage, host, site, and authority-recovery operation remain unqualified by fixture proof."
+    },
+    {
+      "id": "phase-5.software-only",
+      "environment": "fixture",
+      "status": "not-exercised",
+      "statement": "This candidate proves software behavior with credential-free fixtures and disposable processes; it does not activate a live deployment gate."
+    }
+  ]
+}

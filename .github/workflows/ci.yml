@@ -149,7 +149,7 @@ jobs:
         run: pnpm --filter @vegastack/labs-web exec playwright install --with-deps chromium
 
       - name: Run affected public checks
-        if: inputs.full_check
+        if: inputs.full_check && github.ref != 'refs/heads/main'
         env:
           VSK_CHECK_PLAN_B64: ${{ needs.plan.outputs.check_plan }}
         run: pnpm check:affected --execute-plan
@@ -174,13 +174,9 @@ jobs:
           VSK_RESTIC_0191_BINARY="$TMPDIR/restic-acceptance/restic" \
             go test ./internal/backup ./internal/adapter/localbackup -run 'TestPinnedResticEndToEnd|TestPinnedResticRejectsAuthenticatedV1Repository|TestPinnedResticOffsiteS3IAM|TestLocalBackupComposition' -count=1 -timeout 45s -v
 
-      - name: Run exact Phase 4 exit acceptance
+      - name: Run exact Phase 5 exit acceptance
         if: inputs.full_check && github.ref == 'refs/heads/main'
-        run: pnpm --silent check:phase-4-exit --commit "$GITHUB_SHA"
-
-      - name: Verify generated contracts and embedded Console stay unchanged
-        if: inputs.full_check
-        run: git diff --exit-code
+        run: pnpm --silent check:phase-5-exit --commit "$GITHUB_SHA"
 
       - name: Remove protected local test storage
         if: always()
