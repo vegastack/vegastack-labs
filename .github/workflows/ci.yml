@@ -155,7 +155,7 @@ jobs:
         run: |
           git show 807fc6f027ca0a0a7c96230f5adddd20d756080a:.github/workflows/ci.yml > .github/workflows/ci.yml
           pnpm --filter @vegastack/labs-web build
-          pnpm --filter @vegastack/labs-web exec playwright test e2e/console.spec.ts --grep 'each route has a unique browser title' --reporter=line
+          VSK_PHASE3_PLAYWRIGHT_OUTPUT="$TMPDIR/phase3-visible" pnpm --filter @vegastack/labs-web exec playwright test --reporter=line
 
       - name: Run pinned local-backup acceptance
         if: github.event_name == 'workflow_dispatch' && inputs.backup_acceptance
