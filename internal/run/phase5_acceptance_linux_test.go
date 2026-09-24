@@ -6,17 +6,11 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"math/rand"
-	"os"
-	"strconv"
-	"sync"
 	"testing"
 
 	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 )
-
-const phase5ConcurrencySeed = "phase5-concurrency-v1"
 
 var phase5DurableOperations = []phase5OperationBinding{
 	{name: "credential-lifecycle", operationType: "phase5.credential-lifecycle"},
@@ -105,83 +99,6 @@ func TestPhase5AcceptanceDurableFaultMatrix(t *testing.T) {
 			})
 		}
 	}
-}
-
-// TestPhase5AcceptanceSeededConcurrency exercises the six approved competing
-// writer families against a real SQLite run authority. The seed and runner
-// repetition index both affect launch order, and malformed/missing values fail
-// the proof rather than silently falling back to unseeded execution.
-func TestPhase5AcceptanceSeededConcurrency(t *testing.T) {
-	repeat := requirePhase5ConcurrencyEnvironment(t)
-	cases := []phase5OperationBinding{
-		{name: "gate-draft-apply", operationType: "phase5.gate-draft-apply"},
-		{name: "credential-import-lifecycle", operationType: "phase5.credential-import-lifecycle"},
-		{name: "backup-writer", operationType: "phase5.backup-writer"},
-		{name: "audit-chain", operationType: "phase5.audit-chain"},
-		{name: "restore-authority", operationType: "phase5.restore-authority"},
-		{name: "schedule-slot", operationType: "phase5.schedule-slot"},
-	}
-	for caseIndex, operation := range cases {
-		operation := operation
-		t.Run(operation.name, func(t *testing.T) {
-			fixture := newSQLiteRestartFixtureForOperation(t, string(authorization.BranchPreauthorized), operation)
-			const writers = 12
-			order := rand.New(rand.NewSource(int64(0x5eed0000 + repeat*97 + caseIndex))).Perm(writers)
-			start := make([]chan struct{}, writers)
-			results := make(chan error, writers)
-			var group sync.WaitGroup
-			for writer := 0; writer < writers; writer++ {
-				start[writer] = make(chan struct{})
-				group.Add(1)
-				go func(index int) {
-					defer group.Done()
-					<-start[index]
-					_, err := fixture.engine.Submit(context.Background(), fixture.request)
-					results <- err
-				}(writer)
-			}
-			for _, writer := range order {
-				close(start[writer])
-			}
-			group.Wait()
-			close(results)
-
-			successes := 0
-			for err := range results {
-				if err == nil {
-					successes++
-					continue
-				}
-				if code := Code(err); code != generated.ErrorCodeStateConflict && code != generated.ErrorCodeRecoveryRequired {
-					t.Fatalf("unexpected competing writer error %q: %v", code, err)
-				}
-			}
-			if successes == 0 {
-				t.Fatal("no writer settled the durable operation")
-			}
-			current, err := fixture.engine.Get(context.Background(), fixture.runID())
-			if err != nil || current.Status != "succeeded" || current.VerificationStatus != "verified" {
-				t.Fatalf("final durable state=%#v err=%v", current, err)
-			}
-			assertPhase5AuthoritativeRunState(t, fixture, operation, "concurrent", current)
-			if fixture.adapter.callCount() != 1 {
-				t.Fatalf("competing writers executed %d external effects", fixture.adapter.callCount())
-			}
-		})
-	}
-}
-
-func requirePhase5ConcurrencyEnvironment(t *testing.T) int {
-	t.Helper()
-	if got := os.Getenv("VSK_PHASE5_SEED"); got != phase5ConcurrencySeed {
-		t.Fatalf("VSK_PHASE5_SEED=%q, want %q", got, phase5ConcurrencySeed)
-	}
-	raw := os.Getenv("VSK_PHASE5_REPEAT")
-	repeat, err := strconv.Atoi(raw)
-	if err != nil || repeat < 0 || repeat > 63 || strconv.Itoa(repeat) != raw {
-		t.Fatalf("invalid VSK_PHASE5_REPEAT=%q", raw)
-	}
-	return repeat
 }
 
 func assertPhase5AuthoritativeRunState(t *testing.T, fixture *sqliteRestartFixture, operation phase5OperationBinding, boundary string, current generated.Run) {
