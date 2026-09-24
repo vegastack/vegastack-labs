@@ -41,8 +41,11 @@ test("Phase 5 pages retain a useful no-JavaScript fallback", async ({ browser })
   const context = await browser.newContext({ javaScriptEnabled: false });
   const page = await context.newPage();
   for (const [route, command] of [["/gates", "vsk-labs gate list"], ["/backups", "vsk-labs backup status"], ["/audit", "vsk-labs audit checkpoints"]] as const) {
-    await page.goto(route);
-    await expect(page.getByText(command, { exact: false }).last()).toBeVisible();
+    const response = await page.goto(route);
+    expect(response).not.toBeNull();
+    const html = await response!.text();
+    expect(html).toContain("<noscript");
+    expect(html).toContain(command);
   }
   await context.close();
 });
