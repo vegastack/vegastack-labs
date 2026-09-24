@@ -714,16 +714,16 @@ func renderChangeClient(output *bytes.Buffer, endpoints []metadata.EndpointDefin
 }
 
 func renderPhase5Client(output *bytes.Buffer, endpoints []metadata.EndpointDefinition) {
-	output.WriteString("\n// Contract-only Phase 5 methods: endpoints remain planned until an owning issue implements them.\n")
+	output.WriteString("\n// Browser-authorized Phase 5 reads and inert drafts.\n")
 	output.WriteString("export type Phase5Client = {\n")
 	for _, endpoint := range endpoints {
-		if endpoint.OwnerPhase == "5" {
+		if endpoint.OwnerPhase == "5" && endpoint.Availability == metadata.AvailabilityAvailable {
 			fmt.Fprintf(output, "  readonly %s: %s;\n", browserMethodName(endpoint), browserMethodType(endpoint))
 		}
 	}
 	output.WriteString("};\n\nexport function createPhase5Client(fetchTransport: FetchTransport): Phase5Client {\n  return {\n")
 	for _, endpoint := range endpoints {
-		if endpoint.OwnerPhase == "5" {
+		if endpoint.OwnerPhase == "5" && endpoint.Availability == metadata.AvailabilityAvailable {
 			renderFiniteMethod(output, endpoint)
 		}
 	}
@@ -824,20 +824,30 @@ func browserMethodName(endpoint metadata.EndpointDefinition) string {
 	switch endpoint.ID {
 	case "api.v1.audit-checkpoints.list":
 		return "listAuditCheckpoints"
+	case "api.v1.audit-history.verification":
+		return "getAuditVerification"
 	case "api.v1.backups.status":
 		return "getBackupStatus"
+	case "api.v1.gate-evidence.create":
+		return "draftGateEvidence"
 	case "api.v1.gates.check":
 		return "checkGate"
 	case "api.v1.gates.get":
 		return "getGate"
 	case "api.v1.gates.list":
 		return "listGates"
-	case "api.v1.recovery-points.get":
-		return "getRecoveryPoint"
-	case "api.v1.restores.get":
-		return "getRestoreStatus"
+	case "api.v1.recovery-points.list":
+		return "listRecoveryPoints"
+	case "api.v1.restore-drafts.create":
+		return "draftRestore"
+	case "api.v1.restores.list":
+		return "listRestoreStatuses"
+	case "api.v1.scheduled-job-policies.list":
+		return "listScheduledJobPolicies"
 	case "api.v1.scheduled-job-policies.get":
 		return "getScheduledJobPolicy"
+	case "api.v1.scheduled-jobs.list":
+		return "listScheduledJobs"
 	case "api.v1.declarations.revise":
 		return "reviseDeclaration"
 	case "api.v1.declarations.get":

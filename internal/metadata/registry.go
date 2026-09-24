@@ -210,7 +210,7 @@ func Current() Registry {
 		backupRetirementDraftCommand(),
 		backupOffsiteRetirementStageCommand(),
 		backupOffsiteRetirementDryRunCommand(),
-		schedulePolicyDraftCommand(), scheduleDispatchCommand(), scheduleCancelCommand(),
+		scheduleListCommand(), scheduleInspectCommand(), schedulePolicyDraftCommand(), scheduleDispatchCommand(), scheduleCancelCommand(),
 		backupStatusCommand(), backupRunCommand(), backupVerifyCommand(),
 		restoreCommand("plan", restoreRequestSchemaID, restoreBindingSchemaID, "Create one immutable fenced restore plan."),
 		restoreCommand("run", restoreRunRequestSchemaID, restoreBindingSchemaID, "Stage one exact authorized restore candidate."),
@@ -237,7 +237,7 @@ func Current() Registry {
 	}
 
 	return Registry{
-		SchemaVersion:   "1.21.0",
+		SchemaVersion:   "1.22.0",
 		Commands:        commands,
 		Endpoints:       append(append(readEndpoints(), phase4Endpoints()...), phase5Endpoints()...),
 		GateDefinitions: CurrentGateDefinitions(),
@@ -326,13 +326,13 @@ func phase5GateCommand(path []string, summary, requestSchema, dataSchema string,
 }
 
 func auditCheckpointsCommand() CommandDefinition {
-	return phase5GateCommand([]string{"audit", "checkpoints"}, "List sanitized audit checkpoints.", "", auditCheckpointListDataSchemaID, RiskReadOnly,
+	return phase5GateCommand([]string{"audit", "checkpoints"}, "List sanitized audit checkpoints.", "", browserAuditCheckpointListDataSchemaID, RiskReadOnly,
 		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected server profile."}},
 		[]string{"audit", "checkpoints", "--config", "fixture/server-profile.json", "--output", "json"})
 }
 
 func auditVerifyCommand() CommandDefinition {
-	return phase5GateCommand([]string{"audit", "verify"}, "Verify local audit history against independent checkpoint state.", "", auditVerificationDataSchemaID, RiskReadOnly,
+	return phase5GateCommand([]string{"audit", "verify"}, "Verify local audit history against independent checkpoint state.", "", browserAuditVerificationDataSchemaID, RiskReadOnly,
 		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected server profile."}},
 		[]string{"audit", "verify", "--config", "fixture/server-profile.json", "--output", "json"})
 }
@@ -414,9 +414,21 @@ func backupOffsiteRetirementDryRunCommand() CommandDefinition {
 }
 
 func backupStatusCommand() CommandDefinition {
-	return phase5GateCommand([]string{"backup", "status"}, "Inspect local backup jobs and qualification status.", "", backupStatusDataSchemaID, RiskReadOnly,
+	return phase5GateCommand([]string{"backup", "status"}, "Inspect local backup jobs and qualification status.", "", browserBackupStatusDataSchemaID, RiskReadOnly,
 		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected server profile."}},
 		[]string{"backup", "status", "--config", "fixture/server-profile.json", "--output", "json"})
+}
+
+func scheduleListCommand() CommandDefinition {
+	return phase5GateCommand([]string{"schedule", "list"}, "List sanitized fixed scheduled policies.", "", browserScheduledJobPolicyListDataSchemaID, RiskReadOnly,
+		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected local server profile."}},
+		[]string{"schedule", "list", "--config", "fixture/server-profile.json", "--output", "json"})
+}
+
+func scheduleInspectCommand() CommandDefinition {
+	return phase5GateCommand([]string{"schedule", "inspect"}, "Inspect one sanitized fixed scheduled policy.", "", browserScheduledJobPolicySchemaID, RiskReadOnly,
+		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected local server profile."}, {Name: "--policy-id", Kind: FlagValue, ValueName: "id", Required: true, Summary: "Select one exact scheduled policy."}},
+		[]string{"schedule", "inspect", "--config", "fixture/server-profile.json", "--policy-id", "policy-a", "--output", "json"})
 }
 
 func schedulePolicyDraftCommand() CommandDefinition {

@@ -1,19 +1,19 @@
 {
-  "$id": "vegastack-labs.dev/browser-restore-status",
+  "$id": "vegastack-labs.dev/browser-scheduled-job",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
-    "planDigest": {
-      "pattern": "^sha256:[a-f0-9]{64}$",
-      "type": "string"
-    },
-    "planId": {
+    "jobId": {
       "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
       "type": "string"
     },
-    "pointId": {
+    "policyId": {
       "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
       "type": "string"
+    },
+    "policyRevision": {
+      "minimum": 1,
+      "type": "integer"
     },
     "reasonCode": {
       "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
@@ -23,14 +23,13 @@
       "minimum": 0,
       "type": "integer"
     },
-    "safeNextAction": {
-      "maxLength": 256,
-      "minLength": 1,
+    "scheduledAt": {
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
       "type": "string"
     },
     "schema": {
       "enum": [
-        "vegastack-labs.dev/browser-restore-status"
+        "vegastack-labs.dev/browser-scheduled-job"
       ],
       "type": "string"
     },
@@ -40,46 +39,43 @@
       ],
       "type": "string"
     },
+    "stateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    },
     "status": {
       "enum": [
-        "planned",
-        "fenced",
-        "restoring",
-        "verification-required",
-        "verified",
+        "queued",
+        "blocked",
+        "skipped",
+        "running",
+        "retry-wait",
+        "succeeded",
+        "cancelled",
         "failed",
         "uncertain"
       ],
       "type": "string"
     },
-    "targetDigest": {
-      "pattern": "^sha256:[a-f0-9]{64}$",
-      "type": "string"
-    },
-    "verificationStatus": {
-      "enum": [
-        "pending",
-        "incomplete",
-        "verified",
-        "failed"
-      ],
+    "windowClosesAt": {
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
       "type": "string"
     }
   },
   "required": [
     "schema",
     "schemaVersion",
-    "pointId",
-    "planId",
-    "planDigest",
-    "targetDigest",
+    "jobId",
+    "policyId",
+    "policyRevision",
     "status",
     "reasonCode",
-    "recoveryEpoch",
-    "verificationStatus",
-    "safeNextAction"
+    "scheduledAt",
+    "windowClosesAt",
+    "stateRevision",
+    "recoveryEpoch"
   ],
-  "title": "VegaStack Labs browser restore status",
+  "title": "VegaStack Labs browser scheduled job",
   "type": "object",
   "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
 }

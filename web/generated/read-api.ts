@@ -8,6 +8,7 @@
 // api.v1.declarations.plan-preparation.get
 // api.v1.declarations.revise
 // api.v1.events.stream
+// api.v1.gate-evidence.create
 // api.v1.gates.check
 // api.v1.gates.get
 // api.v1.gates.list
@@ -28,12 +29,15 @@
 // api.v1.plans.execute
 // api.v1.plans.get
 // api.v1.plans.run-resolution.get
-// api.v1.recovery-points.get
-// api.v1.restores.get
+// api.v1.recovery-points.list
+// api.v1.restore-drafts.create
+// api.v1.restores.list
 // api.v1.runs.cancel
 // api.v1.runs.get
 // api.v1.runs.resume
 // api.v1.scheduled-job-policies.get
+// api.v1.scheduled-job-policies.list
+// api.v1.scheduled-jobs.list
 // api.v1.sources.list
 // api.v1.summary.get
 
@@ -201,26 +205,20 @@ export interface ApprovalStatus {
   readonly "observedAt": string;
 }
 
-export interface AuditCheckpoint {
-  readonly "schema": "vegastack-labs.dev/audit-checkpoint";
-  readonly "schemaVersion": "1.1.0";
+export interface AuditTarget {
+  readonly "kind": string;
+  readonly "id": string;
+}
+
+export interface BrowserAuditCheckpoint {
+  readonly "schema": "vegastack-labs.dev/browser-audit-checkpoint";
+  readonly "schemaVersion": "1.0.0";
   readonly "checkpointId": string;
   readonly "firstEventId": number;
   readonly "lastEventId": number;
   readonly "chainDigest": string;
-  readonly "instanceId": string;
-  readonly "firstSegmentSequence": number;
-  readonly "lastSegmentSequence": number;
-  readonly "signerReferenceId": string;
-  readonly "signerMaterialVersion": string;
-  readonly "signatureDigest": string | null;
-  readonly "publicKeyId": string | null;
-  readonly "exportReceiptDigest": string | null;
-  readonly "independentReadDigest": string | null;
   readonly "status": "pending" | "signed" | "export-pending" | "anchored" | "degraded" | "incident";
   readonly "reasonCode": string;
-  readonly "preAnchor": boolean;
-  readonly "independentCopyDigest": string | null;
   readonly "sourceKind": "fixture" | "local" | "independent";
   readonly "proofClass": "fixture" | "live";
   readonly "verifiedAt": string | null;
@@ -228,149 +226,12 @@ export interface AuditCheckpoint {
   readonly "recoveryEpoch": number;
 }
 
-export interface AuditCheckpointListData {
-  readonly "schema": "vegastack-labs.dev/audit-checkpoint-list-data";
+export interface BrowserAuditCheckpointListData {
+  readonly "schema": "vegastack-labs.dev/browser-audit-checkpoint-list-data";
   readonly "schemaVersion": "1.0.0";
-  readonly "checkpoints": ReadonlyArray<AuditCheckpoint>;
-  readonly "recoveryEpoch": number;
-}
-
-export interface AuditTarget {
-  readonly "kind": string;
-  readonly "id": string;
-}
-
-export interface AuditVerificationData {
-  readonly "schema": "vegastack-labs.dev/audit-verification-data";
-  readonly "schemaVersion": "1.1.0";
-  readonly "status": "pending" | "anchored" | "degraded" | "incident";
-  readonly "instanceId": string;
-  readonly "recoveryEpoch": number;
-  readonly "localDigest": string;
-  readonly "independentDigest": string | null;
-  readonly "independentMatch": boolean;
-  readonly "lastAnchoredSequence": number;
-  readonly "reasonCode": string;
-  readonly "preAnchor": boolean;
-}
-
-export interface BackupDependency {
-  readonly "dependencyId": string;
-  readonly "kind": "binary" | "schema" | "config" | "image" | "signature";
-  readonly "digest": string;
-}
-
-export interface BackupJob {
-  readonly "schema": "vegastack-labs.dev/backup-job";
-  readonly "schemaVersion": "1.1.0";
-  readonly "jobId": string;
-  readonly "policyId": string;
-  readonly "sourceKind": "fixture" | "local" | "independent";
-  readonly "proofClass": "fixture" | "live";
-  readonly "pointId": string | null;
-  readonly "status": "queued" | "running" | "pending" | "failed" | "verified" | "uncertain";
-  readonly "runId": string | null;
-  readonly "recoveryEpoch": number;
-  readonly "verificationDigest": string | null;
-}
-
-export interface BackupLastGood {
-  readonly "schema": "vegastack-labs.dev/backup-last-good";
-  readonly "schemaVersion": "1.1.0";
-  readonly "repositoryClass": "standard" | "critical";
-  readonly "pointId": string;
-  readonly "verificationId": string;
-  readonly "manifestDigest": string;
-  readonly "recoveryEpoch": number;
-}
-
-export interface BackupLocalRetirementStatus {
-  readonly "schema": "vegastack-labs.dev/backup-local-retirement-status";
-  readonly "schemaVersion": "1.1.0";
-  readonly "intentId": string;
-  readonly "repositoryId": string;
-  readonly "repositoryClass": "standard" | "critical";
-  readonly "status": "planned" | "in-progress" | "uncertain" | "verified" | "failed";
-  readonly "selectionDigest": string;
-  readonly "lockCatalogDigest": string;
-  readonly "lockCatalogSequence": number;
-  readonly "sourceCoverageDigest": string;
-  readonly "expectedInventoryDigest": string;
-  readonly "targetPointIds": ReadonlyArray<string>;
-  readonly "survivorPointIds": ReadonlyArray<string>;
-  readonly "expectedReclaimBytes": number;
-  readonly "journalDigest": string | null;
-  readonly "survivorVerificationDigest": string | null;
-  readonly "recoveryEpoch": number;
-}
-
-export interface BackupOffsiteStatus {
-  readonly "schema": "vegastack-labs.dev/backup-offsite-status";
-  readonly "schemaVersion": "1.2.0";
-  readonly "generationId": string;
-  readonly "sourcePointId": string;
-  readonly "repositoryId": string;
-  readonly "snapshotId": string;
-  readonly "status": "pending" | "fixture-only" | "offsite-verified" | "full-payload-due" | "site-loss-blocked" | "uncertain" | "failed";
-  readonly "proofClass": "fixture" | "qualified-provider" | null;
-  readonly "lastGoodProofId": string | null;
-  readonly "retirementStatus": "planned" | "in-progress" | "uncertain" | "verified" | "failed" | null;
-  readonly "retirementReceiptDigest": string | null;
-  readonly "recoveryEpoch": number;
-}
-
-export interface BackupPolicy {
-  readonly "schema": "vegastack-labs.dev/backup-policy";
-  readonly "schemaVersion": "1.2.0";
-  readonly "policyId": string;
-  readonly "ownerId": string;
-  readonly "sourceId": string;
-  readonly "sourceSelectors": ReadonlyArray<string>;
-  readonly "consistencyHookId": string;
-  readonly "repositoryId": string | null;
-  readonly "repositoryClass": "none" | "standard" | "critical";
-  readonly "scheduleIntent": "manual" | "hourly" | "daily" | "weekly";
-  readonly "expectedBytes": number;
-  readonly "expectedGrowthBytes": number;
-  readonly "minimumFreeBytes": number;
-  readonly "encryptionKeyReferenceId": string | null;
-  readonly "recoveryKeyReferenceId": string | null;
-  readonly "retentionDays": number;
-  readonly "restoreTargetId": string;
-  readonly "dependencies": ReadonlyArray<BackupDependency>;
-  readonly "functionalTestRequired": boolean;
-  readonly "fullPayloadIntervalHours": number;
-  readonly "functionalTestIntervalHours": number;
-  readonly "recoveryEpoch": number;
-  readonly "revision": number;
-}
-
-export interface BackupStatusData {
-  readonly "schema": "vegastack-labs.dev/backup-status-data";
-  readonly "schemaVersion": "1.3.0";
-  readonly "policies": ReadonlyArray<BackupPolicy>;
-  readonly "jobs": ReadonlyArray<BackupJob>;
-  readonly "verifications": ReadonlyArray<BackupVerificationAttempt>;
-  readonly "lastGood": ReadonlyArray<BackupLastGood>;
-  readonly "retirements": ReadonlyArray<BackupLocalRetirementStatus>;
-  readonly "offsite": ReadonlyArray<BackupOffsiteStatus>;
-  readonly "recoveryEpoch": number;
-}
-
-export interface BackupVerificationAttempt {
-  readonly "schema": "vegastack-labs.dev/backup-verification-attempt";
-  readonly "schemaVersion": "1.2.0";
-  readonly "verificationId": string;
-  readonly "jobId": string;
-  readonly "pointId": string;
-  readonly "runId": string | null;
-  readonly "status": "pending" | "fixture-only" | "local-verified" | "full-payload-due" | "functional-test-due" | "uncertain" | "failed";
-  readonly "proofClass": "fixture" | "live";
-  readonly "verificationDigest": string | null;
-  readonly "verifiedAt": string | null;
-  readonly "fullPayloadDueAt": string | null;
-  readonly "functionalTestDueAt": string | null;
-  readonly "reasonCode": string | null;
+  readonly "items": ReadonlyArray<BrowserAuditCheckpoint>;
+  readonly "nextCursor": string | null;
+  readonly "stateRevision": number;
   readonly "recoveryEpoch": number;
 }
 
@@ -381,6 +242,35 @@ export interface BrowserAuditEvent {
   readonly "stateRevision": number;
   readonly "type": string;
   readonly "target": AuditTarget;
+}
+
+export interface BrowserAuditVerificationData {
+  readonly "schema": "vegastack-labs.dev/browser-audit-verification-data";
+  readonly "schemaVersion": "1.0.0";
+  readonly "status": "pending" | "anchored" | "degraded" | "incident";
+  readonly "reasonCode": string;
+  readonly "sourceKind": "none" | "independent";
+  readonly "proofClass": "none" | "live";
+  readonly "independentMatch": boolean;
+  readonly "lastAnchoredSequence": number;
+  readonly "preAnchor": boolean;
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
+  readonly "safeNextAction": string;
+}
+
+export interface BrowserBackupStatusData {
+  readonly "schema": "vegastack-labs.dev/browser-backup-status-data";
+  readonly "schemaVersion": "1.0.0";
+  readonly "status": "empty" | "pending" | "healthy" | "stale" | "failed" | "unavailable" | "recovery-required";
+  readonly "reasonCode": string;
+  readonly "sourceKind": "none" | "fixture" | "local" | "independent";
+  readonly "proofClass": "none" | "fixture" | "live";
+  readonly "lastGoodPointId": string | null;
+  readonly "recoveryRequired": boolean;
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
+  readonly "safeNextAction": string;
 }
 
 export interface BrowserDeclarationOperation {
@@ -409,6 +299,51 @@ export interface BrowserDeclarationRevision {
   readonly "extensions": ReadonlyArray<ContractExtension>;
 }
 
+export interface BrowserRecoveryPoint {
+  readonly "schema": "vegastack-labs.dev/browser-recovery-point";
+  readonly "schemaVersion": "1.0.0";
+  readonly "pointId": string;
+  readonly "sourceKind": "fixture" | "local" | "independent";
+  readonly "proofClass": "fixture" | "live";
+  readonly "contentDigest": string;
+  readonly "manifestDigest": string;
+  readonly "createdAt": string;
+  readonly "verifiedAt": string | null;
+  readonly "verificationStatus": "pending" | "verified" | "failed";
+  readonly "reasonCode": string;
+  readonly "recoveryEpoch": number;
+}
+
+export interface BrowserRecoveryPointListData {
+  readonly "schema": "vegastack-labs.dev/browser-recovery-point-list-data";
+  readonly "schemaVersion": "1.0.0";
+  readonly "items": ReadonlyArray<BrowserRecoveryPoint>;
+  readonly "nextCursor": string | null;
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
+}
+
+export interface BrowserRestoreDraftRequest {
+  readonly "schema": "vegastack-labs.dev/browser-restore-draft-request";
+  readonly "schemaVersion": "1.0.0";
+  readonly "expectedStateRevision": number;
+  readonly "recoveryEpoch": number;
+  readonly "targetDigest": string;
+  readonly "idempotencyKey": string;
+  readonly "pointId": string;
+}
+
+export interface BrowserRestoreDraftSubmission {
+  readonly "schema": "vegastack-labs.dev/browser-restore-draft-submission";
+  readonly "schemaVersion": "1.0.0";
+  readonly "draftId": string;
+  readonly "changeId": string;
+  readonly "pointId": string;
+  readonly "status": "draft";
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
+}
+
 export interface BrowserRestoreStatus {
   readonly "schema": "vegastack-labs.dev/browser-restore-status";
   readonly "schemaVersion": "1.0.0";
@@ -417,8 +352,19 @@ export interface BrowserRestoreStatus {
   readonly "planDigest": string;
   readonly "targetDigest": string;
   readonly "status": "planned" | "fenced" | "restoring" | "verification-required" | "verified" | "failed" | "uncertain";
+  readonly "reasonCode": string;
   readonly "recoveryEpoch": number;
   readonly "verificationStatus": "pending" | "incomplete" | "verified" | "failed";
+  readonly "safeNextAction": string;
+}
+
+export interface BrowserRestoreStatusListData {
+  readonly "schema": "vegastack-labs.dev/browser-restore-status-list-data";
+  readonly "schemaVersion": "1.0.0";
+  readonly "items": ReadonlyArray<BrowserRestoreStatus>;
+  readonly "nextCursor": string | null;
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
 }
 
 export interface BrowserRun {
@@ -467,6 +413,51 @@ export interface BrowserRunStep {
   readonly "stepId": string;
   readonly "status": "cancelled" | "failed" | "interrupted" | "partial" | "queued" | "running" | "succeeded";
   readonly "progressState": "not-started" | "started" | "unverified" | "verified" | "unknown";
+}
+
+export interface BrowserScheduledJob {
+  readonly "schema": "vegastack-labs.dev/browser-scheduled-job";
+  readonly "schemaVersion": "1.0.0";
+  readonly "jobId": string;
+  readonly "policyId": string;
+  readonly "policyRevision": number;
+  readonly "status": "queued" | "blocked" | "skipped" | "running" | "retry-wait" | "succeeded" | "cancelled" | "failed" | "uncertain";
+  readonly "reasonCode": string;
+  readonly "scheduledAt": string;
+  readonly "windowClosesAt": string;
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
+}
+
+export interface BrowserScheduledJobListData {
+  readonly "schema": "vegastack-labs.dev/browser-scheduled-job-list-data";
+  readonly "schemaVersion": "1.0.0";
+  readonly "items": ReadonlyArray<BrowserScheduledJob>;
+  readonly "nextCursor": string | null;
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
+}
+
+export interface BrowserScheduledJobPolicy {
+  readonly "schema": "vegastack-labs.dev/browser-scheduled-job-policy";
+  readonly "schemaVersion": "1.0.0";
+  readonly "policyId": string;
+  readonly "revision": number;
+  readonly "actionKind": "gate-check" | "observation-refresh" | "backup-create" | "backup-integrity-verify" | "audit-checkpoint-export";
+  readonly "enabled": boolean;
+  readonly "status": "active" | "disabled";
+  readonly "reasonCode": string;
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
+}
+
+export interface BrowserScheduledJobPolicyListData {
+  readonly "schema": "vegastack-labs.dev/browser-scheduled-job-policy-list-data";
+  readonly "schemaVersion": "1.0.0";
+  readonly "items": ReadonlyArray<BrowserScheduledJobPolicy>;
+  readonly "nextCursor": string | null;
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
 }
 
 export interface ContractExtension {
@@ -554,6 +545,70 @@ export interface GateEvaluation {
   readonly "reasonCode": string;
   readonly "evidenceSource": "none" | "fixture" | "local" | "independent";
   readonly "readyForInput": boolean;
+}
+
+export interface GateEvidenceAttachment {
+  readonly "schema": "vegastack-labs.dev/gate-evidence-attachment";
+  readonly "schemaVersion": "1.1.0";
+  readonly "digest": string;
+  readonly "sizeBytes": number;
+  readonly "mediaType": string;
+}
+
+export interface GateEvidenceBundle {
+  readonly "schema": "vegastack-labs.dev/gate-evidence-bundle";
+  readonly "schemaVersion": "1.1.0";
+  readonly "facts": ReadonlyArray<GateEvidenceFact>;
+  readonly "checks": ReadonlyArray<GateEvidenceCheck>;
+  readonly "attachments": ReadonlyArray<GateEvidenceAttachment>;
+  readonly "collectorId": string;
+  readonly "observedAt": string;
+}
+
+export interface GateEvidenceCheck {
+  readonly "schema": "vegastack-labs.dev/gate-evidence-check";
+  readonly "schemaVersion": "1.1.0";
+  readonly "checkId": string;
+  readonly "verifierVersion": string;
+  readonly "result": "passed" | "failed" | "unknown";
+  readonly "resultDigest": string;
+}
+
+export interface GateEvidenceFact {
+  readonly "schema": "vegastack-labs.dev/gate-evidence-fact";
+  readonly "schemaVersion": "1.1.0";
+  readonly "factId": string;
+  readonly "valueDigest": string;
+}
+
+export interface GateEvidenceRequest {
+  readonly "schema": "vegastack-labs.dev/gate-evidence-request";
+  readonly "schemaVersion": "1.1.0";
+  readonly "expectedStateRevision": number;
+  readonly "recoveryEpoch": number;
+  readonly "targetDigest": string;
+  readonly "idempotencyKey": string;
+  readonly "evidenceId": string;
+  readonly "gateId": string;
+  readonly "subjectId": string;
+  readonly "definitionVersion": string;
+  readonly "evaluatorVersion": string;
+  readonly "supersedesEvidenceId": string | null;
+  readonly "revokesEvidenceId": string | null;
+  readonly "artifactDigest": string;
+  readonly "observedAt": string;
+  readonly "bundle": GateEvidenceBundle;
+}
+
+export interface GateEvidenceSubmission {
+  readonly "schema": "vegastack-labs.dev/gate-evidence-submission";
+  readonly "schemaVersion": "1.1.0";
+  readonly "draftId": string;
+  readonly "changeId": string;
+  readonly "evidenceId": string;
+  readonly "status": "draft";
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
 }
 
 export interface GateListData {
@@ -684,21 +739,6 @@ export interface PlanReferenceRequest {
   readonly "extensions": ReadonlyArray<ContractExtension>;
 }
 
-export interface RecoveryPoint {
-  readonly "schema": "vegastack-labs.dev/recovery-point";
-  readonly "schemaVersion": "1.1.0";
-  readonly "pointId": string;
-  readonly "sourceKind": "fixture" | "local" | "independent";
-  readonly "proofClass": "fixture" | "live";
-  readonly "contentDigest": string;
-  readonly "manifestDigest": string;
-  readonly "createdAt": string;
-  readonly "verifiedAt": string | null;
-  readonly "verificationStatus": "pending" | "verified" | "failed";
-  readonly "recoveryEpoch": number;
-  readonly "dependencies": ReadonlyArray<string>;
-}
-
 export interface ResultError {
   readonly "code": "APPROVAL_REQUIRED" | "AUTHENTICATION_REQUIRED" | "AUTHORIZATION_DENIED" | "DEPENDENCY_UNAVAILABLE" | "EVIDENCE_EXPIRED" | "EVIDENCE_INVALID" | "EXECUTION_FAILED" | "EXECUTION_PARTIAL" | "GATE_BLOCKED" | "INPUT_INVALID" | "INTEGRITY_FAILURE" | "INTERRUPTED" | "MIGRATION_BLOCKED" | "PLAN_STALE" | "PREREQUISITE_BLOCKED" | "RATE_LIMITED" | "RECOVERY_EPOCH_MISMATCH" | "RECOVERY_REQUIRED" | "RESOURCE_NOT_FOUND" | "SCHEMA_UNSUPPORTED" | "SESSION_EXPIRED" | "STATE_CONFLICT" | "TARGET_UNREACHABLE" | "UNSUPPORTED_PLATFORM" | "VERSION_INCOMPATIBLE";
   readonly "target": string;
@@ -719,38 +759,6 @@ export interface RunReferenceRequest {
   readonly "idempotencyKey": string;
   readonly "recoveryEpoch": number;
   readonly "extensions": ReadonlyArray<ContractExtension>;
-}
-
-export interface ScheduledJobPolicy {
-  readonly "schema": "vegastack-labs.dev/scheduled-job-policy";
-  readonly "schemaVersion": "1.1.0";
-  readonly "policyId": string;
-  readonly "revision": number;
-  readonly "declarationId": string;
-  readonly "declarationRevision": number;
-  readonly "actionKind": "gate-check" | "observation-refresh" | "backup-create" | "backup-integrity-verify" | "audit-checkpoint-export";
-  readonly "operationType": string;
-  readonly "adapterId": string;
-  readonly "exactSourceIds": ReadonlyArray<string>;
-  readonly "exactSubjectIds": ReadonlyArray<string>;
-  readonly "exactTargetIds": ReadonlyArray<string>;
-  readonly "maximumWork": number;
-  readonly "credentialReferenceIds": ReadonlyArray<string>;
-  readonly "grantRevision": number;
-  readonly "stateRevision": number;
-  readonly "recoveryEpoch": number;
-  readonly "policyVersion": string;
-  readonly "retentionRuleDigest": string;
-  readonly "anchorAt": string;
-  readonly "intervalSeconds": number;
-  readonly "windowSeconds": number;
-  readonly "catchUp": "none" | "latest";
-  readonly "concurrency": "forbid";
-  readonly "maxAttempts": number;
-  readonly "initialBackoffSeconds": number;
-  readonly "maximumBackoffSeconds": number;
-  readonly "expiresAt": string;
-  readonly "enabled": boolean;
 }
 
 export interface ServerStatusData {
@@ -1698,7 +1706,28 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
-    "id": "vegastack-labs.dev/audit-checkpoint",
+    "id": "vegastack-labs.dev/audit-target",
+    "fields": [
+      {
+        "name": "kind",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+        "maxLength": 64
+      },
+      {
+        "name": "id",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+        "maxLength": 128
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/browser-audit-checkpoint",
     "fields": [
       {
         "name": "schema",
@@ -1706,7 +1735,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "enum": [
-          "vegastack-labs.dev/audit-checkpoint"
+          "vegastack-labs.dev/browser-audit-checkpoint"
         ]
       },
       {
@@ -1715,7 +1744,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "enum": [
-          "1.1.0"
+          "1.0.0"
         ]
       },
       {
@@ -1747,69 +1776,6 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "pattern": "^sha256:[a-f0-9]{64}$"
       },
       {
-        "name": "instanceId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "firstSegmentSequence",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 1
-      },
-      {
-        "name": "lastSegmentSequence",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 1
-      },
-      {
-        "name": "signerReferenceId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "signerMaterialVersion",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "signatureDigest",
-        "kind": "string",
-        "required": true,
-        "nullable": true,
-        "pattern": "^sha256:[a-f0-9]{64}$"
-      },
-      {
-        "name": "publicKeyId",
-        "kind": "string",
-        "required": true,
-        "nullable": true,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "exportReceiptDigest",
-        "kind": "string",
-        "required": true,
-        "nullable": true,
-        "pattern": "^sha256:[a-f0-9]{64}$"
-      },
-      {
-        "name": "independentReadDigest",
-        "kind": "string",
-        "required": true,
-        "nullable": true,
-        "pattern": "^sha256:[a-f0-9]{64}$"
-      },
-      {
         "name": "status",
         "kind": "string",
         "required": true,
@@ -1829,19 +1795,6 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "preAnchor",
-        "kind": "boolean",
-        "required": true,
-        "nullable": false
-      },
-      {
-        "name": "independentCopyDigest",
-        "kind": "string",
-        "required": true,
-        "nullable": true,
-        "pattern": "^sha256:[a-f0-9]{64}$"
       },
       {
         "name": "sourceKind",
@@ -1892,7 +1845,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
-    "id": "vegastack-labs.dev/audit-checkpoint-list-data",
+    "id": "vegastack-labs.dev/browser-audit-checkpoint-list-data",
     "fields": [
       {
         "name": "schema",
@@ -1900,7 +1853,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "enum": [
-          "vegastack-labs.dev/audit-checkpoint-list-data"
+          "vegastack-labs.dev/browser-audit-checkpoint-list-data"
         ]
       },
       {
@@ -1913,945 +1866,26 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         ]
       },
       {
-        "name": "checkpoints",
+        "name": "items",
         "kind": "array",
         "required": true,
         "nullable": false,
-        "itemRef": "vegastack-labs.dev/audit-checkpoint",
-        "maxItems": 256
+        "itemRef": "vegastack-labs.dev/browser-audit-checkpoint",
+        "maxItems": 100
       },
       {
-        "name": "recoveryEpoch",
+        "name": "nextCursor",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "maxLength": 2048
+      },
+      {
+        "name": "stateRevision",
         "kind": "integer",
         "required": true,
         "nullable": false,
         "minimum": 0
-      }
-    ]
-  },
-  {
-    "id": "vegastack-labs.dev/audit-target",
-    "fields": [
-      {
-        "name": "kind",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
-        "maxLength": 64
-      },
-      {
-        "name": "id",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
-        "maxLength": 128
-      }
-    ]
-  },
-  {
-    "id": "vegastack-labs.dev/audit-verification-data",
-    "fields": [
-      {
-        "name": "schema",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "vegastack-labs.dev/audit-verification-data"
-        ]
-      },
-      {
-        "name": "schemaVersion",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "1.1.0"
-        ]
-      },
-      {
-        "name": "status",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "pending",
-          "anchored",
-          "degraded",
-          "incident"
-        ]
-      },
-      {
-        "name": "instanceId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "recoveryEpoch",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 0
-      },
-      {
-        "name": "localDigest",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^sha256:[a-f0-9]{64}$"
-      },
-      {
-        "name": "independentDigest",
-        "kind": "string",
-        "required": true,
-        "nullable": true,
-        "pattern": "^sha256:[a-f0-9]{64}$"
-      },
-      {
-        "name": "independentMatch",
-        "kind": "boolean",
-        "required": true,
-        "nullable": false
-      },
-      {
-        "name": "lastAnchoredSequence",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 0
-      },
-      {
-        "name": "reasonCode",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "preAnchor",
-        "kind": "boolean",
-        "required": true,
-        "nullable": false
-      }
-    ]
-  },
-  {
-    "id": "vegastack-labs.dev/backup-dependency",
-    "fields": [
-      {
-        "name": "dependencyId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "kind",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "binary",
-          "schema",
-          "config",
-          "image",
-          "signature"
-        ]
-      },
-      {
-        "name": "digest",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^sha256:[a-f0-9]{64}$"
-      }
-    ]
-  },
-  {
-    "id": "vegastack-labs.dev/backup-job",
-    "fields": [
-      {
-        "name": "schema",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "vegastack-labs.dev/backup-job"
-        ]
-      },
-      {
-        "name": "schemaVersion",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "1.1.0"
-        ]
-      },
-      {
-        "name": "jobId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "policyId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "sourceKind",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "fixture",
-          "local",
-          "independent"
-        ]
-      },
-      {
-        "name": "proofClass",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "fixture",
-          "live"
-        ]
-      },
-      {
-        "name": "pointId",
-        "kind": "string",
-        "required": true,
-        "nullable": true,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "status",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "queued",
-          "running",
-          "pending",
-          "failed",
-          "verified",
-          "uncertain"
-        ]
-      },
-      {
-        "name": "runId",
-        "kind": "string",
-        "required": true,
-        "nullable": true,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "recoveryEpoch",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 0
-      },
-      {
-        "name": "verificationDigest",
-        "kind": "string",
-        "required": true,
-        "nullable": true,
-        "pattern": "^sha256:[a-f0-9]{64}$"
-      }
-    ]
-  },
-  {
-    "id": "vegastack-labs.dev/backup-last-good",
-    "fields": [
-      {
-        "name": "schema",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "vegastack-labs.dev/backup-last-good"
-        ]
-      },
-      {
-        "name": "schemaVersion",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "1.1.0"
-        ]
-      },
-      {
-        "name": "repositoryClass",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "standard",
-          "critical"
-        ]
-      },
-      {
-        "name": "pointId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "verificationId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "manifestDigest",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^sha256:[a-f0-9]{64}$"
-      },
-      {
-        "name": "recoveryEpoch",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 0
-      }
-    ]
-  },
-  {
-    "id": "vegastack-labs.dev/backup-local-retirement-status",
-    "fields": [
-      {
-        "name": "schema",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "vegastack-labs.dev/backup-local-retirement-status"
-        ]
-      },
-      {
-        "name": "schemaVersion",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "1.1.0"
-        ]
-      },
-      {
-        "name": "intentId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "repositoryId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "repositoryClass",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "standard",
-          "critical"
-        ]
-      },
-      {
-        "name": "status",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "planned",
-          "in-progress",
-          "uncertain",
-          "verified",
-          "failed"
-        ]
-      },
-      {
-        "name": "selectionDigest",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^sha256:[a-f0-9]{64}$"
-      },
-      {
-        "name": "lockCatalogDigest",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^sha256:[a-f0-9]{64}$"
-      },
-      {
-        "name": "lockCatalogSequence",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 1
-      },
-      {
-        "name": "sourceCoverageDigest",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^sha256:[a-f0-9]{64}$"
-      },
-      {
-        "name": "expectedInventoryDigest",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^sha256:[a-f0-9]{64}$"
-      },
-      {
-        "name": "targetPointIds",
-        "kind": "array",
-        "required": true,
-        "nullable": false,
-        "itemKind": "string",
-        "maxItems": 256,
-        "uniqueItems": true
-      },
-      {
-        "name": "survivorPointIds",
-        "kind": "array",
-        "required": true,
-        "nullable": false,
-        "itemKind": "string",
-        "maxItems": 256,
-        "uniqueItems": true
-      },
-      {
-        "name": "expectedReclaimBytes",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 0
-      },
-      {
-        "name": "journalDigest",
-        "kind": "string",
-        "required": true,
-        "nullable": true,
-        "pattern": "^sha256:[a-f0-9]{64}$"
-      },
-      {
-        "name": "survivorVerificationDigest",
-        "kind": "string",
-        "required": true,
-        "nullable": true,
-        "pattern": "^sha256:[a-f0-9]{64}$"
-      },
-      {
-        "name": "recoveryEpoch",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 0
-      }
-    ]
-  },
-  {
-    "id": "vegastack-labs.dev/backup-offsite-status",
-    "fields": [
-      {
-        "name": "schema",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "vegastack-labs.dev/backup-offsite-status"
-        ]
-      },
-      {
-        "name": "schemaVersion",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "1.2.0"
-        ]
-      },
-      {
-        "name": "generationId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "sourcePointId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "repositoryId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "snapshotId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-f0-9]{64}$"
-      },
-      {
-        "name": "status",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "pending",
-          "fixture-only",
-          "offsite-verified",
-          "full-payload-due",
-          "site-loss-blocked",
-          "uncertain",
-          "failed"
-        ]
-      },
-      {
-        "name": "proofClass",
-        "kind": "string",
-        "required": true,
-        "nullable": true,
-        "enum": [
-          "fixture",
-          "qualified-provider"
-        ]
-      },
-      {
-        "name": "lastGoodProofId",
-        "kind": "string",
-        "required": true,
-        "nullable": true,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "retirementStatus",
-        "kind": "string",
-        "required": true,
-        "nullable": true,
-        "enum": [
-          "planned",
-          "in-progress",
-          "uncertain",
-          "verified",
-          "failed"
-        ]
-      },
-      {
-        "name": "retirementReceiptDigest",
-        "kind": "string",
-        "required": true,
-        "nullable": true,
-        "pattern": "^sha256:[a-f0-9]{64}$"
-      },
-      {
-        "name": "recoveryEpoch",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 0
-      }
-    ]
-  },
-  {
-    "id": "vegastack-labs.dev/backup-policy",
-    "fields": [
-      {
-        "name": "schema",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "vegastack-labs.dev/backup-policy"
-        ]
-      },
-      {
-        "name": "schemaVersion",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "1.2.0"
-        ]
-      },
-      {
-        "name": "policyId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "ownerId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "sourceId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "sourceSelectors",
-        "kind": "array",
-        "required": true,
-        "nullable": false,
-        "itemKind": "string",
-        "maxItems": 64,
-        "uniqueItems": true
-      },
-      {
-        "name": "consistencyHookId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "repositoryId",
-        "kind": "string",
-        "required": true,
-        "nullable": true,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "repositoryClass",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "none",
-          "standard",
-          "critical"
-        ]
-      },
-      {
-        "name": "scheduleIntent",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "manual",
-          "hourly",
-          "daily",
-          "weekly"
-        ]
-      },
-      {
-        "name": "expectedBytes",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 0
-      },
-      {
-        "name": "expectedGrowthBytes",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 0
-      },
-      {
-        "name": "minimumFreeBytes",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 0
-      },
-      {
-        "name": "encryptionKeyReferenceId",
-        "kind": "string",
-        "required": true,
-        "nullable": true,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "recoveryKeyReferenceId",
-        "kind": "string",
-        "required": true,
-        "nullable": true,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "retentionDays",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 0
-      },
-      {
-        "name": "restoreTargetId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "dependencies",
-        "kind": "array",
-        "required": true,
-        "nullable": false,
-        "itemRef": "vegastack-labs.dev/backup-dependency",
-        "maxItems": 64
-      },
-      {
-        "name": "functionalTestRequired",
-        "kind": "boolean",
-        "required": true,
-        "nullable": false
-      },
-      {
-        "name": "fullPayloadIntervalHours",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 0,
-        "maximum": 8760
-      },
-      {
-        "name": "functionalTestIntervalHours",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 0,
-        "maximum": 8760
-      },
-      {
-        "name": "recoveryEpoch",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 0
-      },
-      {
-        "name": "revision",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 1
-      }
-    ]
-  },
-  {
-    "id": "vegastack-labs.dev/backup-status-data",
-    "fields": [
-      {
-        "name": "schema",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "vegastack-labs.dev/backup-status-data"
-        ]
-      },
-      {
-        "name": "schemaVersion",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "1.3.0"
-        ]
-      },
-      {
-        "name": "policies",
-        "kind": "array",
-        "required": true,
-        "nullable": false,
-        "itemRef": "vegastack-labs.dev/backup-policy",
-        "maxItems": 256
-      },
-      {
-        "name": "jobs",
-        "kind": "array",
-        "required": true,
-        "nullable": false,
-        "itemRef": "vegastack-labs.dev/backup-job",
-        "maxItems": 256
-      },
-      {
-        "name": "verifications",
-        "kind": "array",
-        "required": true,
-        "nullable": false,
-        "itemRef": "vegastack-labs.dev/backup-verification-attempt",
-        "maxItems": 256
-      },
-      {
-        "name": "lastGood",
-        "kind": "array",
-        "required": true,
-        "nullable": false,
-        "itemRef": "vegastack-labs.dev/backup-last-good",
-        "maxItems": 16
-      },
-      {
-        "name": "retirements",
-        "kind": "array",
-        "required": true,
-        "nullable": false,
-        "itemRef": "vegastack-labs.dev/backup-local-retirement-status",
-        "maxItems": 256
-      },
-      {
-        "name": "offsite",
-        "kind": "array",
-        "required": true,
-        "nullable": false,
-        "itemRef": "vegastack-labs.dev/backup-offsite-status",
-        "maxItems": 256
-      },
-      {
-        "name": "recoveryEpoch",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 0
-      }
-    ]
-  },
-  {
-    "id": "vegastack-labs.dev/backup-verification-attempt",
-    "fields": [
-      {
-        "name": "schema",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "vegastack-labs.dev/backup-verification-attempt"
-        ]
-      },
-      {
-        "name": "schemaVersion",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "1.2.0"
-        ]
-      },
-      {
-        "name": "verificationId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "jobId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "pointId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "runId",
-        "kind": "string",
-        "required": true,
-        "nullable": true,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "status",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "pending",
-          "fixture-only",
-          "local-verified",
-          "full-payload-due",
-          "functional-test-due",
-          "uncertain",
-          "failed"
-        ]
-      },
-      {
-        "name": "proofClass",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "fixture",
-          "live"
-        ]
-      },
-      {
-        "name": "verificationDigest",
-        "kind": "string",
-        "required": true,
-        "nullable": true,
-        "pattern": "^sha256:[a-f0-9]{64}$"
-      },
-      {
-        "name": "verifiedAt",
-        "kind": "string",
-        "required": true,
-        "nullable": true,
-        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
-      },
-      {
-        "name": "fullPayloadDueAt",
-        "kind": "string",
-        "required": true,
-        "nullable": true,
-        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
-      },
-      {
-        "name": "functionalTestDueAt",
-        "kind": "string",
-        "required": true,
-        "nullable": true,
-        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
-      },
-      {
-        "name": "reasonCode",
-        "kind": "string",
-        "required": true,
-        "nullable": true,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
       },
       {
         "name": "recoveryEpoch",
@@ -2906,6 +1940,212 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "ref": "vegastack-labs.dev/audit-target"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/browser-audit-verification-data",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/browser-audit-verification-data"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "status",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "pending",
+          "anchored",
+          "degraded",
+          "incident"
+        ]
+      },
+      {
+        "name": "reasonCode",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "sourceKind",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "none",
+          "independent"
+        ]
+      },
+      {
+        "name": "proofClass",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "none",
+          "live"
+        ]
+      },
+      {
+        "name": "independentMatch",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "lastAnchoredSequence",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "preAnchor",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "safeNextAction",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 256
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/browser-backup-status-data",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/browser-backup-status-data"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "status",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "empty",
+          "pending",
+          "healthy",
+          "stale",
+          "failed",
+          "unavailable",
+          "recovery-required"
+        ]
+      },
+      {
+        "name": "reasonCode",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "sourceKind",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "none",
+          "fixture",
+          "local",
+          "independent"
+        ]
+      },
+      {
+        "name": "proofClass",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "none",
+          "fixture",
+          "live"
+        ]
+      },
+      {
+        "name": "lastGoodPointId",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "recoveryRequired",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "safeNextAction",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 256
       }
     ]
   },
@@ -3070,6 +2310,287 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/browser-recovery-point",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/browser-recovery-point"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "pointId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "sourceKind",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "fixture",
+          "local",
+          "independent"
+        ]
+      },
+      {
+        "name": "proofClass",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "fixture",
+          "live"
+        ]
+      },
+      {
+        "name": "contentDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "manifestDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "createdAt",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      {
+        "name": "verifiedAt",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      {
+        "name": "verificationStatus",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "pending",
+          "verified",
+          "failed"
+        ]
+      },
+      {
+        "name": "reasonCode",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/browser-recovery-point-list-data",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/browser-recovery-point-list-data"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "items",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/browser-recovery-point",
+        "maxItems": 100
+      },
+      {
+        "name": "nextCursor",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "maxLength": 2048
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/browser-restore-draft-request",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/browser-restore-draft-request"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "expectedStateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "targetDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "idempotencyKey",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "pointId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/browser-restore-draft-submission",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/browser-restore-draft-submission"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "draftId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "changeId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "pointId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "status",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "draft"
+        ]
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/browser-restore-status",
     "fields": [
       {
@@ -3134,6 +2655,13 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         ]
       },
       {
+        "name": "reasonCode",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
         "name": "recoveryEpoch",
         "kind": "integer",
         "required": true,
@@ -3151,6 +2679,66 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
           "verified",
           "failed"
         ]
+      },
+      {
+        "name": "safeNextAction",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 256
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/browser-restore-status-list-data",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/browser-restore-status-list-data"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "items",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/browser-restore-status",
+        "maxItems": 100
+      },
+      {
+        "name": "nextCursor",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "maxLength": 2048
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
       }
     ]
   },
@@ -3479,6 +3067,293 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
           "verified",
           "unknown"
         ]
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/browser-scheduled-job",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/browser-scheduled-job"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "jobId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "policyId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "policyRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "status",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "queued",
+          "blocked",
+          "skipped",
+          "running",
+          "retry-wait",
+          "succeeded",
+          "cancelled",
+          "failed",
+          "uncertain"
+        ]
+      },
+      {
+        "name": "reasonCode",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "scheduledAt",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      {
+        "name": "windowClosesAt",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/browser-scheduled-job-list-data",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/browser-scheduled-job-list-data"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "items",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/browser-scheduled-job",
+        "maxItems": 100
+      },
+      {
+        "name": "nextCursor",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "maxLength": 2048
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/browser-scheduled-job-policy",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/browser-scheduled-job-policy"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "policyId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "revision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "actionKind",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "gate-check",
+          "observation-refresh",
+          "backup-create",
+          "backup-integrity-verify",
+          "audit-checkpoint-export"
+        ]
+      },
+      {
+        "name": "enabled",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "status",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "active",
+          "disabled"
+        ]
+      },
+      {
+        "name": "reasonCode",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/browser-scheduled-job-policy-list-data",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/browser-scheduled-job-policy-list-data"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "items",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/browser-scheduled-job-policy",
+        "maxItems": 100
+      },
+      {
+        "name": "nextCursor",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "maxLength": 2048
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
       }
     ]
   },
@@ -4022,6 +3897,391 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "boolean",
         "required": true,
         "nullable": false
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/gate-evidence-attachment",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/gate-evidence-attachment"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.1.0"
+        ]
+      },
+      {
+        "name": "digest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "sizeBytes",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "mediaType",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "maxLength": 128
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/gate-evidence-bundle",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/gate-evidence-bundle"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.1.0"
+        ]
+      },
+      {
+        "name": "facts",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/gate-evidence-fact",
+        "maxItems": 64
+      },
+      {
+        "name": "checks",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/gate-evidence-check",
+        "maxItems": 64
+      },
+      {
+        "name": "attachments",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/gate-evidence-attachment",
+        "maxItems": 16
+      },
+      {
+        "name": "collectorId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "observedAt",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/gate-evidence-check",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/gate-evidence-check"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.1.0"
+        ]
+      },
+      {
+        "name": "checkId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "verifierVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"
+      },
+      {
+        "name": "result",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "passed",
+          "failed",
+          "unknown"
+        ]
+      },
+      {
+        "name": "resultDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/gate-evidence-fact",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/gate-evidence-fact"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.1.0"
+        ]
+      },
+      {
+        "name": "factId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "valueDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/gate-evidence-request",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/gate-evidence-request"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.1.0"
+        ]
+      },
+      {
+        "name": "expectedStateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "targetDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "idempotencyKey",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "evidenceId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "gateId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^(G-[0-9]{3}|[a-z][a-z0-9._:-]{0,127})$"
+      },
+      {
+        "name": "subjectId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "definitionVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"
+      },
+      {
+        "name": "evaluatorVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"
+      },
+      {
+        "name": "supersedesEvidenceId",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "revokesEvidenceId",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "artifactDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "observedAt",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      {
+        "name": "bundle",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/gate-evidence-bundle"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/gate-evidence-submission",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/gate-evidence-submission"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.1.0"
+        ]
+      },
+      {
+        "name": "draftId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "changeId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "evidenceId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "status",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "draft"
+        ]
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
       }
     ]
   },
@@ -4800,112 +5060,6 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
-    "id": "vegastack-labs.dev/recovery-point",
-    "fields": [
-      {
-        "name": "schema",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "vegastack-labs.dev/recovery-point"
-        ]
-      },
-      {
-        "name": "schemaVersion",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "1.1.0"
-        ]
-      },
-      {
-        "name": "pointId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "sourceKind",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "fixture",
-          "local",
-          "independent"
-        ]
-      },
-      {
-        "name": "proofClass",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "fixture",
-          "live"
-        ]
-      },
-      {
-        "name": "contentDigest",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^sha256:[a-f0-9]{64}$"
-      },
-      {
-        "name": "manifestDigest",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^sha256:[a-f0-9]{64}$"
-      },
-      {
-        "name": "createdAt",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
-      },
-      {
-        "name": "verifiedAt",
-        "kind": "string",
-        "required": true,
-        "nullable": true,
-        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
-      },
-      {
-        "name": "verificationStatus",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "pending",
-          "verified",
-          "failed"
-        ]
-      },
-      {
-        "name": "recoveryEpoch",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 0
-      },
-      {
-        "name": "dependencies",
-        "kind": "array",
-        "required": true,
-        "nullable": false,
-        "itemKind": "string",
-        "maxItems": 256,
-        "uniqueItems": true
-      }
-    ]
-  },
-  {
     "id": "vegastack-labs.dev/result-error",
     "fields": [
       {
@@ -5046,238 +5200,6 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "nullable": false,
         "itemRef": "vegastack-labs.dev/contract-extension",
         "maxItems": 64
-      }
-    ]
-  },
-  {
-    "id": "vegastack-labs.dev/scheduled-job-policy",
-    "fields": [
-      {
-        "name": "schema",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "vegastack-labs.dev/scheduled-job-policy"
-        ]
-      },
-      {
-        "name": "schemaVersion",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "1.1.0"
-        ]
-      },
-      {
-        "name": "policyId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "revision",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 1
-      },
-      {
-        "name": "declarationId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "declarationRevision",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 1
-      },
-      {
-        "name": "actionKind",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "gate-check",
-          "observation-refresh",
-          "backup-create",
-          "backup-integrity-verify",
-          "audit-checkpoint-export"
-        ]
-      },
-      {
-        "name": "operationType",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "adapterId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "exactSourceIds",
-        "kind": "array",
-        "required": true,
-        "nullable": false,
-        "itemKind": "string",
-        "maxItems": 64,
-        "uniqueItems": true
-      },
-      {
-        "name": "exactSubjectIds",
-        "kind": "array",
-        "required": true,
-        "nullable": false,
-        "itemKind": "string",
-        "maxItems": 64,
-        "uniqueItems": true
-      },
-      {
-        "name": "exactTargetIds",
-        "kind": "array",
-        "required": true,
-        "nullable": false,
-        "itemKind": "string",
-        "maxItems": 64,
-        "uniqueItems": true
-      },
-      {
-        "name": "maximumWork",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 1
-      },
-      {
-        "name": "credentialReferenceIds",
-        "kind": "array",
-        "required": true,
-        "nullable": false,
-        "itemKind": "string",
-        "maxItems": 64,
-        "uniqueItems": true
-      },
-      {
-        "name": "grantRevision",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 1
-      },
-      {
-        "name": "stateRevision",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 0
-      },
-      {
-        "name": "recoveryEpoch",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 0
-      },
-      {
-        "name": "policyVersion",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"
-      },
-      {
-        "name": "retentionRuleDigest",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^sha256:[a-f0-9]{64}$"
-      },
-      {
-        "name": "anchorAt",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
-      },
-      {
-        "name": "intervalSeconds",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 1,
-        "maximum": 604800
-      },
-      {
-        "name": "windowSeconds",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 1800,
-        "maximum": 604800
-      },
-      {
-        "name": "catchUp",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "none",
-          "latest"
-        ]
-      },
-      {
-        "name": "concurrency",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "forbid"
-        ]
-      },
-      {
-        "name": "maxAttempts",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 1
-      },
-      {
-        "name": "initialBackoffSeconds",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 1
-      },
-      {
-        "name": "maximumBackoffSeconds",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 1
-      },
-      {
-        "name": "expiresAt",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
-      },
-      {
-        "name": "enabled",
-        "kind": "boolean",
-        "required": true,
-        "nullable": false
       }
     ]
   },
@@ -5561,56 +5483,28 @@ function decodeApprovalStatus(value: unknown): ApprovalStatus {
   return decodeSchema("vegastack-labs.dev/approval-status", value) as unknown as ApprovalStatus;
 }
 
-function decodeAuditCheckpoint(value: unknown): AuditCheckpoint {
-  return decodeSchema("vegastack-labs.dev/audit-checkpoint", value) as unknown as AuditCheckpoint;
-}
-
-function decodeAuditCheckpointListData(value: unknown): AuditCheckpointListData {
-  return decodeSchema("vegastack-labs.dev/audit-checkpoint-list-data", value) as unknown as AuditCheckpointListData;
-}
-
 function decodeAuditTarget(value: unknown): AuditTarget {
   return decodeSchema("vegastack-labs.dev/audit-target", value) as unknown as AuditTarget;
 }
 
-function decodeAuditVerificationData(value: unknown): AuditVerificationData {
-  return decodeSchema("vegastack-labs.dev/audit-verification-data", value) as unknown as AuditVerificationData;
+function decodeBrowserAuditCheckpoint(value: unknown): BrowserAuditCheckpoint {
+  return decodeSchema("vegastack-labs.dev/browser-audit-checkpoint", value) as unknown as BrowserAuditCheckpoint;
 }
 
-function decodeBackupDependency(value: unknown): BackupDependency {
-  return decodeSchema("vegastack-labs.dev/backup-dependency", value) as unknown as BackupDependency;
-}
-
-function decodeBackupJob(value: unknown): BackupJob {
-  return decodeSchema("vegastack-labs.dev/backup-job", value) as unknown as BackupJob;
-}
-
-function decodeBackupLastGood(value: unknown): BackupLastGood {
-  return decodeSchema("vegastack-labs.dev/backup-last-good", value) as unknown as BackupLastGood;
-}
-
-function decodeBackupLocalRetirementStatus(value: unknown): BackupLocalRetirementStatus {
-  return decodeSchema("vegastack-labs.dev/backup-local-retirement-status", value) as unknown as BackupLocalRetirementStatus;
-}
-
-function decodeBackupOffsiteStatus(value: unknown): BackupOffsiteStatus {
-  return decodeSchema("vegastack-labs.dev/backup-offsite-status", value) as unknown as BackupOffsiteStatus;
-}
-
-function decodeBackupPolicy(value: unknown): BackupPolicy {
-  return decodeSchema("vegastack-labs.dev/backup-policy", value) as unknown as BackupPolicy;
-}
-
-function decodeBackupStatusData(value: unknown): BackupStatusData {
-  return decodeSchema("vegastack-labs.dev/backup-status-data", value) as unknown as BackupStatusData;
-}
-
-function decodeBackupVerificationAttempt(value: unknown): BackupVerificationAttempt {
-  return decodeSchema("vegastack-labs.dev/backup-verification-attempt", value) as unknown as BackupVerificationAttempt;
+function decodeBrowserAuditCheckpointListData(value: unknown): BrowserAuditCheckpointListData {
+  return decodeSchema("vegastack-labs.dev/browser-audit-checkpoint-list-data", value) as unknown as BrowserAuditCheckpointListData;
 }
 
 function decodeBrowserAuditEvent(value: unknown): BrowserAuditEvent {
   return decodeSchema("vegastack-labs.dev/browser-audit-event", value) as unknown as BrowserAuditEvent;
+}
+
+function decodeBrowserAuditVerificationData(value: unknown): BrowserAuditVerificationData {
+  return decodeSchema("vegastack-labs.dev/browser-audit-verification-data", value) as unknown as BrowserAuditVerificationData;
+}
+
+function decodeBrowserBackupStatusData(value: unknown): BrowserBackupStatusData {
+  return decodeSchema("vegastack-labs.dev/browser-backup-status-data", value) as unknown as BrowserBackupStatusData;
 }
 
 function decodeBrowserDeclarationOperation(value: unknown): BrowserDeclarationOperation {
@@ -5621,8 +5515,28 @@ function decodeBrowserDeclarationRevision(value: unknown): BrowserDeclarationRev
   return decodeSchema("vegastack-labs.dev/browser-declaration-revision", value) as unknown as BrowserDeclarationRevision;
 }
 
+function decodeBrowserRecoveryPoint(value: unknown): BrowserRecoveryPoint {
+  return decodeSchema("vegastack-labs.dev/browser-recovery-point", value) as unknown as BrowserRecoveryPoint;
+}
+
+function decodeBrowserRecoveryPointListData(value: unknown): BrowserRecoveryPointListData {
+  return decodeSchema("vegastack-labs.dev/browser-recovery-point-list-data", value) as unknown as BrowserRecoveryPointListData;
+}
+
+function decodeBrowserRestoreDraftRequest(value: unknown): BrowserRestoreDraftRequest {
+  return decodeSchema("vegastack-labs.dev/browser-restore-draft-request", value) as unknown as BrowserRestoreDraftRequest;
+}
+
+function decodeBrowserRestoreDraftSubmission(value: unknown): BrowserRestoreDraftSubmission {
+  return decodeSchema("vegastack-labs.dev/browser-restore-draft-submission", value) as unknown as BrowserRestoreDraftSubmission;
+}
+
 function decodeBrowserRestoreStatus(value: unknown): BrowserRestoreStatus {
   return decodeSchema("vegastack-labs.dev/browser-restore-status", value) as unknown as BrowserRestoreStatus;
+}
+
+function decodeBrowserRestoreStatusListData(value: unknown): BrowserRestoreStatusListData {
+  return decodeSchema("vegastack-labs.dev/browser-restore-status-list-data", value) as unknown as BrowserRestoreStatusListData;
 }
 
 function decodeBrowserRun(value: unknown): BrowserRun {
@@ -5635,6 +5549,22 @@ function decodeBrowserRunResult(value: unknown): BrowserRunResult {
 
 function decodeBrowserRunStep(value: unknown): BrowserRunStep {
   return decodeSchema("vegastack-labs.dev/browser-run-step", value) as unknown as BrowserRunStep;
+}
+
+function decodeBrowserScheduledJob(value: unknown): BrowserScheduledJob {
+  return decodeSchema("vegastack-labs.dev/browser-scheduled-job", value) as unknown as BrowserScheduledJob;
+}
+
+function decodeBrowserScheduledJobListData(value: unknown): BrowserScheduledJobListData {
+  return decodeSchema("vegastack-labs.dev/browser-scheduled-job-list-data", value) as unknown as BrowserScheduledJobListData;
+}
+
+function decodeBrowserScheduledJobPolicy(value: unknown): BrowserScheduledJobPolicy {
+  return decodeSchema("vegastack-labs.dev/browser-scheduled-job-policy", value) as unknown as BrowserScheduledJobPolicy;
+}
+
+function decodeBrowserScheduledJobPolicyListData(value: unknown): BrowserScheduledJobPolicyListData {
+  return decodeSchema("vegastack-labs.dev/browser-scheduled-job-policy-list-data", value) as unknown as BrowserScheduledJobPolicyListData;
 }
 
 function decodeContractExtension(value: unknown): ContractExtension {
@@ -5663,6 +5593,30 @@ function decodeGateDefinition(value: unknown): GateDefinition {
 
 function decodeGateEvaluation(value: unknown): GateEvaluation {
   return decodeSchema("vegastack-labs.dev/gate-evaluation", value) as unknown as GateEvaluation;
+}
+
+function decodeGateEvidenceAttachment(value: unknown): GateEvidenceAttachment {
+  return decodeSchema("vegastack-labs.dev/gate-evidence-attachment", value) as unknown as GateEvidenceAttachment;
+}
+
+function decodeGateEvidenceBundle(value: unknown): GateEvidenceBundle {
+  return decodeSchema("vegastack-labs.dev/gate-evidence-bundle", value) as unknown as GateEvidenceBundle;
+}
+
+function decodeGateEvidenceCheck(value: unknown): GateEvidenceCheck {
+  return decodeSchema("vegastack-labs.dev/gate-evidence-check", value) as unknown as GateEvidenceCheck;
+}
+
+function decodeGateEvidenceFact(value: unknown): GateEvidenceFact {
+  return decodeSchema("vegastack-labs.dev/gate-evidence-fact", value) as unknown as GateEvidenceFact;
+}
+
+function decodeGateEvidenceRequest(value: unknown): GateEvidenceRequest {
+  return decodeSchema("vegastack-labs.dev/gate-evidence-request", value) as unknown as GateEvidenceRequest;
+}
+
+function decodeGateEvidenceSubmission(value: unknown): GateEvidenceSubmission {
+  return decodeSchema("vegastack-labs.dev/gate-evidence-submission", value) as unknown as GateEvidenceSubmission;
 }
 
 function decodeGateListData(value: unknown): GateListData {
@@ -5709,10 +5663,6 @@ function decodePlanReferenceRequest(value: unknown): PlanReferenceRequest {
   return decodeSchema("vegastack-labs.dev/plan-reference-request", value) as unknown as PlanReferenceRequest;
 }
 
-function decodeRecoveryPoint(value: unknown): RecoveryPoint {
-  return decodeSchema("vegastack-labs.dev/recovery-point", value) as unknown as RecoveryPoint;
-}
-
 function decodeResultError(value: unknown): ResultError {
   return decodeSchema("vegastack-labs.dev/result-error", value) as unknown as ResultError;
 }
@@ -5723,10 +5673,6 @@ function decodeRunPresentation(value: unknown): RunPresentation {
 
 function decodeRunReferenceRequest(value: unknown): RunReferenceRequest {
   return decodeSchema("vegastack-labs.dev/run-reference-request", value) as unknown as RunReferenceRequest;
-}
-
-function decodeScheduledJobPolicy(value: unknown): ScheduledJobPolicy {
-  return decodeSchema("vegastack-labs.dev/scheduled-job-policy", value) as unknown as ScheduledJobPolicy;
 }
 
 function decodeServerStatusData(value: unknown): ServerStatusData {
@@ -5986,9 +5932,9 @@ async function* streamSSE<T>(fetchTransport: FetchTransport, url: string, option
 }
 
 export type ReadClient = {
-  readonly listAuditCheckpoints: (options?: RequestOptions) => Promise<ReadResult<AuditCheckpointListData>>;
-  readonly getAuditHistory: (options?: RequestOptions) => Promise<ReadResult<AuditVerificationData>>;
-  readonly getBackupStatus: (options?: RequestOptions) => Promise<ReadResult<BackupStatusData>>;
+  readonly listAuditCheckpoints: (query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<BrowserAuditCheckpointListData>>;
+  readonly getAuditVerification: (options?: RequestOptions) => Promise<ReadResult<BrowserAuditVerificationData>>;
+  readonly getBackupStatus: (options?: RequestOptions) => Promise<ReadResult<BrowserBackupStatusData>>;
   readonly getDatabaseStatus: (options?: RequestOptions) => Promise<ReadResult<DatabaseStatusData>>;
   readonly getDeclaration: (path: { readonly declarationId: string; readonly revision: number }, options?: RequestOptions) => Promise<ReadResult<BrowserDeclarationRevision>>;
   readonly preparePlan: (path: { readonly declarationId: string; readonly revision: number }, options?: RequestOptions) => Promise<ReadResult<PlanPreparation>>;
@@ -6009,26 +5955,29 @@ export type ReadClient = {
   readonly getApprovalStatus: (path: { readonly planId: string }, options?: RequestOptions) => Promise<ReadResult<ApprovalStatus>>;
   readonly getPlan: (path: { readonly planId: string }, options?: RequestOptions) => Promise<ReadResult<PlanPresentation>>;
   readonly resolveRun: (path: { readonly planId: string; readonly idempotencyKey: string }, options?: RequestOptions) => Promise<ReadResult<RunPresentation>>;
-  readonly getRestoreStatus: (path: { readonly planId: string }, options?: RequestOptions) => Promise<ReadResult<BrowserRestoreStatus>>;
+  readonly listRecoveryPoints: (query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<BrowserRecoveryPointListData>>;
+  readonly listRestoreStatuses: (query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<BrowserRestoreStatusListData>>;
   readonly getRun: (path: { readonly runId: string }, options?: RequestOptions) => Promise<ReadResult<RunPresentation>>;
-  readonly getScheduledJobPolicy: (path: { readonly policyId: string }, options?: RequestOptions) => Promise<ReadResult<ScheduledJobPolicy>>;
+  readonly getScheduledJobPolicy: (path: { readonly policyId: string }, options?: RequestOptions) => Promise<ReadResult<BrowserScheduledJobPolicy>>;
+  readonly listScheduledJobPolicies: (query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<BrowserScheduledJobPolicyListData>>;
+  readonly listScheduledJobs: (query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<BrowserScheduledJobListData>>;
   readonly listSources: (query?: ApiSourceListQuery, options?: RequestOptions) => Promise<ReadResult<ApiSourceListData>>;
   readonly getSummary: (options?: RequestOptions) => Promise<ReadResult<ApiSummaryData>>;
 };
 
 export function createReadClient(fetchTransport: FetchTransport): ReadClient {
   return {
-    async listAuditCheckpoints(options = {}) {
+    async listAuditCheckpoints(query = {}, options = {}) {
       const operation = "api.v1.audit-checkpoints.list";
-      return performRead(fetchTransport, "/api/v1/audit-checkpoints", options, operation, decodeAuditCheckpointListData);
+      return performRead(fetchTransport, "/api/v1/audit-checkpoints" + pageQuery(query), options, operation, decodeBrowserAuditCheckpointListData);
     },
-    async getAuditHistory(options = {}) {
+    async getAuditVerification(options = {}) {
       const operation = "api.v1.audit-history.verification";
-      return performRead(fetchTransport, "/api/v1/audit-history/verification", options, operation, decodeAuditVerificationData);
+      return performRead(fetchTransport, "/api/v1/audit-history/verification", options, operation, decodeBrowserAuditVerificationData);
     },
     async getBackupStatus(options = {}) {
       const operation = "api.v1.backups.status";
-      return performRead(fetchTransport, "/api/v1/backups/status", options, operation, decodeBackupStatusData);
+      return performRead(fetchTransport, "/api/v1/backups/status", options, operation, decodeBrowserBackupStatusData);
     },
     async getDatabaseStatus(options = {}) {
       const operation = "api.v1.database-status.get";
@@ -6109,9 +6058,13 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
       const operation = "api.v1.plans.run-resolution.get";
       return performRead(fetchTransport, "/api/v1/plans/" + encodePathString(path.planId, "planId") + "/runs/" + encodePathString(path.idempotencyKey, "idempotencyKey") + "", options, operation, decodeRunPresentation);
     },
-    async getRestoreStatus(path, options = {}) {
-      const operation = "api.v1.restores.get";
-      return performRead(fetchTransport, "/api/v1/restores/plans/" + encodePathString(path.planId, "planId") + "", options, operation, decodeBrowserRestoreStatus);
+    async listRecoveryPoints(query = {}, options = {}) {
+      const operation = "api.v1.recovery-points.list";
+      return performRead(fetchTransport, "/api/v1/recovery-points" + pageQuery(query), options, operation, decodeBrowserRecoveryPointListData);
+    },
+    async listRestoreStatuses(query = {}, options = {}) {
+      const operation = "api.v1.restores.list";
+      return performRead(fetchTransport, "/api/v1/restore-plans" + pageQuery(query), options, operation, decodeBrowserRestoreStatusListData);
     },
     async getRun(path, options = {}) {
       const operation = "api.v1.runs.get";
@@ -6119,7 +6072,15 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
     },
     async getScheduledJobPolicy(path, options = {}) {
       const operation = "api.v1.scheduled-job-policies.get";
-      return performRead(fetchTransport, "/api/v1/scheduled-job-policies/" + encodePathString(path.policyId, "policyId") + "", options, operation, decodeScheduledJobPolicy);
+      return performRead(fetchTransport, "/api/v1/scheduled-job-policies/" + encodePathString(path.policyId, "policyId") + "", options, operation, decodeBrowserScheduledJobPolicy);
+    },
+    async listScheduledJobPolicies(query = {}, options = {}) {
+      const operation = "api.v1.scheduled-job-policies.list";
+      return performRead(fetchTransport, "/api/v1/scheduled-job-policies" + pageQuery(query), options, operation, decodeBrowserScheduledJobPolicyListData);
+    },
+    async listScheduledJobs(query = {}, options = {}) {
+      const operation = "api.v1.scheduled-jobs.list";
+      return performRead(fetchTransport, "/api/v1/scheduled-jobs" + pageQuery(query), options, operation, decodeBrowserScheduledJobListData);
     },
     async listSources(query = {}, options = {}) {
       const operation = "api.v1.sources.list";
@@ -6206,37 +6167,46 @@ export function createChangeClient(fetchTransport: FetchTransport): ChangeClient
   };
 }
 
-// Contract-only Phase 5 methods: endpoints remain planned until an owning issue implements them.
+// Browser-authorized Phase 5 reads and inert drafts.
 export type Phase5Client = {
-  readonly listAuditCheckpoints: (options?: RequestOptions) => Promise<ReadResult<AuditCheckpointListData>>;
-  readonly getAuditHistory: (options?: RequestOptions) => Promise<ReadResult<AuditVerificationData>>;
-  readonly getBackupStatus: (options?: RequestOptions) => Promise<ReadResult<BackupStatusData>>;
-  readonly checkGate: (request: GateCheckRequest, options?: RequestOptions) => Promise<ReadResult<GateEvaluation>>;
+  readonly listAuditCheckpoints: (query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<BrowserAuditCheckpointListData>>;
+  readonly getAuditVerification: (options?: RequestOptions) => Promise<ReadResult<BrowserAuditVerificationData>>;
+  readonly getBackupStatus: (options?: RequestOptions) => Promise<ReadResult<BrowserBackupStatusData>>;
+  readonly draftGateEvidence: (path: { readonly gateId: string }, request: GateEvidenceRequest, options?: RequestOptions) => Promise<ReadResult<GateEvidenceSubmission>>;
+  readonly checkGate: (path: { readonly gateId: string }, request: GateCheckRequest, options?: RequestOptions) => Promise<ReadResult<GateEvaluation>>;
   readonly getGate: (path: { readonly gateId: string }, options?: RequestOptions) => Promise<ReadResult<GateView>>;
   readonly listGates: (options?: RequestOptions) => Promise<ReadResult<GateListData>>;
-  readonly getRecoveryPoint: (path: { readonly pointId: string }, options?: RequestOptions) => Promise<ReadResult<RecoveryPoint>>;
-  readonly getRestoreStatus: (path: { readonly planId: string }, options?: RequestOptions) => Promise<ReadResult<BrowserRestoreStatus>>;
-  readonly getScheduledJobPolicy: (path: { readonly policyId: string }, options?: RequestOptions) => Promise<ReadResult<ScheduledJobPolicy>>;
+  readonly listRecoveryPoints: (query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<BrowserRecoveryPointListData>>;
+  readonly draftRestore: (path: { readonly pointId: string }, request: BrowserRestoreDraftRequest, options?: RequestOptions) => Promise<ReadResult<BrowserRestoreDraftSubmission>>;
+  readonly listRestoreStatuses: (query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<BrowserRestoreStatusListData>>;
+  readonly getScheduledJobPolicy: (path: { readonly policyId: string }, options?: RequestOptions) => Promise<ReadResult<BrowserScheduledJobPolicy>>;
+  readonly listScheduledJobPolicies: (query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<BrowserScheduledJobPolicyListData>>;
+  readonly listScheduledJobs: (query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<BrowserScheduledJobListData>>;
 };
 
 export function createPhase5Client(fetchTransport: FetchTransport): Phase5Client {
   return {
-    async listAuditCheckpoints(options = {}) {
+    async listAuditCheckpoints(query = {}, options = {}) {
       const operation = "api.v1.audit-checkpoints.list";
-      return performRead(fetchTransport, "/api/v1/audit-checkpoints", options, operation, decodeAuditCheckpointListData);
+      return performRead(fetchTransport, "/api/v1/audit-checkpoints" + pageQuery(query), options, operation, decodeBrowserAuditCheckpointListData);
     },
-    async getAuditHistory(options = {}) {
+    async getAuditVerification(options = {}) {
       const operation = "api.v1.audit-history.verification";
-      return performRead(fetchTransport, "/api/v1/audit-history/verification", options, operation, decodeAuditVerificationData);
+      return performRead(fetchTransport, "/api/v1/audit-history/verification", options, operation, decodeBrowserAuditVerificationData);
     },
     async getBackupStatus(options = {}) {
       const operation = "api.v1.backups.status";
-      return performRead(fetchTransport, "/api/v1/backups/status", options, operation, decodeBackupStatusData);
+      return performRead(fetchTransport, "/api/v1/backups/status", options, operation, decodeBrowserBackupStatusData);
     },
-    async checkGate(request, options = {}) {
+    async draftGateEvidence(path, request, options = {}) {
+      const operation = "api.v1.gate-evidence.create";
+      const body = decodeGateEvidenceRequest(request);
+      return performChange(fetchTransport, "/api/v1/gates/" + encodePathString(path.gateId, "gateId") + "/evidence", body, options, operation, decodeGateEvidenceSubmission, false);
+    },
+    async checkGate(path, request, options = {}) {
       const operation = "api.v1.gates.check";
       const body = decodeGateCheckRequest(request);
-      return performChange(fetchTransport, "/api/v1/gates/check", body, options, operation, decodeGateEvaluation, false);
+      return performChange(fetchTransport, "/api/v1/gates/" + encodePathString(path.gateId, "gateId") + "/check", body, options, operation, decodeGateEvaluation, false);
     },
     async getGate(path, options = {}) {
       const operation = "api.v1.gates.get";
@@ -6246,17 +6216,30 @@ export function createPhase5Client(fetchTransport: FetchTransport): Phase5Client
       const operation = "api.v1.gates.list";
       return performRead(fetchTransport, "/api/v1/gates", options, operation, decodeGateListData);
     },
-    async getRecoveryPoint(path, options = {}) {
-      const operation = "api.v1.recovery-points.get";
-      return performRead(fetchTransport, "/api/v1/recovery-points/" + encodePathString(path.pointId, "pointId") + "", options, operation, decodeRecoveryPoint);
+    async listRecoveryPoints(query = {}, options = {}) {
+      const operation = "api.v1.recovery-points.list";
+      return performRead(fetchTransport, "/api/v1/recovery-points" + pageQuery(query), options, operation, decodeBrowserRecoveryPointListData);
     },
-    async getRestoreStatus(path, options = {}) {
-      const operation = "api.v1.restores.get";
-      return performRead(fetchTransport, "/api/v1/restores/plans/" + encodePathString(path.planId, "planId") + "", options, operation, decodeBrowserRestoreStatus);
+    async draftRestore(path, request, options = {}) {
+      const operation = "api.v1.restore-drafts.create";
+      const body = decodeBrowserRestoreDraftRequest(request);
+      return performChange(fetchTransport, "/api/v1/recovery-points/" + encodePathString(path.pointId, "pointId") + "/restore-drafts", body, options, operation, decodeBrowserRestoreDraftSubmission, false);
+    },
+    async listRestoreStatuses(query = {}, options = {}) {
+      const operation = "api.v1.restores.list";
+      return performRead(fetchTransport, "/api/v1/restore-plans" + pageQuery(query), options, operation, decodeBrowserRestoreStatusListData);
     },
     async getScheduledJobPolicy(path, options = {}) {
       const operation = "api.v1.scheduled-job-policies.get";
-      return performRead(fetchTransport, "/api/v1/scheduled-job-policies/" + encodePathString(path.policyId, "policyId") + "", options, operation, decodeScheduledJobPolicy);
+      return performRead(fetchTransport, "/api/v1/scheduled-job-policies/" + encodePathString(path.policyId, "policyId") + "", options, operation, decodeBrowserScheduledJobPolicy);
+    },
+    async listScheduledJobPolicies(query = {}, options = {}) {
+      const operation = "api.v1.scheduled-job-policies.list";
+      return performRead(fetchTransport, "/api/v1/scheduled-job-policies" + pageQuery(query), options, operation, decodeBrowserScheduledJobPolicyListData);
+    },
+    async listScheduledJobs(query = {}, options = {}) {
+      const operation = "api.v1.scheduled-jobs.list";
+      return performRead(fetchTransport, "/api/v1/scheduled-jobs" + pageQuery(query), options, operation, decodeBrowserScheduledJobListData);
     },
   };
 }

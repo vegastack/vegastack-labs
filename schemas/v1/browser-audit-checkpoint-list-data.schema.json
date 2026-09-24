@@ -1,0 +1,192 @@
+{
+  "$defs": {
+    "browser-audit-checkpoint": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "sourceKind": {
+                "const": "fixture"
+              }
+            },
+            "required": [
+              "sourceKind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "proofClass": {
+                "const": "fixture"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "verificationStatus": {
+                "const": "verified"
+              }
+            },
+            "required": [
+              "verificationStatus"
+            ]
+          },
+          "then": {
+            "properties": {
+              "verifiedAt": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "chainDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "checkpointId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "firstEventId": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "lastEventId": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "proofClass": {
+          "enum": [
+            "fixture",
+            "live"
+          ],
+          "type": "string"
+        },
+        "reasonCode": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/browser-audit-checkpoint"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "sourceKind": {
+          "enum": [
+            "fixture",
+            "local",
+            "independent"
+          ],
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "pending",
+            "signed",
+            "export-pending",
+            "anchored",
+            "degraded",
+            "incident"
+          ],
+          "type": "string"
+        },
+        "verificationStatus": {
+          "enum": [
+            "pending",
+            "verified",
+            "failed"
+          ],
+          "type": "string"
+        },
+        "verifiedAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "checkpointId",
+        "firstEventId",
+        "lastEventId",
+        "chainDigest",
+        "status",
+        "reasonCode",
+        "sourceKind",
+        "proofClass",
+        "verifiedAt",
+        "verificationStatus",
+        "recoveryEpoch"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/browser-audit-checkpoint-list-data",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "items": {
+      "items": {
+        "$ref": "#/$defs/browser-audit-checkpoint"
+      },
+      "maxItems": 100,
+      "type": "array"
+    },
+    "nextCursor": {
+      "maxLength": 2048,
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/browser-audit-checkpoint-list-data"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "stateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "items",
+    "nextCursor",
+    "stateRevision",
+    "recoveryEpoch"
+  ],
+  "title": "VegaStack Labs browser audit checkpoint list data",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

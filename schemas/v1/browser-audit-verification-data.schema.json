@@ -1,0 +1,107 @@
+{
+  "$id": "vegastack-labs.dev/browser-audit-verification-data",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "sourceKind": {
+            "const": "fixture"
+          }
+        },
+        "required": [
+          "sourceKind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "proofClass": {
+            "const": "fixture"
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "independentMatch": {
+      "type": "boolean"
+    },
+    "lastAnchoredSequence": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "preAnchor": {
+      "type": "boolean"
+    },
+    "proofClass": {
+      "enum": [
+        "none",
+        "live"
+      ],
+      "type": "string"
+    },
+    "reasonCode": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "safeNextAction": {
+      "maxLength": 256,
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/browser-audit-verification-data"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "sourceKind": {
+      "enum": [
+        "none",
+        "independent"
+      ],
+      "type": "string"
+    },
+    "stateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "status": {
+      "enum": [
+        "pending",
+        "anchored",
+        "degraded",
+        "incident"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "status",
+    "reasonCode",
+    "sourceKind",
+    "proofClass",
+    "independentMatch",
+    "lastAnchoredSequence",
+    "preAnchor",
+    "stateRevision",
+    "recoveryEpoch",
+    "safeNextAction"
+  ],
+  "title": "VegaStack Labs browser audit verification data",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

@@ -107,7 +107,7 @@ func validateEndpoints(endpoints []EndpointDefinition, schemas map[string]struct
 			if endpoint.ID != "api.v1.credential-references.import-stream" || endpoint.Method != "POST" || endpoint.TransportScope != "local" || endpoint.MaxRequestBytes != 4096 || endpoint.RequestSchema != credentialImportRequestSchemaID || endpoint.DataSchema != credentialImportSubmissionSchemaID || seenAudiences[AudienceBrowser] || seenAudiences[AudienceExecutor] || !seenAudiences[AudienceOperator] {
 				return validationError("METADATA_INVALID", location+".requestEncoding")
 			}
-		} else if (endpoint.RequestEncoding != "" && endpoint.RequestEncoding != "json") || (endpoint.TransportScope != "" && endpoint.TransportScope != "any" && !((endpoint.ID == "api.v1.scheduled-jobs.create" || endpoint.ID == "api.v1.scheduled-jobs.cancel") && endpoint.TransportScope == "local")) || endpoint.MaxRequestBytes != 0 {
+		} else if (endpoint.RequestEncoding != "" && endpoint.RequestEncoding != "json") || (endpoint.TransportScope != "" && endpoint.TransportScope != "any" && !((endpoint.ID == "api.v1.scheduled-occurrences.create" || endpoint.ID == "api.v1.scheduled-jobs.cancel") && endpoint.TransportScope == "local")) || endpoint.MaxRequestBytes != 0 {
 			return validationError("METADATA_INVALID", location+".requestEncoding")
 		}
 		switch endpoint.Stream {
