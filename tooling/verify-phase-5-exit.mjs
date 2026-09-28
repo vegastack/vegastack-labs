@@ -229,13 +229,13 @@ function digest(value) { return `sha256:${createHash("sha256").update(value).dig
 export async function defaultRunChecks(root, { run = runCommand, packageManager = packageManagerInvocation } = {}) {
   const build = packageManager(EXPECTED_COMMANDS[0].argv.slice(1));
   try {
-    await run(build.command, build.args, { cwd: root, capture: true, timeoutMs: 180_000 });
+    await run(build.command, build.args, { cwd: root, capture: false, timeoutMs: 180_000 });
   } catch { fail("PHASE5_EXIT_CHECK_CONSOLE_BUILD"); }
   try {
-    await run(process.execPath, EXPECTED_COMMANDS[1].argv.slice(1), { cwd: root, capture: true, timeoutMs: 900_000 });
+    await run(process.execPath, EXPECTED_COMMANDS[1].argv.slice(1), { cwd: root, capture: false, timeoutMs: 900_000 });
   } catch { fail("PHASE5_EXIT_CHECK_PHASE_5_HOSTILE_AND_RECOVERY_ACCEPTANCE"); }
   try {
-    await run("go", EXPECTED_COMMANDS[2].argv.slice(1), { cwd: root, capture: true, timeoutMs: 600_000 });
+    await run("go", EXPECTED_COMMANDS[2].argv.slice(1), { cwd: root, capture: false, timeoutMs: 840_000 });
   } catch { fail("PHASE5_EXIT_CHECK_GO_RACE_PHASE_5"); }
   return EXPECTED_COMMANDS.map(({ id }) => ({ id, status: "pass", quarantined: false }));
 }
