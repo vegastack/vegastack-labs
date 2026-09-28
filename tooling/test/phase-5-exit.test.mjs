@@ -52,7 +52,11 @@ test("Phase 5 exit runs only the phase-owned build, catalog, and race proofs", a
     { command: "node", args: ["tooling/verify-phase-5.mjs", "--prepared"] },
     { command: "go", args: ["test", "-race", "-count=1", "./internal/backup", "./internal/recovery", "./internal/run", "./internal/schedule", "./internal/store"] },
   ]);
-  assert.ok(calls.every(({ options }) => options.cwd === "/repo" && options.capture === true));
+  assert.deepEqual(calls.map(({ options }) => options), [
+    { cwd: "/repo", capture: false, timeoutMs: 180_000 },
+    { cwd: "/repo", capture: false, timeoutMs: 900_000 },
+    { cwd: "/repo", capture: false, timeoutMs: 840_000 },
+  ]);
   assert.deepEqual(results.map(({ id }) => id), ["console-build", "phase-5-catalog", "go-race-phase-5"]);
 });
 
