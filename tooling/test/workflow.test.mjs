@@ -9,7 +9,7 @@ async function fixture() {
   return { source, workflow: parseYaml(source) };
 }
 
-test("Public CI is dispatch-only during the Phase 5 batch", async () => {
+test("Public CI remains explicitly dispatched after Phase 5", async () => {
   const { source, workflow } = await fixture();
   assert.deepEqual(Object.keys(workflow.on), ["workflow_dispatch"]);
   assert.equal(Object.hasOwn(workflow.on.workflow_dispatch.inputs, "base_sha"), false);
@@ -18,10 +18,10 @@ test("Public CI is dispatch-only during the Phase 5 batch", async () => {
   assert.doesNotThrow(() => verifyWorkflowDocument(workflow, source));
 });
 
-test("manual CI routes full_check exclusively by main versus non-main", async () => {
+test("manual full_check runs the routine plan on branch or main", async () => {
   const { source, workflow } = await fixture();
   const plan = workflow.jobs.plan.steps.find(({ id }) => id === "check-plan");
-  assert.match(plan.run, /dispatch must explicitly select final full_check or a named native acceptance lane/);
+  assert.match(plan.run, /dispatch must explicitly select routine full_check or a named native acceptance lane/);
   assert.match(plan.run, /native credential acceptance SHA must equal the dispatch head/);
   assert.match(plan.run, /native credential acceptance requires its reviewed branch/);
   assert.equal(plan.env.HEAD_SHA, "${{ github.sha }}");
@@ -29,13 +29,9 @@ test("manual CI routes full_check exclusively by main versus non-main", async ()
 
   const trusted = workflow.jobs.verify_trusted.steps;
   assert.equal(trusted.find(({ name }) => name === "Install pinned Chromium").if, "inputs.full_check");
-  assert.equal(trusted.find(({ name }) => name === "Run affected public checks").if,
-    "inputs.full_check && github.ref != 'refs/heads/main'");
+  assert.equal(trusted.find(({ name }) => name === "Run affected public checks").if, "inputs.full_check");
   assert.equal(trusted.find(({ name }) => name === "Install public dependencies").if, "inputs.full_check");
-  const phase5 = trusted.find(({ name }) => name === "Run exact Phase 5 exit acceptance");
-  assert.equal(phase5.if,
-    "inputs.full_check && github.ref == 'refs/heads/main'");
-  assert.equal(phase5.run, "pnpm --silent check:phase-5-exit --commit \"$GITHUB_SHA\"");
+  assert.equal(trusted.some(({ name }) => name === "Run exact Phase 5 exit acceptance"), false);
   assert.equal(trusted.some(({ name }) => name === "Verify generated contracts and embedded Console stay unchanged"), false);
   assert.equal(trusted.some(({ name }) => name === "Run exact Phase 4 exit acceptance"), false);
   assert.match(trusted.find(({ name }) => name === "Run pinned local-backup acceptance").if,
@@ -52,7 +48,7 @@ test("the guard rejects an automatic trigger or broad non-final execution", asyn
 
   const second = await fixture();
   second.workflow.jobs.verify_trusted.steps.find(({ name }) => name === "Run affected public checks").if = undefined;
-  assert.throws(() => verifyWorkflowDocument(second.workflow, second.source), /branch affected lane or the main Phase 5 exit lane/);
+  assert.throws(() => verifyWorkflowDocument(second.workflow, second.source), /routine affected lane/);
 
   const secret = await fixture();
   assert.throws(

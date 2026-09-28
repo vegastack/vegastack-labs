@@ -1,6 +1,6 @@
 # Development phase 5 — Evidence, secrets, backups, and recovery
 
-Status: implemented and awaiting operator acceptance. The candidate combines the closed software deliveries through Issue 5.10 and binds them to one exact-commit Debian exit. It does not claim live infrastructure evidence, activate G-007 or G-008, publish a release, or authorize deployment.
+Status: accepted by (omkarmohanta09) on 28-09-2026. The accepted software source is exact `main` commit `9a433b43b59030285607435a8326814a311f3687`, proven by the [Debian Phase 5 exit](https://github.com/vegastack/vegastack-labs/actions/runs/36416709341) with evidence digest `sha256:a8f1bfa3ed33be295b690021eff83c88c612ce62c2c9bbffc0a140d5611bd6af`. This acceptance does not claim live infrastructure evidence, activate G-007 or G-008, publish a release, or authorize deployment.
 
 ## Delivered behavior
 
@@ -17,13 +17,15 @@ The machine-readable ownership record is [`tooling/phase-5-exit-evidence.json`](
 | Backups and retention | #106, #114, #115, #117, #118, #154 | Local/off-site creation, verification, custody, dependency admission, and exact retirement remain separate authorities. |
 | Audit, recovery, schedules, surfaces | #107–#110 | Audit checkpoints, authority fencing, exact schedule occurrences, and generated operator surfaces compose through the shared engine. |
 | Hostile acceptance | #111 | 47 ordered credential-free scenarios, including built-process crash seams and real SQLite concurrency authorities. |
-| Exact phase exit | #112 | One clean Linux `origin/main` commit, one full public plan, one focused race pass, immutable artifact digests, and explicit operator acceptance after proof. |
+| Exact phase exit | #112 | Accepted source `9a433b43b59030285607435a8326814a311f3687`, one clean Debian full plan, one focused race pass, immutable artifact digests, and explicit operator acceptance. |
 
 ## Traceability and proof boundary
 
 Every roadmap requirement in the evidence definition owns one or more exact #111 proof IDs, and every one of the 47 IDs is owned. The verifier rejects reordered, missing, unknown, unfinished, skipped, flaky, quarantined, falsely live, or unsanitized proof. It also rejects a dirty checkout, a non-Linux runner, a stale `origin/main`, missing child merge ancestry, changed accepted Phase 3/4 ancestry, or artifact drift.
 
 All catalog outcomes have `proofClass: fixture`. Built Linux processes, SQLite databases, pinned public binaries, and Chromium still run in isolated development fixtures. They are software-development evidence, not provider, vault, host, site, or fleet evidence.
+
+After acceptance, the Phase 3, Phase 4, and Phase 5 phase-wide suites remain available through their explicit commands but are outside routine later-phase checks. Later issues run focused affected proof and their own named acceptance once; a generic full check does not replay accepted phase exits.
 
 ## Failure and recovery
 
@@ -35,8 +37,8 @@ The recovery model stays fail-closed: incomplete local/off-site points remain un
 
 - G-007 physical vault partitions, live secret-provider custody, provider grants, and direct-provider denial are not exercised.
 - G-008 live storage, host, site, and control-authority recovery are not exercised.
-- No release, deployment, provider/credential access, host change, network change, milestone closure, or fleet operation follows from this candidate.
-- Acceptance occurs only after exact-main proof and the operator's explicit accept/reject words are recorded. A merge, green run, or silence is insufficient.
+- No release, deployment, provider/credential access, host change, network change, or fleet operation follows from this software acceptance.
+- The immutable acceptance record retains the operator's exact words, accepted source commit, proof URL, digest, and limitations. Later repository history must retain the accepted source commit as an ancestor.
 
 ## Phase 6 handoff
 

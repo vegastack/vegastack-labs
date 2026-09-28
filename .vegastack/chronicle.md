@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 28-09-2026 — Phase 5 is accepted at its exact tested source ([#112](https://github.com/vegastack/vegastack-labs/issues/112))
+
+- **What:** Development Phase 5 is accepted at exact `main` commit `9a433b43b59030285607435a8326814a311f3687`, covering provider-neutral evidence, credential lifecycle and recovery, local and off-site recovery points, tamper-evident audit history, fenced single-authority restore, exact scheduled operations, shared operator surfaces, and the closed 47-scenario hostile catalog.
+- **Why:** The combined phase needed one immutable operator decision bound to the exact source, Debian proof, evidence digest, and known fixture/live boundary before later development could consume its contracts.
+- **How it went:** The final exit initially exposed Linux compatibility defects and an excessively broad race-test scope. The defects were fixed, the race proof was narrowed to the six Phase 5 concurrency authorities, and the accepted exact-main run passed all 47 scenarios with zero quarantine in 10 minutes 7 seconds.
+- **Changed:** Immutable acceptance facts · accepted-source ancestry guard · Phase 5 plan and roadmap status · accepted phase-wide suites removed from routine later-phase checks · Phase 6 planning handoff.
+- **Decisions:** The acceptance covers development software and isolated fixtures. G-007 live secret custody, G-008 live recovery, Phase 6, release, deployment, providers, credentials, hosts, networks, and fleet operations retain their own gates.
+
+— approved by (omkarmohanta09) · built by Codex · branch chore/112-record-phase5-acceptance
+
 ## 24-09-2026 — The Phase 2 closure includes the final Linux recovery repairs ([#188](https://github.com/vegastack/vegastack-labs/issues/188))
 
 - **What:** The fail-closed Phase 2 verifier now recognizes the exact independently reviewed source closure produced by the final Phase 5 Linux compatibility repair.

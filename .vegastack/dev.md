@@ -10,7 +10,7 @@ authority: `AGENTS.md` → `docs/development/operating-mandate.md` → current a
 ## Knobs
 
 review: subagent            # operator instruction 18-09-2026: independent Codex reviewers; no Claude before 22-09-2026 04:30 AM IST. Revisit after cutoff; setting does not auto-revert.
-ship-check: local-affected-exact-head # intermediate Phase 5 issues run the configured affected command locally once against exact current-main base and clean local/remote/evidence HEAD; final Phase 5 integration/acceptance alone uses manual Public CI with explicit full_check. The installed guard is workstation-local and a fresh machine needs the matching skill update.
+ship-check: local-affected-exact-head # each issue runs the configured affected command locally once against exact current-main base and clean local/remote/evidence HEAD; manual Public CI full_check is explicit. Accepted phase-wide suites stay outside routine checks and run only for an owning issue's named acceptance. The installed guard is workstation-local and a fresh machine needs the matching skill update.
 ui-evidence: playwright
 evidence-repo: vegastack/agent-dev-review-evidence
 gates: 3
@@ -27,10 +27,10 @@ chronicle: on
 ## Ship — permitted landing route, in order
 
 - ask: create a pull request only after the operator explicitly requests it for the approved issue.
-- guard: before asking for an intermediate Phase 5 pull request, the installed dev-ship guard runs the configured local affected command once with the exact current remote `main` SHA and clean local/remote/evidence branch HEAD, then rechecks every binding. The final Phase 5 integration/acceptance candidate alone explicitly selects manual Public CI `full_check`. Missing, dirty, stale, or unverifiable state blocks.
-- guard: later review, rebase, or conflict-resolution edits rerun only the local affected checks. During the Phase 5 batch, pull requests and `main` pushes do not trigger Public CI; explicit final-full and named native acceptance dispatches may use the two authorized disposable Debian hosts.
+- guard: before asking for a pull request, the installed dev-ship guard runs the configured local affected command once with the exact current remote `main` SHA and clean local/remote/evidence branch HEAD, then rechecks every binding. Missing, dirty, stale, or unverifiable state blocks.
+- guard: later review, rebase, or conflict-resolution edits rerun only the local affected checks. Pull requests and `main` pushes do not trigger Public CI; explicit routine-full and named native acceptance dispatches may use the two authorized disposable Debian hosts.
 - ask: squash-merge only after a separate explicit operator instruction, required checks, and a fresh review with no unresolved correctness, security, or acceptance findings.
-- auto: verify that the integrated `main` tree matches the reviewed branch tree, post the implementation/evidence summary, and close the approved issue when all acceptance criteria are satisfied; do not start post-merge CI during the Phase 5 batch.
+- auto: verify that the integrated `main` tree matches the reviewed branch tree, post the implementation/evidence summary, and close the approved issue when all acceptance criteria are satisfied; do not start post-merge CI unless the owning issue explicitly requires it.
 - ask: release or deploy only under separate explicit authorization; neither is part of an ordinary merge and no release machinery currently exists.
 - Rollback uses a separately approved corrective PR or targeted revert followed by the same checks and review; never rewrite shared history or treat a code rollback as infrastructure authorization.
 
@@ -38,8 +38,8 @@ chronicle: on
 
 - Install public dependencies: `pnpm install --frozen-lockfile` under Node.js 24.20.0 and pnpm 11.24.0.
 - During implementation and review fixes, run only the narrow affected Go, tooling, web, security, failure, recovery, or integration checks.
-- For intermediate Phase 5 issues, run the pinned local `pnpm check:affected` command once against the exact current remote `main` commit and exact clean, pushed branch head immediately before pull request creation. Changed Go files test and vet only their package directories while repository-wide compilation and selected boundary verifiers remain. The final Phase 5 integration/acceptance candidate alone selects manual Public CI `full_check` once.
-- Public CI has only a manual `workflow_dispatch` trigger during the Phase 5 batch. It accepts the explicitly selected final-full lane and named native acceptance inputs; pull requests and `main` pushes start no workflow. Under the temporary Issue #81 exception, those explicit dispatches may use disposable `vsk-node-01` or `vsk-node-06`; the job checks the hostname before checkout and has no fleet-admin or deployment credentials.
+- Run the pinned local `pnpm check:affected` command once against the exact current remote `main` commit and exact clean, pushed branch head immediately before pull request creation. Changed Go files test and vet only their package directories while repository-wide compilation and selected boundary verifiers remain. Accepted Phase 3, Phase 4, and Phase 5 phase-wide suites are outside the routine plan; run them only when an owning issue explicitly requires its acceptance command.
+- Public CI has only a manual `workflow_dispatch` trigger. It accepts the explicitly selected routine-full lane and named native acceptance inputs; pull requests and `main` pushes start no workflow. Under the temporary Issue #81 exception, those explicit dispatches may use disposable `vsk-node-01` or `vsk-node-06`; the job checks the hostname before checkout and has no fleet-admin or deployment credentials.
 - The `web/` Playwright e2e suite shares a module-global fixture (`fixtureState`) and MUST run single-worker: `pnpm exec playwright test … --workers=1` (or set `VSK_PHASE3_PLAYWRIGHT_OUTPUT`, which pins one worker). Parallel runs race and report spurious, shifting failures. Rebuild the static export before every e2e/screenshot run — `next build` type-checks the `e2e/` specs and, when it fails, leaves a **stale `out/`** that `pnpm preview` keeps serving, so trust only a fresh clean build. Read counts from the `list` reporter, never the `line` reporter (its overwriting summary hides failures). If Playwright reports every test failing at ~0ms, the browser binary is missing — `pnpm exec playwright install chromium chromium-headless-shell`.
 - Explicit phase-acceptance commands remain required by their owning issues and are never replaced by the generic selector.
 - UI evidence uses the pinned Playwright lane and the private evidence repository named above.
@@ -48,7 +48,7 @@ chronicle: on
 ## Environments
 
 - Local development: this checkout or an issue-scoped worktree; public dependencies and synthetic fixtures only.
-- Public CI: manual dispatch only during the Phase 5 batch. Explicit final-full and named native acceptance runs may temporarily use disposable Debian `vsk-node-01` or `vsk-node-06` under Issue #81; this is not permanent runner admission or fleet qualification.
+- Public CI: manual dispatch only. Explicit routine-full and named native acceptance runs may temporarily use disposable Debian `vsk-node-01` or `vsk-node-06` under Issue #81; this is not permanent runner admission or fleet qualification.
 - Production-like and inventory-fleet targets: unavailable to ordinary development; require their own closed gates and explicit authorization.
 - Optional maintainer registry variable names are documented in `web/.env.example`; values never enter Git, prompts, plans, issues, or audit records.
 - Local toolchain gap: the system default is not the pinned Node.js version; use the recorded `npx --yes --package node@24.20.0 -- ...` form for the complete lane.

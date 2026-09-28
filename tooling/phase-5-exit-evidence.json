@@ -2,7 +2,7 @@
   "schema": "vegastack-labs.dev/phase-evidence-definition",
   "version": "1.0.0",
   "phase": 5,
-  "status": "implemented-awaiting-operator-acceptance",
+  "status": "accepted",
   "children": [
     {
       "issue": 102,
@@ -630,5 +630,15 @@
       "status": "not-exercised",
       "statement": "This candidate proves software behavior with credential-free fixtures and disposable processes; it does not activate a live deployment gate."
     }
-  ]
+  ],
+  "acceptance": {
+    "operator": "omkarmohanta09",
+    "acceptedOn": "28-09-2026",
+    "sourceCommit": "9a433b43b59030285607435a8326814a311f3687",
+    "evidenceDigest": "sha256:a8f1bfa3ed33be295b690021eff83c88c612ce62c2c9bbffc0a140d5611bd6af",
+    "runs": [
+      "https://github.com/vegastack/vegastack-labs/actions/runs/36416709341"
+    ],
+    "words": "accept phase 5"
+  }
 }

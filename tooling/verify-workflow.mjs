@@ -17,7 +17,7 @@ export function verifyWorkflowDocument(workflow, source = "") {
     throw new Error("workflow permissions must contain only contents: read");
   }
   if (Object.keys(workflow.on ?? {}).join(",") !== "workflow_dispatch") {
-    throw new Error("public CI must be manual-only during the Phase 5 batch");
+    throw new Error("public CI must remain manual-only until a later approved CI policy replaces it");
   }
   const inputs = workflow.on.workflow_dispatch?.inputs ?? {};
   if (Object.hasOwn(inputs, "base_sha") ||
@@ -25,7 +25,7 @@ export function verifyWorkflowDocument(workflow, source = "") {
       inputs.full_check?.default !== false ||
       inputs.native_credential_sha?.type !== "string" ||
       inputs.backup_acceptance?.type !== "boolean") {
-    throw new Error("manual CI must expose only explicit final-full and named native acceptance selections");
+    throw new Error("manual CI must expose only explicit routine-full and named native acceptance selections");
   }
   if (/\$\{\{\s*secrets\./.test(source)) throw new Error("public workflow must not reference secrets");
 
@@ -69,7 +69,7 @@ export function verifyWorkflowDocument(workflow, source = "") {
   const plan = jobs.plan.steps?.find((step) => step.id === "check-plan");
   if (!plan || /pull_request|github\.event\.before|inputs\.base_sha/.test(JSON.stringify(plan)) ||
       plan.env?.HEAD_SHA !== "${{ github.sha }}" ||
-      !/dispatch must explicitly select final full_check or a named native acceptance lane/.test(plan.run ?? "") ||
+      !/dispatch must explicitly select routine full_check or a named native acceptance lane/.test(plan.run ?? "") ||
       !/native credential acceptance SHA must equal the dispatch head/.test(plan.run ?? "") ||
       !/native credential acceptance requires its reviewed branch/.test(plan.run ?? "") ||
       !/node tooling\/check-affected\.mjs --base "" --head "\$HEAD_SHA" --dry-run/.test(plan.run ?? "")) {
@@ -79,23 +79,18 @@ export function verifyWorkflowDocument(workflow, source = "") {
   const steps = jobs.verify_trusted.steps ?? [];
   const chromium = steps.find((step) => step.name === "Install pinned Chromium");
   const affected = steps.find((step) => step.name === "Run affected public checks");
-  const phase5 = steps.find((step) => step.name === "Run exact Phase 5 exit acceptance");
   const dependencies = steps.find((step) => step.name === "Install public dependencies");
-  const branchFullCheck = "inputs.full_check && github.ref != 'refs/heads/main'";
-  const mainFullCheck = "inputs.full_check && github.ref == 'refs/heads/main'";
-  if (chromium?.if !== "inputs.full_check" || affected?.if !== branchFullCheck ||
+  if (chromium?.if !== "inputs.full_check" || affected?.if !== "inputs.full_check" ||
       affected.run !== "pnpm check:affected --execute-plan" ||
       affected.env?.VSK_CHECK_PLAN_B64 !== "${{ needs.plan.outputs.check_plan }}" ||
-      phase5?.if !== mainFullCheck ||
-      phase5.run !== "pnpm --silent check:phase-5-exit --commit \"$GITHUB_SHA\"" ||
       dependencies?.if !== "inputs.full_check") {
-    throw new Error("full_check must select exactly the branch affected lane or the main Phase 5 exit lane");
+    throw new Error("full_check must select exactly one routine affected lane on branch or main");
   }
   if (steps.some((step) => step.name === "Run exact Phase 4 exit acceptance" ||
       step.name === "Verify generated contracts and embedded Console stay unchanged") ||
-      steps.filter((step) => /check:phase-5-exit/.test(step.run ?? "")).length !== 1 ||
+      steps.some((step) => /check:phase-[345](?:-exit)?/.test(step.run ?? "")) ||
       steps.filter((step) => /check:affected --execute-plan/.test(step.run ?? "")).length !== 1) {
-    throw new Error("full_check must not duplicate or retain an earlier phase exit lane");
+    throw new Error("routine full_check must not duplicate or retain an accepted phase-wide lane");
   }
   const backup = steps.find((step) => step.name === "Run pinned local-backup acceptance");
   const native = steps.find((step) => step.name === "Run exact #143 disposable native credential acceptance");
@@ -115,7 +110,7 @@ export function verifyWorkflowDocument(workflow, source = "") {
     throw new Error("self-hosted checks must safely remove protected temporary storage");
   }
   if (/^\s*(pull_request|push):/m.test(source) || /github\.event_name\s*==\s*['"](?:pull_request|push)/.test(source)) {
-    throw new Error("automatic pull-request and push CI are forbidden during the Phase 5 batch");
+    throw new Error("automatic pull-request and push CI remain forbidden until separately approved");
   }
   if (/run:\s*pnpm check\s*$/m.test(source)) {
     throw new Error("workflow must not add a second complete check lane");

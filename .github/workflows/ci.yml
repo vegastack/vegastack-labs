@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       full_check:
-        description: 'Run the complete lane for the final Phase 5 integration or acceptance candidate'
+        description: 'Run the routine complete public check plan at this exact commit'
         required: false
         default: false
         type: boolean
@@ -60,7 +60,7 @@ jobs:
           REF_NAME: ${{ github.ref }}
         run: |
           if [ "$FULL_CHECK" != true ] && [ -z "$NATIVE_CREDENTIAL_SHA" ] && [ "$BACKUP_ACCEPTANCE" != true ]; then
-            echo "dispatch must explicitly select final full_check or a named native acceptance lane" >&2
+            echo "dispatch must explicitly select routine full_check or a named native acceptance lane" >&2
             exit 1
           fi
           if [ -n "$NATIVE_CREDENTIAL_SHA" ]; then
@@ -149,7 +149,7 @@ jobs:
         run: pnpm --filter @vegastack/labs-web exec playwright install --with-deps chromium
 
       - name: Run affected public checks
-        if: inputs.full_check && github.ref != 'refs/heads/main'
+        if: inputs.full_check
         env:
           VSK_CHECK_PLAN_B64: ${{ needs.plan.outputs.check_plan }}
         run: pnpm check:affected --execute-plan
@@ -173,10 +173,6 @@ jobs:
           printf '%s  %s\n' "$binary_sha" "$TMPDIR/restic-acceptance/restic" | sha256sum --check --status
           VSK_RESTIC_0191_BINARY="$TMPDIR/restic-acceptance/restic" \
             go test ./internal/backup ./internal/adapter/localbackup -run 'TestPinnedResticEndToEnd|TestPinnedResticRejectsAuthenticatedV1Repository|TestPinnedResticOffsiteS3IAM|TestLocalBackupComposition' -count=1 -timeout 45s -v
-
-      - name: Run exact Phase 5 exit acceptance
-        if: inputs.full_check && github.ref == 'refs/heads/main'
-        run: pnpm --silent check:phase-5-exit --commit "$GITHUB_SHA"
 
       - name: Remove protected local test storage
         if: always()
