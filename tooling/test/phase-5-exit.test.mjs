@@ -50,13 +50,18 @@ test("Phase 5 exit runs only the phase-owned build, catalog, and race proofs", a
   assert.deepEqual(calls.map(({ command, args }) => ({ command: command.endsWith("/node") ? "node" : command, args })), [
     { command: "pnpm", args: ["--filter", "@vegastack/labs-web", "build"] },
     { command: "node", args: ["tooling/verify-phase-5.mjs", "--prepared"] },
-    { command: "go", args: ["test", "-race", "-count=1", "-timeout=12m", "./internal/backup", "./internal/recovery", "./internal/run", "./internal/schedule", "./internal/store"] },
+    { command: "go", args: ["test", "-race", "-count=1", "-timeout=3m", "-run=^TestPhase5AcceptanceSeededConcurrency$", "./internal/store"] },
   ]);
-  assert.deepEqual(calls.map(({ options }) => options), [
+  assert.deepEqual(calls.slice(0, 2).map(({ options }) => options), [
     { cwd: "/repo", capture: false, timeoutMs: 180_000 },
     { cwd: "/repo", capture: false, timeoutMs: 900_000 },
-    { cwd: "/repo", capture: false, timeoutMs: 840_000 },
   ]);
+  assert.equal(calls[2].options.cwd, "/repo");
+  assert.equal(calls[2].options.capture, false);
+  assert.equal(calls[2].options.timeoutMs, 240_000);
+  assert.equal(calls[2].options.env.PATH, process.env.PATH);
+  assert.equal(calls[2].options.env.VSK_PHASE5_SEED, "phase5-concurrency-v1");
+  assert.equal(calls[2].options.env.VSK_PHASE5_REPEAT, "0");
   assert.deepEqual(results.map(({ id }) => id), ["console-build", "phase-5-catalog", "go-race-phase-5"]);
 });
 

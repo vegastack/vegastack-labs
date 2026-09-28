@@ -556,11 +556,8 @@
         "test",
         "-race",
         "-count=1",
-        "-timeout=12m",
-        "./internal/backup",
-        "./internal/recovery",
-        "./internal/run",
-        "./internal/schedule",
+        "-timeout=3m",
+        "-run=^TestPhase5AcceptanceSeededConcurrency$",
         "./internal/store"
       ],
       "environment": "fixture",

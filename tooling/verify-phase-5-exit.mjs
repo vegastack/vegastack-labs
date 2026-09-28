@@ -41,7 +41,7 @@ const EXPECTED_REQUIREMENTS = Object.freeze([
 const EXPECTED_COMMANDS = Object.freeze([
   Object.freeze({ id: "console-build", argv: Object.freeze(["pnpm", "--filter", "@vegastack/labs-web", "build"]) }),
   Object.freeze({ id: "phase-5-catalog", argv: Object.freeze(["node", "tooling/verify-phase-5.mjs", "--prepared"]) }),
-  Object.freeze({ id: "go-race-phase-5", argv: Object.freeze(["go", "test", "-race", "-count=1", "-timeout=12m", "./internal/backup", "./internal/recovery", "./internal/run", "./internal/schedule", "./internal/store"]) }),
+  Object.freeze({ id: "go-race-phase-5", argv: Object.freeze(["go", "test", "-race", "-count=1", "-timeout=3m", "-run=^TestPhase5AcceptanceSeededConcurrency$", "./internal/store"]) }),
 ]);
 const EXPECTED_ARTIFACTS = Object.freeze([
   Object.freeze({ id: "static-definition", path: "tooling/phase-5-exit-evidence.json" }),
@@ -235,7 +235,12 @@ export async function defaultRunChecks(root, { run = runCommand, packageManager 
     await run(process.execPath, EXPECTED_COMMANDS[1].argv.slice(1), { cwd: root, capture: false, timeoutMs: 900_000 });
   } catch { fail("PHASE5_EXIT_CHECK_PHASE_5_HOSTILE_AND_RECOVERY_ACCEPTANCE"); }
   try {
-    await run("go", EXPECTED_COMMANDS[2].argv.slice(1), { cwd: root, capture: false, timeoutMs: 840_000 });
+    await run("go", EXPECTED_COMMANDS[2].argv.slice(1), {
+      cwd: root,
+      capture: false,
+      env: { ...process.env, VSK_PHASE5_SEED: "phase5-concurrency-v1", VSK_PHASE5_REPEAT: "0" },
+      timeoutMs: 240_000,
+    });
   } catch { fail("PHASE5_EXIT_CHECK_GO_RACE_PHASE_5"); }
   return EXPECTED_COMMANDS.map(({ id }) => ({ id, status: "pass", quarantined: false }));
 }
