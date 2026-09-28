@@ -35,7 +35,7 @@ export function verifyWorkflowDocument(workflow, source = "") {
   }
   const expectedJobs = {
     plan: { runner: "ubuntu-24.04", timeout: 5, actions: ["actions/checkout", "actions/setup-node"] },
-    verify_trusted: { runner: ["self-hosted", "linux", "x64"], timeout: 15, actions: [...ACTIONS.keys()] },
+    verify_trusted: { runner: ["self-hosted", "linux", "x64"], timeout: 25, actions: [...ACTIONS.keys()] },
   };
   let actionCount = 0;
   for (const [jobName, expected] of Object.entries(expectedJobs)) {
