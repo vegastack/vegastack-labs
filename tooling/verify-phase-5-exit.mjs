@@ -3,8 +3,7 @@ import { readFile as readFileAsync } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { checkStepsForPlan, fullCheckPlan, runCheckPlan } from "./lib/check-plan.mjs";
-import { runCommand } from "./lib/process.mjs";
+import { packageManagerInvocation, runCommand } from "./lib/process.mjs";
 import {
   phase5ScenarioDigest,
   REQUIRED_PHASE5_SCENARIOS,
@@ -40,7 +39,8 @@ const EXPECTED_REQUIREMENTS = Object.freeze([
   "shared.fixture-live-boundary",
 ]);
 const EXPECTED_COMMANDS = Object.freeze([
-  Object.freeze({ id: "public-check-catalog", argv: Object.freeze(["pnpm", "check"]) }),
+  Object.freeze({ id: "console-build", argv: Object.freeze(["pnpm", "--filter", "@vegastack/labs-web", "build"]) }),
+  Object.freeze({ id: "phase-5-catalog", argv: Object.freeze(["node", "tooling/verify-phase-5.mjs", "--prepared"]) }),
   Object.freeze({ id: "go-race-phase-5", argv: Object.freeze(["go", "test", "-race", "-count=1", "./internal/backup", "./internal/recovery", "./internal/run", "./internal/schedule", "./internal/store"]) }),
 ]);
 const EXPECTED_ARTIFACTS = Object.freeze([
@@ -226,21 +226,16 @@ function canonicalJSON(value) {
 }
 function digest(value) { return `sha256:${createHash("sha256").update(value).digest("hex")}`; }
 
-const FULL_CHECK_STAGE_CODES = new Map(checkStepsForPlan(fullCheckPlan()).map(({ name }) => [
-  name, `PHASE5_EXIT_CHECK_${name.toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_|_$/g, "")}`,
-]));
-
-export async function defaultRunChecks(root, { runPlan = runCheckPlan, run = runCommand } = {}) {
-  let currentStage = "PHASE5_EXIT_CHECK_PUBLIC_CHECK_CATALOG";
+export async function defaultRunChecks(root, { run = runCommand, packageManager = packageManagerInvocation } = {}) {
+  const build = packageManager(EXPECTED_COMMANDS[0].argv.slice(1));
   try {
-    await runPlan(fullCheckPlan(), {
-      root,
-      quiet: true,
-      onStep: ({ name }) => { currentStage = FULL_CHECK_STAGE_CODES.get(name) ?? "PHASE5_EXIT_CHECK_PUBLIC_CHECK_CATALOG"; },
-    });
-  } catch { fail(currentStage); }
+    await run(build.command, build.args, { cwd: root, capture: true, timeoutMs: 180_000 });
+  } catch { fail("PHASE5_EXIT_CHECK_CONSOLE_BUILD"); }
   try {
-    await run("go", EXPECTED_COMMANDS[1].argv.slice(1), { cwd: root, capture: true, timeoutMs: 600_000 });
+    await run(process.execPath, EXPECTED_COMMANDS[1].argv.slice(1), { cwd: root, capture: true, timeoutMs: 900_000 });
+  } catch { fail("PHASE5_EXIT_CHECK_PHASE_5_HOSTILE_AND_RECOVERY_ACCEPTANCE"); }
+  try {
+    await run("go", EXPECTED_COMMANDS[2].argv.slice(1), { cwd: root, capture: true, timeoutMs: 600_000 });
   } catch { fail("PHASE5_EXIT_CHECK_GO_RACE_PHASE_5"); }
   return EXPECTED_COMMANDS.map(({ id }) => ({ id, status: "pass", quarantined: false }));
 }
