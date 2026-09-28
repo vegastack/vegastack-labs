@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   assertExactCleanCommit,
   assertLinuxPlatform,
+  defaultRunChecks,
   parsePhase5ExitArgs,
   runPhase5Exit,
   validatePhase5ExitDefinition,
@@ -38,6 +39,21 @@ test("Phase 5 exit accepts only one exact commit argument", () => {
   for (const args of [[], ["--commit", "abc"], ["--commit", SHA_A, "extra"], ["--other", SHA_A]]) {
     assert.throws(() => parsePhase5ExitArgs(args), /PHASE5_EXIT_ARGUMENTS/);
   }
+});
+
+test("Phase 5 exit runs only the phase-owned build, catalog, and race proofs", async () => {
+  const calls = [];
+  const results = await defaultRunChecks("/repo", {
+    packageManager: (args) => ({ command: "pnpm", args }),
+    run: async (command, args, options) => { calls.push({ command, args, options }); },
+  });
+  assert.deepEqual(calls.map(({ command, args }) => ({ command: command.endsWith("/node") ? "node" : command, args })), [
+    { command: "pnpm", args: ["--filter", "@vegastack/labs-web", "build"] },
+    { command: "node", args: ["tooling/verify-phase-5.mjs", "--prepared"] },
+    { command: "go", args: ["test", "-race", "-count=1", "./internal/backup", "./internal/recovery", "./internal/run", "./internal/schedule", "./internal/store"] },
+  ]);
+  assert.ok(calls.every(({ options }) => options.cwd === "/repo" && options.capture === true));
+  assert.deepEqual(results.map(({ id }) => id), ["console-build", "phase-5-catalog", "go-race-phase-5"]);
 });
 
 test("Phase 5 exit rejects missing, stale, or quarantined proof", async () => {
@@ -84,7 +100,8 @@ test("Phase 5 exit emits stable exact-commit evidence", async () => {
     readGitState: state,
     verifyChildren: async () => {},
     runChecks: async () => [
-      { id: "public-check-catalog", status: "pass", quarantined: false },
+      { id: "console-build", status: "pass", quarantined: false },
+      { id: "phase-5-catalog", status: "pass", quarantined: false },
       { id: "go-race-phase-5", status: "pass", quarantined: false },
     ],
     digestInputs: Object.fromEntries(definition.artifacts.map(({ path }) => [path, path])),
@@ -105,7 +122,8 @@ test("Phase 5 exit emits stable exact-commit evidence", async () => {
     readGitState: state,
     verifyChildren: async () => {},
     runChecks: async () => [
-      { id: "public-check-catalog", status: "pass", quarantined: false },
+      { id: "console-build", status: "pass", quarantined: false },
+      { id: "phase-5-catalog", status: "pass", quarantined: false },
       { id: "go-race-phase-5", status: "pass", quarantined: false },
     ],
     digestInputs: Object.fromEntries(definition.artifacts.map(({ path }) => [path, path])),

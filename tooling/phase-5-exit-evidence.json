@@ -529,10 +529,22 @@
   },
   "commands": [
     {
-      "id": "public-check-catalog",
+      "id": "console-build",
       "argv": [
         "pnpm",
-        "check"
+        "--filter",
+        "@vegastack/labs-web",
+        "build"
+      ],
+      "environment": "fixture",
+      "expectedStatus": "pass"
+    },
+    {
+      "id": "phase-5-catalog",
+      "argv": [
+        "node",
+        "tooling/verify-phase-5.mjs",
+        "--prepared"
       ],
       "environment": "fixture",
       "expectedStatus": "pass"
