@@ -62,7 +62,7 @@ test("Phase 5 catalog covers every durable boundary", async () => {
   assert.deepEqual(new Set(definition.scenarios.map(({ seam }) => seam)), new Set([
     "gate", "credential", "backup-local", "backup-offsite", "audit", "restore", "schedule", "surface", "suite",
   ]));
-  assert.equal(phase5ScenarioDigest(definition), "sha256:1634c21608cf757929d93cc47e8071c6d5f0bd657a97a753ba4afc218faa8382");
+  assert.equal(phase5ScenarioDigest(definition), "sha256:8b2dac597fcb9de1e85e379ab0b9a364a01787911ecc813b86b1fa6be9e38f5b");
   for (const scenario of definition.scenarios) {
     assert.equal(scenario.proofClass, "fixture");
     assert.equal(scenario.expected.result, "pass");
@@ -82,6 +82,13 @@ test("Phase 5 catalog covers every durable boundary", async () => {
     selector: "TestCredentialLifecyclePublicDraftPlanAckApplySpine",
     environment: "built-linux",
     expected: { result: "pass", errorCode: null, state: "revoked" },
+  });
+  assert.deepEqual(scenarios["credential.clean-host-old-key-denied"], {
+    ...REQUIRED_PHASE5_SCENARIOS.find(({ id }) => id === "credential.clean-host-old-key-denied"),
+    path: "internal/server/credential_recovery_linux_test.go",
+    selector: "TestCredentialRecoveryPublicCleanHostRejectsFormerRecipientKey",
+    environment: "built-linux",
+    expected: { result: "pass", errorCode: null, state: "denied" },
   });
   assert.equal(scenarios["suite.durable-boundary-complete"].selector, "TestPhase5AcceptanceDurableFaultMatrix");
   assert.equal(scenarios["suite.deterministic-repeat"].selector, "TestPhase5AcceptanceSeededConcurrency");

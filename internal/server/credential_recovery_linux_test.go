@@ -5,6 +5,10 @@ package server
 import (
 	"bytes"
 	"context"
+	"crypto/ecdh"
+	"crypto/ed25519"
+	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"io"
 	"testing"
@@ -14,6 +18,73 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/recovery"
 	"github.com/vegastack/vegastack-labs/internal/store"
 )
+
+func TestCredentialRecoveryPublicCleanHostRejectsFormerRecipientKey(t *testing.T) {
+	now := time.Now().UTC()
+	witnessPublic, _, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	adminPublic, adminPrivate, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	replacementKey, err := ecdh.X25519().GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	formerKey, err := ecdh.X25519().GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	binding := recovery.WitnessBinding{
+		FormerHostID: "former-host", FormerInstanceID: "former-instance",
+		ReplacementHostID: "replacement-host", ReplacementInstanceID: "replacement-instance",
+		DraftID: "draft-a", CiphertextFingerprint: acceptanceDigest([]byte("ciphertext")),
+		PlanDigest: acceptanceDigest([]byte("plan")), RunID: "run-a", StepID: "step-a", LeaseID: "lease-a",
+		ChallengeID: "challenge-a", ReceiptID: "receipt-a",
+		SourceAdmissionDigest:    acceptanceDigest([]byte("source-admission")),
+		FenceQualificationDigest: acceptanceDigest([]byte("fence-qualification")),
+		PriorEpoch:               3, NewEpoch: 4, StateRevision: 9,
+	}
+	manifest := recovery.RecoveryManifest{
+		ManifestID: "manifest-a", WitnessKeyID: "witness-key-a", WitnessInstanceID: "outside-instance",
+		WitnessPublicKey: witnessPublic, RecipientKeyID: "replacement-key-a",
+		RecipientPublicKey: replacementKey.PublicKey().Bytes(), Binding: binding,
+		ValidFrom: now.Add(-time.Minute), ExpiresAt: now.Add(time.Minute),
+	}
+	canonical, err := recovery.CanonicalRecoveryManifest(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(recovery.SignedRecoveryManifest{Payload: manifest, Signature: ed25519.Sign(adminPrivate, canonical)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pin, err := recovery.ParseSignedRecoveryManifest(raw, adminPublic, binding, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	material := []byte("synthetic-clean-host-recovery")
+	envelope, err := recovery.SealProtectedEnvelope(context.Background(), pin, binding, io.NopCloser(bytes.NewReader(material)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	formerSource := &isolatedRecipientKeySource{key: formerKey.Bytes()}
+	if _, err := recovery.NewProtectedRecipient(pin, formerSource).Open(context.Background(), envelope, binding); err == nil || formerSource.opens != 1 {
+		t.Fatalf("former recipient key admitted or not checked: opens=%d err=%v", formerSource.opens, err)
+	}
+	replacementSource := &isolatedRecipientKeySource{key: replacementKey.Bytes()}
+	stream, err := recovery.NewProtectedRecipient(pin, replacementSource).Open(context.Background(), envelope, binding)
+	if err != nil || replacementSource.opens != 1 {
+		t.Fatalf("replacement recipient rejected: opens=%d err=%v", replacementSource.opens, err)
+	}
+	decrypted, readErr := io.ReadAll(stream.Reader)
+	closeErr := stream.Reader.Close()
+	if readErr != nil || closeErr != nil || !bytes.Equal(decrypted, material) {
+		t.Fatalf("replacement recovery material mismatch: read=%v close=%v", readErr, closeErr)
+	}
+}
 
 type installedAuthorityFixture struct {
 	result installedRecoveryAuthority
