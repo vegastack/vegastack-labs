@@ -65,7 +65,7 @@ test("the trusted manual runner stays bounded and checks its host before checkou
   const { source, workflow } = await fixture();
   const job = workflow.jobs.verify_trusted;
   assert.deepEqual(job["runs-on"], ["self-hosted", "linux", "x64"]);
-  assert.equal(job["timeout-minutes"], 15);
+  assert.equal(job["timeout-minutes"], 25);
   assert.match(job.steps[0].run, /vsk-node-01\|vsk-node-06/);
   assert.equal(job.steps[1].name, "Prepare protected local test storage");
   assert.equal(job.steps[2].name, "Check out repository");

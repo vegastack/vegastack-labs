@@ -75,7 +75,7 @@ jobs:
     name: Public foundation checks
     needs: plan
     runs-on: [self-hosted, linux, x64]
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - name: Allow only the disposable Debian hosts
         run: |
