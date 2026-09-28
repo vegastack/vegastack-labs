@@ -50,7 +50,7 @@ test("Phase 5 exit runs only the phase-owned build, catalog, and race proofs", a
   assert.deepEqual(calls.map(({ command, args }) => ({ command: command.endsWith("/node") ? "node" : command, args })), [
     { command: "pnpm", args: ["--filter", "@vegastack/labs-web", "build"] },
     { command: "node", args: ["tooling/verify-phase-5.mjs", "--prepared"] },
-    { command: "go", args: ["test", "-race", "-count=1", "./internal/backup", "./internal/recovery", "./internal/run", "./internal/schedule", "./internal/store"] },
+    { command: "go", args: ["test", "-race", "-count=1", "-timeout=12m", "./internal/backup", "./internal/recovery", "./internal/run", "./internal/schedule", "./internal/store"] },
   ]);
   assert.deepEqual(calls.map(({ options }) => options), [
     { cwd: "/repo", capture: false, timeoutMs: 180_000 },
