@@ -12,13 +12,20 @@ async function loadEvidence() {
   return JSON.parse(await readFile(path.join(ROOT, "tooling/phase-5-exit-evidence.json"), "utf8"));
 }
 
-test("Phase 5 candidate maps every merged owner without claiming acceptance", async () => {
+test("accepted Phase 5 binds the operator words and unchanged-main proof", async () => {
   const evidence = await loadEvidence();
   assert.equal(evidence.schema, "vegastack-labs.dev/phase-evidence-definition");
   assert.equal(evidence.version, "1.0.0");
   assert.equal(evidence.phase, 5);
-  assert.equal(evidence.status, "implemented-awaiting-operator-acceptance");
-  assert.equal("acceptance" in evidence, false);
+  assert.equal(evidence.status, "accepted");
+  assert.deepEqual(evidence.acceptance, {
+    operator: "omkarmohanta09",
+    acceptedOn: "28-09-2026",
+    sourceCommit: "9a433b43b59030285607435a8326814a311f3687",
+    evidenceDigest: "sha256:a8f1bfa3ed33be295b690021eff83c88c612ce62c2c9bbffc0a140d5611bd6af",
+    runs: ["https://github.com/vegastack/vegastack-labs/actions/runs/36416709341"],
+    words: "accept phase 5",
+  });
   assert.deepEqual(evidence.children.map(({ issue }) => issue), CHILDREN);
   assert.deepEqual(evidence.research.map(({ issue }) => issue), [103, 139, 145]);
   assert.deepEqual(evidence.maps, [{
@@ -36,15 +43,15 @@ test("Phase 5 candidate maps every merged owner without claiming acceptance", as
   }
 });
 
-test("Phase 5 records remain candidate-only and state every live limitation", async () => {
+test("Phase 5 records state acceptance and every live limitation", async () => {
   const [evidence, phase, overview, roadmap] = await Promise.all([
     loadEvidence(),
     readFile(path.join(ROOT, "docs/development/phases/05-evidence-secrets-backups-recovery.md"), "utf8"),
     readFile(path.join(ROOT, "docs/development/README.md"), "utf8"),
     readFile(path.join(ROOT, "docs/development/roadmap.md"), "utf8"),
   ]);
-  for (const document of [phase, overview, roadmap]) assert.match(document, /Phase 5.*awaiting operator acceptance/is);
-  assert.doesNotMatch(phase, /Phase 5 is accepted/i);
+  for (const document of [phase, overview, roadmap]) assert.match(document, /Phase 5.*accepted/is);
+  assert.match(phase, /9a433b43b59030285607435a8326814a311f3687/);
   assert.ok(evidence.limitations.some(({ id }) => id.startsWith("g-007.")));
   assert.ok(evidence.limitations.some(({ id }) => id.startsWith("g-008.")));
   assert.ok(evidence.limitations.every(({ status }) => status === "not-exercised"));

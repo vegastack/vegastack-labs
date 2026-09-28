@@ -49,9 +49,6 @@ const expectedCurrentStageNames = [
   "web lint",
   "web typecheck",
   "web unit tests",
-  "Phase 3 browser evidence",
-  "Phase 4 adversarial acceptance",
-  "Phase 5 hostile and recovery acceptance",
   "Git whitespace",
 ];
 
@@ -75,14 +72,11 @@ test("browser runs only for browser impact and unknown input fails closed", () =
   assert.equal(Object.hasOwn(fallback, "linux"), false);
 });
 
-test("Phase 5 acceptance changes select the browser group", () => {
+test("executable Phase 5 acceptance changes select browser checks", () => {
   for (const path of [
     "tooling/verify-phase-5.mjs",
-    "tooling/verify-phase-5-exit.mjs",
     "tooling/phase-5-evidence.json",
-    "tooling/phase-5-exit-evidence.json",
     "tooling/test/phase-5-acceptance.test.mjs",
-    "tooling/test/phase-5-exit.test.mjs",
     "tooling/testdata/phase-5/acceptance-scenarios.json",
   ]) {
     const plan = classifyChangedPaths([{ status: "M", path }]);
@@ -91,9 +85,25 @@ test("Phase 5 acceptance changes select the browser group", () => {
   }
 });
 
-test("the complete check plan does not recursively invoke the Phase 5 exit", () => {
+test("accepted phase exits stay outside the routine complete plan", () => {
   const names = checkStepsForPlan(fullCheckPlan()).map((step) => step.name);
-  assert.equal(names.some((name) => /Phase 5 exit/i.test(name)), false);
+  for (const name of [
+    "Phase 3 browser evidence",
+    "Phase 4 adversarial acceptance",
+    "Phase 5 hostile and recovery acceptance",
+  ]) assert.equal(names.includes(name), false, name);
+});
+
+test("the immutable Phase 5 acceptance record does not select browser checks", () => {
+  for (const path of [
+    "tooling/phase-5-exit-evidence.json",
+    "tooling/test/phase-5-exit-evidence.test.mjs",
+    "tooling/test/phase-5-exit.test.mjs",
+  ]) {
+    const plan = classifyChangedPaths([{ status: "M", path }]);
+    assert.equal(plan.browser, false, path);
+    assert.equal(plan.groups.includes("browser"), false, path);
+  }
 });
 
 test("Go-only changes omit only the four Chromium-backed Go acceptance tests", () => {

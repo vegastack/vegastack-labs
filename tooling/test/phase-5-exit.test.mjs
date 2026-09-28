@@ -97,6 +97,18 @@ test("Phase 5 exit requires the accepted commit in current main history", async 
   );
 });
 
+test("Phase 5 exit rejects accepted Phase 5 history outside current main", async () => {
+  const definition = await import("../phase-5-exit-evidence.json", { with: { type: "json" } }).then((module) => structuredClone(module.default));
+  await assert.rejects(
+    () => verifyPhase5Ancestry(".", definition, SHA_A, {
+      run: async (_command, args) => {
+        if (args[2] === definition.acceptance.sourceCommit) throw new Error("not an ancestor");
+      },
+    }),
+    /PHASE5_EXIT_ACCEPTANCE_HISTORY/,
+  );
+});
+
 test("Phase 5 exit emits stable exact-commit evidence", async () => {
   const definition = await import("../phase-5-exit-evidence.json", { with: { type: "json" } }).then((module) => structuredClone(module.default));
   const state = async () => ({ head: SHA_A, defaultHead: SHA_A, clean: true });

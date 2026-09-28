@@ -14,9 +14,17 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
 const TRUSTED_DEFAULT_BRANCH_REF = "refs/remotes/origin/main";
 const EXPECTED_TOP_LEVEL_KEYS = [
-  "artifacts", "children", "commands", "limitations", "maps", "phase", "proofCatalog",
+  "acceptance", "artifacts", "children", "commands", "limitations", "maps", "phase", "proofCatalog",
   "requirements", "research", "schema", "status", "version",
 ];
+const EXPECTED_ACCEPTANCE = Object.freeze({
+  operator: "omkarmohanta09",
+  acceptedOn: "28-09-2026",
+  sourceCommit: "9a433b43b59030285607435a8326814a311f3687",
+  evidenceDigest: "sha256:a8f1bfa3ed33be295b690021eff83c88c612ce62c2c9bbffc0a140d5611bd6af",
+  runs: Object.freeze(["https://github.com/vegastack/vegastack-labs/actions/runs/36416709341"]),
+  words: "accept phase 5",
+});
 const EXPECTED_CHILD_ISSUES = Object.freeze([102, 104, 123, 124, 125, 132, 133, 134, 135, 140, 141, 143, 144, 146, 153, 159, 106, 114, 115, 117, 118, 154, 107, 108, 109, 110, 111]);
 const EXPECTED_RESEARCH_ISSUES = Object.freeze([103, 139, 145]);
 const EXPECTED_CREDENTIAL_CHILDREN = Object.freeze([123, 124, 125, 132, 133, 134, 135, 140, 141, 143, 144, 146, 153, 159]);
@@ -117,8 +125,9 @@ export function validatePhase5ExitDefinition(definition) {
     if (!exactKeys(definition, EXPECTED_TOP_LEVEL_KEYS) ||
         definition.schema !== "vegastack-labs.dev/phase-evidence-definition" ||
         definition.version !== "1.0.0" || definition.phase !== 5 ||
-        definition.status !== "implemented-awaiting-operator-acceptance" ||
-        Object.hasOwn(definition, "acceptance")) fail("PHASE5_EXIT_DEFINITION");
+        definition.status !== "accepted" ||
+        !exactKeys(definition.acceptance, ["acceptedOn", "evidenceDigest", "operator", "runs", "sourceCommit", "words"]) ||
+        !same(definition.acceptance, EXPECTED_ACCEPTANCE)) fail("PHASE5_EXIT_DEFINITION");
     if (!Array.isArray(definition.children) ||
         !same(definition.children.map(({ issue }) => issue), EXPECTED_CHILD_ISSUES) ||
         digest(canonicalJSON(definition.children)) !== EXPECTED_BINDING_DIGESTS.children) fail("PHASE5_EXIT_DEFINITION");
@@ -264,7 +273,10 @@ export async function verifyPhase5Ancestry(root, definition, expectedCommit, { r
       readFileAsync(path.join(root, "tooling/phase-3-evidence.json"), "utf8"),
       readFileAsync(path.join(root, "tooling/phase-4-exit-evidence.json"), "utf8"),
     ]);
-    accepted = accepted.map((value) => JSON.parse(value).acceptance?.sourceCommit);
+    accepted = [
+      ...accepted.map((value) => JSON.parse(value).acceptance?.sourceCommit),
+      definition.acceptance?.sourceCommit,
+    ];
     if (!accepted.every((value) => SHA_PATTERN.test(value))) fail("PHASE5_EXIT_ACCEPTANCE_HISTORY");
   } catch (error) {
     if (error instanceof Phase5ExitError) throw error;

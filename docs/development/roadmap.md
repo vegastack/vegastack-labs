@@ -1,6 +1,6 @@
 # Full-scope development roadmap
 
-Status: phase boundaries and complete scope allocation approved by the user on 26-08-2026. Phases 0 through 4 are explicitly accepted. Phase 5 is implemented and awaiting operator acceptance. [Phase 4](phases/04-declarations-plans-authorization-execution.md) was accepted on 14-09-2026 at exact `main` commit `6bbb81231644c84ef34c8633e9de5671a4186180`. Later phase solutions and operational authority retain their separate approvals.
+Status: phase boundaries and complete scope allocation approved by the user on 26-08-2026. Phases 0 through 5 are explicitly accepted. [Phase 4](phases/04-declarations-plans-authorization-execution.md) was accepted on 14-09-2026 at exact `main` commit `6bbb81231644c84ef34c8633e9de5671a4186180`. [Phase 5](phases/05-evidence-secrets-backups-recovery.md) was accepted on 28-09-2026 at exact `main` commit `9a433b43b59030285607435a8326814a311f3687`. Phase 6 is the next planning checkpoint; later phase solutions and operational authority retain their separate approvals.
 
 Rollout timing confirmed on 26-08-2026: finish and verify the complete v1 platform before the first lab onboarding rehearsal. Isolated implementation tests still run throughout development; the inventory fleet is not an early deployment pilot. [D-117](../decisions-and-sources.md#d-117)
 
@@ -125,7 +125,7 @@ For each item, the owning phase proposes and tests the concrete mechanism; an un
 
 ## Inputs and approvals, at the right time
 
-**Current approved batch:** Phases 0 through 4 are completed and explicitly accepted. Phase 4 was accepted at exact `main` commit `6bbb81231644c84ef34c8633e9de5671a4186180` after two matching Debian proofs. Phase 5 is implemented and awaiting operator acceptance after its one exact-main Debian exit; release, repository administration, Phase 6, providers, credentials, hosts, networks, and live infrastructure retain separate gates. Roadmap approval and full-v1-before-rollout timing are already recorded; do not re-ask them.
+**Current approved batch:** Phases 0 through 5 are completed and explicitly accepted. Phase 5 was accepted at exact `main` commit `9a433b43b59030285607435a8326814a311f3687` after its exact-main Debian exit. Phase 6 is the next planning checkpoint and is not yet approved; release, repository administration, providers, credentials, hosts, networks, and live infrastructure retain separate gates. Roadmap approval and full-v1-before-rollout timing are already recorded; do not re-ask them.
 
 **Before remote execution:** require an approved named-repository development batch and separate authorization for any proposed repository-policy change. Inspect current rules and use the agreed PR/check/review/merge route without bypass. Phase 0 batch 1 permits its issue/milestone, branch, commits, PR, development comments/reviews and merge after checks and fresh review; it permits no new credentials, settings/rulesets, release or infrastructure action.
 
@@ -155,4 +155,4 @@ Execution estimates belong to each detailed phase/batch once issue scope, depend
 18. Completed on 14-09-2026: merge Phase 4 Issues 4.1 through 4.9 with focused checks, fresh risky reviews, post-merge checks, and the closed 34-scenario adversarial acceptance lane.
 19. Completed on 14-09-2026: merge Issue 4.10 through PR #100, pass exact Debian `main` runs 34787342900 and 34787841878 with the same digest, and record explicit Phase 4 acceptance at `6bbb81231644c84ef34c8633e9de5671a4186180`.
 20. Completed on 24-09-2026: merge Phase 5 Issues 5.1 through 5.10 with focused checks and exact final-head independent reviews; close the 47-scenario hostile/recovery catalog.
-21. Current: Issue 5.11 integrates the Phase 5 candidate and is awaiting operator acceptance after one exact-main Debian proof. Phase 6 does not start automatically.
+21. Completed on 28-09-2026: Issue 5.11 integrated Phase 5 and the operator accepted exact `main` commit `9a433b43b59030285607435a8326814a311f3687` after its Debian proof. Phase 6 remains a separate planning checkpoint.
