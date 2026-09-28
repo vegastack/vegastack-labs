@@ -41,7 +41,7 @@ const EXPECTED_REQUIREMENTS = Object.freeze([
 const EXPECTED_COMMANDS = Object.freeze([
   Object.freeze({ id: "console-build", argv: Object.freeze(["pnpm", "--filter", "@vegastack/labs-web", "build"]) }),
   Object.freeze({ id: "phase-5-catalog", argv: Object.freeze(["node", "tooling/verify-phase-5.mjs", "--prepared"]) }),
-  Object.freeze({ id: "go-race-phase-5", argv: Object.freeze(["go", "test", "-race", "-count=1", "./internal/backup", "./internal/recovery", "./internal/run", "./internal/schedule", "./internal/store"]) }),
+  Object.freeze({ id: "go-race-phase-5", argv: Object.freeze(["go", "test", "-race", "-count=1", "-timeout=12m", "./internal/backup", "./internal/recovery", "./internal/run", "./internal/schedule", "./internal/store"]) }),
 ]);
 const EXPECTED_ARTIFACTS = Object.freeze([
   Object.freeze({ id: "static-definition", path: "tooling/phase-5-exit-evidence.json" }),

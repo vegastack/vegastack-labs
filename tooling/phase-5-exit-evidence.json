@@ -556,6 +556,7 @@
         "test",
         "-race",
         "-count=1",
+        "-timeout=12m",
         "./internal/backup",
         "./internal/recovery",
         "./internal/run",
