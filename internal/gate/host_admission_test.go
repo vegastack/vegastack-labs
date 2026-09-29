@@ -42,7 +42,7 @@ func hostRegistry() ProofRegistry {
 func TestHostHardeningAdmitsHardenedNode(t *testing.T) {
 	at := time.Date(2026, 9, 16, 0, 0, 0, 0, time.UTC)
 	reader := fixtureEvidenceReader{rows: map[string][]generated.GateEvidence{
-		"platform-safety/node-a":        {hostRow("platform-safety", "node-a", at)},
+		"platform-safety/node-a":         {hostRow("platform-safety", "node-a", at)},
 		"host.hardening-baseline/node-a": {hostRow("host.hardening-baseline", "node-a", at)},
 	}}
 	got, err := Evaluate(context.Background(), reader, labsHostScope(), hostSubject(), "host.hardening-baseline", at, hostRegistry())
@@ -58,9 +58,9 @@ func TestHostRoleAdmissionRequiresHardeningBaseline(t *testing.T) {
 	at := time.Date(2026, 9, 16, 0, 0, 0, 0, time.UTC)
 	// Full chain present -> role-admission passes.
 	full := fixtureEvidenceReader{rows: map[string][]generated.GateEvidence{
-		"platform-safety/node-a":        {hostRow("platform-safety", "node-a", at)},
+		"platform-safety/node-a":         {hostRow("platform-safety", "node-a", at)},
 		"host.hardening-baseline/node-a": {hostRow("host.hardening-baseline", "node-a", at)},
-		"host.role-admission/node-a":    {hostRow("host.role-admission", "node-a", at)},
+		"host.role-admission/node-a":     {hostRow("host.role-admission", "node-a", at)},
 	}}
 	got, err := Evaluate(context.Background(), full, labsHostScope(), hostSubject(), "host.role-admission", at, hostRegistry())
 	if err != nil {
@@ -86,17 +86,19 @@ func TestHostRoleAdmissionRequiresHardeningBaseline(t *testing.T) {
 func TestHostHardeningDeniesStaleAndForeignEvidence(t *testing.T) {
 	at := time.Date(2026, 9, 16, 0, 0, 0, 0, time.UTC)
 	cases := map[string]func(*generated.GateEvidence){
-		"expired":      func(e *generated.GateEvidence) { e.ExpiresAt = at.Add(-time.Second).Format(time.RFC3339) },
-		"wrong-epoch":  func(e *generated.GateEvidence) { e.RecoveryEpoch = 1 },
+		"expired":       func(e *generated.GateEvidence) { e.ExpiresAt = at.Add(-time.Second).Format(time.RFC3339) },
+		"wrong-epoch":   func(e *generated.GateEvidence) { e.RecoveryEpoch = 1 },
 		"wrong-subject": func(e *generated.GateEvidence) { e.SubjectID = "node-b" },
-		"fixture":      func(e *generated.GateEvidence) { e.SourceKind, e.ProofClass = "fixture", "fixture" },
+		"fixture":       func(e *generated.GateEvidence) { e.SourceKind, e.ProofClass = "fixture", "fixture" },
+		"malformed":     func(e *generated.GateEvidence) { e.SchemaVersion = "999" },
+		"undated":       func(e *generated.GateEvidence) { e.ObservedAt = "not-a-timestamp" },
 	}
 	for name, mutate := range cases {
 		t.Run(name, func(t *testing.T) {
 			row := hostRow("host.hardening-baseline", "node-a", at)
 			mutate(&row)
 			reader := fixtureEvidenceReader{rows: map[string][]generated.GateEvidence{
-				"platform-safety/node-a":        {hostRow("platform-safety", "node-a", at)},
+				"platform-safety/node-a":         {hostRow("platform-safety", "node-a", at)},
 				"host.hardening-baseline/node-a": {row},
 			}}
 			got, err := Evaluate(context.Background(), reader, labsHostScope(), hostSubject(), "host.hardening-baseline", at, hostRegistry())
@@ -107,6 +109,40 @@ func TestHostHardeningDeniesStaleAndForeignEvidence(t *testing.T) {
 				t.Fatalf("%s evidence must not pass: %+v", name, got)
 			}
 		})
+	}
+}
+
+func TestHostGateNotApplicableToNonNodeSubject(t *testing.T) {
+	at := time.Date(2026, 9, 16, 0, 0, 0, 0, time.UTC)
+	// Host gates are node-scoped; a service subject must not resolve them, so no
+	// evidence can admit it (non-applicable, fails closed).
+	subject := hostSubject()
+	subject.Kind = "service"
+	reader := fixtureEvidenceReader{rows: map[string][]generated.GateEvidence{
+		"host.hardening-baseline/node-a": {hostRow("host.hardening-baseline", "node-a", at)},
+	}}
+	got, err := Evaluate(context.Background(), reader, labsHostScope(), subject, "host.hardening-baseline", at, hostRegistry())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Outcome == "passed" || got.ReasonCode != "definition-unresolved" {
+		t.Fatalf("host gate must not apply to a non-node subject: %+v", got)
+	}
+}
+
+func TestHostGateInertWithoutEvidence(t *testing.T) {
+	at := time.Date(2026, 9, 16, 0, 0, 0, 0, time.UTC)
+	// Defining the gate does not self-admit: with the platform prerequisite met but
+	// no hardening evidence, the baseline is blocked on missing evidence, not passed.
+	reader := fixtureEvidenceReader{rows: map[string][]generated.GateEvidence{
+		"platform-safety/node-a": {hostRow("platform-safety", "node-a", at)},
+	}}
+	got, err := Evaluate(context.Background(), reader, labsHostScope(), hostSubject(), "host.hardening-baseline", at, hostRegistry())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Outcome == "passed" || got.ReasonCode != "evidence-missing" {
+		t.Fatalf("gate must be inert without evidence: %+v", got)
 	}
 }
 
@@ -121,7 +157,7 @@ func TestHostHardeningAdmitsMinimalNonLabsNode(t *testing.T) {
 		return row
 	}
 	reader := fixtureEvidenceReader{rows: map[string][]generated.GateEvidence{
-		"platform-safety/node-a":        {minimalRow("platform-safety")},
+		"platform-safety/node-a":         {minimalRow("platform-safety")},
 		"host.hardening-baseline/node-a": {minimalRow("host.hardening-baseline")},
 	}}
 	got, err := Evaluate(context.Background(), reader, scope, hostSubject(), "host.hardening-baseline", at, hostRegistry())

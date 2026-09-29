@@ -1,10 +1,17 @@
 package metadata
 
-import "testing"
+import (
+	"encoding/json"
+	"strings"
+	"testing"
 
-// Phase 6 adds provider-neutral host identity, role, role-alias, OS-profile and
-// host-hardening evidence contracts, plus host hardening/role-admission gate
-// definitions. These are inert public shapes; they assert no admission.
+	"github.com/vegastack/vegastack-labs/internal/generated"
+)
+
+// Phase 6 adds host identity, role, role-alias, OS-profile and host-hardening
+// evidence contracts, plus host hardening/role-admission gate definitions. The
+// core stays provider-neutral; the concrete role/OS values are Labs
+// deployment-profile shapes. These are inert public shapes; they assert no admission.
 
 func TestPhase6HostSchemasRegistered(t *testing.T) {
 	reg := Current()
@@ -46,6 +53,33 @@ func TestPhase6HostGatesDefined(t *testing.T) {
 	}
 	if !phase6Contains(admission.PrerequisiteGateIDs, "host.hardening-baseline") {
 		t.Fatalf("role-admission must require hardening baseline, got %v", admission.PrerequisiteGateIDs)
+	}
+}
+
+// The host-hardening-evidence-fact schema is the fact content a downstream
+// hardening/admission proof (Issue 6.8) carries inside the standard gate-evidence
+// envelope. It is a delivered contract here, so prove it validates well-formed
+// content and fails closed on a malformed/undated fact.
+func TestPhase6HostHardeningEvidenceFactValidates(t *testing.T) {
+	fact := generated.HostHardeningEvidenceFact{
+		Schema: generated.SchemaIDHostHardeningEvidenceFact, SchemaVersion: "1.0.0",
+		HostID: "node-a", ProfileID: "vegastack-labs", OSFamily: "debian",
+		BaselineVersion: "1.0.0", ControlsPassed: 11, ControlsTotal: 11,
+		ResultDigest: "sha256:" + strings.Repeat("a", 64),
+		ObservedAt:   "2026-09-16T00:00:00Z", RecoveryEpoch: 0,
+	}
+	raw, err := json.Marshal(fact)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := generated.ValidateContractJSON(generated.SchemaIDHostHardeningEvidenceFact, raw, generated.ContractExact); err != nil {
+		t.Fatalf("well-formed hardening fact rejected: %v", err)
+	}
+	undated := fact
+	undated.ObservedAt = "not-a-timestamp"
+	raw, _ = json.Marshal(undated)
+	if err := generated.ValidateContractJSON(generated.SchemaIDHostHardeningEvidenceFact, raw, generated.ContractExact); err == nil {
+		t.Fatal("malformed/undated hardening fact accepted")
 	}
 }
 
