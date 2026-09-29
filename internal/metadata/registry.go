@@ -966,6 +966,7 @@ func currentSchemas() []SchemaDefinition {
 	schemas = append(schemas, phase5GateCredentialSchemas()...)
 	schemas = append(schemas, phase5RecoveryJobSchemas()...)
 	schemas = append(schemas, phase5RequestSchemas()...)
+	schemas = append(schemas, phase6HostSchemas()...)
 	return append(schemas, apiSshSchemas()...)
 }
 

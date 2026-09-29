@@ -127,6 +127,11 @@ const (
 	SchemaIDGateProfileDraftRequest                = "vegastack-labs.dev/gate-profile-draft-request"
 	SchemaIDGateProfileDraftSubmission             = "vegastack-labs.dev/gate-profile-draft-submission"
 	SchemaIDGateView                               = "vegastack-labs.dev/gate-view"
+	SchemaIDHostHardeningEvidenceFact              = "vegastack-labs.dev/host-hardening-evidence-fact"
+	SchemaIDHostIdentity                           = "vegastack-labs.dev/host-identity"
+	SchemaIDHostProfile                            = "vegastack-labs.dev/host-profile"
+	SchemaIDHostRole                               = "vegastack-labs.dev/host-role"
+	SchemaIDHostRoleAlias                          = "vegastack-labs.dev/host-role-alias"
 	SchemaIDInventoryDiffCounts                    = "vegastack-labs.dev/inventory-diff-counts"
 	SchemaIDInventoryDiffData                      = "vegastack-labs.dev/inventory-diff-data"
 	SchemaIDInventoryDiffRecord                    = "vegastack-labs.dev/inventory-diff-record"
@@ -1750,6 +1755,56 @@ type GateView struct {
 	Definition              GateDefinition `json:"definition"`
 	Evaluation              GateEvaluation `json:"evaluation"`
 	ApplicabilityReasonCode string         `json:"applicabilityReasonCode"`
+}
+
+type HostHardeningEvidenceFact struct {
+	Schema          string `json:"schema"`
+	SchemaVersion   string `json:"schemaVersion"`
+	HostID          string `json:"hostId"`
+	ProfileID       string `json:"profileId"`
+	OSFamily        string `json:"osFamily"`
+	BaselineVersion string `json:"baselineVersion"`
+	ControlsPassed  int64  `json:"controlsPassed"`
+	ControlsTotal   int64  `json:"controlsTotal"`
+	ResultDigest    string `json:"resultDigest"`
+	ObservedAt      string `json:"observedAt"`
+	RecoveryEpoch   int64  `json:"recoveryEpoch"`
+}
+
+type HostIdentity struct {
+	Schema        string  `json:"schema"`
+	SchemaVersion string  `json:"schemaVersion"`
+	HostID        string  `json:"hostId"`
+	IdentityClass string  `json:"identityClass"`
+	AssetID       *string `json:"assetId"`
+	StateRevision int64   `json:"stateRevision"`
+}
+
+type HostProfile struct {
+	Schema            string `json:"schema"`
+	SchemaVersion     string `json:"schemaVersion"`
+	ProfileID         string `json:"profileId"`
+	OSFamily          string `json:"osFamily"`
+	OSVersion         string `json:"osVersion"`
+	Architecture      string `json:"architecture"`
+	RoleID            string `json:"roleId"`
+	DefinitionVersion string `json:"definitionVersion"`
+}
+
+type HostRole struct {
+	Schema          string `json:"schema"`
+	SchemaVersion   string `json:"schemaVersion"`
+	RoleID          string `json:"roleId"`
+	RoleClass       string `json:"roleClass"`
+	AdmissionGateID string `json:"admissionGateId"`
+}
+
+type HostRoleAlias struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	AliasID       string `json:"aliasId"`
+	RoleID        string `json:"roleId"`
+	Value         string `json:"value"`
 }
 
 type InventoryDiffCounts struct {

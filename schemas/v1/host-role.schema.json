@@ -1,0 +1,49 @@
+{
+  "$id": "vegastack-labs.dev/host-role",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "admissionGateId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "roleClass": {
+      "enum": [
+        "control-plane",
+        "application",
+        "ci",
+        "mac-developer",
+        "hermes",
+        "spare",
+        "reserve"
+      ],
+      "type": "string"
+    },
+    "roleId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/host-role"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "roleId",
+    "roleClass",
+    "admissionGateId"
+  ],
+  "title": "VegaStack Labs host role",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}
