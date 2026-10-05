@@ -36,6 +36,7 @@ func phase6HostSchemas() []SchemaDefinition {
 			phase5ID("profileId", "ProfileID"),
 			phase5Enum("osFamily", "OSFamily", "debian", "macos"),
 			phase6OSVersion("osVersion", "OSVersion"),
+			phase6OSBuild("osBuild", "OSBuild"),
 			phase5Enum("architecture", "Architecture", "amd64", "arm64"),
 			phase5ID("roleId", "RoleID"),
 			phase5Version("definitionVersion", "DefinitionVersion"),
@@ -62,6 +63,10 @@ func phase6HostSchemas() []SchemaDefinition {
 			phase5ID("hostId", "HostID"),
 			phase5ID("profileId", "ProfileID"),
 			phase5Enum("osFamily", "OSFamily", "debian", "macos"),
+			phase6OSVersion("osVersion", "OSVersion"),
+			phase6OSBuild("osBuild", "OSBuild"),
+			phase5Enum("architecture", "Architecture", "amd64", "arm64"),
+			phase5ID("roleId", "RoleID"),
 			phase5Version("baselineVersion", "BaselineVersion"),
 			phase5Nonnegative("controlsPassed", "ControlsPassed"),
 			phase5Positive("controlsTotal", "ControlsTotal"),
@@ -74,6 +79,13 @@ func phase6HostSchemas() []SchemaDefinition {
 
 func phase6OSVersion(name, goName string) FieldDefinition {
 	return FieldDefinition{JSONName: name, GoName: goName, Kind: ValueString, Required: true, Pattern: `^[0-9]+(\.[0-9]+){0,3}$`, MinLength: intPointer(1), MaxLength: intPointer(32)}
+}
+
+// Debian packages do not use an Apple-style build identifier, so null is
+// explicit there. A qualified macOS profile must carry an exact build; its
+// admission check must enforce that family-specific requirement.
+func phase6OSBuild(name, goName string) FieldDefinition {
+	return FieldDefinition{JSONName: name, GoName: goName, Kind: ValueString, Required: true, Nullable: true, Pattern: `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`}
 }
 
 func phase6AliasValue(name, goName string) FieldDefinition {

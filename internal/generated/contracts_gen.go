@@ -1758,17 +1758,21 @@ type GateView struct {
 }
 
 type HostHardeningEvidenceFact struct {
-	Schema          string `json:"schema"`
-	SchemaVersion   string `json:"schemaVersion"`
-	HostID          string `json:"hostId"`
-	ProfileID       string `json:"profileId"`
-	OSFamily        string `json:"osFamily"`
-	BaselineVersion string `json:"baselineVersion"`
-	ControlsPassed  int64  `json:"controlsPassed"`
-	ControlsTotal   int64  `json:"controlsTotal"`
-	ResultDigest    string `json:"resultDigest"`
-	ObservedAt      string `json:"observedAt"`
-	RecoveryEpoch   int64  `json:"recoveryEpoch"`
+	Schema          string  `json:"schema"`
+	SchemaVersion   string  `json:"schemaVersion"`
+	HostID          string  `json:"hostId"`
+	ProfileID       string  `json:"profileId"`
+	OSFamily        string  `json:"osFamily"`
+	OSVersion       string  `json:"osVersion"`
+	OSBuild         *string `json:"osBuild"`
+	Architecture    string  `json:"architecture"`
+	RoleID          string  `json:"roleId"`
+	BaselineVersion string  `json:"baselineVersion"`
+	ControlsPassed  int64   `json:"controlsPassed"`
+	ControlsTotal   int64   `json:"controlsTotal"`
+	ResultDigest    string  `json:"resultDigest"`
+	ObservedAt      string  `json:"observedAt"`
+	RecoveryEpoch   int64   `json:"recoveryEpoch"`
 }
 
 type HostIdentity struct {
@@ -1781,14 +1785,15 @@ type HostIdentity struct {
 }
 
 type HostProfile struct {
-	Schema            string `json:"schema"`
-	SchemaVersion     string `json:"schemaVersion"`
-	ProfileID         string `json:"profileId"`
-	OSFamily          string `json:"osFamily"`
-	OSVersion         string `json:"osVersion"`
-	Architecture      string `json:"architecture"`
-	RoleID            string `json:"roleId"`
-	DefinitionVersion string `json:"definitionVersion"`
+	Schema            string  `json:"schema"`
+	SchemaVersion     string  `json:"schemaVersion"`
+	ProfileID         string  `json:"profileId"`
+	OSFamily          string  `json:"osFamily"`
+	OSVersion         string  `json:"osVersion"`
+	OSBuild           *string `json:"osBuild"`
+	Architecture      string  `json:"architecture"`
+	RoleID            string  `json:"roleId"`
+	DefinitionVersion string  `json:"definitionVersion"`
 }
 
 type HostRole struct {

@@ -4,11 +4,11 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 
 ## 05-10-2026 — Host identity and admission now have generated contracts ([#213](https://github.com/vegastack/vegastack-labs/issues/213))
 
-- **What:** The platform can describe a managed host's identity, role, alias, applicable OS profile, and hardening evidence through generated contracts. Its existing gate evaluator derives host hardening and role admission from applied evidence, including a minimal non-Labs host.
-- **Why:** Later Phase 6 host workflows need one inert, versioned contract and a fail-closed admission boundary before they can configure or admit a workload host.
-- **How it went:** Review found formatting and missing denial fixtures, which were corrected. The full check then caught the expected Phase 2 production-source seal change; an exact no-command/no-import wave records the new source closure without weakening drift detection.
-- **Changed:** Host identity, role, alias, profile, and evidence schemas · hardening and role-admission gate definitions · stale, malformed, foreign, and missing-evidence denials · exact production-source seal.
-- **Decisions:** none; OS and role-specific evidence consumption and real host enforcement remain for later Phase 6 issues.
+- **What:** The platform can describe a managed host's identity, role, alias, exact OS version/build, and hardening evidence through generated contracts. Its two new host gates remain deferred, so a generic proof cannot admit a workload host.
+- **Why:** Later Phase 6 host workflows need one inert, versioned contract; admission must wait for evidence bound to the actual machine and intended role.
+- **How it went:** Initial review found that generic gate evidence could produce a misleading pass and that the macOS build was missing. The operator chose to keep this issue contract-only; the gate now fails closed until Issue 6.8 implements the machine-specific check. The full check also caught the expected Phase 2 source-seal change, which was recorded as a no-command/no-import wave.
+- **Changed:** Host identity, role, alias, profile, and hardening-fact schemas · exact OS/build/architecture/role fields · deferred hardening and role-admission gate definitions · source-seal drift protection.
+- **Decisions:** none; the approved 6.1/6.8 boundary is recorded in the revised issue brief and plan.
 
 — approved by (omkarmohanta09) · built by Codex · branch feat/6.1-host-lifecycle-contracts
 

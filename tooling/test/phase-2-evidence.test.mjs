@@ -24,7 +24,7 @@ test("the original Phase 2 baseline stays immutable while later waves have exact
     issue: 213,
     commands: [],
     imports: [],
-    mutationBoundaryDigest: "sha256:5342f840fb0268e398f12401d596a62178d00e051b6aa02919bf5224050ed517",
+    mutationBoundaryDigest: "sha256:f940d0544d5cf9094303d1a0cf8d699bbe5c103992a236aa2a40ec5189f62d2e",
   });
   assert.equal(manifest.contract.reviewedWaves[0].id, "phase5-issue104-v1");
   assert.deepEqual(manifest.contract.reviewedWaves[0].commands, ["gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft"]);
