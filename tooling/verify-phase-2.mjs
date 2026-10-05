@@ -306,7 +306,16 @@ const REVIEWED_LINUX_ACCEPTANCE_REPAIR_WAVE = Object.freeze({
   mutationBoundaryDigest: "sha256:09af428deadb5b53538bbeb5986d2a7ada85adf97d4eda8c146d989f020b461a",
 });
 
-const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE, REVIEWED_AUDIT_WAVE, REVIEWED_CREDENTIAL_EXECUTION_CORE_WAVE, REVIEWED_CREDENTIAL_LIFECYCLE_SURFACE_WAVE, REVIEWED_CREDENTIAL_VERIFIER_HARDENING_WAVE, REVIEWED_CREDENTIAL_RECOVERY_CUSTODY_WAVE, REVIEWED_BACKUP_WAVE, REVIEWED_WITNESS_RECOVERY_CONTRACT_WAVE, REVIEWED_NATIVE_READER_MAP_WAVE, REVIEWED_NATIVE_AUTHORITY_WAVE, REVIEWED_NATIVE_LIFECYCLE_WAVE, REVIEWED_WITNESS_COLLECTION_WAVE, REVIEWED_BROWSER_RECONNECT_WAVE, REVIEWED_BACKUP_VERIFY_WAVE, REVIEWED_RECOVERY_SOURCE_ADMISSION_WAVE, REVIEWED_CLEAN_HOST_RECOVERY_WAVE, REVIEWED_REPOSITORY_CUSTODY_WAVE, REVIEWED_BACKUP_DEPENDENCY_TRUST_WAVE, REVIEWED_CREDENTIAL_LIFECYCLE_ACCEPTANCE_WAVE, REVIEWED_LOCAL_RETIREMENT_WAVE, REVIEWED_OFFSITE_GENERATION_WAVE, REVIEWED_CONTROL_RECOVERY_WAVE, REVIEWED_OFFSITE_RETIREMENT_WAVE, REVIEWED_SCHEDULE_WAVE, REVIEWED_OPERATOR_SURFACES_WAVE, REVIEWED_LINUX_ACCEPTANCE_REPAIR_WAVE]);
+// #213 adds inert host identity, role, profile and admission contracts. The
+// source closure changes through metadata, generated types and JSON schemas;
+// no command becomes available and the executable gains no new Go import.
+const REVIEWED_HOST_CONTRACT_WAVE = Object.freeze({
+  id: "phase6-issue213-v1", issue: 213,
+  commands: Object.freeze([]), imports: Object.freeze([]),
+  mutationBoundaryDigest: "sha256:5342f840fb0268e398f12401d596a62178d00e051b6aa02919bf5224050ed517",
+});
+
+const REVIEWED_POST_PHASE2_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE, REVIEWED_AUDIT_WAVE, REVIEWED_CREDENTIAL_EXECUTION_CORE_WAVE, REVIEWED_CREDENTIAL_LIFECYCLE_SURFACE_WAVE, REVIEWED_CREDENTIAL_VERIFIER_HARDENING_WAVE, REVIEWED_CREDENTIAL_RECOVERY_CUSTODY_WAVE, REVIEWED_BACKUP_WAVE, REVIEWED_WITNESS_RECOVERY_CONTRACT_WAVE, REVIEWED_NATIVE_READER_MAP_WAVE, REVIEWED_NATIVE_AUTHORITY_WAVE, REVIEWED_NATIVE_LIFECYCLE_WAVE, REVIEWED_WITNESS_COLLECTION_WAVE, REVIEWED_BROWSER_RECONNECT_WAVE, REVIEWED_BACKUP_VERIFY_WAVE, REVIEWED_RECOVERY_SOURCE_ADMISSION_WAVE, REVIEWED_CLEAN_HOST_RECOVERY_WAVE, REVIEWED_REPOSITORY_CUSTODY_WAVE, REVIEWED_BACKUP_DEPENDENCY_TRUST_WAVE, REVIEWED_CREDENTIAL_LIFECYCLE_ACCEPTANCE_WAVE, REVIEWED_LOCAL_RETIREMENT_WAVE, REVIEWED_OFFSITE_GENERATION_WAVE, REVIEWED_CONTROL_RECOVERY_WAVE, REVIEWED_OFFSITE_RETIREMENT_WAVE, REVIEWED_SCHEDULE_WAVE, REVIEWED_OPERATOR_SURFACES_WAVE, REVIEWED_LINUX_ACCEPTANCE_REPAIR_WAVE, REVIEWED_HOST_CONTRACT_WAVE]);
 const ONEPASSWORD_SDK_VERSION = "v0.4.1";
 const CREDENTIAL_FOUNDATION_MIGRATION = Object.freeze({ file: "0012_credential_refs.sql", sha256: "302b2bedb4eee771436e3772c49b3c0c6cdaefbd5a1a17d11370e10a44c8e0c7" });
 const CREDENTIAL_IMPORT_MIGRATION = Object.freeze({ file: "0013_credential_import_drafts.sql", sha256: "2dd9895e6a06a6789635cbe787fc89c6c56597f2192b39395ffa5186388e5204" });
@@ -496,7 +505,7 @@ async function commandOutput(root, command, args, options = {}) {
 }
 
 function productionDependencyDigest(imports, reviewedWavesActive = false) {
-  const reviewedImports = new Set(REVIEWED_PHASE5_WAVES.flatMap(({ imports: waveImports }) => waveImports));
+  const reviewedImports = new Set(REVIEWED_POST_PHASE2_WAVES.flatMap(({ imports: waveImports }) => waveImports));
   const localImports = imports.filter((name) => name.startsWith(MODULE_PREFIX) && !REVIEWED_POST_PHASE2_IMPORTS.has(name) &&
     !(reviewedWavesActive && reviewedImports.has(name))).sort();
   return `sha256:${createHash("sha256").update(`${localImports.join("\n")}\n`).digest("hex")}`;
@@ -731,7 +740,7 @@ export async function collectIntegratedFacts(root = ROOT) {
     mutationAvailable: commands.commands.some(({ availability, ownerPhase, path: segments }) =>
       availability === "available" && Number(ownerPhase) >= 4 &&
       !REVIEWED_POST_PHASE2_COMMANDS.has(segments.join(" ")) &&
-      !REVIEWED_PHASE5_WAVES.some(({ commands: reviewed }) => reviewed.includes(segments.join(" ")))),
+      !REVIEWED_POST_PHASE2_WAVES.some(({ commands: reviewed }) => reviewed.includes(segments.join(" ")))),
     productionImports,
     onePasswordSDKVersion,
     credentialImportFlags,
@@ -793,9 +802,9 @@ export function validateEvidence(manifest, facts) {
   }
   if (facts.children.some(({ state }) => state !== "CLOSED")) codes.add("PHASE2_CHILD_INCOMPLETE");
   const reviewedWaves = manifest.contract?.reviewedWaves;
-  const waveRecordsValid = Array.isArray(reviewedWaves) && reviewedWaves.length === REVIEWED_PHASE5_WAVES.length &&
+  const waveRecordsValid = Array.isArray(reviewedWaves) && reviewedWaves.length === REVIEWED_POST_PHASE2_WAVES.length &&
     reviewedWaves.every((wave, index) => {
-      const expected = REVIEWED_PHASE5_WAVES[index];
+      const expected = REVIEWED_POST_PHASE2_WAVES[index];
       return exactKeys(wave, ["id", "issue", "commands", "imports", "mutationBoundaryDigest"]) &&
         wave.id === expected.id && wave.issue === expected.issue &&
         same(wave.commands, expected.commands) && same(wave.imports, expected.imports) &&
@@ -810,8 +819,8 @@ export function validateEvidence(manifest, facts) {
   const reviewedDatabaseCommands = new Set(REVIEWED_OPERATOR_SURFACES_WAVE.commands.filter((name) => name.startsWith("database ")));
   const availableReviewedCommands = facts.availableCommands.filter((name) =>
     reviewedCommandPrefixes.some((prefix) => name.startsWith(prefix)) || reviewedDatabaseCommands.has(name));
-  const expectedReviewedCommands = REVIEWED_PHASE5_WAVES.flatMap(({ commands }) => commands).sort();
-  const reviewedWaveImportsPresent = REVIEWED_PHASE5_WAVES.every(({ imports }) =>
+  const expectedReviewedCommands = REVIEWED_POST_PHASE2_WAVES.flatMap(({ commands }) => commands).sort();
+  const reviewedWaveImportsPresent = REVIEWED_POST_PHASE2_WAVES.every(({ imports }) =>
     imports.every((name) => facts.productionImports.includes(name)));
   const availableCredentialCommands = facts.availableCommands.filter((name) => name.startsWith("credential "));
   const reviewedWavesActive = waveRecordsValid && same(availableReviewedCommands, expectedReviewedCommands) &&

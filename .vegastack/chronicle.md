@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 05-10-2026 — Host identity and admission now have generated contracts ([#213](https://github.com/vegastack/vegastack-labs/issues/213))
+
+- **What:** The platform can describe a managed host's identity, role, alias, applicable OS profile, and hardening evidence through generated contracts. Its existing gate evaluator derives host hardening and role admission from applied evidence, including a minimal non-Labs host.
+- **Why:** Later Phase 6 host workflows need one inert, versioned contract and a fail-closed admission boundary before they can configure or admit a workload host.
+- **How it went:** Review found formatting and missing denial fixtures, which were corrected. The full check then caught the expected Phase 2 production-source seal change; an exact no-command/no-import wave records the new source closure without weakening drift detection.
+- **Changed:** Host identity, role, alias, profile, and evidence schemas · hardening and role-admission gate definitions · stale, malformed, foreign, and missing-evidence denials · exact production-source seal.
+- **Decisions:** none; OS and role-specific evidence consumption and real host enforcement remain for later Phase 6 issues.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/6.1-host-lifecycle-contracts
+
 ## 28-09-2026 — Phase 5 is accepted at its exact tested source ([#112](https://github.com/vegastack/vegastack-labs/issues/112))
 
 - **What:** Development Phase 5 is accepted at exact `main` commit `9a433b43b59030285607435a8326814a311f3687`, covering provider-neutral evidence, credential lifecycle and recovery, local and off-site recovery points, tamper-evident audit history, fenced single-authority restore, exact scheduled operations, shared operator surfaces, and the closed 47-scenario hostile catalog.
