@@ -12,13 +12,20 @@ async function loadManifest() {
   return JSON.parse(await readFile(path.join(ROOT, "tooling/phase-2-evidence.json"), "utf8"));
 }
 
-test("the original Phase 2 baseline stays immutable while Phase 5 waves through #186 have exact reviewed closures", async () => {
+test("the original Phase 2 baseline stays immutable while later waves have exact reviewed closures", async () => {
   const manifest = await loadManifest();
   const facts = await collectIntegratedFacts(ROOT);
   assert.equal(manifest.contract.postPhase2MutationBoundaryDigest, "sha256:ec30a4cc9d4a6e5a3fc9817a55a5b0a1697adcae57b950325edd563637d308a8");
   assert.equal(manifest.contract.productionDependencyDigest, "sha256:a9e8788558fa5c3347b5b8464d8d5e4a67dcc9357e5ae07478b606a806f78133");
   assert.equal(manifest.contract.mutationAvailable, false);
-  assert.equal(manifest.contract.reviewedWaves?.length, 29);
+  assert.equal(manifest.contract.reviewedWaves?.length, 30);
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-1), {
+    id: "phase6-issue213-v1",
+    issue: 213,
+    commands: [],
+    imports: [],
+    mutationBoundaryDigest: "sha256:f940d0544d5cf9094303d1a0cf8d699bbe5c103992a236aa2a40ec5189f62d2e",
+  });
   assert.equal(manifest.contract.reviewedWaves[0].id, "phase5-issue104-v1");
   assert.deepEqual(manifest.contract.reviewedWaves[0].commands, ["gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft"]);
   assert.deepEqual(manifest.contract.reviewedWaves[0].imports, ["github.com/vegastack/vegastack-labs/internal/gate"]);
@@ -153,7 +160,7 @@ test("the original Phase 2 baseline stays immutable while Phase 5 waves through 
   assert.deepEqual(manifest.contract.reviewedWaves[28].commands, []);
   assert.deepEqual(manifest.contract.reviewedWaves[28].imports, []);
   assert.equal(manifest.contract.reviewedWaves[28].mutationBoundaryDigest, "sha256:09af428deadb5b53538bbeb5986d2a7ada85adf97d4eda8c146d989f020b461a");
-  assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.reviewedWaves[28].mutationBoundaryDigest);
+  assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.reviewedWaves.at(-1).mutationBoundaryDigest);
   assert.equal(validateEvidence(manifest, facts).status, "pass");
 });
 
@@ -366,7 +373,9 @@ test("Phase 4 mutation commands require the exact reviewed safety boundary", asy
   }
   assert.ok(protectedFiles.includes("internal/consoleassets/dist/index.html"));
   assert.ok(protectedFiles.includes("internal/metadata/phase4.go"));
+  assert.ok(protectedFiles.includes("internal/metadata/phase6.go"));
   assert.ok(protectedFiles.includes("schemas/v1/command-registry.json"));
+  assert.ok(protectedFiles.includes("schemas/v1/host-profile.schema.json"));
   assert.ok(protectedFiles.includes("internal/store/migrations/0009_runs.sql"));
   assert.ok(protectedFiles.every((filename) => !filename.endsWith("_test.go") && !filename.includes("/testdata/")));
   assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.reviewedWaves.at(-1).mutationBoundaryDigest);

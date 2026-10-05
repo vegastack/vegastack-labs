@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 05-10-2026 — Host identity and admission now have generated contracts ([#213](https://github.com/vegastack/vegastack-labs/issues/213))
+
+- **What:** The platform can describe a managed host's identity, role, alias, exact OS version/build, and hardening evidence through generated contracts. Its two new host gates remain deferred, so a generic proof cannot admit a workload host.
+- **Why:** Later Phase 6 host workflows need one inert, versioned contract; admission must wait for evidence bound to the actual machine and intended role.
+- **How it went:** Initial review found that generic gate evidence could produce a misleading pass and that the macOS build was missing. The operator chose to keep this issue contract-only; the gate now fails closed until Issue 6.8 implements the machine-specific check. The full check also caught the expected Phase 2 source-seal change, which was recorded as a no-command/no-import wave.
+- **Changed:** Host identity, role, alias, profile, and hardening-fact schemas · exact OS/build/architecture/role fields · deferred hardening and role-admission gate definitions · source-seal drift protection.
+- **Decisions:** none; the approved 6.1/6.8 boundary is recorded in the revised issue brief and plan.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/6.1-host-lifecycle-contracts
+
 ## 28-09-2026 — Phase 5 is accepted at its exact tested source ([#112](https://github.com/vegastack/vegastack-labs/issues/112))
 
 - **What:** Development Phase 5 is accepted at exact `main` commit `9a433b43b59030285607435a8326814a311f3687`, covering provider-neutral evidence, credential lifecycle and recovery, local and off-site recovery points, tamper-evident audit history, fenced single-authority restore, exact scheduled operations, shared operator surfaces, and the closed 47-scenario hostile catalog.

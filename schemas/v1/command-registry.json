@@ -4658,6 +4658,31 @@
       "artifactPath": "schemas/v1/gate-view.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/host-hardening-evidence-fact",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-hardening-evidence-fact.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/host-identity",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-identity.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/host-profile",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-profile.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/host-role",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-role.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/host-role-alias",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-role-alias.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/inventory-diff-counts",
       "version": "1.0.0"
     },

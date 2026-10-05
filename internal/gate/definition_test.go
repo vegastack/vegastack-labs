@@ -28,7 +28,8 @@ func TestMissingAppliedScopeDoesNotSynthesizeProfile(t *testing.T) {
 }
 
 func TestGeneratedGateDefinitionsValidateAndDeferOutOfScopeWork(t *testing.T) {
-	if len(generated.GeneratedGateDefinitions) != 24 {
+	// platform-safety + G-001..G-023 + host.hardening-baseline + host.role-admission.
+	if len(generated.GeneratedGateDefinitions) != 26 {
 		t.Fatalf("definitions = %d", len(generated.GeneratedGateDefinitions))
 	}
 	for _, definition := range generated.GeneratedGateDefinitions {

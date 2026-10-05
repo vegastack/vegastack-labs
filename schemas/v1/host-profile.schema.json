@@ -1,0 +1,72 @@
+{
+  "$id": "vegastack-labs.dev/host-profile",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "architecture": {
+      "enum": [
+        "amd64",
+        "arm64"
+      ],
+      "type": "string"
+    },
+    "definitionVersion": {
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
+      "type": "string"
+    },
+    "osBuild": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "osFamily": {
+      "enum": [
+        "debian",
+        "macos"
+      ],
+      "type": "string"
+    },
+    "osVersion": {
+      "maxLength": 32,
+      "minLength": 1,
+      "pattern": "^[0-9]+(\\.[0-9]+){0,3}$",
+      "type": "string"
+    },
+    "profileId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "roleId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/host-profile"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "profileId",
+    "osFamily",
+    "osVersion",
+    "osBuild",
+    "architecture",
+    "roleId",
+    "definitionVersion"
+  ],
+  "title": "VegaStack Labs host profile",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

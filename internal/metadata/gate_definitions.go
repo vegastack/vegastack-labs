@@ -51,5 +51,28 @@ func CurrentGateDefinitions() []GateDefinitionSource {
 		}
 		definitions = append(definitions, definition)
 	}
+	definitions = append(definitions, phase6HostGateDefinitions()...)
 	return definitions
+}
+
+// phase6HostGateDefinitions returns the host hardening and role-admission gates.
+// Every managed host (node subject) will need a hardening baseline before role
+// admission. The definitions remain deferred until Issue 6.8 binds exact host
+// profile and control facts to applied evidence; a generic gate proof cannot
+// admit a host. Slug IDs leave the G-001..G-023 ledger unchanged.
+func phase6HostGateDefinitions() []GateDefinitionSource {
+	return []GateDefinitionSource{
+		{
+			GateID: "host.hardening-baseline", DefinitionVersion: "1.0.0", Layer: "platform",
+			Applicability: "deferred", SubjectKinds: []string{"node"},
+			PrerequisiteGateIDs: []string{"platform-safety"}, EvidenceSchemaID: gateEvidenceSchemaID,
+			EvaluatorVersion: "1.0.0", FreshnessSeconds: 86400, RecoveryEpochBound: true,
+		},
+		{
+			GateID: "host.role-admission", DefinitionVersion: "1.0.0", Layer: "platform",
+			Applicability: "deferred", SubjectKinds: []string{"node"},
+			PrerequisiteGateIDs: []string{"host.hardening-baseline"}, EvidenceSchemaID: gateEvidenceSchemaID,
+			EvaluatorVersion: "1.0.0", FreshnessSeconds: 86400, RecoveryEpochBound: true,
+		},
+	}
 }
