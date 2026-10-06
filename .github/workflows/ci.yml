@@ -74,15 +74,26 @@ jobs:
   verify_trusted:
     name: Public foundation checks
     needs: plan
-    runs-on: [self-hosted, linux, x64]
+    runs-on: [self-hosted, linux, x64, vsk-runner]
     timeout-minutes: 25
     steps:
-      - name: Allow only the disposable Debian hosts
+      - name: Allow only the approved Linux CI hosts
+        env:
+          FULL_CHECK: ${{ inputs.full_check || false }}
+          NATIVE_CREDENTIAL_SHA: ${{ inputs.native_credential_sha || '' }}
+          BACKUP_ACCEPTANCE: ${{ inputs.backup_acceptance || false }}
         run: |
-          case "$(hostname)" in
-            vsk-node-01|vsk-node-06) ;;
-            *) echo "Refusing unapproved self-hosted runner" >&2; exit 1 ;;
-          esac
+          if [ "$FULL_CHECK" = true ] && [ -z "$NATIVE_CREDENTIAL_SHA" ] && [ "$BACKUP_ACCEPTANCE" != true ]; then
+            case "$(hostname)" in
+              vsk-node-01|vsk-node-05|vsk-node-06|vsk-node-07|vsk-node-08) ;;
+              *) echo "Refusing unapproved ordinary CI runner" >&2; exit 1 ;;
+            esac
+          else
+            case "$(hostname)" in
+              vsk-node-01|vsk-node-06) ;;
+              *) echo "Refusing unapproved native acceptance runner" >&2; exit 1 ;;
+            esac
+          fi
 
       - name: Prepare protected local test storage
         run: |

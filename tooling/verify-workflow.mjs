@@ -35,7 +35,7 @@ export function verifyWorkflowDocument(workflow, source = "") {
   }
   const expectedJobs = {
     plan: { runner: "ubuntu-24.04", timeout: 5, actions: ["actions/checkout", "actions/setup-node"] },
-    verify_trusted: { runner: ["self-hosted", "linux", "x64"], timeout: 25, actions: [...ACTIONS.keys()] },
+    verify_trusted: { runner: ["self-hosted", "linux", "x64", "vsk-runner"], timeout: 25, actions: [...ACTIONS.keys()] },
   };
   let actionCount = 0;
   for (const [jobName, expected] of Object.entries(expectedJobs)) {
@@ -100,6 +100,14 @@ export function verifyWorkflowDocument(workflow, source = "") {
   }
   const trustedNode = steps.find((step) => step.uses?.startsWith("actions/setup-node@"));
   if (trustedNode?.with?.cache !== undefined) throw new Error("trusted runner must not restore remote pnpm cache");
+  const hostGuard = steps[0];
+  const expectedHostGuard = "if [ \"$FULL_CHECK\" = true ] && [ -z \"$NATIVE_CREDENTIAL_SHA\" ] && [ \"$BACKUP_ACCEPTANCE\" != true ]; then\n  case \"$(hostname)\" in\n    vsk-node-01|vsk-node-05|vsk-node-06|vsk-node-07|vsk-node-08) ;;\n    *) echo \"Refusing unapproved ordinary CI runner\" >&2; exit 1 ;;\n  esac\nelse\n  case \"$(hostname)\" in\n    vsk-node-01|vsk-node-06) ;;\n    *) echo \"Refusing unapproved native acceptance runner\" >&2; exit 1 ;;\n  esac\nfi";
+  if (hostGuard?.if !== undefined || hostGuard?.run?.trim() !== expectedHostGuard ||
+      hostGuard?.env?.FULL_CHECK !== "${{ inputs.full_check || false }}" ||
+      hostGuard?.env?.NATIVE_CREDENTIAL_SHA !== "${{ inputs.native_credential_sha || '' }}" ||
+      hostGuard?.env?.BACKUP_ACCEPTANCE !== "${{ inputs.backup_acceptance || false }}") {
+    throw new Error("hostname guard must preserve separate ordinary and native host boundaries");
+  }
   if (!/hostname/.test(steps[0]?.run ?? "") || !/vsk-node-01\|vsk-node-06/.test(steps[0]?.run ?? "") ||
       steps[1]?.name !== "Prepare protected local test storage" ||
       steps.findIndex((step) => step.uses?.startsWith("actions/checkout@")) !== 2) {

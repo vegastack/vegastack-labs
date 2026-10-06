@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 06-10-2026 — Debian design is recorded and CI uses the existing Linux pool ([#214](https://github.com/vegastack/vegastack-labs/issues/214))
+
+- **What:** The Debian hardening reference records the approved controls and disposable-test strategy. Ordinary public checks select the existing Linux runner pool and verify the assigned host before checkout; privileged native acceptance retains its narrower host list.
+- **Why:** The old two-host restriction rejected a job assigned to an active shared runner. The operator directed us to verify activity and use the existing cluster.
+- **How it went:** A proposed hosted-runner detour was reverted before execution after the operator corrected it. Posted setup notes and same-day successful jobs established the shared label and recent activity on nodes 06 and 08.
+- **Changed:** Debian reference · Mac mini/iMac deferred within v1 · `vsk-runner` selection · ordinary CI restricted to nodes 01/05/06/07/08 · native acceptance still restricted to 01/06.
+- **Decisions:** D-126–D-130 record the approved hardening choices. The issue and mandate record the operator-authorized CI pool use; running tests grants no workload admission or deployment authority.
+
+— approved by (omkarmohanta09) · built by Codex · branch chore/6.2-host-hardening-research
+
 ## 05-10-2026 — Host identity and admission now have generated contracts ([#213](https://github.com/vegastack/vegastack-labs/issues/213))
 
 - **What:** The platform can describe a managed host's identity, role, alias, exact OS version/build, and hardening evidence through generated contracts. Its two new host gates remain deferred, so a generic proof cannot admit a workload host.
