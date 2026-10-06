@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { spawnSync } from "node:child_process";
 import { parse as parseYaml } from "yaml";
 import { verifyWorkflowDocument } from "../verify-workflow.mjs";
 
@@ -61,8 +60,7 @@ test("the guard rejects an automatic trigger or broad non-final execution", asyn
 test("the trusted manual runner stays bounded and checks its host before checkout", async () => {
   const { source, workflow } = await fixture();
   const job = workflow.jobs.verify_trusted;
-  assert.equal(job["runs-on"], "${{ fromJSON((inputs.native_credential_sha != '' || inputs.backup_acceptance) && '[\"self-hosted\",\"linux\",\"x64\"]' || '[\"ubuntu-24.04\"]') }}");
-  assert.equal(job.steps[0].if, "inputs.native_credential_sha != '' || inputs.backup_acceptance");
+  assert.deepEqual(job["runs-on"], ["self-hosted", "linux", "x64"]);
   assert.equal(job["timeout-minutes"], 25);
   assert.match(job.steps[0].run, /vsk-node-01\|vsk-node-06/);
   assert.equal(job.steps[1].name, "Prepare protected local test storage");
@@ -71,34 +69,4 @@ test("the trusted manual runner stays bounded and checks its host before checkou
 
   job.steps[0].run = "true";
   assert.throws(() => verifyWorkflowDocument(workflow, source), /hostname/);
-});
-
-
-test("ordinary public checks cannot select a shared host or skip the native hostname guard", async () => {
-  const broad = await fixture();
-  broad.workflow.jobs.verify_trusted["runs-on"] = ["self-hosted", "linux", "x64"];
-  assert.throws(() => verifyWorkflowDocument(broad.workflow, broad.source), /job must use/);
-  const unguarded = await fixture();
-  unguarded.workflow.jobs.verify_trusted.steps[0].if = "false";
-  assert.throws(() => verifyWorkflowDocument(unguarded.workflow, unguarded.source), /hostname/);
-  const mixed = await fixture();
-  const plan = mixed.workflow.jobs.plan.steps.find(({ id }) => id === "check-plan");
-  assert.match(plan.run, /routine and native acceptance selections must run separately/);
-});
-
-test("mixed dispatch requests fail before planning or running repository checks", async () => {
-  const { workflow } = await fixture();
-  const script = workflow.jobs.plan.steps.find(({ id }) => id === "check-plan").run;
-  for (const selection of [
-    { NATIVE_CREDENTIAL_SHA: "a".repeat(40), BACKUP_ACCEPTANCE: "false" },
-    { NATIVE_CREDENTIAL_SHA: "", BACKUP_ACCEPTANCE: "true" },
-  ]) {
-    const result = spawnSync("bash", ["-c", script], {
-      encoding: "utf8",
-      env: { ...process.env, FULL_CHECK: "true", ...selection },
-    });
-    assert.equal(result.status, 1);
-    assert.match(result.stderr, /routine and native acceptance selections must run separately/);
-    assert.equal(result.stdout, "");
-  }
 });

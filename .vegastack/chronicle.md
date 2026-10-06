@@ -2,16 +2,6 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
-## 06-10-2026 — Debian hardening choices are recorded and routine CI avoids fleet runners ([#214](https://github.com/vegastack/vegastack-labs/issues/214))
-
-- **What:** The Debian hardening reference records the approved controls and disposable-test strategy. Ordinary public checks now select GitHub-hosted Ubuntu; explicitly selected native acceptance keeps its approved-host guard.
-- **Why:** Phase 6 needs concrete Debian settings before implementation. The requested CI run selected a shared runner outside the approved host list and correctly stopped before checkout.
-- **How it went:** Review caught a missing Docker destination-matching rule, which was corrected. Shipping then exposed the shared runner routing problem; the operator authorized its repair and another CI run.
-- **Changed:** Debian design/reference · Mac mini and iMac deferred to later Phase 6 within v1 · ordinary CI hosted on Ubuntu · mixed routine/native dispatches rejected.
-- **Decisions:** D-126–D-130 record the approved host-hardening choices. The CI routing correction is recorded in the issue and development mandate; it grants no fleet admission or deployment authority.
-
-— approved by (omkarmohanta09) · built by Codex · branch chore/6.2-host-hardening-research
-
 ## 05-10-2026 — Host identity and admission now have generated contracts ([#213](https://github.com/vegastack/vegastack-labs/issues/213))
 
 - **What:** The platform can describe a managed host's identity, role, alias, exact OS version/build, and hardening evidence through generated contracts. Its two new host gates remain deferred, so a generic proof cannot admit a workload host.

@@ -63,10 +63,6 @@ jobs:
             echo "dispatch must explicitly select routine full_check or a named native acceptance lane" >&2
             exit 1
           fi
-          if [ "$FULL_CHECK" = true ] && { [ -n "$NATIVE_CREDENTIAL_SHA" ] || [ "$BACKUP_ACCEPTANCE" = true ]; }; then
-            echo "routine and native acceptance selections must run separately" >&2
-            exit 1
-          fi
           if [ -n "$NATIVE_CREDENTIAL_SHA" ]; then
             [[ "$NATIVE_CREDENTIAL_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "native credential acceptance requires an exact SHA" >&2; exit 1; }
             test "$NATIVE_CREDENTIAL_SHA" = "$HEAD_SHA" || { echo "native credential acceptance SHA must equal the dispatch head" >&2; exit 1; }
@@ -78,11 +74,10 @@ jobs:
   verify_trusted:
     name: Public foundation checks
     needs: plan
-    runs-on: ${{ fromJSON((inputs.native_credential_sha != '' || inputs.backup_acceptance) && '["self-hosted","linux","x64"]' || '["ubuntu-24.04"]') }}
+    runs-on: [self-hosted, linux, x64]
     timeout-minutes: 25
     steps:
       - name: Allow only the disposable Debian hosts
-        if: inputs.native_credential_sha != '' || inputs.backup_acceptance
         run: |
           case "$(hostname)" in
             vsk-node-01|vsk-node-06) ;;

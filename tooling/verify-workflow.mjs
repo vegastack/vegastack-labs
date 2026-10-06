@@ -31,11 +31,11 @@ export function verifyWorkflowDocument(workflow, source = "") {
 
   const jobs = workflow.jobs ?? {};
   if (Object.keys(jobs).sort().join(",") !== "plan,verify_trusted") {
-    throw new Error("manual CI must contain only plan and explicitly routed verification jobs");
+    throw new Error("manual CI must contain only plan and trusted disposable jobs");
   }
   const expectedJobs = {
     plan: { runner: "ubuntu-24.04", timeout: 5, actions: ["actions/checkout", "actions/setup-node"] },
-    verify_trusted: { runner: "${{ fromJSON((inputs.native_credential_sha != '' || inputs.backup_acceptance) && '[\"self-hosted\",\"linux\",\"x64\"]' || '[\"ubuntu-24.04\"]') }}", timeout: 25, actions: [...ACTIONS.keys()] },
+    verify_trusted: { runner: ["self-hosted", "linux", "x64"], timeout: 25, actions: [...ACTIONS.keys()] },
   };
   let actionCount = 0;
   for (const [jobName, expected] of Object.entries(expectedJobs)) {
@@ -70,7 +70,6 @@ export function verifyWorkflowDocument(workflow, source = "") {
   if (!plan || /pull_request|github\.event\.before|inputs\.base_sha/.test(JSON.stringify(plan)) ||
       plan.env?.HEAD_SHA !== "${{ github.sha }}" ||
       !/dispatch must explicitly select routine full_check or a named native acceptance lane/.test(plan.run ?? "") ||
-      !/routine and native acceptance selections must run separately/.test(plan.run ?? "") ||
       !/native credential acceptance SHA must equal the dispatch head/.test(plan.run ?? "") ||
       !/native credential acceptance requires its reviewed branch/.test(plan.run ?? "") ||
       !/node tooling\/check-affected\.mjs --base "" --head "\$HEAD_SHA" --dry-run/.test(plan.run ?? "")) {
@@ -101,8 +100,7 @@ export function verifyWorkflowDocument(workflow, source = "") {
   }
   const trustedNode = steps.find((step) => step.uses?.startsWith("actions/setup-node@"));
   if (trustedNode?.with?.cache !== undefined) throw new Error("trusted runner must not restore remote pnpm cache");
-  if (steps[0]?.if !== "inputs.native_credential_sha != '' || inputs.backup_acceptance" ||
-      !/hostname/.test(steps[0]?.run ?? "") || !/vsk-node-01\|vsk-node-06/.test(steps[0]?.run ?? "") ||
+  if (!/hostname/.test(steps[0]?.run ?? "") || !/vsk-node-01\|vsk-node-06/.test(steps[0]?.run ?? "") ||
       steps[1]?.name !== "Prepare protected local test storage" ||
       steps.findIndex((step) => step.uses?.startsWith("actions/checkout@")) !== 2) {
     throw new Error("self-hosted checks must verify the allowed hostname before repository checkout");
