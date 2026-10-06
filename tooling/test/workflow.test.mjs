@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { spawnSync } from "node:child_process";
 import { parse as parseYaml } from "yaml";
 import { verifyWorkflowDocument } from "../verify-workflow.mjs";
 
@@ -60,7 +61,7 @@ test("the guard rejects an automatic trigger or broad non-final execution", asyn
 test("the trusted manual runner stays bounded and checks its host before checkout", async () => {
   const { source, workflow } = await fixture();
   const job = workflow.jobs.verify_trusted;
-  assert.deepEqual(job["runs-on"], ["self-hosted", "linux", "x64"]);
+  assert.deepEqual(job["runs-on"], ["self-hosted", "linux", "x64", "vsk-runner"]);
   assert.equal(job["timeout-minutes"], 25);
   assert.match(job.steps[0].run, /vsk-node-01\|vsk-node-06/);
   assert.equal(job.steps[1].name, "Prepare protected local test storage");
@@ -69,4 +70,36 @@ test("the trusted manual runner stays bounded and checks its host before checkou
 
   job.steps[0].run = "true";
   assert.throws(() => verifyWorkflowDocument(workflow, source), /hostname/);
+});
+
+test("ordinary CI accepts the documented active pool while native checks retain their narrow host boundary", async () => {
+  const { workflow } = await fixture();
+  const script = workflow.jobs.verify_trusted.steps[0].run;
+  for (const [host, full, native, backup, allowed] of [
+    ["vsk-node-01", "true", "", "false", true],
+    ["vsk-node-05", "true", "", "false", true],
+    ["vsk-node-06", "true", "", "false", true],
+    ["vsk-node-07", "true", "", "false", true],
+    ["vsk-node-08", "true", "", "false", true],
+    ["vsk-node-04", "true", "", "false", false],
+    ["vsk-node-09", "true", "", "false", false],
+    ["unknown", "true", "", "false", false],
+    ["vsk-node-08", "false", "a".repeat(40), "false", false],
+    ["vsk-node-08", "true", "", "true", false],
+    ["vsk-node-08", "true", "a".repeat(40), "false", false],
+    ["vsk-node-06", "false", "", "true", true],
+    ["vsk-node-01", "false", "a".repeat(40), "false", true],
+  ]) {
+    const result = spawnSync("bash", ["-c", 'hostname() { printf "%s\\n" "$TEST_HOST"; };\n' + script], {
+      encoding: "utf8",
+      env: { ...process.env, TEST_HOST: host, FULL_CHECK: full, NATIVE_CREDENTIAL_SHA: native, BACKUP_ACCEPTANCE: backup },
+    });
+    assert.equal(result.status === 0, allowed, `${host}: full=${full}, native=${native}, backup=${backup}: ${result.stderr}`);
+  }
+});
+
+test("the workflow verifier rejects a native-input bypass of the hostname boundary", async () => {
+  const { source, workflow } = await fixture();
+  workflow.jobs.verify_trusted.steps[0].env.NATIVE_CREDENTIAL_SHA = "";
+  assert.throws(() => verifyWorkflowDocument(workflow, source), /hostname guard/);
 });
