@@ -72,6 +72,9 @@ func TestDiscoveryDraftRoleDenialIsAudited(t *testing.T) {
 	if _, err := s.conn.ExecContext(context.Background(), `INSERT INTO effective_authorization_grants VALUES('author-grant','operator-a','author','author','host.discovery.target.prepare','host-discovery-target','candidate-a',NULL,3,'active','now','now')`); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := s.conn.ExecContext(context.Background(), `UPDATE effective_authorization_principals SET grant_revision=3 WHERE principal_id='operator-a'`); err != nil {
+		t.Fatal(err)
+	}
 	repo := NewHostDiscoveryRepository(s)
 	attribution, err := hostdiscovery.Attribution(discoveryPrincipalContext(), "denial-test")
 	if err != nil {
