@@ -343,6 +343,16 @@
         "commands": [],
         "imports": [],
         "mutationBoundaryDigest": "sha256:f940d0544d5cf9094303d1a0cf8d699bbe5c103992a236aa2a40ec5189f62d2e"
+      },
+      {
+        "id": "phase6-issue217-v1",
+        "issue": 217,
+        "commands": [],
+        "imports": [
+          "github.com/vegastack/vegastack-labs/internal/adapter/hostdiscovery",
+          "github.com/vegastack/vegastack-labs/internal/hostdiscovery"
+        ],
+        "mutationBoundaryDigest": "sha256:7faf9e31847907a32364104fa88946d9cfcd3b91c6b0b9c0abe1958e3bee2d19"
       }
     ]
   },

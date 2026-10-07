@@ -45,4 +45,4 @@ This is a target **strategy**, not permission to create a VM. Before any provisi
 
 Mac mini and iMac enforcement, consent, recovery and isolated test-target selection remain in a **later Phase 6 batch within v1**. Existing Mac roles, D-107/D-124 and complete v1 acceptance remain in force. Neither Mac is contacted or used by this strategy. The later batch must bring its own approved scope and separate test-target authorization; a disposable account on an app-hosting Mac cannot isolate system-wide SSH/firewall changes.
 
-The referenced `docs/development/phases/06-host-lifecycle-bootstrap.md` is not present on `main`. Its approved authoring step must link this reference when the full Phase 6 solution is recorded; this research document does not create or approve that phase plan.
+The [Phase 6 development plan](phases/06-host-lifecycle-bootstrap.md) records the approved 6.3 discovery batch and later qualification ownership. This research reference does not grant approval for those later batches.

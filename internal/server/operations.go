@@ -375,8 +375,14 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	coreRouter := runengine.CoreRouter{Gate: coreGate, Recovery: recoveryCore, Schedule: scheduleCore, ScheduleObserve: scheduleObserver}
+	discoveryRepository := store.NewHostDiscoveryRepository(authority)
+	discoveryEffect := &runengine.HostDiscoveryTargetEffect{Repository: discoveryRepository, Approvals: store.NewAcknowledgementRepository(authority), RecoveryPrecheck: runengine.UnavailableGateVerifier{}}
+	coreRouter := runengine.CoreRouter{DiscoveryTarget: discoveryEffect, Gate: coreGate, Recovery: recoveryCore, Schedule: scheduleCore, ScheduleObserve: scheduleObserver}
 	credentialRepository := store.NewCredentialRepository(authority)
+	if err := registerHostDiscovery(application, authority, adapters, declarations, factory); err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
 	if err := registerProductionRecoveryCredentialResolver(ctx, adapters, credentialRepository, gateRepository, profile.SocketOwnerUID); err != nil {
 		_ = application.Shutdown(ctx)
 		return err
