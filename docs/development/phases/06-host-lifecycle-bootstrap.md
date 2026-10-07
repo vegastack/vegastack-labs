@@ -1,5 +1,17 @@
 # Phase 6 — Host lifecycle and control-plane bootstrap
 
+## Protected live hosts — hard exclusion
+
+Operator instruction on 07-10-2026: **`vsk-node-04` and `vsk-node-05` are out of scope until the operator explicitly lifts this exclusion for named targets and actions.** They host live applications and databases. This supersedes earlier read-only permission, CI-pool permission, role assignments and test-host exceptions for these machines.
+
+- No connection or operation: no SSH, discovery, probes, read-only inspection, CI jobs, deployment, installation, configuration, service changes, restarts, reboot, shutdown, backup/restore, credential rotation/revocation, deletion or formatting.
+- The exclusion follows the physical machines through IP addresses, DNS names, aliases, inventory IDs, role names and runner identities. Never bypass it by renaming a target or using a provider, controller, shared network/service or wildcard group. Exclude indirect actions that could affect their workloads, databases, connectivity or credentials.
+- Before any authorized infrastructure operation, resolve its full target set from already available records without contacting these hosts. If identity or indirect impact cannot be ruled out, stop before connecting. Do not use either host as a proxy, controller, test machine or recovery target.
+- Historical inventory and synthetic fixtures may retain their names; those records confer no operational permission. No replacement control host is selected by this exclusion.
+- Do not dispatch CI from any revision using the shared `vsk-runner` selector. A hostname check after assignment is insufficient. The self-hosted job is disabled pending verified scheduling labels/groups that exclude both hosts before assignment and review of the replacement workflow. Never modify runner services or registrations on these hosts to achieve the exclusion.
+- General batch, implementation, test or deployment approval does not lift this rule. Other real targets still require their own scoped approval.
+
+
 Issue 6.3 solution approved on 07-10-2026 against `b9074cc675a7862b0878c60ef8ec135bc91ebabb`. This records the approved 6.3 development batch; it grants no operational authority.
 
 ## Destination and existing decisions

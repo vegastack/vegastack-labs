@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 07-10-2026 — Live application and database hosts are excluded from development
+
+- **What:** Nodes 04 and 05 are explicitly excluded from all direct and indirect operations, including reads and CI. The prepared workflow disables shared-pool scheduling before assignment until safe runner routing can be verified.
+- **Why:** The operator identified live applications and databases on both machines and prohibited any contact.
+- **How it went:** The existing hostname check was too late to prevent runner assignment. GitHub denied runner-label inspection, so no labels were guessed; CI remains suspended. No host was contacted.
+- **Changed:** Standing rules · current planning documents · open issue scopes · scheduling block · denial regression tests.
+- **Decisions:** none; this enforces the operator's explicit operational exclusion. Older workflow revisions must not be dispatched; repository changes still require the normal shipping route.
+
+— approved by (omkarmohanta09) · built by Codex · branch chore/exclude-protected-nodes-04-05
+
 ## 07-10-2026 — Host inspection gains an explicit permission boundary ([#217](https://github.com/vegastack/vegastack-labs/issues/217))
 
 - **What:** The server can prepare an inert permission record for one candidate and collect bounded observations through its API when all prerequisites are qualified. A scan never approves a machine to host workloads. Production activation and credentials remain blocked where qualification is unavailable.

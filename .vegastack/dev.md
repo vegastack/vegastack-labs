@@ -1,5 +1,17 @@
 # Dev profile — vegastack/vegastack-labs
 
+## Protected live hosts — hard exclusion
+
+Operator instruction on 07-10-2026: **`vsk-node-04` and `vsk-node-05` are out of scope until the operator explicitly lifts this exclusion for named targets and actions.** They host live applications and databases. This supersedes earlier read-only permission, CI-pool permission, role assignments and test-host exceptions for these machines.
+
+- No connection or operation: no SSH, discovery, probes, read-only inspection, CI jobs, deployment, installation, configuration, service changes, restarts, reboot, shutdown, backup/restore, credential rotation/revocation, deletion or formatting.
+- The exclusion follows the physical machines through IP addresses, DNS names, aliases, inventory IDs, role names and runner identities. Never bypass it by renaming a target or using a provider, controller, shared network/service or wildcard group. Exclude indirect actions that could affect their workloads, databases, connectivity or credentials.
+- Before any authorized infrastructure operation, resolve its full target set from already available records without contacting these hosts. If identity or indirect impact cannot be ruled out, stop before connecting. Do not use either host as a proxy, controller, test machine or recovery target.
+- Historical inventory and synthetic fixtures may retain their names; those records confer no operational permission. No replacement control host is selected by this exclusion.
+- Do not dispatch CI from any revision using the shared `vsk-runner` selector. A hostname check after assignment is insufficient. The self-hosted job is disabled pending verified scheduling labels/groups that exclude both hosts before assignment and review of the replacement workflow. Never modify runner services or registrations on these hosts to achieve the exclusion.
+- General batch, implementation, test or deployment approval does not lift this rule. Other real targets still require their own scoped approval.
+
+
 This is the concise development-workflow profile consumed by the dev-family skills. The repository contract, development mandate, and approved phase material remain authoritative; this file records detected commands and workflow knobs without granting repository, release, provider, or infrastructure authority.
 
 repo: vegastack/vegastack-labs · default branch main
@@ -28,7 +40,7 @@ chronicle: on
 
 - ask: create a pull request only after the operator explicitly requests it for the approved issue.
 - guard: before asking for a pull request, the installed dev-ship guard runs the configured local affected command once with the exact current remote `main` SHA and clean local/remote/evidence branch HEAD, then rechecks every binding. Missing, dirty, stale, or unverifiable state blocks.
-- guard: later review, rebase, or conflict-resolution edits rerun only the local affected checks. Pull requests and `main` pushes do not trigger Public CI; routine-full dispatches use the approved `vsk-runner` Linux pool (nodes 01, 05, 06, 07 and 08); named native acceptance remains limited to nodes 01/06.
+- guard: later review, rebase, or conflict-resolution edits rerun only the local affected checks. Pull requests and `main` pushes do not trigger Public CI; routine-full dispatches are suspended pending verified safe scheduling (eligible nodes 01, 06, 07 and 08); named native acceptance remains limited to nodes 01/06.
 - ask: squash-merge only after a separate explicit operator instruction, required checks, and a fresh review with no unresolved correctness, security, or acceptance findings.
 - auto: verify that the integrated `main` tree matches the reviewed branch tree, post the implementation/evidence summary, and close the approved issue when all acceptance criteria are satisfied; do not start post-merge CI unless the owning issue explicitly requires it.
 - ask: release or deploy only under separate explicit authorization; neither is part of an ordinary merge and no release machinery currently exists.
@@ -39,7 +51,7 @@ chronicle: on
 - Install public dependencies: `pnpm install --frozen-lockfile` under Node.js 24.20.0 and pnpm 11.24.0.
 - During implementation and review fixes, run only the narrow affected Go, tooling, web, security, failure, recovery, or integration checks.
 - Run the pinned local `pnpm check:affected` command once against the exact current remote `main` commit and exact clean, pushed branch head immediately before pull request creation. Changed Go files test and vet only their package directories while repository-wide compilation and selected boundary verifiers remain. Accepted Phase 3, Phase 4, and Phase 5 phase-wide suites are outside the routine plan; run them only when an owning issue explicitly requires its acceptance command.
-- Public CI has only a manual `workflow_dispatch` trigger. It accepts the explicitly selected routine-full lane and named native acceptance inputs; pull requests and `main` pushes start no workflow. Ordinary routine-full dispatches use the existing `vsk-runner` Linux pool, restricted before checkout to nodes 01, 05, 06, 07 and 08 under the operator’s 06-10-2026 authorization. GitHub assigns an online runner; inventory listings alone do not prove availability. Under the temporary Issue #81 exception, named native acceptance (including a mixed full/native dispatch) remains restricted to disposable `vsk-node-01` or `vsk-node-06`; the job checks the hostname before checkout and has no fleet-admin or deployment credentials.
+- Public CI has only a manual `workflow_dispatch` trigger. It accepts the explicitly selected routine-full lane and named native acceptance inputs; pull requests and `main` pushes start no workflow. Routine-full host eligibility is limited to nodes 01, 06, 07 and 08 after the 07-10-2026 exclusion; dispatch is suspended until scheduling excludes protected hosts before assignment. GitHub assigns an online runner; inventory listings alone do not prove availability. Under the temporary Issue #81 exception, named native acceptance (including a mixed full/native dispatch) remains restricted to disposable `vsk-node-01` or `vsk-node-06`; the job checks the hostname before checkout and has no fleet-admin or deployment credentials.
 - The `web/` Playwright e2e suite shares a module-global fixture (`fixtureState`) and MUST run single-worker: `pnpm exec playwright test … --workers=1` (or set `VSK_PHASE3_PLAYWRIGHT_OUTPUT`, which pins one worker). Parallel runs race and report spurious, shifting failures. Rebuild the static export before every e2e/screenshot run — `next build` type-checks the `e2e/` specs and, when it fails, leaves a **stale `out/`** that `pnpm preview` keeps serving, so trust only a fresh clean build. Read counts from the `list` reporter, never the `line` reporter (its overwriting summary hides failures). If Playwright reports every test failing at ~0ms, the browser binary is missing — `pnpm exec playwright install chromium chromium-headless-shell`.
 - Explicit phase-acceptance commands remain required by their owning issues and are never replaced by the generic selector.
 - UI evidence uses the pinned Playwright lane and the private evidence repository named above.
@@ -48,7 +60,7 @@ chronicle: on
 ## Environments
 
 - Local development: this checkout or an issue-scoped worktree; public dependencies and synthetic fixtures only.
-- Public CI: manual dispatch only. Ordinary routine-full runs use the approved `vsk-runner` Linux pool (nodes 01, 05, 06, 07 and 08); named native acceptance remains limited to disposable Debian nodes 01/06 under Issue #81; this is not permanent runner admission or fleet qualification.
+- Public CI: manual dispatch only. Ordinary routine-full runs are suspended pending verified safe scheduling (eligible nodes 01, 06, 07 and 08); named native acceptance remains limited to disposable Debian nodes 01/06 under Issue #81; this is not permanent runner admission or fleet qualification.
 - Production-like and inventory-fleet targets: unavailable to ordinary development; require their own closed gates and explicit authorization.
 - Optional maintainer registry variable names are documented in `web/.env.example`; values never enter Git, prompts, plans, issues, or audit records.
 - Local toolchain gap: the system default is not the pinned Node.js version; use the recorded `npx --yes --package node@24.20.0 -- ...` form for the complete lane.

@@ -33,6 +33,9 @@ export function verifyWorkflowDocument(workflow, source = "") {
   if (Object.keys(jobs).sort().join(",") !== "plan,verify_trusted") {
     throw new Error("manual CI must contain only plan and trusted disposable jobs");
   }
+  if (jobs.verify_trusted.if !== "${{ false }}") {
+    throw new Error("shared-pool scheduling must remain disabled to exclude protected nodes 04/05");
+  }
   const expectedJobs = {
     plan: { runner: "ubuntu-24.04", timeout: 5, actions: ["actions/checkout", "actions/setup-node"] },
     verify_trusted: { runner: ["self-hosted", "linux", "x64", "vsk-runner"], timeout: 25, actions: [...ACTIONS.keys()] },
@@ -101,7 +104,7 @@ export function verifyWorkflowDocument(workflow, source = "") {
   const trustedNode = steps.find((step) => step.uses?.startsWith("actions/setup-node@"));
   if (trustedNode?.with?.cache !== undefined) throw new Error("trusted runner must not restore remote pnpm cache");
   const hostGuard = steps[0];
-  const expectedHostGuard = "if [ \"$FULL_CHECK\" = true ] && [ -z \"$NATIVE_CREDENTIAL_SHA\" ] && [ \"$BACKUP_ACCEPTANCE\" != true ]; then\n  case \"$(hostname)\" in\n    vsk-node-01|vsk-node-05|vsk-node-06|vsk-node-07|vsk-node-08) ;;\n    *) echo \"Refusing unapproved ordinary CI runner\" >&2; exit 1 ;;\n  esac\nelse\n  case \"$(hostname)\" in\n    vsk-node-01|vsk-node-06) ;;\n    *) echo \"Refusing unapproved native acceptance runner\" >&2; exit 1 ;;\n  esac\nfi";
+  const expectedHostGuard = "if [ \"$FULL_CHECK\" = true ] && [ -z \"$NATIVE_CREDENTIAL_SHA\" ] && [ \"$BACKUP_ACCEPTANCE\" != true ]; then\n  case \"$(hostname)\" in\n    vsk-node-01|vsk-node-06|vsk-node-07|vsk-node-08) ;;\n    *) echo \"Refusing unapproved ordinary CI runner\" >&2; exit 1 ;;\n  esac\nelse\n  case \"$(hostname)\" in\n    vsk-node-01|vsk-node-06) ;;\n    *) echo \"Refusing unapproved native acceptance runner\" >&2; exit 1 ;;\n  esac\nfi";
   if (hostGuard?.if !== undefined || hostGuard?.run?.trim() !== expectedHostGuard ||
       hostGuard?.env?.FULL_CHECK !== "${{ inputs.full_check || false }}" ||
       hostGuard?.env?.NATIVE_CREDENTIAL_SHA !== "${{ inputs.native_credential_sha || '' }}" ||

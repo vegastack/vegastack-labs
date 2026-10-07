@@ -1,5 +1,17 @@
 # Development operating mandate
 
+## Protected live hosts — hard exclusion
+
+Operator instruction on 07-10-2026: **`vsk-node-04` and `vsk-node-05` are out of scope until the operator explicitly lifts this exclusion for named targets and actions.** They host live applications and databases. This supersedes earlier read-only permission, CI-pool permission, role assignments and test-host exceptions for these machines.
+
+- No connection or operation: no SSH, discovery, probes, read-only inspection, CI jobs, deployment, installation, configuration, service changes, restarts, reboot, shutdown, backup/restore, credential rotation/revocation, deletion or formatting.
+- The exclusion follows the physical machines through IP addresses, DNS names, aliases, inventory IDs, role names and runner identities. Never bypass it by renaming a target or using a provider, controller, shared network/service or wildcard group. Exclude indirect actions that could affect their workloads, databases, connectivity or credentials.
+- Before any authorized infrastructure operation, resolve its full target set from already available records without contacting these hosts. If identity or indirect impact cannot be ruled out, stop before connecting. Do not use either host as a proxy, controller, test machine or recovery target.
+- Historical inventory and synthetic fixtures may retain their names; those records confer no operational permission. No replacement control host is selected by this exclusion.
+- Do not dispatch CI from any revision using the shared `vsk-runner` selector. A hostname check after assignment is insufficient. The self-hosted job is disabled pending verified scheduling labels/groups that exclude both hosts before assignment and review of the replacement workflow. Never modify runner services or registrations on these hosts to achieve the exclusion.
+- General batch, implementation, test or deployment approval does not lift this rule. Other real targets still require their own scoped approval.
+
+
 Status: adopted as working v1 by the user on 26-08-2026. Phase plans, issue batches, and operational authority still require their applicable approvals.
 
 ## Workflow at a glance
@@ -119,7 +131,7 @@ During implementation and review fixes, run only the narrow unit, schema, fixtur
 
 Each issue runs one successful local `pnpm check:affected` proof immediately before pull request creation, bound to the exact current remote-main base and exact clean local/remote/evidence branch head. Changed Go package tests and vet, repository-wide compilation, and affected tooling, web, browser, phase, and boundary checks form that proof. If review, rebase, or conflict resolution changes the head, rerun it. Unknown paths, package deletion or rename, dependency/selector changes, invalid ancestry, or malformed state fail closed to a full local plan or block shipping. Accepted Phase 3, Phase 4, and Phase 5 phase-wide suites are outside the routine plan; an owning phase's explicit acceptance command remains required when its issue names it.
 
-Public CI has no automatic pull-request or `main`-push trigger. `workflow_dispatch` is reserved for an explicitly selected routine full check and named native acceptance inputs. Ordinary routine-full dispatches use the existing `vsk-runner` Linux pool, restricted before checkout to nodes 01, 05, 06, 07 and 08 under the operator’s 06-10-2026 authorization. GitHub assigns an online runner; inventory listings alone do not prove availability. Under the temporary Issue #81 exception, named native acceptance (including a mixed full/native dispatch) remains restricted to disposable `vsk-node-01` or `vsk-node-06`; the job verifies the exact hostname before checkout and receives no fleet-admin or deployment credentials. Accepted Phase 3, Phase 4, and Phase 5 phase-wide suites are not part of routine checks. An owning phase's explicit acceptance command and an issue's named native or real-boundary acceptance command remain separately required.
+Public CI has no automatic pull-request or `main`-push trigger. `workflow_dispatch` is reserved for an explicitly selected routine full check and named native acceptance inputs. Routine-full host eligibility is limited to nodes 01, 06, 07 and 08 after the 07-10-2026 exclusion; dispatch is suspended until scheduling excludes protected hosts before assignment. GitHub assigns an online runner; inventory listings alone do not prove availability. Under the temporary Issue #81 exception, named native acceptance (including a mixed full/native dispatch) remains restricted to disposable `vsk-node-01` or `vsk-node-06`; the job verifies the exact hostname before checkout and receives no fleet-admin or deployment credentials. Accepted Phase 3, Phase 4, and Phase 5 phase-wide suites are not part of routine checks. An owning phase's explicit acceptance command and an issue's named native or real-boundary acceptance command remain separately required.
 
 Record actionable findings, their disposition, and the reviewed commit in the PR. Fix findings and rerun affected checks. Later changes, including conflict resolution, require relevant renewed checks and review; old review cannot certify unseen changes. No ritual review rounds or unrelated perfectionism.
 

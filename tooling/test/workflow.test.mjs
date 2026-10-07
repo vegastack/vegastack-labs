@@ -77,7 +77,7 @@ test("ordinary CI accepts the documented active pool while native checks retain 
   const script = workflow.jobs.verify_trusted.steps[0].run;
   for (const [host, full, native, backup, allowed] of [
     ["vsk-node-01", "true", "", "false", true],
-    ["vsk-node-05", "true", "", "false", true],
+    ["vsk-node-05", "true", "", "false", false],
     ["vsk-node-06", "true", "", "false", true],
     ["vsk-node-07", "true", "", "false", true],
     ["vsk-node-08", "true", "", "false", true],
@@ -102,4 +102,14 @@ test("the workflow verifier rejects a native-input bypass of the hostname bounda
   const { source, workflow } = await fixture();
   workflow.jobs.verify_trusted.steps[0].env.NATIVE_CREDENTIAL_SHA = "";
   assert.throws(() => verifyWorkflowDocument(workflow, source), /hostname guard/);
+});
+
+
+test("shared-pool scheduling is blocked before any protected host can receive work", async () => {
+  const { source, workflow } = await fixture();
+  assert.equal(workflow.jobs.verify_trusted.if, "${{ false }}");
+  for (const unsafe of [undefined, true, "${{ true }}", "inputs.full_check"]) {
+    workflow.jobs.verify_trusted.if = unsafe;
+    assert.throws(() => verifyWorkflowDocument(workflow, source), /protected nodes/);
+  }
 });

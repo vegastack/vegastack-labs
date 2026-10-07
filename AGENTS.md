@@ -1,5 +1,17 @@
 # VegaStack Labs agent contract
 
+## Protected live hosts — hard exclusion
+
+Operator instruction on 07-10-2026: **`vsk-node-04` and `vsk-node-05` are out of scope until the operator explicitly lifts this exclusion for named targets and actions.** They host live applications and databases. This supersedes earlier read-only permission, CI-pool permission, role assignments and test-host exceptions for these machines.
+
+- No connection or operation: no SSH, discovery, probes, read-only inspection, CI jobs, deployment, installation, configuration, service changes, restarts, reboot, shutdown, backup/restore, credential rotation/revocation, deletion or formatting.
+- The exclusion follows the physical machines through IP addresses, DNS names, aliases, inventory IDs, role names and runner identities. Never bypass it by renaming a target or using a provider, controller, shared network/service or wildcard group. Exclude indirect actions that could affect their workloads, databases, connectivity or credentials.
+- Before any authorized infrastructure operation, resolve its full target set from already available records without contacting these hosts. If identity or indirect impact cannot be ruled out, stop before connecting. Do not use either host as a proxy, controller, test machine or recovery target.
+- Historical inventory and synthetic fixtures may retain their names; those records confer no operational permission. No replacement control host is selected by this exclusion.
+- Do not dispatch CI from any revision using the shared `vsk-runner` selector. A hostname check after assignment is insufficient. The self-hosted job is disabled pending verified scheduling labels/groups that exclude both hosts before assignment and review of the replacement workflow. Never modify runner services or registrations on these hosts to achieve the exclusion.
+- General batch, implementation, test or deployment approval does not lift this rule. Other real targets still require their own scoped approval.
+
+
 ## Purpose
 
 This repository defines the portable `vegastack-labs` infrastructure operations platform and the concrete VegaStack Labs deployment profile. The platform is delivered through one CLI/executable, `vsk-labs`. Humans, Codex, Claude Code and Hermes use the same schemas, plans, approvals and typed adapters.
@@ -103,7 +115,7 @@ Until 22-09-2026 04:30 AM IST (Asia/Kolkata; machine cutoff `2026-09-21T23:00:00
 
 During implementation and review fixes, run only the narrow unit, schema, fixture, security, failure, recovery, and integration checks affected by the current change. Each issue runs one successful local `pnpm check:affected` proof against the exact current remote-main base and exact clean local/remote/evidence branch head immediately before pull request creation. Changed Go packages receive focused tests and vet while repository-wide compilation and affected boundary checks remain. If review or conflict resolution changes that head, rerun the local affected proof. Accepted Phase 3, Phase 4, and Phase 5 phase-wide suites are outside the routine plan; run an owning phase's explicit acceptance command only when that issue requires it.
 
-Public CI has no `pull_request` or `push` trigger. Opening a pull request or merging to `main` starts no CI workflow. Use `workflow_dispatch` only for an explicitly selected routine full check or a named native acceptance input. Ordinary routine-full dispatches use the existing `vsk-runner` Linux pool, restricted before checkout to nodes 01, 05, 06, 07 and 08 under the operator’s 06-10-2026 authorization. GitHub assigns an online runner; inventory listings alone do not prove availability. Under the temporary Issue #81 exception, named native acceptance (including a mixed full/native dispatch) remains restricted to disposable `vsk-node-01` or `vsk-node-06`; the job must verify the exact hostname before checkout and receives no fleet-admin or deployment credentials. Accepted Phase 3, Phase 4, and Phase 5 phase-wide suites are not part of routine checks; an owning phase's explicit acceptance command remains required when its issue names it. Never use live production-like targets for an unreviewed test.
+Public CI has no `pull_request` or `push` trigger. Opening a pull request or merging to `main` starts no CI workflow. Use `workflow_dispatch` only for an explicitly selected routine full check or a named native acceptance input. Routine-full host eligibility is limited to nodes 01, 06, 07 and 08 after the 07-10-2026 exclusion; dispatch is suspended until scheduling excludes protected hosts before assignment. GitHub assigns an online runner; inventory listings alone do not prove availability. Under the temporary Issue #81 exception, named native acceptance (including a mixed full/native dispatch) remains restricted to disposable `vsk-node-01` or `vsk-node-06`; the job must verify the exact hostname before checkout and receives no fleet-admin or deployment credentials. Accepted Phase 3, Phase 4, and Phase 5 phase-wide suites are not part of routine checks; an owning phase's explicit acceptance command remains required when its issue names it. Never use live production-like targets for an unreviewed test.
 
 ## Skills
 

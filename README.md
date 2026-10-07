@@ -1,5 +1,7 @@
 # VegaStack Labs
 
+> **Current operational exclusion (07-10-2026):** `vsk-node-04` and `vsk-node-05` host live applications/databases and must not be contacted or operated, including read-only discovery, CI and indirect provider/controller actions. Historical role assignments below grant no permission. See the [hard exclusion](AGENTS.md#protected-live-hosts--hard-exclusion).
+
 `vegastack-labs` is a portable infrastructure operations platform with a centralized control plane for operating and governing small physical compute fleets. It is delivered as a single `vsk-labs` executable providing the CLI, control-plane server, local API and VegaStack Labs Console, deterministic plan/apply engine and typed provider-adapter contracts. The concrete VegaStack Labs environment described here is a **deployment profile** of the platform: eight active ThinkPads, a Mac mini, an iMac, wired gigabit networking and selected Cloudflare, Coolify, Harbor, GitHub, Google Workspace, 1Password and R2 adapters.
 
 This repository is the **v1 implementation and operating specification**, including the confirmed generic OSS lifecycle and a separate VegaStack Labs deployment profile. It authorizes no deployment by itself, contains no live secrets, and remains activation-gated by the physical/provider/implementation evidence in the [gate ledger](docs/implementation-gates.md#gate-ledger). Every material user decision, derived design choice and official-source dependency is indexed in [Decisions and sources](docs/decisions-and-sources.md).
