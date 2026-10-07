@@ -59,6 +59,7 @@ const REVIEWED_BACKUP_ENDPOINTS = [
   "api.v1.backup-policy-drafts.create", "api.v1.backup-retention-lock-drafts.create", "api.v1.backup-retirement-drafts.create",
   "api.v1.backup-verifications.create", "api.v1.backups.status",
 ];
+const REVIEWED_DISCOVERY_ENDPOINTS = ["api.v1.host-discovery-targets.draft", "api.v1.host-observations.create", "api.v1.host-observations.get"];
 const REVIEWED_OPERATOR_ENDPOINTS = [
   "api.v1.database-backups.create", "api.v1.database-exports.create", "api.v1.database-restores.create", "api.v1.database-verifications.create",
   "api.v1.recovery-points.list", "api.v1.restore-drafts.create", "api.v1.restores.list", "api.v1.restores.plan",
@@ -104,8 +105,9 @@ export async function verifyReadAPI(root = ROOT) {
       const backupIDs = ids.filter((id) => id.startsWith("api.v1.backup"));
       const operatorIDs = ids.filter((id) => REVIEWED_OPERATOR_ENDPOINTS.includes(id));
       const lifecycleIDs = ids.filter((id) => id.startsWith("api.v1.credential-lifecycle-"));
-      const historicalIDs = ids.filter((id) => !gateIDs.includes(id) && !credentialImportIDs.includes(id) && !auditIDs.includes(id) && !lifecycleIDs.includes(id) && !backupIDs.includes(id) && !operatorIDs.includes(id));
-      if (JSON.stringify(historicalIDs) !== JSON.stringify(EXPECTED_ENDPOINTS) ||
+      const discoveryIDs = ids.filter((id) => id.startsWith("api.v1.host-discovery-") || id.startsWith("api.v1.host-observations."));
+      const historicalIDs = ids.filter((id) => !gateIDs.includes(id) && !credentialImportIDs.includes(id) && !auditIDs.includes(id) && !lifecycleIDs.includes(id) && !backupIDs.includes(id) && !operatorIDs.includes(id) && !discoveryIDs.includes(id));
+      if (JSON.stringify(discoveryIDs) !== JSON.stringify(REVIEWED_DISCOVERY_ENDPOINTS) || JSON.stringify(historicalIDs) !== JSON.stringify(EXPECTED_ENDPOINTS) ||
           JSON.stringify(gateIDs) !== JSON.stringify(REVIEWED_GATE_ENDPOINTS) ||
           JSON.stringify(credentialImportIDs) !== JSON.stringify(REVIEWED_CREDENTIAL_IMPORT_ENDPOINTS) ||
           JSON.stringify(auditIDs) !== JSON.stringify(REVIEWED_AUDIT_ENDPOINTS) || JSON.stringify(lifecycleIDs) !== JSON.stringify(REVIEWED_CREDENTIAL_LIFECYCLE_ENDPOINTS) || JSON.stringify(operatorIDs) !== JSON.stringify(REVIEWED_OPERATOR_ENDPOINTS) ||

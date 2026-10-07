@@ -6,7 +6,7 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 
 - **What:** The server can prepare an inert permission record for one candidate and collect bounded observations through its API when all prerequisites are qualified. A scan never approves a machine to host workloads. Production activation and credentials remain blocked where qualification is unavailable.
 - **Why:** An inventory entry must not give an agent permission to connect to a machine, especially while existing applications share the infrastructure.
-- **How it went:** The Linux integration test caught a planner risk-label mismatch; it was corrected while preserving the existing control-plane approval policy. Tests used a separately approved local VM and fake SSH peer, with no cluster access.
+- **How it went:** The Linux integration test caught a planner risk-label mismatch; it was corrected while preserving the existing control-plane approval policy. Tests used a separately approved local VM and fake SSH peer, with no cluster access. Independent review tightened conflicting OS findings, capture timestamps, key-authentication enforcement and denial auditing.
 - **Changed:** Exact target/key/credential binding · ten fixed read operations · private immutable observations · explicit missing/conflicting/stale blockers · safe retries and audited failures.
 - **Decisions:** none; existing host gates remain deferred and actual-host qualification remains separate.
 

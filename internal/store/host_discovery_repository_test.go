@@ -167,7 +167,7 @@ func TestDiscoveryReservationCompletionAndReplay(t *testing.T) {
 	if _, err := repo.Begin(ctx, request); Code(err) != generated.ErrorCodeStateConflict {
 		t.Fatalf("concurrent reservation allowed: %v", err)
 	}
-	collection := hostdiscovery.Collection{Facts: hostdiscovery.Facts{hostdiscovery.Fact("machine-id", "0123456789abcdef0123456789abcdef", "machine-id")}}
+	collection := hostdiscovery.Collection{Facts: hostdiscovery.Facts{discoveryTestFact("machine-id", "0123456789abcdef0123456789abcdef", "machine-id")}}
 	observed, err := repo.Complete(ctx, hostdiscovery.CompleteRequest{Attempt: attempt, Collection: collection, Attribution: request.Attribution})
 	if err != nil {
 		t.Fatal(err)
@@ -276,7 +276,7 @@ func TestDiscoveryDuplicateOutsideReadScopeAndStaleness(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	collection := hostdiscovery.Collection{Facts: hostdiscovery.Facts{hostdiscovery.Fact("machine-id", "0123456789abcdef0123456789abcdef", "machine-id")}}
+	collection := hostdiscovery.Collection{Facts: hostdiscovery.Facts{discoveryTestFact("machine-id", "0123456789abcdef0123456789abcdef", "machine-id")}}
 	first, err := repo.Complete(ctx, hostdiscovery.CompleteRequest{Attempt: a, Collection: collection, Attribution: req.Attribution})
 	if err != nil {
 		t.Fatal(err)
@@ -331,4 +331,10 @@ func TestDiscoveryDuplicateOutsideReadScopeAndStaleness(t *testing.T) {
 	if _, err := repo.Begin(ctx, req); Code(err) != generated.ErrorCodeStateConflict {
 		t.Fatal("changed retry accepted")
 	}
+}
+
+func discoveryTestFact(name, value, op string) generated.HostDiscoveryFact {
+	f := hostdiscovery.Fact(name, value, op)
+	f.CapturedAt = time.Now().UTC().Truncate(time.Second).Format(time.RFC3339)
+	return f
 }

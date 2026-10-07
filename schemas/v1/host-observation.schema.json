@@ -3,6 +3,10 @@
     "host-discovery-fact": {
       "additionalProperties": false,
       "properties": {
+        "capturedAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
         "name": {
           "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
           "type": "string"
@@ -34,7 +38,8 @@
         "schemaVersion",
         "name",
         "value",
-        "operation"
+        "operation",
+        "capturedAt"
       ],
       "type": "object"
     }

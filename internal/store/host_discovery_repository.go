@@ -281,7 +281,17 @@ func (r *HostDiscoveryRepository) Complete(ctx context.Context, req hostdiscover
 		if target.Digest != storedDigest || target.Binding.Revision != revision {
 			return discoveryError(generated.ErrorCodeStateConflict)
 		}
-		result = generated.HostObservation{Schema: generated.SchemaIDHostObservation, SchemaVersion: "1.0.0", ObservationID: attempt.ID, TargetID: storedTarget, TargetRevision: revision, TargetDigest: storedDigest, Collector: hostdiscovery.CollectorID, CollectorVersion: hostdiscovery.CollectorVersion, ObservedAt: now.Truncate(time.Second).Format(time.RFC3339), ExpiresAt: now.Add(hostdiscovery.Freshness).Truncate(time.Second).Format(time.RFC3339), Status: "untrusted", Facts: req.Collection.Facts, Blockers: hostdiscovery.Findings(target.Binding, req.Collection), StateRevision: state + 1, RecoveryEpoch: epoch}
+		captured := end.Add(-hostdiscovery.MaximumDuration).Truncate(time.Second)
+		for i, fact := range req.Collection.Facts {
+			instant, err := time.Parse(time.RFC3339, fact.CapturedAt)
+			if err != nil || instant.Before(end.Add(-hostdiscovery.MaximumDuration).Truncate(time.Second)) || instant.After(now) {
+				return discoveryError(generated.ErrorCodeInputInvalid)
+			}
+			if i == 0 || instant.Before(captured) {
+				captured = instant
+			}
+		}
+		result = generated.HostObservation{Schema: generated.SchemaIDHostObservation, SchemaVersion: "1.0.0", ObservationID: attempt.ID, TargetID: storedTarget, TargetRevision: revision, TargetDigest: storedDigest, Collector: hostdiscovery.CollectorID, CollectorVersion: hostdiscovery.CollectorVersion, ObservedAt: captured.Format(time.RFC3339), ExpiresAt: captured.Add(hostdiscovery.Freshness).Format(time.RFC3339), Status: "untrusted", Facts: req.Collection.Facts, Blockers: hostdiscovery.Findings(target.Binding, req.Collection), StateRevision: state + 1, RecoveryEpoch: epoch}
 		if result.Facts == nil {
 			result.Facts = []generated.HostDiscoveryFact{}
 		}

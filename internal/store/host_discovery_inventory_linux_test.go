@@ -29,6 +29,10 @@ func TestDiscoveryInventoryMismatchAndScope(t *testing.T) {
 	if _, err := repo.StageDraft(ctx, draftReq, request.Attribution); Code(err) != generated.ErrorCodeAuthorizationDenied {
 		t.Fatalf("unreadable inventory reference accepted: %v", err)
 	}
+	var denied int
+	if err := s.conn.QueryRowContext(ctx, `SELECT COUNT(*) FROM audit_events WHERE event_type='host.discovery.failed'`).Scan(&denied); err != nil || denied != 1 {
+		t.Fatalf("missing inventory denial audit: %d %v", denied, err)
+	}
 	seedReadGrant(t, s, "operator-a", "inventory.draft.read", "inventory-draft", string(saved.Ref.ID)+":1", 1, "active")
 	draft, err := repo.StageDraft(ctx, draftReq, request.Attribution)
 	if err != nil {
@@ -43,7 +47,9 @@ func TestDiscoveryInventoryMismatchAndScope(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	observed, err := repo.Complete(ctx, hostdiscovery.CompleteRequest{Attempt: attempt, Attribution: request.Attribution, Collection: hostdiscovery.Collection{Facts: hostdiscovery.Facts{hostdiscovery.Fact("product-serial", "different-serial", "product-serial")}}})
+	fact := hostdiscovery.Fact("product-serial", "different-serial", "product-serial")
+	fact.CapturedAt = "2026-09-08T12:00:00Z"
+	observed, err := repo.Complete(ctx, hostdiscovery.CompleteRequest{Attempt: attempt, Attribution: request.Attribution, Collection: hostdiscovery.Collection{Facts: hostdiscovery.Facts{fact}}})
 	if err != nil {
 		t.Fatal(err)
 	}

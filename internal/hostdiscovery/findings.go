@@ -47,6 +47,9 @@ func Findings(target generated.HostDiscoveryTarget, c Collection) []string {
 			result = append(result, "missing-"+op)
 		}
 	}
+	if facts["os.id"] == "debian" && facts["os.version"] != "" && facts["os.point-version"] != "" && strings.SplitN(facts["os.version"], ".", 2)[0] != strings.SplitN(facts["os.point-version"], ".", 2)[0] {
+		result = append(result, "os-version-conflict")
+	}
 	versionFact := "os.version"
 	if strings.Contains(target.ExpectedVersion, ".") {
 		versionFact = "os.point-version"

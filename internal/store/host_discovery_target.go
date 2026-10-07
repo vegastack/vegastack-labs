@@ -21,7 +21,8 @@ type DiscoveryActivation struct {
 	Attribution                                         audit.Attribution
 }
 
-func (r *HostDiscoveryRepository) StageDraft(ctx context.Context, request generated.HostDiscoveryTargetDraftRequest, a audit.Attribution) (DiscoveryDraft, error) {
+func (r *HostDiscoveryRepository) StageDraft(ctx context.Context, request generated.HostDiscoveryTargetDraftRequest, a audit.Attribution) (_ DiscoveryDraft, outcome error) {
+	defer r.discoveryFailureAudit(ctx, "draft", request.Target.TargetID, &outcome)
 	raw, _ := json.Marshal(request)
 	if generated.ValidateContractJSON(generated.SchemaIDHostDiscoveryTargetDraftRequest, raw, generated.ContractExact) != nil || hostdiscovery.ValidateTarget(request.Target) != nil || request.Target.Revision != request.ExpectedTargetRevision+1 {
 		return DiscoveryDraft{}, discoveryError(generated.ErrorCodeInputInvalid)

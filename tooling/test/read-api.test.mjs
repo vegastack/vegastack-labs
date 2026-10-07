@@ -162,3 +162,19 @@ test("the read API verifier rejects browser/remote listeners and SQLite outside 
   const result = await verifyReadAPI(root);
   assert.deepEqual(result.codes, ["READ_API_BROWSER_REMOTE", "READ_API_SQLITE_SCOPE"]);
 });
+
+test("the reviewed discovery routes remain exact", async (t) => {
+  const registry = JSON.parse(await readFile(path.join(process.cwd(), "schemas/v1/endpoint-registry.json"), "utf8"));
+  for (const id of ["api.v1.host-discovery-targets.draft", "api.v1.host-observations.create", "api.v1.host-observations.get"]) {
+    const copy = structuredClone(registry);
+    copy.endpoints = copy.endpoints.filter((endpoint) => endpoint.id !== id);
+    const root = await fixtureRepo(t, {"schemas/v1/endpoint-registry.json": JSON.stringify(copy)});
+    assert.ok((await verifyReadAPI(root)).codes.includes("READ_API_ENDPOINT_DRIFT"), id);
+  }
+  const extra = structuredClone(registry);
+  const added = structuredClone(extra.endpoints.find((endpoint) => endpoint.id === "api.v1.host-observations.get"));
+  added.id = "api.v1.host-observations.admit";
+  extra.endpoints.push(added);
+  const root = await fixtureRepo(t, {"schemas/v1/endpoint-registry.json": JSON.stringify(extra)});
+  assert.ok((await verifyReadAPI(root)).codes.includes("READ_API_ENDPOINT_DRIFT"));
+});

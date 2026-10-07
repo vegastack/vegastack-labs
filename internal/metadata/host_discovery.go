@@ -40,7 +40,7 @@ func hostDiscoverySchemas() []SchemaDefinition {
 			phase5ID("targetId", "TargetID"), phase5Positive("targetRevision", "TargetRevision"), phase5Nonnegative("expectedStateRevision", "ExpectedStateRevision"),
 			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"), phase5ID("idempotencyKey", "IdempotencyKey")),
 		phase5Schema(discoveryFactID,
-			phase5ID("name", "Name"), discoveryText("value", "Value", 256), phase5ID("operation", "Operation")),
+			phase5ID("name", "Name"), discoveryText("value", "Value", 256), phase5ID("operation", "Operation"), phase5Timestamp("capturedAt", "CapturedAt")),
 		phase5Schema(discoveryObservationID,
 			phase5ID("observationId", "ObservationID"), phase5ID("targetId", "TargetID"), phase5Positive("targetRevision", "TargetRevision"), phase5Digest("targetDigest", "TargetDigest"),
 			phase5ID("collector", "Collector"), phase5Version("collectorVersion", "CollectorVersion"),

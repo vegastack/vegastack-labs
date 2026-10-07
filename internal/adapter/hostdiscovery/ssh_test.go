@@ -69,6 +69,7 @@ func fixturePeer(t *testing.T, mode string) (domain.Target, *testBorrower, *atom
 		}
 		return nil, nil
 	}}
+	config.NoClientAuth = mode == "none-auth"
 	config.AddHostKey(host)
 	done := make(chan struct{})
 	var current atomic.Pointer[net.Conn]
@@ -85,7 +86,12 @@ func fixturePeer(t *testing.T, mode string) (domain.Target, *testBorrower, *atom
 			return
 		}
 		defer server.Close()
-		go ssh.DiscardRequests(global)
+		go func() {
+			for request := range global {
+				t.Errorf("unexpected global SSH request %s", request.Type)
+				_ = request.Reply(false, nil)
+			}
+		}()
 		for ch := range channels {
 			if ch.ChannelType() != "session" {
 				t.Errorf("unexpected channel %s", ch.ChannelType())
@@ -108,7 +114,8 @@ func fixturePeer(t *testing.T, mode string) (domain.Target, *testBorrower, *atom
 					break
 				}
 				index := int(requests.Add(1)) - 1
-				if index >= len(commands) || payload.Command != commands[index].command {
+				approvedCommands := []string{"/usr/bin/cat /etc/os-release", "/usr/bin/cat /etc/debian_version", "/usr/bin/uname -m", "/usr/bin/cat /etc/machine-id", "/usr/bin/cat /sys/class/dmi/id/product_uuid", "/usr/bin/cat /sys/class/dmi/id/product_serial", "/usr/bin/cat /proc/meminfo", "/usr/bin/cat /sys/devices/system/cpu/online", "/usr/bin/lsblk --json --bytes --output NAME,TYPE,SIZE", "/usr/bin/ip -j link show"}
+				if index >= len(approvedCommands) || payload.Command != approvedCommands[index] {
 					t.Errorf("unexpected command %q", payload.Command)
 					_ = channel.Close()
 					break
@@ -153,7 +160,7 @@ func fixturePeer(t *testing.T, mode string) (domain.Target, *testBorrower, *atom
 	return domain.Target{Binding: generated.HostDiscoveryTarget{Schema: generated.SchemaIDHostDiscoveryTarget, SchemaVersion: "1.0.0", TargetID: "candidate-a", Revision: 1, Address: "127.0.0.1", Port: int64(port), User: "inspect", HostKey: strings.TrimSpace(string(ssh.MarshalAuthorizedKey(host.PublicKey()))), ProfileID: "profile-a", CredentialReferenceID: "credential-a", MaterialVersion: "version-a", ExpectedOS: "debian", ExpectedVersion: "13", ExpectedArchitecture: "amd64"}, StateRevision: 1, GrantRevision: 1}, borrower, requests
 }
 func TestCollectorActualSSHBoundary(t *testing.T) {
-	for _, mode := range []string{"complete", "partial", "wrong-key", "overflow", "stall"} {
+	for _, mode := range []string{"complete", "partial", "wrong-key", "overflow", "stall", "none-auth"} {
 		t.Run(mode, func(t *testing.T) {
 			target, borrower, count := fixturePeer(t, mode)
 			ctx := context.Background()
@@ -181,7 +188,7 @@ func TestCollectorActualSSHBoundary(t *testing.T) {
 				if err == nil {
 					t.Fatal("unsafe collector input accepted")
 				}
-				if mode == "wrong-key" && (count.Load() != 0 || borrower.calls.Load() != 0) {
+				if (mode == "wrong-key" || mode == "none-auth") && (count.Load() != 0 || borrower.calls.Load() != 0) {
 					t.Fatal("wrong key reached authentication or commands")
 				}
 			}

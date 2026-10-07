@@ -44,13 +44,27 @@ import (
 // Credential/profile qualification and the Slack delivery adapter are fixtures;
 // no OS commands, native credential service, or actual host is exercised.
 func TestHostDiscoveryAcceptanceDatabaseAPIApprovalAndSSH(t *testing.T) {
+	discoveryAcceptanceFlow(t, true, "13.6", "13")
+}
+func TestHostDiscoveryAcceptanceUnqualifiedRecovery(t *testing.T) {
+	discoveryAcceptanceFlow(t, false, "13.6", "13")
+}
+func TestHostDiscoveryAcceptanceConflictingVersions(t *testing.T) {
+	for _, expected := range []string{"13", "12.9"} {
+		t.Run(expected, func(t *testing.T) { discoveryAcceptanceFlow(t, true, "12.9", expected) })
+	}
+}
+func discoveryAcceptanceFlow(t *testing.T, qualified bool, pointVersion, expectedVersion string) {
 	ctx := context.Background()
+	captureStart := time.Now().UTC().Truncate(time.Second)
+	fixtureNow := captureStart
+	clock := func() time.Time { return fixtureNow }
 	directory := t.TempDir()
 	if err := os.Chmod(directory, 0700); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(directory, "control.db")
-	authority, err := store.Open(ctx, store.Config{DatabasePath: path, Mode: store.InitializeNew, ExpectedUID: uint32(os.Geteuid()), ToolVersion: "test", BuildVersion: "test"})
+	authority, err := store.Open(ctx, store.Config{DatabasePath: path, Mode: store.InitializeNew, ExpectedUID: uint32(os.Geteuid()), ToolVersion: "test", BuildVersion: "test", Clock: clock})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +118,8 @@ func TestHostDiscoveryAcceptanceDatabaseAPIApprovalAndSSH(t *testing.T) {
 	if err := api.RegisterDeclarationPlanOperations(app, api.DeclarationPlanConfig{Declarations: declarations, Plans: plans, Results: factory, Authorization: api.EffectiveAuthorizationConfig{Authorizer: authorization.NewEvaluator(policy), Recorder: policy, Clock: time.Now}}); err != nil {
 		t.Fatal(err)
 	}
-	target, private, calls := discoveryAcceptancePeer(t)
+	target, private, calls := discoveryAcceptancePeer(t, pointVersion)
+	target.ExpectedVersion = expectedVersion
 	resolver := &discoveryAcceptanceResolver{key: private}
 	registry := adapter.NewRegistry()
 	if err := registry.RegisterCredentialResolver(adapter.CredentialCapabilityScope{ResolverID: "fixture-discovery", ConsumerID: hostdiscovery.Consumer, ProfileID: target.ProfileID, CapabilityID: "credential.discovery.read", Enabled: true}, resolver); err != nil {
@@ -112,7 +127,7 @@ func TestHostDiscoveryAcceptanceDatabaseAPIApprovalAndSSH(t *testing.T) {
 	}
 	activated := time.Now().UTC().Format(time.RFC3339)
 	borrower := hostDiscoveryCredentials{targets: repo, references: recoveryReferenceStub{reference: generated.CredentialReference{ReferenceID: target.CredentialReferenceID, ConsumerID: hostdiscovery.Consumer, PurposeID: hostdiscovery.Purpose, TargetID: target.TargetID, ResolverID: "fixture-discovery", MaterialVersion: target.MaterialVersion, Status: "active", ActivatedAt: &activated, VerifiedConsumerIDs: []string{hostdiscovery.Consumer}}}, profiles: recoveryProfileStub{profile: store.GateAppliedProfile{ProfileID: target.ProfileID, Capabilities: []string{"credential.discovery.read"}}}, resolvers: registry}
-	service := &hostdiscovery.Service{Repository: repo, Collector: &collector.Collector{Borrower: borrower}}
+	service := &hostdiscovery.Service{Repository: repo, Collector: &collector.Collector{Borrower: borrower, Clock: func() time.Time { fixtureNow = fixtureNow.Add(time.Second); return fixtureNow }}}
 	if err := api.RegisterHostDiscoveryOperations(app, api.HostDiscoveryOperations{Service: service, Targets: repo, Declarations: declarations, Results: factory}); err != nil {
 		t.Fatal(err)
 	}
@@ -190,6 +205,9 @@ func TestHostDiscoveryAcceptanceDatabaseAPIApprovalAndSSH(t *testing.T) {
 		t.Fatal(err)
 	}
 	effect := &runengine.HostDiscoveryTargetEffect{Repository: repo, Approvals: store.NewAcknowledgementRepository(authority), RecoveryPrecheck: discoveryRecoveryFixture{}}
+	if !qualified {
+		effect.RecoveryPrecheck = runengine.UnavailableGateVerifier{}
+	}
 	engine, err := runengine.NewEngine(runengine.Config{Repository: store.NewRunRepository(authority), Plans: plans, Admission: runengine.NewAdmissionGate(acknowledger, time.Now), Adapters: adapter.NewRegistry(), Core: runengine.CoreRouter{DiscoveryTarget: effect}, Clock: time.Now})
 	if err != nil {
 		t.Fatal(err)
@@ -198,6 +216,16 @@ func TestHostDiscoveryAcceptanceDatabaseAPIApprovalAndSSH(t *testing.T) {
 	decision := generated.AuthorizationDecision{Schema: generated.SchemaIDAuthorizationDecision, SchemaVersion: "1.0.0", DecisionID: "decision-discovery", PrincipalID: human.ID, Action: "execute", TargetID: plan.Operations[0].TargetID, Allowed: true, Branch: &branch, ReasonCode: authorization.ReasonAllowed, GrantRevision: 1, PlanDigest: plan.PlanDigest, DecidedAt: time.Now().UTC().Truncate(time.Second).Format(time.RFC3339), Extensions: []generated.ContractExtension{}}
 	submission := runengine.SubmitRequest{Reference: generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, IdempotencyKey: "run-a", Extensions: []generated.ContractExtension{}}, Authorization: decision, Acknowledgement: &approved, Attribution: audit.Attribution{AuthenticatedPrincipalID: principal.ID, AuthenticatedPrincipalMethod: principal.Method, ResponsibleHumanPrincipalID: &human.ID}}
 	applied, err := engine.Submit(ctx, submission)
+	if !qualified {
+		var targets int
+		if queryErr := db.QueryRow(`SELECT COUNT(*) FROM host_discovery_targets`).Scan(&targets); queryErr != nil {
+			t.Fatal(queryErr)
+		}
+		if err == nil || applied.Status == "succeeded" || targets != 0 || calls.Load() != 0 || resolver.calls != 0 {
+			t.Fatal("missing recovery proof allowed activation or connection")
+		}
+		return
+	}
 	if err != nil || applied.Status != "succeeded" {
 		t.Fatalf("activation failed: %+v %v", applied, err)
 	}
@@ -213,6 +241,23 @@ func TestHostDiscoveryAcceptanceDatabaseAPIApprovalAndSSH(t *testing.T) {
 	decode(request("POST", "/api/v1/host-observations", discoveryRequest, true), &observed)
 	if observed.Observation.Status != "untrusted" || !slices.Contains(observed.Observation.Blockers, "hardening-unverified") || calls.Load() != 10 || resolver.calls != 1 {
 		t.Fatalf("bad observation: %+v commands=%d resolves=%d", observed, calls.Load(), resolver.calls)
+	}
+	firstCapture := captureStart.Add(time.Second).Format(time.RFC3339)
+	lastCapture := captureStart.Add(10 * time.Second).Format(time.RFC3339)
+	if observed.Observation.Facts[0].CapturedAt != firstCapture || observed.Observation.Facts[len(observed.Observation.Facts)-1].CapturedAt != lastCapture || observed.Observation.ObservedAt != firstCapture || observed.Observation.ExpiresAt != captureStart.Add(15*time.Minute+time.Second).Format(time.RFC3339) {
+		t.Fatal("capture provenance or expiry used persistence time")
+	}
+	if pointVersion == "12.9" {
+		if !slices.Contains(observed.Observation.Blockers, "os-version-conflict") {
+			t.Fatal("conflicting version facts not blocked")
+		}
+		retained := map[string]string{}
+		for _, fact := range observed.Observation.Facts {
+			retained[fact.Name] = fact.Value
+		}
+		if retained["os.version"] != "13" || retained["os.point-version"] != "12.9" {
+			t.Fatal("conflicting version claims overwritten")
+		}
 	}
 	if resolver.value == nil || len(resolver.value.Bytes()) != 0 {
 		t.Fatal("credential not closed")
@@ -250,7 +295,7 @@ func (r *discoveryAcceptanceResolver) Resolve(context.Context, credentialref.Ste
 	r.value, _ = credentialref.NewValue(r.key)
 	return r.value, nil
 }
-func discoveryAcceptancePeer(t *testing.T) (generated.HostDiscoveryTarget, []byte, *atomic.Int32) {
+func discoveryAcceptancePeer(t *testing.T, pointVersion string) (generated.HostDiscoveryTarget, []byte, *atomic.Int32) {
 	t.Helper()
 	_, hostPrivate, _ := ed25519.GenerateKey(rand.Reader)
 	host, _ := ssh.NewSignerFromKey(hostPrivate)
@@ -284,9 +329,14 @@ func discoveryAcceptancePeer(t *testing.T) (generated.HostDiscoveryTarget, []byt
 			return
 		}
 		defer server.Close()
-		go ssh.DiscardRequests(requests)
+		go func() {
+			for req := range requests {
+				t.Errorf("unexpected global SSH request %s", req.Type)
+				_ = req.Reply(false, nil)
+			}
+		}()
 		commands := []string{"/usr/bin/cat /etc/os-release", "/usr/bin/cat /etc/debian_version", "/usr/bin/uname -m", "/usr/bin/cat /etc/machine-id", "/usr/bin/cat /sys/class/dmi/id/product_uuid", "/usr/bin/cat /sys/class/dmi/id/product_serial", "/usr/bin/cat /proc/meminfo", "/usr/bin/cat /sys/devices/system/cpu/online", "/usr/bin/lsblk --json --bytes --output NAME,TYPE,SIZE", "/usr/bin/ip -j link show"}
-		outputs := []string{"ID=debian\nVERSION_ID=13\n", "13.6\n", "x86_64\n", "0123456789abcdef0123456789abcdef\n", "01234567-89ab-cdef-0123-456789abcdef\n", "synthetic-serial\n", "MemTotal: 1024 kB\n", "0-3\n", `{"blockdevices":[{"name":"vda","type":"disk","size":1024}]}`, `[{"ifname":"eth0","link_type":"ether","address":"02:00:00:00:00:01"}]`}
+		outputs := []string{"ID=debian\nVERSION_ID=13\n", pointVersion + "\n", "x86_64\n", "0123456789abcdef0123456789abcdef\n", "01234567-89ab-cdef-0123-456789abcdef\n", "synthetic-serial\n", "MemTotal: 1024 kB\n", "0-3\n", `{"blockdevices":[{"name":"vda","type":"disk","size":1024}]}`, `[{"ifname":"eth0","link_type":"ether","address":"02:00:00:00:00:01"}]`}
 		for ch := range channels {
 			if ch.ChannelType() != "session" {
 				t.Error("unexpected channel")

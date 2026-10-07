@@ -1770,6 +1770,7 @@ type HostDiscoveryFact struct {
 	Name          string `json:"name"`
 	Value         string `json:"value"`
 	Operation     string `json:"operation"`
+	CapturedAt    string `json:"capturedAt"`
 }
 
 type HostDiscoveryRequest struct {

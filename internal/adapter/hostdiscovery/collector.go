@@ -28,7 +28,10 @@ type CredentialBorrower interface {
 	Check(context.Context, domain.Target) error
 	Borrow(context.Context, domain.Target) (*credentialref.Value, error)
 }
-type Collector struct{ Borrower CredentialBorrower }
+type Collector struct {
+	Borrower CredentialBorrower
+	Clock    func() time.Time
+}
 
 func (c *Collector) Collect(ctx context.Context, target domain.Target) (domain.Collection, error) {
 	result := domain.Collection{Facts: domain.Facts{}, Missing: []string{}}
@@ -57,6 +60,7 @@ func (c *Collector) Collect(ctx context.Context, target domain.Target) (domain.C
 		return domain.Collection{}, collectionFailure(ctx)
 	}
 	var borrowed *credentialref.Value
+	publicKeyReady := false
 	defer func() {
 		if borrowed != nil {
 			borrowed.Close()
@@ -75,11 +79,16 @@ func (c *Collector) Collect(ctx context.Context, target domain.Target) (domain.C
 		if err != nil {
 			return nil, domain.Error(generated.ErrorCodePrerequisiteBlocked)
 		}
+		publicKeyReady = true
 		return []ssh.Signer{signer}, nil
 	})}}
 	secure, channels, requests, err := ssh.NewClientConn(conn, address, config)
 	if err != nil {
 		return domain.Collection{}, collectionFailure(ctx)
+	}
+	if !publicKeyReady {
+		_ = secure.Close()
+		return domain.Collection{}, domain.Error(generated.ErrorCodePrerequisiteBlocked)
 	}
 	client := ssh.NewClient(secure, channels, requests)
 	defer client.Close()
@@ -117,6 +126,13 @@ func (c *Collector) Collect(ctx context.Context, target domain.Target) (domain.C
 		facts, err := Decode(command.operation, stdout.buffer.Bytes())
 		if err != nil {
 			return domain.Collection{}, invalid()
+		}
+		captured := time.Now().UTC()
+		if c.Clock != nil {
+			captured = c.Clock().UTC()
+		}
+		for i := range facts {
+			facts[i].CapturedAt = captured.Truncate(time.Second).Format(time.RFC3339)
 		}
 		result.Facts = append(result.Facts, facts...)
 	}
