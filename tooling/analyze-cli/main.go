@@ -513,7 +513,8 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 			}
 		}
 		if !sealedNativeCredential {
-			registryGeneratedOrReviewed := candidate.ImportPath == apiImport || candidate.ImportPath == localAPIImport || (candidate.ImportPath == recoveryImport && reviewedRecoveryCustodianPackage(parsed))
+			registryGeneratedOrReviewed := candidate.ImportPath == apiImport || candidate.ImportPath == localAPIImport || (candidate.ImportPath == recoveryImport && reviewedRecoveryCustodianPackage(parsed)) ||
+				(candidate.ImportPath == modulePath+"/internal/adapter/hostdiscovery" && reviewedHostDiscoveryCollectorPackage(parsed))
 			inspectPackage(parsed, generatedImport, stateExportImport, isReleasePackage, registryGeneratedOrReviewed, inspectControlPaths, &result)
 		}
 	}
@@ -1186,6 +1187,15 @@ func reviewedRecoveryVerificationPackage(candidate checkedSourcePackage) bool {
 // witness collection. This exception is confined to the complete reviewed
 // recovery source set and the one collector file; any source drift fails the
 // public-client analyzer closed until a fresh review reseals it.
+// The server-side SSH read protocol is not a public CLI dispatch registry.
+// Only its exact reviewed source may carry the fixed operation/command table.
+func reviewedHostDiscoveryCollectorPackage(candidate checkedSourcePackage) bool {
+	names := append([]string(nil), candidate.listed.GoFiles...)
+	sort.Strings(names)
+	return strings.Join(names, ",") == "collector.go,decode.go" &&
+		digestSourceFiles(candidate.listed.Dir, names) == "ad72f458ac1e4c1752056b87fac0f75963e09442a5ae951c567da3092be88d72"
+}
+
 func reviewedRecoveryCustodianPackage(candidate checkedSourcePackage) bool {
 	names := append([]string(nil), candidate.listed.GoFiles...)
 	sort.Strings(names)
