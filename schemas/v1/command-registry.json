@@ -4658,6 +4658,36 @@
       "artifactPath": "schemas/v1/gate-view.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/host-discovery-fact",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-discovery-fact.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/host-discovery-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-discovery-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/host-discovery-submission",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-discovery-submission.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/host-discovery-target",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-discovery-target.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/host-discovery-target-draft-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-discovery-target-draft-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/host-discovery-target-draft-submission",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-discovery-target-draft-submission.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/host-hardening-evidence-fact",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/host-hardening-evidence-fact.schema.json"
@@ -4666,6 +4696,11 @@
       "id": "vegastack-labs.dev/host-identity",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/host-identity.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/host-observation",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-observation.schema.json"
     },
     {
       "id": "vegastack-labs.dev/host-profile",

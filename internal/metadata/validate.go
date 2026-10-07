@@ -52,7 +52,7 @@ func validateEndpoints(endpoints []EndpointDefinition, schemas map[string]struct
 	routes := make(map[string]struct{}, len(endpoints))
 	for index, endpoint := range endpoints {
 		location := fmt.Sprintf("endpoints[%d]", index)
-		if !endpointIDPattern.MatchString(endpoint.ID) || (endpoint.Method != "GET" && endpoint.Method != "POST") || !endpointPathPattern.MatchString(endpoint.Path) || !phasePattern.MatchString(endpoint.OwnerPhase) || (endpoint.OwnerPhase != "2" && endpoint.OwnerPhase != "3" && endpoint.OwnerPhase != "4" && endpoint.OwnerPhase != "5") {
+		if !endpointIDPattern.MatchString(endpoint.ID) || (endpoint.Method != "GET" && endpoint.Method != "POST") || !endpointPathPattern.MatchString(endpoint.Path) || !phasePattern.MatchString(endpoint.OwnerPhase) || (endpoint.OwnerPhase != "2" && endpoint.OwnerPhase != "3" && endpoint.OwnerPhase != "4" && endpoint.OwnerPhase != "5" && endpoint.OwnerPhase != "6") {
 			return validationError("METADATA_INVALID", location)
 		}
 		switch endpoint.Availability {

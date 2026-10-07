@@ -438,6 +438,44 @@
       ]
     },
     {
+      "id": "api.v1.host-discovery-targets.draft",
+      "method": "POST",
+      "path": "/api/v1/host-discovery-targets/draft",
+      "availability": "planned",
+      "ownerPhase": "6",
+      "requestSchema": "vegastack-labs.dev/host-discovery-target-draft-request",
+      "dataSchema": "vegastack-labs.dev/host-discovery-target-draft-submission",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.host-observations.create",
+      "method": "POST",
+      "path": "/api/v1/host-observations",
+      "availability": "planned",
+      "ownerPhase": "6",
+      "requestSchema": "vegastack-labs.dev/host-discovery-request",
+      "dataSchema": "vegastack-labs.dev/host-discovery-submission",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.host-observations.get",
+      "method": "GET",
+      "path": "/api/v1/host-observations/{observationID}",
+      "availability": "planned",
+      "ownerPhase": "6",
+      "dataSchema": "vegastack-labs.dev/host-observation",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
       "id": "api.v1.inventory-diffs.create",
       "method": "POST",
       "path": "/api/v1/inventory-diffs",

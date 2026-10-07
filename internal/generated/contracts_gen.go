@@ -127,8 +127,15 @@ const (
 	SchemaIDGateProfileDraftRequest                = "vegastack-labs.dev/gate-profile-draft-request"
 	SchemaIDGateProfileDraftSubmission             = "vegastack-labs.dev/gate-profile-draft-submission"
 	SchemaIDGateView                               = "vegastack-labs.dev/gate-view"
+	SchemaIDHostDiscoveryFact                      = "vegastack-labs.dev/host-discovery-fact"
+	SchemaIDHostDiscoveryRequest                   = "vegastack-labs.dev/host-discovery-request"
+	SchemaIDHostDiscoverySubmission                = "vegastack-labs.dev/host-discovery-submission"
+	SchemaIDHostDiscoveryTarget                    = "vegastack-labs.dev/host-discovery-target"
+	SchemaIDHostDiscoveryTargetDraftRequest        = "vegastack-labs.dev/host-discovery-target-draft-request"
+	SchemaIDHostDiscoveryTargetDraftSubmission     = "vegastack-labs.dev/host-discovery-target-draft-submission"
 	SchemaIDHostHardeningEvidenceFact              = "vegastack-labs.dev/host-hardening-evidence-fact"
 	SchemaIDHostIdentity                           = "vegastack-labs.dev/host-identity"
+	SchemaIDHostObservation                        = "vegastack-labs.dev/host-observation"
 	SchemaIDHostProfile                            = "vegastack-labs.dev/host-profile"
 	SchemaIDHostRole                               = "vegastack-labs.dev/host-role"
 	SchemaIDHostRoleAlias                          = "vegastack-labs.dev/host-role-alias"
@@ -1757,6 +1764,72 @@ type GateView struct {
 	ApplicabilityReasonCode string         `json:"applicabilityReasonCode"`
 }
 
+type HostDiscoveryFact struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	Name          string `json:"name"`
+	Value         string `json:"value"`
+	Operation     string `json:"operation"`
+}
+
+type HostDiscoveryRequest struct {
+	Schema                string `json:"schema"`
+	SchemaVersion         string `json:"schemaVersion"`
+	TargetID              string `json:"targetId"`
+	TargetRevision        int64  `json:"targetRevision"`
+	ExpectedStateRevision int64  `json:"expectedStateRevision"`
+	RecoveryEpoch         int64  `json:"recoveryEpoch"`
+	IdempotencyKey        string `json:"idempotencyKey"`
+}
+
+type HostDiscoverySubmission struct {
+	Schema        string          `json:"schema"`
+	SchemaVersion string          `json:"schemaVersion"`
+	Observation   HostObservation `json:"observation"`
+	Created       bool            `json:"created"`
+}
+
+type HostDiscoveryTarget struct {
+	Schema                 string  `json:"schema"`
+	SchemaVersion          string  `json:"schemaVersion"`
+	TargetID               string  `json:"targetId"`
+	Revision               int64   `json:"revision"`
+	Address                string  `json:"address"`
+	Port                   int64   `json:"port"`
+	User                   string  `json:"user"`
+	HostKey                string  `json:"hostKey"`
+	ProfileID              string  `json:"profileId"`
+	CredentialReferenceID  string  `json:"credentialReferenceId"`
+	MaterialVersion        string  `json:"materialVersion"`
+	ExpectedOS             string  `json:"expectedOs"`
+	ExpectedVersion        string  `json:"expectedVersion"`
+	ExpectedArchitecture   string  `json:"expectedArchitecture"`
+	InventoryDraftID       *string `json:"inventoryDraftId"`
+	InventoryDraftRevision int64   `json:"inventoryDraftRevision"`
+	AssetID                *string `json:"assetId"`
+	RecoveryEpoch          int64   `json:"recoveryEpoch"`
+}
+
+type HostDiscoveryTargetDraftRequest struct {
+	Schema                 string              `json:"schema"`
+	SchemaVersion          string              `json:"schemaVersion"`
+	Target                 HostDiscoveryTarget `json:"target"`
+	Action                 string              `json:"action"`
+	ExpectedTargetRevision int64               `json:"expectedTargetRevision"`
+	ExpectedStateRevision  int64               `json:"expectedStateRevision"`
+	IdempotencyKey         string              `json:"idempotencyKey"`
+}
+
+type HostDiscoveryTargetDraftSubmission struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	DraftID       string `json:"draftId"`
+	DeclarationID string `json:"declarationId"`
+	ContentDigest string `json:"contentDigest"`
+	StateRevision int64  `json:"stateRevision"`
+	RecoveryEpoch int64  `json:"recoveryEpoch"`
+}
+
 type HostHardeningEvidenceFact struct {
 	Schema          string  `json:"schema"`
 	SchemaVersion   string  `json:"schemaVersion"`
@@ -1782,6 +1855,25 @@ type HostIdentity struct {
 	IdentityClass string  `json:"identityClass"`
 	AssetID       *string `json:"assetId"`
 	StateRevision int64   `json:"stateRevision"`
+}
+
+type HostObservation struct {
+	Schema           string              `json:"schema"`
+	SchemaVersion    string              `json:"schemaVersion"`
+	ObservationID    string              `json:"observationId"`
+	TargetID         string              `json:"targetId"`
+	TargetRevision   int64               `json:"targetRevision"`
+	TargetDigest     string              `json:"targetDigest"`
+	Collector        string              `json:"collector"`
+	CollectorVersion string              `json:"collectorVersion"`
+	ObservedAt       string              `json:"observedAt"`
+	ExpiresAt        string              `json:"expiresAt"`
+	Status           string              `json:"status"`
+	Facts            []HostDiscoveryFact `json:"facts"`
+	Blockers         []string            `json:"blockers"`
+	ContentDigest    string              `json:"contentDigest"`
+	StateRevision    int64               `json:"stateRevision"`
+	RecoveryEpoch    int64               `json:"recoveryEpoch"`
 }
 
 type HostProfile struct {
@@ -2989,6 +3081,9 @@ var Endpoints = []Endpoint{
 	{ID: "api.v1.gates.get", Method: "GET", Path: "/api/v1/gates/{gateId}", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/gate-view", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.gates.list", Method: "GET", Path: "/api/v1/gates", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/gate-list-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.health.get", Method: "GET", Path: "/api/v1/health", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/server-status-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.host-discovery-targets.draft", Method: "POST", Path: "/api/v1/host-discovery-targets/draft", Availability: "planned", OwnerPhase: "6", QuerySchema: "", RequestSchema: "vegastack-labs.dev/host-discovery-target-draft-request", DataSchema: "vegastack-labs.dev/host-discovery-target-draft-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.host-observations.create", Method: "POST", Path: "/api/v1/host-observations", Availability: "planned", OwnerPhase: "6", QuerySchema: "", RequestSchema: "vegastack-labs.dev/host-discovery-request", DataSchema: "vegastack-labs.dev/host-discovery-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.host-observations.get", Method: "GET", Path: "/api/v1/host-observations/{observationID}", Availability: "planned", OwnerPhase: "6", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/host-observation", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.inventory-diffs.create", Method: "POST", Path: "/api/v1/inventory-diffs", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "vegastack-labs.dev/inventory-diff-request", DataSchema: "vegastack-labs.dev/inventory-diff-data", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.inventory-draft-aliases.get", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/aliases/{recordId}", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-alias-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.inventory-draft-aliases.list", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/aliases", Availability: "available", OwnerPhase: "2", QuerySchema: "vegastack-labs.dev/api-page-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-alias-list-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},

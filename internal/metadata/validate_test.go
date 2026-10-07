@@ -189,6 +189,9 @@ func TestCurrentEndpointsDeclareAvailability(t *testing.T) {
 	}
 	for _, endpoint := range Current().Endpoints {
 		want := AvailabilityAvailable
+		if endpoint.OwnerPhase == "6" {
+			want = AvailabilityPlanned
+		}
 		if endpoint.OwnerPhase == "4" && !availablePhase4[endpoint.ID] {
 			want = AvailabilityPlanned
 		}
