@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 07-10-2026 — Host inspection gains an explicit permission boundary ([#217](https://github.com/vegastack/vegastack-labs/issues/217))
+
+- **What:** The server can prepare an inert permission record for one candidate and collect bounded observations through its API when all prerequisites are qualified. A scan never approves a machine to host workloads. Production activation and credentials remain blocked where qualification is unavailable.
+- **Why:** An inventory entry must not give an agent permission to connect to a machine, especially while existing applications share the infrastructure.
+- **How it went:** The Linux integration test caught a planner risk-label mismatch; it was corrected while preserving the existing control-plane approval policy. Tests used a separately approved local VM and fake SSH peer, with no cluster access.
+- **Changed:** Exact target/key/credential binding · ten fixed read operations · private immutable observations · explicit missing/conflicting/stale blockers · safe retries and audited failures.
+- **Decisions:** none; existing host gates remain deferred and actual-host qualification remains separate.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/6.3-debian-host-discovery
+
 ## 06-10-2026 — Debian design is recorded and CI uses the existing Linux pool ([#214](https://github.com/vegastack/vegastack-labs/issues/214))
 
 - **What:** The Debian hardening reference records the approved controls and disposable-test strategy. Ordinary public checks select the existing Linux runner pool and verify the assigned host before checkout; privileged native acceptance retains its narrower host list.

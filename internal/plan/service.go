@@ -175,6 +175,15 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 		operations[index] = generated.PlanOperation{Sequence: operation.Sequence, OperationID: operation.OperationID, OperationType: operation.OperationType, AdapterID: operation.AdapterID, ExecutorID: service.config.OperationExecutorID, TargetID: operation.TargetID, InputDigest: operation.InputDigest, ArtifactDigest: operation.ArtifactDigest, Idempotent: operation.Idempotent}
 	}
 	risk := service.config.Risk
+	for _, op := range operations {
+		if op.AdapterID != "core.host-discovery-target" && !strings.HasPrefix(op.OperationType, "host.discovery-target.") {
+			continue
+		}
+		if len(operations) != 1 || declaration.DeclarationType != "host.discovery-target" || op.AdapterID != "core.host-discovery-target" || (op.OperationType != "host.discovery-target.activate" && op.OperationType != "host.discovery-target.revoke") || op.InputDigest != op.ArtifactDigest || service.config.AuthorizationBranch != "human" || service.config.ExecutorMode != "central" {
+			return store.PlanCommitResult{}, planError(generated.ErrorCodeAuthorizationDenied)
+		}
+		risk = string(authorization.RiskControlPlane)
+	}
 	if credentialLifecyclePlanCandidate(declaration, operations) {
 		if !sealedSingleCredentialLifecycle(declaration, operations) || service.config.AuthorizationBranch != "human" || service.config.ExecutorMode != "central" {
 			return store.PlanCommitResult{}, planError(generated.ErrorCodeAuthorizationDenied)

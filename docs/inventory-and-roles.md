@@ -194,3 +194,7 @@ Failure order is deterministic: quarantine the failed node and freeze its aliase
 - current OS, secure boot/disk encryption state and installed Mesh client version.
 
 A node is role-eligible only after a typed `G-002` evidence bundle is committed through plan/apply and its `G-010` role evaluation passes. The closure exercise selected the explicit 8-hour common and role-specific temperature/throttle, memory/swap, disk, link and capacity defaults in [Implementation gates](implementation-gates.md#common-numeric-qualification--g-005-g-009-g-010-g-020-g-021). Automation evaluates real observations against those values; it still cannot invent an observation or weaken a failed threshold without an explicit expiring exception plan. [D-108](decisions-and-sources.md#d-108) [D-115](decisions-and-sources.md#d-115)
+
+### Private host discovery observations
+
+Phase 6.3 stores discovery attempts and observations separately from immutable inventory drafts. An optional exact draft revision/asset reference provides comparison context and needs inventory-read permission. An inventory address, matching serial, or successful scan grants no target connection authority or workload admission. Duplicate machine/DMI claims, inventory serial mismatch, unsupported OS/architecture, missing facts and stale observations remain blockers; the collector never rewrites inventory or assigns a role. See the [discovery procedure and qualification limits](host-onboarding-and-hardening.md#phase-63-discovery-inspect-without-admission).

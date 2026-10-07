@@ -61,6 +61,7 @@ func hostDiscoveryEndpoints() []EndpointDefinition {
 	}
 	for i := range result {
 		result[i].OwnerPhase = "6"
+		result[i].Availability = AvailabilityAvailable
 	}
 	return result
 }

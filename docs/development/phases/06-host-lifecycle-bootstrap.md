@@ -14,7 +14,7 @@ These are development IDs, not permission to create or execute every future issu
 |---|---|
 | 6.1 (#213) | Completed inert identity/profile/role/fact contracts; both host gates deferred. |
 | 6.2 (#214) | Completed Debian design research and disposable-test strategy, merged through #216. |
-| 6.3 (#217) | Bounded Debian discovery, private observations and explicit blockers; proposed target-authorization prerequisite below. |
+| 6.3 (#217) | Bounded Debian discovery, private observations and explicit blockers; approved target-authorization prerequisite below. |
 | 6.4 | Proposed ownership of host adoption and privileged exact-action foundation; depends on discovery and its accepted identity contracts. |
 | 6.5 | Preserve published Debian enforcement/profile qualification ownership. |
 | 6.6 | Reserved proposed Mac mini/iMac enforcement owner, later batch within v1. |
@@ -31,7 +31,7 @@ No existing downstream issue is renumbered. Exact briefs for later batches requi
 
 The approved brief identified one additional security decision, approved by the operator: the server currently has no host-discovery target binding that establishes which endpoint/key/credential it may use. Inventory drafts and schema-valid host identities cannot grant that authority.
 
-Approved: include a private, revisioned discovery-target binding in 6.3. An inert draft identifies exactly one literal IP/port, non-root SSH user, independently verified public host key, credential reference/version, expected OS/architecture and optional existing inventory reference. Activation/replacement/revocation use the existing exact-plan flow and infrastructure-admin human acknowledgement. Activation changes only the control database; it performs no SSH, credential import, host adoption or host mutation. Discovery uses only an active binding and a current per-target grant. Merely importing inventory or editing a declaration never enables a connection.
+Approved: include a private, revisioned discovery-target binding in 6.3. An inert draft identifies exactly one literal IP/port, non-root SSH user, independently verified public host key, credential reference/version, expected OS/architecture and optional existing inventory reference. Activation/replacement/revocation use the existing exact-plan flow and control-plane-admin human acknowledgement, as required by the existing role matrix for control-plane risk. Activation changes only the control database; it performs no SSH, credential import, host adoption or host mutation. Discovery uses only an active binding and a current per-target grant. Merely importing inventory or editing a declaration never enables a connection.
 
 Alternative: deliver this target-binding foundation separately before 6.3. This reduces each review's size but needs another approved issue and integration step. Do not implement an insecure shortcut accepting addresses/keys from discovery requests or a profile file as independent authority.
 
@@ -48,3 +48,7 @@ The later phase exit must demonstrate approved enrollment, denied unsupported/st
 - (omkarmohanta09), 07-10-2026: approved #217 brief v1 and requested planning then implementation.
 - 6.3 phase solution, target activation boundary and plan approved in issue comment 6036497058. Coordinator: Codex in this conversation.
 - PR creation, merge, deployment, actual-host collector qualification and new credentials retain separate authority. The operator permits scoped read-only infrastructure inspection, but no real-machine changes; 6.3 verification uses only isolated fixtures. No live targets are named or approved by this document.
+
+## Implementation qualification status
+
+The database-only target effect uses the existing core run-effect router, including persisted plan/run/step/lease and consumed acknowledgement checks. It requires a recovery verifier; production uses the existing unavailable verifier until that prerequisite is qualified. The discovery credential consumer likewise has no automatic production resolver registration. Both fail closed. Test fixtures explicitly supply synthetic recovery/profile/credential proofs and a loopback SSH peer; no actual host account or command execution is qualified here. The operator separately approved starting/stopping the workstation-local `vsk163-custody` VM for isolated Linux tests on 07-10-2026; this is not cluster or fleet authority.
