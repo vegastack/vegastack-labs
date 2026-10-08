@@ -3892,6 +3892,15 @@
           "enum": [
             "1"
           ]
+        },
+        {
+          "name": "--setup",
+          "kind": "value",
+          "valueName": "path",
+          "required": false,
+          "repeatable": false,
+          "summary": "Initialize an absent database only after exact Slack approval of this protected local setup record.",
+          "enum": null
         }
       ],
       "resultSchema": "vegastack-labs.dev/run-result",
@@ -5037,6 +5046,26 @@
       "id": "vegastack-labs.dev/local-retention-lock-catalog",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/local-retention-lock-catalog.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/local-setup-effective-grant",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/local-setup-effective-grant.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/local-setup-read-grant",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/local-setup-read-grant.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/local-setup-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/local-setup-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/local-setup-review-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/local-setup-review-request.schema.json"
     },
     {
       "id": "vegastack-labs.dev/managed-host",

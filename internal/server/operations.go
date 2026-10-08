@@ -13,6 +13,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/adapter/backuptrust"
 	"github.com/vegastack/vegastack-labs/internal/adapter/localbackup"
 	"github.com/vegastack/vegastack-labs/internal/adapter/localretention"
+	"github.com/vegastack/vegastack-labs/internal/adapters/slack"
 	"github.com/vegastack/vegastack-labs/internal/api"
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/authorization"
@@ -43,6 +44,10 @@ import (
 var productionDatabasePath = "/var/lib/vsk-labs/control.db"
 
 type Operations struct {
+	setupHostIdentity        func(context.Context) (string, error)
+	setupExecutable          func() (io.ReadCloser, error)
+	acknowledgementTransport slack.Transport
+
 	build                    result.BuildInfo
 	requestIDs               result.RequestIDSource
 	openStore                func(context.Context, store.Config) (*store.Store, error)
@@ -164,11 +169,15 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 	if err != nil {
 		return err
 	}
-	factory := result.NewFactory(operations.build, operations.requestIDs)
 	authority, err := operations.openAuthorityWithPromotion(ctx, profile)
 	if err != nil {
 		return err
 	}
+	return operations.serveAuthority(ctx, platform, profile, authority)
+}
+
+func (operations *Operations) serveAuthority(ctx context.Context, platform Platform, profile serverconfig.Profile, authority *store.Store) error {
+	factory := result.NewFactory(operations.build, operations.requestIDs)
 	authorizer := newAuditingReadAuthorizer(store.NewReadAuthorizer(authority), authority)
 	reads := store.NewReadRepository(authority)
 	remote, sessions := operations.remoteRead(ctx, profile, authority, factory)
@@ -255,7 +264,7 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 	var acknowledgementPublisher api.AcknowledgementPublisher = unavailableAcknowledgementPublisher{}
 	var acknowledgementBackground BackgroundService
 	if profile.AcknowledgementAdapterConfigPath != "" {
-		runtime, runtimeErr := composeSlackAcknowledgement(ctx, profile.AcknowledgementAdapterConfigPath, profile.SocketOwnerUID, acknowledgements)
+		runtime, runtimeErr := composeSlackAcknowledgementWithTransport(ctx, profile.AcknowledgementAdapterConfigPath, profile.SocketOwnerUID, acknowledgements, operations.acknowledgementTransport)
 		if runtimeErr == nil {
 			acknowledgementScopes = runtime.scopes
 			acknowledgementPublisher = runtime.publisher

@@ -42,6 +42,10 @@ type ReleaseOperations interface {
 	Verify(context.Context, release.VerifyRequest) (generated.ReleaseVerifyData, error)
 }
 
+type SetupServerOperations interface {
+	RunSetup(context.Context, string, string) error
+}
+
 type ServerOperations interface {
 	Run(context.Context, string) error
 	Status(context.Context, string) (localapi.Response, error)
@@ -262,7 +266,17 @@ func (app *App) Run(ctx context.Context, args []string) int {
 		if app.server == nil {
 			return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "server-operations", generated.RunStatusFailed, false)
 		}
-		if err := app.server.Run(ctx, parsed.Value(generated.FlagConfig)); err != nil {
+		var runErr error
+		if setup := parsed.Value(generated.FlagSetup); setup != "" {
+			setupOwner, ok := app.server.(SetupServerOperations)
+			if !ok {
+				return app.failServer(mode, parsed.commandName(), failure.New(generated.ErrorCodePrerequisiteBlocked, "local-setup", false))
+			}
+			runErr = setupOwner.RunSetup(ctx, parsed.Value(generated.FlagConfig), setup)
+		} else {
+			runErr = app.server.Run(ctx, parsed.Value(generated.FlagConfig))
+		}
+		if err := runErr; err != nil {
 			return app.failServer(mode, parsed.commandName(), err)
 		}
 		return 0

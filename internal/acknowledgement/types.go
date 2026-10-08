@@ -52,6 +52,8 @@ type AdapterRejection struct {
 }
 
 type RequestCard struct {
+	// ReviewText is the complete non-secret scope for human review, when supplied.
+	ReviewText        string
 	Request           generated.AcknowledgementRequest
 	AcknowledgementID string
 	Nonce             string

@@ -680,6 +680,7 @@ Owner phase: `2` · risk: `local-service` · availability: `available`
 - `--config <path>` — Read the protected server profile at this explicit path.
 - `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
 - `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+- `--setup <path>` — Initialize an absent database only after exact Slack approval of this protected local setup record.
 
 - Run the local control service in the foreground.: `vsk-labs server run --config fixture/server-profile.json`
 

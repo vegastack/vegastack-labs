@@ -170,6 +170,10 @@ const (
 	SchemaIDInventoryImportRequest                 = "vegastack-labs.dev/inventory-import-request"
 	SchemaIDLocalPrincipalBinding                  = "vegastack-labs.dev/local-principal-binding"
 	SchemaIDLocalRetentionLockCatalog              = "vegastack-labs.dev/local-retention-lock-catalog"
+	SchemaIDLocalSetupEffectiveGrant               = "vegastack-labs.dev/local-setup-effective-grant"
+	SchemaIDLocalSetupReadGrant                    = "vegastack-labs.dev/local-setup-read-grant"
+	SchemaIDLocalSetupRequest                      = "vegastack-labs.dev/local-setup-request"
+	SchemaIDLocalSetupReviewRequest                = "vegastack-labs.dev/local-setup-review-request"
 	SchemaIDManagedHost                            = "vegastack-labs.dev/managed-host"
 	SchemaIDOffsiteRunSpec                         = "vegastack-labs.dev/offsite-run-spec"
 	SchemaIDOutboxRecordData                       = "vegastack-labs.dev/outbox-record-data"
@@ -315,6 +319,7 @@ const (
 	FlagDeviceID                                   = "--device-id"
 	FlagSSHPrincipalID                             = "--ssh-principal-id"
 	CommandNameServerRun                           = "server run"
+	FlagSetup                                      = "--setup"
 	CommandNameServerStatus                        = "server status"
 	CommandNameStatus                              = "status"
 	CommandNameVersion                             = "version"
@@ -2192,6 +2197,70 @@ type LocalRetentionLockCatalog struct {
 	Locks                []BackupRetentionLock `json:"locks"`
 }
 
+type LocalSetupEffectiveGrant struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	GrantID       string `json:"grantId"`
+	RoleID        string `json:"roleId"`
+	Action        string `json:"action"`
+	Capability    string `json:"capability"`
+	ResourceKind  string `json:"resourceKind"`
+	ResourceID    string `json:"resourceId"`
+	Branch        string `json:"branch"`
+}
+
+type LocalSetupReadGrant struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	Capability    string `json:"capability"`
+	ResourceKind  string `json:"resourceKind"`
+	ResourceID    string `json:"resourceId"`
+}
+
+type LocalSetupRequest struct {
+	Schema                  string                     `json:"schema"`
+	SchemaVersion           string                     `json:"schemaVersion"`
+	SetupID                 string                     `json:"setupId"`
+	HostIdentityDigest      string                     `json:"hostIdentityDigest"`
+	InitialHumanID          string                     `json:"initialHumanId"`
+	ServiceUID              int64                      `json:"serviceUid"`
+	InitialAdministratorUID int64                      `json:"initialAdministratorUid"`
+	ProfileSHA256           string                     `json:"profileSha256"`
+	DatabasePath            string                     `json:"databasePath"`
+	ReleaseManifestPath     string                     `json:"releaseManifestPath"`
+	ReleaseManifestDigest   string                     `json:"releaseManifestDigest"`
+	ReleasePolicyPath       string                     `json:"releasePolicyPath"`
+	ReleasePolicyDigest     string                     `json:"releasePolicyDigest"`
+	ExecutableAssetID       string                     `json:"executableAssetId"`
+	ReleaseBuildID          string                     `json:"releaseBuildId"`
+	ExpiresAt               string                     `json:"expiresAt"`
+	RequestNonce            string                     `json:"requestNonce"`
+	InitialReadGrants       []LocalSetupReadGrant      `json:"initialReadGrants"`
+	InitialEffectiveGrants  []LocalSetupEffectiveGrant `json:"initialEffectiveGrants"`
+}
+
+type LocalSetupReviewRequest struct {
+	Schema                  string                     `json:"schema"`
+	SchemaVersion           string                     `json:"schemaVersion"`
+	SetupID                 string                     `json:"setupId"`
+	HostIdentityDigest      string                     `json:"hostIdentityDigest"`
+	InitialHumanID          string                     `json:"initialHumanId"`
+	ServiceUID              int64                      `json:"serviceUid"`
+	InitialAdministratorUID int64                      `json:"initialAdministratorUid"`
+	ProfileSHA256           string                     `json:"profileSha256"`
+	DatabasePath            string                     `json:"databasePath"`
+	ReleaseManifestPath     string                     `json:"releaseManifestPath"`
+	ReleaseManifestDigest   string                     `json:"releaseManifestDigest"`
+	ReleasePolicyPath       string                     `json:"releasePolicyPath"`
+	ReleasePolicyDigest     string                     `json:"releasePolicyDigest"`
+	ExecutableAssetID       string                     `json:"executableAssetId"`
+	ReleaseBuildID          string                     `json:"releaseBuildId"`
+	ExpiresAt               string                     `json:"expiresAt"`
+	RequestNonceDigest      string                     `json:"requestNonceDigest"`
+	InitialReadGrants       []LocalSetupReadGrant      `json:"initialReadGrants"`
+	InitialEffectiveGrants  []LocalSetupEffectiveGrant `json:"initialEffectiveGrants"`
+}
+
 type ManagedHost struct {
 	Schema        string `json:"schema"`
 	SchemaVersion string `json:"schemaVersion"`
@@ -3102,7 +3171,7 @@ var Commands = []Command{
 	{Path: []string{"schedule", "list"}, Summary: "List sanitized fixed scheduled policies.", Availability: "available", OwnerPhase: "5", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected local server profile.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/browser-scheduled-job-policy-list-data", Examples: []Example{{Summary: "List sanitized fixed scheduled policies.", Arguments: []string{"schedule", "list", "--config", "fixture/server-profile.json", "--output", "json"}}}},
 	{Path: []string{"schedule", "policy", "draft"}, Summary: "Store one inert exact scheduled-policy draft for later human-plan activation.", Availability: "available", OwnerPhase: "5", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected local server profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one exact scheduled-job-policy JSON file.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/scheduled-job-policy", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/scheduled-policy-draft-submission", Examples: []Example{{Summary: "Store one inert exact scheduled-policy draft for later human-plan activation.", Arguments: []string{"schedule", "policy", "draft", "--config", "fixture/server-profile.json", "--file", "fixture/scheduled-job-policy.json", "--output", "json"}}}},
 	{Path: []string{"server", "api-ssh"}, Summary: "Serve one constrained SSH API frame through the persistent control service.", Availability: "available", OwnerPhase: "4", Risk: "local-service", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--device-id", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Bind the server-configured forced command to this verified device.", Enum: []string(nil)}, {Name: "--ssh-principal-id", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Bind the server-configured forced command to this verified SSH principal.", Enum: []string(nil)}}, RequestSchema: "vegastack-labs.dev/api-ssh-request-frame-header", ResultSchema: "vegastack-labs.dev/api-ssh-response-frame-header", Examples: []Example{{Summary: "Serve one frame from an SSH forced-command configuration.", Arguments: []string{"server", "api-ssh", "--config", "fixture/server-profile.json", "--ssh-principal-id", "ssh-principal.operator", "--device-id", "device.operator"}}}},
-	{Path: []string{"server", "run"}, Summary: "Run the persistent control service in the foreground.", Availability: "available", OwnerPhase: "2", Risk: "local-service", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", Examples: []Example{{Summary: "Run the local control service in the foreground.", Arguments: []string{"server", "run", "--config", "fixture/server-profile.json"}}}},
+	{Path: []string{"server", "run"}, Summary: "Run the persistent control service in the foreground.", Availability: "available", OwnerPhase: "2", Risk: "local-service", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}, {Name: "--setup", Kind: "value", ValueName: "path", Required: false, Repeatable: false, Summary: "Initialize an absent database only after exact Slack approval of this protected local setup record.", Enum: []string(nil)}}, ResultSchema: "vegastack-labs.dev/run-result", Examples: []Example{{Summary: "Run the local control service in the foreground.", Arguments: []string{"server", "run", "--config", "fixture/server-profile.json"}}}},
 	{Path: []string{"server", "status"}, Summary: "Query control-service health.", Availability: "available", OwnerPhase: "2", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/server-status-data", Examples: []Example{{Summary: "Query local control-service health as versioned JSON.", Arguments: []string{"server", "status", "--config", "fixture/server-profile.json", "--output", "json"}}}},
 	{Path: []string{"service", "deploy"}, Summary: "Create an inert service-deployment change.", Availability: "planned", OwnerPhase: "8", Risk: "unassigned"},
 	{Path: []string{"service", "plan"}, Summary: "Create an inert service change and request its plan.", Availability: "planned", OwnerPhase: "8", Risk: "unassigned"},

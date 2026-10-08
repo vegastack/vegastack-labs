@@ -25,9 +25,11 @@ type Selection struct {
 }
 
 type VerifyRequest struct {
-	ManifestPath string
-	PolicyPath   string
-	Selection    Selection
+	// ExpectedManifestSHA256 optionally binds verification to already reviewed bytes.
+	ExpectedManifestSHA256 string
+	ManifestPath           string
+	PolicyPath             string
+	Selection              Selection
 }
 
 type BundleVerifier interface {
@@ -66,6 +68,12 @@ func (service *Service) Verify(ctx context.Context, request VerifyRequest) (resu
 			resultErr = closeErr
 		}
 	}()
+	if request.ExpectedManifestSHA256 != "" {
+		digest := sha256.Sum256(manifest.Raw)
+		if request.ExpectedManifestSHA256 != "sha256:"+hex.EncodeToString(digest[:]) {
+			return result, newError(generated.ErrorCodeEvidenceInvalid, targetManifestFile)
+		}
+	}
 	policy, err := LoadPolicy(ctx, request.PolicyPath)
 	if err != nil {
 		return result, err

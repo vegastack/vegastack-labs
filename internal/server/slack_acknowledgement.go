@@ -43,6 +43,10 @@ type slackAcknowledgementRuntime struct {
 }
 
 func composeSlackAcknowledgement(ctx context.Context, path string, ownerUID uint32, service *acknowledgement.Service) (slackAcknowledgementRuntime, error) {
+	return composeSlackAcknowledgementWithTransport(ctx, path, ownerUID, service, nil)
+}
+
+func composeSlackAcknowledgementWithTransport(ctx context.Context, path string, ownerUID uint32, service *acknowledgement.Service, transport slack.Transport) (slackAcknowledgementRuntime, error) {
 	profile, err := loadSlackAcknowledgementProfile(ctx, path, ownerUID)
 	if err != nil {
 		return slackAcknowledgementRuntime{}, err
@@ -54,9 +58,12 @@ func composeSlackAcknowledgement(ctx context.Context, path string, ownerUID uint
 	if err != nil {
 		return slackAcknowledgementRuntime{}, err
 	}
-	transport, err := slack.NewHTTPTransport(&http.Client{Timeout: 10 * time.Second})
-	if err != nil {
-		return slackAcknowledgementRuntime{}, err
+	if transport == nil {
+		var transportErr error
+		transport, transportErr = slack.NewHTTPTransport(&http.Client{Timeout: 10 * time.Second})
+		if transportErr != nil {
+			return slackAcknowledgementRuntime{}, transportErr
+		}
 	}
 	adapter, err := slack.NewAdapter(slack.Config{
 		AppTokenReference: credentialref.Reference{ID: profile.AppTokenReference, Consumer: "slack-acknowledgement"},

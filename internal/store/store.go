@@ -163,6 +163,9 @@ func Open(ctx context.Context, config Config) (*Store, error) {
 }
 
 func normalizeConfig(config Config) (Config, error) {
+	if config.InitialSetup != nil && config.Mode != InitializeNew {
+		return Config{}, newStoreError("INPUT_INVALID", "initial-setup-mode", false, nil)
+	}
 	if config.BusyTimeout == 0 {
 		config.BusyTimeout = DefaultBusyTimeout
 	}
@@ -249,11 +252,26 @@ func (store *Store) applyFoundation(ctx context.Context) error {
 	if _, err := transaction.ExecContext(ctx, `UPDATE system_meta SET schema_version = ? WHERE id = 1`, len(catalog)); err != nil {
 		return databaseError("MIGRATION_BLOCKED", err)
 	}
+	if store.config.InitialSetup != nil {
+		if err := store.applyInitialSetup(ctx, transaction, *store.config.InitialSetup); err != nil {
+			return err
+		}
+	}
 	if err := checkTransactionIntegrity(ctx, transaction); err != nil {
 		return err
 	}
+	if store.config.InitialSetup != nil {
+		if err := store.runAuditFault(auditBeforeCommit); err != nil {
+			return err
+		}
+	}
 	if err := transaction.Commit(); err != nil {
 		return databaseError("INTEGRITY_FAILURE", err)
+	}
+	if store.config.InitialSetup != nil {
+		if err := store.runAuditFault(auditAfterCommit); err != nil {
+			return err
+		}
 	}
 	return nil
 }

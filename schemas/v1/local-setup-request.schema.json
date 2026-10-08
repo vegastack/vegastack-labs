@@ -1,0 +1,233 @@
+{
+  "$defs": {
+    "local-setup-effective-grant": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "enum": [
+            "read",
+            "author",
+            "acknowledge",
+            "execute"
+          ],
+          "type": "string"
+        },
+        "branch": {
+          "enum": [
+            "none",
+            "human"
+          ],
+          "type": "string"
+        },
+        "capability": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "grantId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "resourceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "resourceKind": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "roleId": {
+          "enum": [
+            "reader",
+            "author",
+            "maintainer",
+            "infrastructure-admin",
+            "control-plane-admin"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/local-setup-effective-grant"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "grantId",
+        "roleId",
+        "action",
+        "capability",
+        "resourceKind",
+        "resourceId",
+        "branch"
+      ],
+      "type": "object"
+    },
+    "local-setup-read-grant": {
+      "additionalProperties": false,
+      "properties": {
+        "capability": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "resourceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "resourceKind": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/local-setup-read-grant"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "capability",
+        "resourceKind",
+        "resourceId"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/local-setup-request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "databasePath": {
+      "maxLength": 4096,
+      "minLength": 1,
+      "type": "string"
+    },
+    "executableAssetId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "expiresAt": {
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": "string"
+    },
+    "hostIdentityDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "initialAdministratorUid": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "initialEffectiveGrants": {
+      "items": {
+        "$ref": "#/$defs/local-setup-effective-grant"
+      },
+      "maxItems": 32,
+      "minItems": 1,
+      "type": "array"
+    },
+    "initialHumanId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "initialReadGrants": {
+      "items": {
+        "$ref": "#/$defs/local-setup-read-grant"
+      },
+      "maxItems": 32,
+      "minItems": 1,
+      "type": "array"
+    },
+    "profileSha256": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "releaseBuildId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "releaseManifestDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "releaseManifestPath": {
+      "maxLength": 4096,
+      "minLength": 1,
+      "type": "string"
+    },
+    "releasePolicyDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "releasePolicyPath": {
+      "maxLength": 4096,
+      "minLength": 1,
+      "type": "string"
+    },
+    "requestNonce": {
+      "maxLength": 128,
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/local-setup-request"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "serviceUid": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "setupId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "setupId",
+    "hostIdentityDigest",
+    "initialHumanId",
+    "serviceUid",
+    "initialAdministratorUid",
+    "profileSha256",
+    "databasePath",
+    "releaseManifestPath",
+    "releaseManifestDigest",
+    "releasePolicyPath",
+    "releasePolicyDigest",
+    "executableAssetId",
+    "releaseBuildId",
+    "expiresAt",
+    "requestNonce",
+    "initialReadGrants",
+    "initialEffectiveGrants"
+  ],
+  "title": "VegaStack Labs local setup request",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

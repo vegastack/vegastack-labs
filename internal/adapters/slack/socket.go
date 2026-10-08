@@ -20,8 +20,10 @@ import (
 )
 
 const (
-	slackConnectionsOpenURL = "https://slack.com/api/apps.connections.open"
-	slackPostMessageURL     = "https://slack.com/api/chat.postMessage"
+	slackConnectionsOpenURL    = "https://slack.com/api/apps.connections.open"
+	slackPostMessageURL        = "https://slack.com/api/chat.postMessage"
+	maxReviewTextBytes         = 32 << 10
+	maxReviewSectionCharacters = 3000
 )
 
 var dynamicSlackSocketHost = regexp.MustCompile(`^wss-[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.slack\.com$`)
@@ -65,7 +67,7 @@ func (transport *HTTPTransport) Open(ctx context.Context, appToken []byte) (Sock
 		OK  bool   `json:"ok"`
 		URL string `json:"url"`
 	}
-	if decodeClosed(body, &result) != nil || !result.OK || !transport.allowedSocketURL(result.URL) {
+	if decodeProvider(ctx, body, &result, 16<<10) != nil || !result.OK || !transport.allowedSocketURL(result.URL) {
 		return nil, fmt.Errorf("slack connections response")
 	}
 	connection, _, err := websocket.Dial(ctx, result.URL, &websocket.DialOptions{HTTPClient: transport.client})
@@ -77,6 +79,10 @@ func (transport *HTTPTransport) Open(ctx context.Context, appToken []byte) (Sock
 }
 
 func (transport *HTTPTransport) Publish(ctx context.Context, botToken []byte, channel, approveActionID, rejectActionID string, card acknowledgement.RequestCard) error {
+	// Reject rather than truncate: the human must receive the complete scope.
+	if len(card.ReviewText) > maxReviewTextBytes || !utf8.ValidString(card.ReviewText) {
+		return slackError(generated.ErrorCodeInputInvalid, "slack-review-text", false)
+	}
 	value, err := json.Marshal(actionBinding{PlanID: card.Request.PlanID, PlanDigest: card.Request.PlanDigest, TargetDigest: card.Request.TargetDigest, ReasonDigest: card.Request.ReasonDigest, Nonce: card.Nonce, StateRevision: card.Request.StateRevision, RecoveryEpoch: card.Request.RecoveryEpoch, ExpiresAt: card.Request.ExpiresAt})
 	if err != nil {
 		return err
@@ -88,6 +94,19 @@ func (transport *HTTPTransport) Publish(ctx context.Context, botToken []byte, ch
 			map[string]any{"type": "button", "text": map[string]string{"type": "plain_text", "text": "Approve"}, "style": "primary", "action_id": approveActionID, "value": string(value)},
 			map[string]any{"type": "button", "text": map[string]string{"type": "plain_text", "text": "Reject"}, "style": "danger", "action_id": rejectActionID, "value": string(value)},
 		}}},
+	}
+	if card.ReviewText != "" {
+		// The byte cap permits at most 11 sections plus the existing actions block.
+		characters := []rune(card.ReviewText)
+		blocks := make([]any, 0, 12)
+		for len(characters) > 0 {
+			count := min(len(characters), maxReviewSectionCharacters)
+			blocks = append(blocks, map[string]any{"type": "section", "text": map[string]any{
+				"type": "plain_text", "text": string(characters[:count]), "emoji": false,
+			}})
+			characters = characters[count:]
+		}
+		payload["blocks"] = append(blocks, payload["blocks"].([]any)...)
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -104,14 +123,14 @@ func (transport *HTTPTransport) Publish(ctx context.Context, botToken []byte, ch
 		return err
 	}
 	defer response.Body.Close()
-	result, err := io.ReadAll(io.LimitReader(response.Body, 16<<10))
-	if err != nil || len(result) >= 16<<10 || response.StatusCode != http.StatusOK {
+	result, err := io.ReadAll(io.LimitReader(response.Body, MaxEnvelopeBytes+1))
+	if err != nil || len(result) > MaxEnvelopeBytes || response.StatusCode != http.StatusOK {
 		return fmt.Errorf("slack publish response")
 	}
 	var status struct {
 		OK bool `json:"ok"`
 	}
-	if decodeClosed(result, &status) != nil || !status.OK {
+	if decodeProvider(ctx, result, &status, MaxEnvelopeBytes) != nil || !status.OK {
 		return fmt.Errorf("slack publish response")
 	}
 	return nil

@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
+	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/audit"
 )
@@ -25,6 +26,8 @@ const (
 )
 
 type intentRequest struct {
+	// eventTime is used only for importing the already authenticated initial setup decision.
+	eventTime    *time.Time
 	Expected     *RevisionToken
 	Idempotency  audit.IntentKey
 	Event        audit.EventDraft
@@ -178,6 +181,9 @@ func (store *Store) appendAuditInTx(ctx context.Context, transaction *sql.Tx, re
 	}
 
 	now := store.config.Clock().UTC()
+	if request.eventTime != nil {
+		now = request.eventTime.UTC()
+	}
 	event, err := audit.EventFromDraft(request.Event, eventID, now, current.RecoveryEpoch, stateRevision)
 	if err != nil {
 		return intentResult{}, newStoreError("INPUT_INVALID", "audit-event", false, nil)
