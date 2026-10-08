@@ -35,7 +35,11 @@ func RegisterHostDiscoveryOperations(app *Application, c HostDiscoveryOperations
 	return nil
 }
 func discoveryInput(r *http.Request, schema string, fields []string, out any) error {
-	if err := decodeOperationRequest(r, 16384, fields, out); err != nil {
+	var optional []string
+	if schema == generated.SchemaIDHostDiscoveryTargetDraftRequest {
+		optional = []string{"consoleConfirmation"}
+	}
+	if err := decodeOperationRequest(r, 16384, fields, out, optional...); err != nil {
 		return err
 	}
 	raw, _ := json.Marshal(out)
@@ -83,7 +87,7 @@ func (app *Application) discoveryDraft(c HostDiscoveryOperations) func(http.Resp
 	return func(w http.ResponseWriter, r *http.Request, _ authorization.ReadScope, _ map[string]string) {
 		const op = "api.v1.host-discovery-targets.draft"
 		var input generated.HostDiscoveryTargetDraftRequest
-		if err := discoveryInput(r, generated.SchemaIDHostDiscoveryTargetDraftRequest, []string{"schema", "schemaVersion", "target", "action", "consoleConfirmation", "expectedTargetRevision", "expectedStateRevision", "idempotencyKey"}, &input); err != nil {
+		if err := discoveryInput(r, generated.SchemaIDHostDiscoveryTargetDraftRequest, []string{"schema", "schemaVersion", "target", "action", "expectedTargetRevision", "expectedStateRevision", "idempotencyKey"}, &input); err != nil {
 			app.failure(w, op, err)
 			return
 		}

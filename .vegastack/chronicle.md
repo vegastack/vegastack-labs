@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 08-10-2026 — Discovery can use one explicitly approved SSH key ([#224](https://github.com/vegastack/vegastack-labs/issues/224))
+
+- **What:** An administrator can approve one exact discovery target using a protected preloaded key and independently verified console access. The existing plan and acknowledgement authorize only bounded reads; no machine configuration changes.
+- **Why:** The operator wanted the smallest working path without service-restart qualification or additional trust systems.
+- **How it went:** The existing file reader and database flow were reused. Verification uses synthetic keys, temporary SQLite and loopback peers in the separately approved local VM; no live machine is involved.
+- **Changed:** Explicit discovery credential mode · complete target confirmation in plans · protected key checks before connection/authentication · revocation even when the key is missing.
+- **Decisions:** The operator explicitly approved discovery-only preloaded keys on 08-10-2026. General credential qualification, host admission, live access and broader recovery remain separate.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/6.4.3-preloaded-discovery
+
 ## 08-10-2026 — The terminal can discover, register and inspect a machine ([#232](https://github.com/vegastack/vegastack-labs/issues/232))
 
 - **What:** Three existing node commands now call the server through its protected transport. Operators can collect an untrusted observation, prepare registration and inspect the saved unadmitted record. Applying registration still uses the existing separately acknowledged plan.

@@ -181,7 +181,7 @@ func (app *Application) exportDraft(config InventoryOperationConfig) func(http.R
 	}
 }
 
-func decodeOperationRequest(request *http.Request, limit int64, required []string, target any) error {
+func decodeOperationRequest(request *http.Request, limit int64, required []string, target any, optional ...string) error {
 	mediaType, _, err := mime.ParseMediaType(request.Header.Get("Content-Type"))
 	if err != nil || mediaType != "application/json" || request.Body == nil || request.ContentLength == 0 || request.ContentLength > limit || request.URL.RawQuery != "" {
 		return apiFailure(generated.ErrorCodeInputInvalid, "request-body")
@@ -197,11 +197,23 @@ func decodeOperationRequest(request *http.Request, limit int64, required []strin
 		return apiFailure(generated.ErrorCodeInputInvalid, "request-body")
 	}
 	var fields map[string]json.RawMessage
-	if json.Unmarshal(raw, &fields) != nil || len(fields) != len(required) {
+	if json.Unmarshal(raw, &fields) != nil || len(fields) < len(required) || len(fields) > len(required)+len(optional) {
 		return apiFailure(generated.ErrorCodeInputInvalid, "request-body")
 	}
 	for _, field := range required {
 		if _, ok := fields[field]; !ok {
+			return apiFailure(generated.ErrorCodeInputInvalid, "request-body")
+		}
+	}
+	allowed := make(map[string]bool, len(required)+len(optional))
+	for _, name := range required {
+		allowed[name] = true
+	}
+	for _, name := range optional {
+		allowed[name] = true
+	}
+	for name := range fields {
+		if !allowed[name] {
 			return apiFailure(generated.ErrorCodeInputInvalid, "request-body")
 		}
 	}
