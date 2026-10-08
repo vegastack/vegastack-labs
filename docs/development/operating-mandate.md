@@ -1,5 +1,14 @@
 # Development operating mandate
 
+## Working first — simplicity mandate
+
+Operator instruction on 08-10-2026: build the smallest useful working cluster-management executable first. Reuse the existing `vsk-labs` executable, server-owned SQLite, API, authorization and plan/acknowledgement flow. Do not add services, daemons, signing systems, trust ceremonies, proof registries, generic frameworks or advanced recovery machinery merely to anticipate future needs. Every new component must be necessary for the immediate working feature; prefer extending an existing path.
+
+Additional hardening and advanced recovery are deferred until a concrete need is established and their scope is separately agreed. The earlier comprehensive Phase 6 brief approval does not require implementing those additions now. Supersede the expanded plans and revise the delivery order around a small end-to-end working slice. Do not report deferred controls or full-v1/native acceptance as passed, and do not describe a registered machine as security-qualified.
+
+Keep the existing basic authorization, explicit mutation approval, secret handling and data-preservation boundaries. Nodes04/05 remain absolutely excluded, including reads, CI and indirect effects. This simplicity mandate grants no live access, deployment, VM operation, release or permission to bypass existing checks. It changes development priority and implementation scope, not infrastructure authority.
+
+
 ## Protected live hosts — hard exclusion
 
 Operator instruction on 07-10-2026: **`vsk-node-04` and `vsk-node-05` are out of scope until the operator explicitly lifts this exclusion for named targets and actions.** They host live applications and databases. This supersedes earlier read-only permission, CI-pool permission, role assignments and test-host exceptions for these machines.
