@@ -150,6 +150,7 @@ type IntentStore interface {
 }
 
 type Config struct {
+	InitialSetup             *InitialSetup
 	DatabasePath             string
 	Mode                     OpenMode
 	BusyTimeout              time.Duration
