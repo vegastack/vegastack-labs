@@ -110,7 +110,7 @@ func parseArguments(args []string) (parsedArguments, *argumentFailure) {
 			return parsed, &argumentFailure{code: generated.ErrorCodeInputInvalid, target: "arguments"}
 		}
 	}
-	if invalidInventoryShape(parsed) || invalidPhase4Shape(parsed) || invalidServerShape(parsed) || invalidGateShape(parsed) || invalidCredentialShape(parsed) {
+	if (parsed.commandName() == generated.CommandNameNodeInspect && !phase4IDPattern.MatchString(parsed.Value(generated.FlagHostID))) || invalidInventoryShape(parsed) || invalidPhase4Shape(parsed) || invalidServerShape(parsed) || invalidGateShape(parsed) || invalidCredentialShape(parsed) {
 		return parsed, &argumentFailure{code: generated.ErrorCodeInputInvalid, target: "arguments"}
 	}
 	return parsed, nil

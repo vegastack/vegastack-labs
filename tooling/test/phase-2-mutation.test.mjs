@@ -5,6 +5,7 @@ import test from "node:test";
 import { proveUnavailableMutations } from "../verify-phase-2.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "../..");
+// #232 activates exactly node discover/add/inspect; other lifecycle commands stay planned.
 const EXPECTED_PLANNED_MUTATIONS = [
   "audit",
   "connect",
@@ -17,9 +18,6 @@ const EXPECTED_PLANNED_MUTATIONS = [
   "doctor",
   "maintenance plan",
   "maintenance run",
-  "node add",
-  "node discover",
-  "node inspect",
   "node nominate",
   "node quarantine",
   "node replace",

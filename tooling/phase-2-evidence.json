@@ -362,6 +362,17 @@
           "github.com/vegastack/vegastack-labs/internal/hostadoption"
         ],
         "mutationBoundaryDigest": "sha256:9a9d3879f1cc6b252559d8f04b9f5b5682a95541675811582d6409fb0b96578c"
+      },
+      {
+        "id": "phase6-issue232-v1",
+        "issue": 232,
+        "commands": [
+          "node add",
+          "node discover",
+          "node inspect"
+        ],
+        "imports": [],
+        "mutationBoundaryDigest": "sha256:009a11861bf03d816c93be80a71b9106c83aa3d84363c6fd18d60615124bbc5c"
       }
     ]
   },

@@ -224,8 +224,9 @@ func Current() Registry {
 		recoveryWitnessCollectCommand(),
 		auditCheckpointsCommand(), auditVerifyCommand(),
 	}
+	commands = append(commands, hostCommands()...)
 	for _, command := range plannedCommands {
-		if command.path == "status" || strings.HasPrefix(command.path, "database ") || strings.HasPrefix(command.path, "inventory ") || strings.HasPrefix(command.path, "gate ") || strings.HasPrefix(command.path, "backup ") || strings.HasPrefix(command.path, "restore ") || command.path == "credential import" || command.path == "audit checkpoints" || command.path == "audit verify" || isAvailablePhase4Command(command.path) {
+		if command.path == "node discover" || command.path == "node add" || command.path == "node inspect" || command.path == "status" || strings.HasPrefix(command.path, "database ") || strings.HasPrefix(command.path, "inventory ") || strings.HasPrefix(command.path, "gate ") || strings.HasPrefix(command.path, "backup ") || strings.HasPrefix(command.path, "restore ") || command.path == "credential import" || command.path == "audit checkpoints" || command.path == "audit verify" || isAvailablePhase4Command(command.path) {
 			continue
 		}
 		requestSchema, dataSchema := phase5CommandSchemas(command.path)

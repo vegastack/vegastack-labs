@@ -127,6 +127,9 @@ func TestAPISSHPhase5ArgumentMappingsCoverExposedLocalClientCommands(t *testing.
 		path      string
 		arguments []string
 	}{
+		{"api.v1.host-observations.create", "/api/v1/host-observations", []string{"node", "discover"}},
+		{"api.v1.host-adoptions.draft", "/api/v1/host-adoptions/draft", []string{"node", "add"}},
+		{"api.v1.hosts.get", "/api/v1/hosts/host-a", []string{"node", "inspect", "--host-id", "host-a"}},
 		{"api.v1.audit-checkpoints.list", "/api/v1/audit-checkpoints", []string{"audit", "checkpoints"}},
 		{"api.v1.audit-history.verification", "/api/v1/audit-history/verification", []string{"audit", "verify"}},
 		{"api.v1.backup-offsite-retirements.dry-run", "/api/v1/backups/offsite-retirements/dry-run", []string{"backup", "offsite-retirement", "dry-run"}},
@@ -168,6 +171,7 @@ func TestAPISSHPhase5ArgumentMappingsCoverExposedLocalClientCommands(t *testing.
 		arguments []string
 	}{
 		{"api.v1.gates.get", "/api/v1/gates/G-008", []string{"gate", "inspect", "--gate-id", "G-009"}},
+		{"api.v1.hosts.get", "/api/v1/hosts/host-a", []string{"node", "inspect", "--host-id", "host-b"}},
 		{"api.v1.scheduled-job-policies.get", "/api/v1/scheduled-job-policies/policy-a", []string{"schedule", "inspect", "--policy-id", "policy-b"}},
 		{"api.v1.scheduled-occurrences.create", "/api/v1/scheduled-job-policies/policy-a/occurrences", []string{"schedule", "dispatch", "--policy-id", "policy-b"}},
 		{"api.v1.scheduled-jobs.cancel", "/api/v1/scheduled-jobs/job-a/cancel", []string{"schedule", "cancel", "--job-id", "job-b"}},
