@@ -2,6 +2,7 @@
 package serverconfig
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"encoding/json"
@@ -343,4 +344,14 @@ func convertRemoteRead(input generated.RemoteReadProfile) (RemoteRead, error) {
 		IdentityAdapter:    *input.IdentityAdapter,
 		IdentityConfigPath: *input.IdentityConfigPath,
 	}, nil
+}
+
+// DecodeProfile validates a caller-owned frozen profile snapshot. It grants no
+// filesystem trust; the server must obtain these bytes through its protected loader.
+func DecodeProfile(raw []byte, expectedOwnerUID uint32) (Profile, error) {
+	input, err := decodeGeneratedProfile(bytes.NewReader(raw))
+	if err != nil {
+		return Profile{}, err
+	}
+	return convertGeneratedProfile(input, expectedOwnerUID)
 }
