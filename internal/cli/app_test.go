@@ -488,3 +488,21 @@ func assertResultError(t *testing.T, result generated.RunResult, code, status st
 		t.Fatalf("result=%#v, want status=%q error=%q", result, status, code)
 	}
 }
+
+type setupCLIStub struct {
+	stubServerOperations
+	setupPath string
+}
+
+func (s *setupCLIStub) RunSetup(_ context.Context, config, setup string) error {
+	s.runConfig = config
+	s.setupPath = setup
+	return nil
+}
+func TestServerRunForwardsSetup(t *testing.T) {
+	operations := &setupCLIStub{}
+	code, _, _ := runTestAppWithOptions(t, context.Background(), []string{"server", "run", "--config", "profile.json", "--setup", "setup.json"}, nil, WithServerOperations(operations))
+	if code != 0 || operations.setupPath != "setup.json" || operations.runConfig != "profile.json" {
+		t.Fatal("setup did not reach server owner")
+	}
+}

@@ -529,6 +529,7 @@ func TestServerCommandsFreezePhaseTwoContracts(t *testing.T) {
 		t.Fatalf("server status contract = %#v", status)
 	}
 	assertFlag(t, run, "--config", FlagValue, true, false)
+	assertFlag(t, run, "--setup", FlagValue, false, false)
 	assertFlag(t, status, "--config", FlagValue, true, false)
 }
 
