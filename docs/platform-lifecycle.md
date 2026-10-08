@@ -97,7 +97,19 @@ The Phase 5.3 runtime gate resolver reads only the server-owned applied profile/
 
 The guided interface offers create-control-plane, connect-operator, enroll-node, and resume/recover journeys through generated metadata. Exact command spellings are finalized in phase 1; a wizard is a client of the existing change/plan/apply engine, never a second mutation grammar. Noninteractive calls require complete typed inputs and explicit authorization; missing input never means automatic yes. CLI, Console and agents receive equivalent plans and errors.
 
+### Implemented restricted first setup — Issue #231
+
+On 08-10-2026 the operator approved administrator-prepared protected local files plus exact authenticated Slack approval in place of a separate setup-signing key for this finite first-use path. [D-131](decisions-and-sources.md#d-131) supersedes the signature and automatic installation requirements in the expanded creation specification below **for this delivery only**. Signed executable release verification remains mandatory.
+
+`vsk-labs server run --config <protected-profile> --setup <protected-record>` verifies the selected release and running executable, local host identity, protected input snapshots and explicit initial human/grants. The current non-root OS UID is both the service UID and the explicitly mapped initial administrator for this local-only slice. Existing Slack Socket Mode authenticates the matching human's decision; the complete canonical review is visible before approval. No browser visitor, local yes, claimed JSON approval or environment username can authorize setup.
+
+The service syncs a non-secret review/approval receipt before accepting the decision, then exclusively creates SQLite and imports initial read/effective grants plus immutable audit/intent records in the same foundation transaction. The receipt holds a nonce fingerprint, never the challenge or a token, and is never replay authority. Before commit, an interrupted or ambiguous attempt refuses further setup and preserves its files for inspection. After commit, plain `server run --config <protected-profile>` uses existing authority without the setup file or another setup approval. See the [exact preparation and refusal procedure](control-plane-service.md#first-time-local-setup).
+
+This path starts a restricted local service and permits only its explicitly granted API work. It does not apply a profile, qualify credentials/recovery, admit a workload, install an OS service or authorize live access. Nodes04/05 stay excluded; other real installation/Slack operations need their own scoped permission.
+
 ### Local control-plane creation
+
+The following expanded specification is deferred beyond the restricted Issue #231 path above.
 
 1. Inspect the selected machine, supported OS/release, installation identity, existing database/service state, privileges, time, disk, dependencies and recovery access. Verify the signed release. An existing or ambiguous installation takes resume/recovery/adoption; never silently reinitialize it. A scan cannot prove a compromised OS clean. Initial OS trust and any reimage decision remain human prerequisites.
 2. The administrator nominates this host from a trusted local console, or an already verified SSH session with a usable recovery path. Bind the responsible human and verified OS identity; do not trust an arbitrary email, agent assertion, environment variable or first web visitor. Show the finite initial installation plan and create its one-use Slack approval request.

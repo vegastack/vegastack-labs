@@ -29,13 +29,19 @@ The operator approved reduced briefs and concrete plan v2 for [#222](https://git
 
 Issue #232 consumes these contracts after #222 integration. Issue #224 separately adds the approved discovery-only preloaded key path below. Other expanded Phase 6 implementation remains deferred under the simplicity mandate. Registration tests cover synthetic identity, stale/current grants, exact approval/lease binding, duplicates, audit rollback and unchanged admission state. Isolated Linux software integration requires its own explicit environment approval; it does not qualify a real OS baseline or authorize fleet onboarding.
 
+## Working-first local setup delivery — 08-10-2026
+
+Issue #231 now supplies the missing production first-start path: administrator-prepared protected files, existing signed release verification, complete exact Slack review, one-use durable approval and server-only atomic initial grants/audit. It reuses the executable, SQLite and typed Slack adapter, with no separate setup signer or automatic OS installation. The current non-root UID is explicitly mapped to the initial human; only listed exact scopes are imported. Plain restart uses existing authority. Partial/ambiguous data refuses without cleanup. [D-131](../../decisions-and-sources.md#d-131) records this approved exception.
+
+Verification uses actual protected files, real signature verification, SQLite, the production Slack adapter with synthetic transport, and the ordinary Unix API. Linux arm64 workstation-VM tests substitute the existing supported-platform probe only for software composition; they do not claim Debian13 amd64, hardware, hardening, recovery, workload admission or full Phase6 acceptance. The expanded setup, privileged-action, recovery and Mac/iMac requirements remain deferred. No live host or real Slack workspace was used.
+
 ## Destination and existing decisions
 
 Implement a portable path from a named untrusted candidate to separately approved, verified host admission, role installation, control-plane bootstrap and recovery. One `vsk-labs` executable, server-owned SQLite, central typed adapters/Ansible, and the existing exact-plan acknowledgement/executor remain controlling. Discovery cannot prove hardening or apply quarantine. D-123 and D-126–D-130 govern privilege, Debian enforcement and disposable qualification. Mac mini/iMac remain required within v1 in a later Phase 6 batch; Ubuntu remains parked. Complete v1 precedes the first fleet onboarding rehearsal.
 
 ## Ownership map
 
-These are development IDs, not permission to create or execute every future issue. Preserve already published references. The earlier 6.3 batch below is historical. The separately approved working-first batch on 08-10-2026 includes #222 database registration, #232 CLI integration and #224 discovery-only preloaded key authorization; expanded hardening/recovery work stays deferred.
+These are development IDs, not permission to create or execute every future issue. Preserve already published references. The earlier 6.3 batch below is historical. The separately approved working-first batch on 08-10-2026 includes #222 database registration, #232 CLI integration and #224 discovery-only preloaded key authorization and #231 restricted first setup; expanded hardening/recovery work stays deferred.
 
 | ID | Outcome / dependency |
 |---|---|
