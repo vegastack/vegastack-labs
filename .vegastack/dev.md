@@ -47,6 +47,9 @@ chronicle: on
 
 ## Ship — permitted landing route, in order
 
+Standing operator instruction on 08-10-2026 authorizes PR creation, merge and continuation for the currently approved Phase 6 working-first Linux batch. After the exact local affected proof and fresh independent review pass, continue without asking for shipping permission again for each issue. This satisfies the explicit-word steps below for that batch only. Shared CI remains disabled until safe scheduling is verified; unavailable or skipped CI is not a pass. Real infrastructure, releases, material scope changes and new batches retain their separate approval boundaries.
+
+
 - ask: create a pull request only after the operator explicitly requests it for the approved issue.
 - guard: before asking for a pull request, the installed dev-ship guard runs the configured local affected command once with the exact current remote `main` SHA and clean local/remote/evidence branch HEAD, then rechecks every binding. Missing, dirty, stale, or unverifiable state blocks.
 - guard: later review, rebase, or conflict-resolution edits rerun only the local affected checks. Pull requests and `main` pushes do not trigger Public CI; routine-full dispatches are suspended pending verified safe scheduling (eligible nodes 01, 06, 07 and 08); named native acceptance remains limited to nodes 01/06.

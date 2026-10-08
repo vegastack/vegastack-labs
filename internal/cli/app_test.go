@@ -51,6 +51,9 @@ func TestEveryGeneratedCommandHasTruthfulRuntimeBehavior(t *testing.T) {
 			if strings.HasPrefix(commandName(command.Path), "credential ") && commandName(command.Path) != generated.CommandNameCredentialImport {
 				files.content = syntheticLifecycleRequest(t, commandName(command.Path))
 			}
+			if commandName(command.Path) == generated.CommandNameNodeDiscover || commandName(command.Path) == generated.CommandNameNodeAdd {
+				files.content = syntheticHostRequest(t, commandName(command.Path))
+			}
 			if commandName(command.Path) == generated.CommandNameSchedulePolicyDraft {
 				files.content, _ = json.Marshal(syntheticScheduledPolicy())
 			}

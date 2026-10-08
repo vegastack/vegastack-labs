@@ -422,6 +422,45 @@ Owner phase: `2` · risk: `read-only` · availability: `available`
 
 - Validate and store one inventory candidate as an inert draft.: `vsk-labs inventory import --config fixture/server-profile.json --file fixture/inventory.json --format typed-json --source-revision source-1 --captured-at 2026-09-08T06:00:00Z --idempotency-key opaque-1 --output json`
 
+### `vsk-labs node add`
+
+Prepare inert host registration; approval and apply remain separate.
+
+Owner phase: `6` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected server profile.
+- `--file <path>` — Read one exact request JSON file (16 KiB max).
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Prepare inert host registration; approval and apply remain separate.: `vsk-labs node add --config fixture/server-profile.json --file fixture/node-add.json --output json`
+
+### `vsk-labs node discover`
+
+Collect an untrusted observation from one activated target.
+
+Owner phase: `6` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read one protected server profile.
+- `--file <path>` — Read one exact request JSON file (16 KiB max).
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Collect an untrusted observation from one activated target.: `vsk-labs node discover --config fixture/server-profile.json --file fixture/node-discover.json --output json`
+
+### `vsk-labs node inspect`
+
+Read a registered host without contacting it.
+
+Owner phase: `6` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read one protected server profile.
+- `--host-id <id>` — Select one registered host ID.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Read a registered host without contacting it.: `vsk-labs node inspect --config fixture/server-profile.json --host-id host-a --output json`
+
 ### `vsk-labs plan`
 
 Create an immutable plan from one exact inert declaration revision.
@@ -746,24 +785,6 @@ Owner phase: `10` · risk: `unassigned` · availability: `planned`
 Run one authorized maintenance plan.
 
 Owner phase: `10` · risk: `unassigned` · availability: `planned`
-
-### `vsk-labs node add`
-
-Create an inert managed-node change.
-
-Owner phase: `6` · risk: `unassigned` · availability: `planned`
-
-### `vsk-labs node discover`
-
-Discover a candidate managed node.
-
-Owner phase: `6` · risk: `unassigned` · availability: `planned`
-
-### `vsk-labs node inspect`
-
-Inspect a managed node.
-
-Owner phase: `6` · risk: `unassigned` · availability: `planned`
 
 ### `vsk-labs node nominate`
 

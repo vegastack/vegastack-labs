@@ -170,6 +170,21 @@ Available commands:
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
     --source-revision <revision> Record the source revision supplied by its owner.
+  node add                 Prepare inert host registration; approval and apply remain separate.
+    --config <path>        Read one protected server profile.
+    --file <path>          Read one exact request JSON file (16 KiB max).
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  node discover            Collect an untrusted observation from one activated target.
+    --config <path>        Read one protected server profile.
+    --file <path>          Read one exact request JSON file (16 KiB max).
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  node inspect             Read a registered host without contacting it.
+    --config <path>        Read one protected server profile.
+    --host-id <id>         Select one registered host ID.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   plan                     Create an immutable plan from one exact inert declaration revision.
     --config <path>        Read the protected server profile at this explicit path.
     --declaration-id <id>  Select one exact inert declaration.
@@ -279,9 +294,6 @@ Planned commands (unavailable):
   doctor                   Diagnose one actionable platform invariant at a time.
   maintenance plan         Create an immutable maintenance plan.
   maintenance run          Run one authorized maintenance plan.
-  node add                 Create an inert managed-node change.
-  node discover            Discover a candidate managed node.
-  node inspect             Inspect a managed node.
   node nominate            Create an inert role-nomination change.
   node quarantine          Create an inert node-quarantine change.
   node replace             Create an inert node-replacement change.

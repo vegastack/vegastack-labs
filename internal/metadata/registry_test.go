@@ -438,6 +438,7 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 	}
 
 	wantAvailable := map[string]bool{
+		"node discover": false, "node add": false, "node inspect": false,
 		"help": false, "release inspect": false, "release verify": false, "server api-ssh": false, "server run": false, "server status": false, "version": false,
 		"status": false, "database status": false, "inventory import": false, "inventory diff": false, "inventory export": false,
 		"plan": false, "apply": false, "run inspect": false, "run cancel": false, "run resume": false,
@@ -450,7 +451,7 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 	}
 	wantPlanned := map[string]string{
 		"doctor": "2", "audit": "5",
-		"node discover": "6", "node add": "6", "node inspect": "6", "node nominate": "6", "node quarantine": "6", "node replace": "6",
+		"node nominate": "6", "node quarantine": "6", "node replace": "6",
 		"user onboard": "7", "user offboard": "7", "user suspend": "7", "user resume": "7",
 		"device request": "7", "device approve": "7", "device revoke": "7",
 		"service plan": "8", "service deploy": "8", "service rollback": "8",

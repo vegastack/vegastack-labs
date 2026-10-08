@@ -69,6 +69,12 @@ type CredentialLifecycleControlOperations interface {
 	CreateCredentialLifecycleDraft(context.Context, string, generated.CredentialLifecycleRequest) (localapi.TypedResponse[generated.CredentialLifecycleSubmission], error)
 }
 
+type HostControlOperations interface {
+	DiscoverHost(context.Context, string, generated.HostDiscoveryRequest) (localapi.TypedResponse[generated.HostDiscoverySubmission], error)
+	SubmitHostAdoption(context.Context, string, generated.HostAdoptionRequest) (localapi.TypedResponse[generated.HostAdoptionSubmission], error)
+	GetManagedHost(context.Context, string, string) (localapi.TypedResponse[generated.ManagedHost], error)
+}
+
 type GateControlOperations interface {
 	Gates(context.Context, string) (localapi.TypedResponse[generated.GateListData], error)
 	GetGate(context.Context, string, string) (localapi.TypedResponse[generated.GateView], error)
@@ -432,6 +438,8 @@ func (app *App) Run(ctx context.Context, args []string) int {
 			return app.failServer(mode, parsed.commandName(), err)
 		}
 		return app.handlePlanResponse(mode, response)
+	case generated.CommandNameNodeDiscover, generated.CommandNameNodeAdd, generated.CommandNameNodeInspect:
+		return app.runHostCommand(ctx, mode, parsed)
 	case generated.CommandNameGateList, generated.CommandNameGateInspect, generated.CommandNameGateCheck, generated.CommandNameGateEvidence, generated.CommandNameGateProfileDraft:
 		return app.runGateCommand(ctx, mode, parsed)
 	case generated.CommandNameRecoveryWitnessCollect:

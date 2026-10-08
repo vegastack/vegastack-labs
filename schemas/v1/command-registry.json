@@ -2465,30 +2465,212 @@
         "node",
         "add"
       ],
-      "summary": "Create an inert managed-node change.",
-      "availability": "planned",
+      "summary": "Prepare inert host registration; approval and apply remain separate.",
+      "availability": "available",
       "ownerPhase": "6",
-      "risk": "unassigned"
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one exact request JSON file (16 KiB max).",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/host-adoption-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/host-adoption-submission",
+      "examples": [
+        {
+          "summary": "Prepare inert host registration; approval and apply remain separate.",
+          "arguments": [
+            "node",
+            "add",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/node-add.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
         "node",
         "discover"
       ],
-      "summary": "Discover a candidate managed node.",
-      "availability": "planned",
+      "summary": "Collect an untrusted observation from one activated target.",
+      "availability": "available",
       "ownerPhase": "6",
-      "risk": "unassigned"
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one exact request JSON file (16 KiB max).",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/host-discovery-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/host-discovery-submission",
+      "examples": [
+        {
+          "summary": "Collect an untrusted observation from one activated target.",
+          "arguments": [
+            "node",
+            "discover",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/node-discover.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
         "node",
         "inspect"
       ],
-      "summary": "Inspect a managed node.",
-      "availability": "planned",
+      "summary": "Read a registered host without contacting it.",
+      "availability": "available",
       "ownerPhase": "6",
-      "risk": "unassigned"
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--host-id",
+          "kind": "value",
+          "valueName": "id",
+          "required": true,
+          "repeatable": false,
+          "summary": "Select one registered host ID.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/managed-host",
+      "examples": [
+        {
+          "summary": "Read a registered host without contacting it.",
+          "arguments": [
+            "node",
+            "inspect",
+            "--config",
+            "fixture/server-profile.json",
+            "--host-id",
+            "host-a",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
