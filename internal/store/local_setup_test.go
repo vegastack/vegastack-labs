@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/identity"
+	"strings"
 	"testing"
 	"time"
 )
@@ -20,7 +22,7 @@ func setupFixture(t *testing.T, database string, uid uint32, now time.Time) Init
 	r := generated.LocalSetupReviewRequest{Schema: "vegastack-labs.dev/local-setup-review-request", SchemaVersion: "1.0.0", SetupID: "setup-one", HostIdentityDigest: digest, InitialHumanID: "operator-one", ServiceUID: int64(uid), InitialAdministratorUID: int64(uid), ProfileSHA256: digest, DatabasePath: database, ReleaseManifestPath: "/synthetic/manifest.json", ReleaseManifestDigest: digest, ReleasePolicyPath: "/synthetic/policy.json", ReleasePolicyDigest: digest, ExecutableAssetID: "linux-arm64", ReleaseBuildID: "test", ExpiresAt: now.Add(time.Hour).Format(time.RFC3339Nano), RequestNonceDigest: digest,
 		InitialReadGrants:      []generated.LocalSetupReadGrant{{Schema: "vegastack-labs.dev/local-setup-read-grant", SchemaVersion: "1.0.0", Capability: "control.health.read", ResourceKind: "control", ResourceID: "control"}},
 		InitialEffectiveGrants: []generated.LocalSetupEffectiveGrant{{Schema: "vegastack-labs.dev/local-setup-effective-grant", SchemaVersion: "1.0.0", GrantID: "author-one", RoleID: "control-plane-admin", Action: "author", Capability: "gate.profile.author", ResourceKind: "profile", ResourceID: "profile-drafts", Branch: "none"}}}
-	review := InitialSetupReview{Request: r, RequestDigest: digest, SlackProfileDigest: digest, SlackWorkspaceID: "T123", SlackUserID: "U123", SlackHumanID: r.InitialHumanID, SlackAuthorityID: "slack-one", SlackChannelID: "C123"}
+	review := InitialSetupReview{Request: r, RequestDigest: digest, Acknowledgement: InitialAcknowledgementBinding{ProfileDigest: digest, ExternalScopeID: "scope/example", ExternalSubjectID: "user@example.test", HumanID: r.InitialHumanID, AuthorityID: "authority-one", DeliveryTargetID: "delivery/example", Method: identity.CloudflareAccessMethod}}
 	check, _ := json.Marshal(r)
 	if err := generated.ValidateContractJSON(generated.SchemaIDLocalSetupReviewRequest, check, generated.ContractExact); err != nil {
 		t.Fatalf("fixture contract: %v", err)
@@ -30,7 +32,7 @@ func setupFixture(t *testing.T, database string, uid uint32, now time.Time) Init
 		t.Fatal(err)
 	}
 	setup := InitialSetup{SetupID: r.SetupID, HumanID: r.InitialHumanID, RequestDigest: digest, ReviewJSON: raw, ReviewDigest: initialSetupDigest(raw), ExpiresAt: now.Add(time.Hour), ReadGrants: []InitialReadGrant{{"control.health.read", "control", "control"}}, EffectiveGrants: []InitialEffectiveGrant{{"author-one", "control-plane-admin", "author", "gate.profile.author", "profile", "profile-drafts", ""}}}
-	setup.Approval = InitialSetupApproval{HumanID: setup.HumanID, AuthorityID: review.SlackAuthorityID, ReviewDigest: setup.ReviewDigest, RequestDigest: digest, DecidedAt: now.Add(-time.Minute)}
+	setup.Approval = InitialSetupApproval{HumanID: setup.HumanID, AuthorityID: review.Acknowledgement.AuthorityID, Method: review.Acknowledgement.Method, ReviewDigest: setup.ReviewDigest, RequestDigest: digest, DecidedAt: now.Add(-time.Minute)}
 	return setup
 }
 
@@ -43,6 +45,7 @@ func TestLocalSetupReviewBindings(t *testing.T) {
 	cases := map[string]func(*InitialSetup){
 		"zero approval":     func(s *InitialSetup) { s.Approval = InitialSetupApproval{} },
 		"wrong human":       func(s *InitialSetup) { s.HumanID = "other" },
+		"wrong method":      func(s *InitialSetup) { s.Approval.Method = identity.LocalOSPeerMethod },
 		"wrong authority":   func(s *InitialSetup) { s.Approval.AuthorityID = "other" },
 		"wrong request":     func(s *InitialSetup) { s.RequestDigest = initialSetupDigest([]byte("other")) },
 		"wrong review":      func(s *InitialSetup) { s.ReviewDigest = initialSetupDigest([]byte("other")) },
@@ -124,5 +127,60 @@ func TestLocalSetupRejectsSelfConsistentUnsafeGrants(t *testing.T) {
 				t.Fatal("unsafe self-consistent setup accepted")
 			}
 		})
+	}
+}
+
+func TestLocalSetupNeutralAcknowledgementBinding(t *testing.T) {
+	now := time.Date(2026, 10, 8, 1, 0, 0, 0, time.UTC)
+	for _, field := range []string{"scope", "subject", "delivery", "profile", "human", "authority", "method"} {
+		t.Run(field, func(t *testing.T) {
+			s := setupFixture(t, "/tmp/control.db", 501, now)
+			var r InitialSetupReview
+			_ = json.Unmarshal(s.ReviewJSON, &r)
+			switch field {
+			case "scope":
+				r.Acknowledgement.ExternalScopeID = "changed"
+			case "subject":
+				r.Acknowledgement.ExternalSubjectID = "changed"
+			case "delivery":
+				r.Acknowledgement.DeliveryTargetID = "changed"
+			case "profile":
+				r.Acknowledgement.ProfileDigest = initialSetupDigest([]byte("changed"))
+			case "human":
+				r.Acknowledgement.HumanID = "changed"
+			case "authority":
+				r.Acknowledgement.AuthorityID = "changed"
+			case "method":
+				r.Acknowledgement.Method = identity.LocalOSPeerMethod
+			}
+			s.ReviewJSON, _ = json.Marshal(r)
+			s.ReviewDigest = initialSetupDigest(s.ReviewJSON)
+			if validateInitialSetup(s, now) == nil {
+				t.Fatal("changed mapping reused original approval")
+			}
+		})
+	}
+	for _, value := range []string{"", strings.Repeat("a", 129), "bad\x00id", "bad\nid", " leading", "trailing "} {
+		s := setupFixture(t, "/tmp/control.db", 501, now)
+		var r InitialSetupReview
+		_ = json.Unmarshal(s.ReviewJSON, &r)
+		r.Acknowledgement.ExternalScopeID = value
+		s.ReviewJSON, _ = json.Marshal(r)
+		s.ReviewDigest = initialSetupDigest(s.ReviewJSON)
+		s.Approval.ReviewDigest = s.ReviewDigest
+		if validateInitialSetup(s, now) == nil {
+			t.Fatal("invalid opaque external identifier accepted")
+		}
+	}
+	s := setupFixture(t, "/tmp/control.db", 501, now)
+	var r InitialSetupReview
+	_ = json.Unmarshal(s.ReviewJSON, &r)
+	r.Acknowledgement.Method = "unknown-method"
+	s.Approval.Method = r.Acknowledgement.Method
+	s.ReviewJSON, _ = json.Marshal(r)
+	s.ReviewDigest = initialSetupDigest(s.ReviewJSON)
+	s.Approval.ReviewDigest = s.ReviewDigest
+	if validateInitialSetup(s, now) == nil {
+		t.Fatal("unknown identity method accepted")
 	}
 }

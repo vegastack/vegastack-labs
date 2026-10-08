@@ -67,7 +67,7 @@ func decodeCandidate(ctx context.Context, config Config, raw []byte, receivedAt 
 		return acknowledgement.Candidate{}, slackError(generated.ErrorCodeInputInvalid, "slack-action", false)
 	}
 	var envelope interactiveEnvelope
-	if decodeClosed(raw, &envelope) != nil || envelope.Type != "interactive" || envelope.Payload.Type != "block_actions" || !validOpaqueID(envelope.EnvelopeID) || envelope.Payload.Team.ID != config.WorkspaceID || envelope.Payload.User.ID != config.SlackUserID || len(envelope.Payload.Actions) != 1 {
+	if json.Unmarshal(raw, &envelope) != nil || envelope.Type != "interactive" || envelope.Payload.Type != "block_actions" || !validOpaqueID(envelope.EnvelopeID) || envelope.Payload.Team.ID != config.WorkspaceID || envelope.Payload.User.ID != config.SlackUserID || len(envelope.Payload.Actions) != 1 {
 		return acknowledgement.Candidate{}, slackError(generated.ErrorCodeAuthorizationDenied, "slack-action", false)
 	}
 	action := envelope.Payload.Actions[0]
@@ -92,6 +92,19 @@ func decodeCandidate(ctx context.Context, config Config, raw []byte, receivedAt 
 		return acknowledgement.Candidate{}, slackError(generated.ErrorCodeInputInvalid, "slack-action", false)
 	}
 	return acknowledgement.Candidate{Human: identity.Principal{ID: config.HumanID, Method: identity.SlackSocketModeMethod, Kind: identity.PrincipalHuman}, AuthorityID: config.AuthorityID, Action: decision, PlanID: binding.PlanID, PlanDigest: binding.PlanDigest, TargetDigest: binding.TargetDigest, ReasonDigest: binding.ReasonDigest, Nonce: binding.Nonce, StateRevision: binding.StateRevision, RecoveryEpoch: binding.RecoveryEpoch, ExpiresAt: expiresAt, DecidedAt: receivedAt}, nil
+}
+
+// Provider documents are extensible. Validate their complete bounded JSON while
+// decoding only the typed fields this adapter consumes. Action bindings remain
+// application-owned and use decodeClosed below.
+func decodeProvider(ctx context.Context, raw []byte, target any, maximum int) error {
+	if len(raw) == 0 || len(raw) > maximum {
+		return errors.New("provider JSON size")
+	}
+	if err := strictjson.Scan(ctx, raw, strictjson.Limits{MaxDepth: MaxJSONDepth}); err != nil {
+		return err
+	}
+	return json.Unmarshal(raw, target)
 }
 
 func decodeClosed(raw []byte, target any) error {

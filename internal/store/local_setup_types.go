@@ -8,8 +8,8 @@ import (
 type InitialReadGrant struct{ Capability, ResourceKind, ResourceID string }
 type InitialEffectiveGrant struct{ GrantID, RoleID, Action, Capability, ResourceKind, ResourceID, Branch string }
 type InitialSetupApproval struct {
-	HumanID, AuthorityID, ReviewDigest, RequestDigest string
-	DecidedAt                                         time.Time
+	HumanID, AuthorityID, Method, ReviewDigest, RequestDigest string
+	DecidedAt                                                 time.Time
 }
 type InitialSetup struct {
 	SetupID, HumanID, ReviewDigest, RequestDigest string
@@ -19,13 +19,20 @@ type InitialSetup struct {
 	ExpiresAt                                     time.Time
 	Approval                                      InitialSetupApproval
 }
+
+// InitialAcknowledgementBinding preserves the exact reviewed external mapping
+// without giving the storage owner provider-specific identifier semantics.
+type InitialAcknowledgementBinding struct {
+	HumanID           string `json:"humanId"`
+	AuthorityID       string `json:"authorityId"`
+	Method            string `json:"method"`
+	ProfileDigest     string `json:"profileDigest"`
+	ExternalScopeID   string `json:"externalScopeId"`
+	ExternalSubjectID string `json:"externalSubjectId"`
+	DeliveryTargetID  string `json:"deliveryTargetId"`
+}
 type InitialSetupReview struct {
-	Request            generated.LocalSetupReviewRequest `json:"request"`
-	RequestDigest      string                            `json:"requestDigest"`
-	SlackProfileDigest string                            `json:"slackProfileDigest"`
-	SlackWorkspaceID   string                            `json:"slackWorkspaceId"`
-	SlackUserID        string                            `json:"slackUserId"`
-	SlackHumanID       string                            `json:"slackHumanId"`
-	SlackAuthorityID   string                            `json:"slackAuthorityId"`
-	SlackChannelID     string                            `json:"slackChannelId"`
+	Request         generated.LocalSetupReviewRequest `json:"request"`
+	RequestDigest   string                            `json:"requestDigest"`
+	Acknowledgement InitialAcknowledgementBinding     `json:"acknowledgement"`
 }

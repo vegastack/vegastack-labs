@@ -7,8 +7,10 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
-	"regexp"
+	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/authorization"
@@ -16,7 +18,17 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/identity"
 )
 
-var setupSlackIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`)
+func validSetupExternalID(value string) bool {
+	if value == "" || len(value) > 128 || !utf8.ValidString(value) || strings.TrimSpace(value) != value {
+		return false
+	}
+	for _, r := range value {
+		if unicode.IsControl(r) {
+			return false
+		}
+	}
+	return true
+}
 
 const initialSetupScope = "control-plane.initial-setup"
 
@@ -48,24 +60,28 @@ func validateInitialSetup(setup InitialSetup, now time.Time) error {
 	}
 	r := review.Request
 	a := setup.Approval
+	binding := review.Acknowledgement
+	if a.Method != binding.Method || !identity.ValidPrincipal(identity.Principal{ID: a.HumanID, Kind: identity.PrincipalHuman, Method: a.Method}) {
+		return invalid()
+	}
 	expiry, err := time.Parse(time.RFC3339Nano, r.ExpiresAt)
 	if err != nil || !expiry.Equal(setup.ExpiresAt) || !now.Before(expiry) || a.DecidedAt.IsZero() || a.DecidedAt.After(now) || !a.DecidedAt.Before(expiry) {
 		return invalid()
 	}
-	if setup.SetupID != r.SetupID || setup.HumanID != r.InitialHumanID || setup.HumanID != review.SlackHumanID || a.HumanID != setup.HumanID || a.AuthorityID != review.SlackAuthorityID || a.ReviewDigest != setup.ReviewDigest || a.RequestDigest != setup.RequestDigest || review.RequestDigest != setup.RequestDigest {
+	if setup.SetupID != r.SetupID || setup.HumanID != r.InitialHumanID || setup.HumanID != binding.HumanID || a.HumanID != setup.HumanID || a.AuthorityID != binding.AuthorityID || a.ReviewDigest != setup.ReviewDigest || a.RequestDigest != setup.RequestDigest || review.RequestDigest != setup.RequestDigest {
 		return invalid()
 	}
-	for _, v := range []string{setup.SetupID, setup.HumanID, review.SlackAuthorityID} {
+	for _, v := range []string{setup.SetupID, setup.HumanID, binding.AuthorityID} {
 		if !authorization.ValidIdentifier(v) {
 			return invalid()
 		}
 	}
-	for _, v := range []string{review.SlackWorkspaceID, review.SlackUserID, review.SlackChannelID} {
-		if !setupSlackIDPattern.MatchString(v) {
+	for _, v := range []string{binding.ExternalScopeID, binding.ExternalSubjectID, binding.DeliveryTargetID} {
+		if !validSetupExternalID(v) {
 			return invalid()
 		}
 	}
-	for _, v := range []string{setup.RequestDigest, review.SlackProfileDigest} {
+	for _, v := range []string{setup.RequestDigest, binding.ProfileDigest} {
 		if !audit.ValidFingerprint(audit.Fingerprint(v)) {
 			return invalid()
 		}
@@ -116,7 +132,7 @@ func (store *Store) applyInitialSetup(ctx context.Context, tx *sql.Tx, setup Ini
 		return newStoreError("INPUT_INVALID", "initial-setup", false, nil)
 	}
 	after := audit.Fingerprint(setup.ReviewDigest)
-	event := audit.EventDraft{Type: "control.initialized", CorrelationID: setup.SetupID, Attribution: audit.Attribution{AuthenticatedPrincipalID: setup.HumanID, AuthenticatedPrincipalMethod: identity.SlackSocketModeMethod, ResponsibleHumanPrincipalID: &setup.HumanID}, Target: audit.Target{Kind: "acknowledgement-authority", ID: setup.Approval.AuthorityID}, After: &after}
+	event := audit.EventDraft{Type: "control.initialized", CorrelationID: setup.SetupID, Attribution: audit.Attribution{AuthenticatedPrincipalID: setup.HumanID, AuthenticatedPrincipalMethod: setup.Approval.Method, ResponsibleHumanPrincipalID: &setup.HumanID}, Target: audit.Target{Kind: "acknowledgement-authority", ID: setup.Approval.AuthorityID}, After: &after}
 	key := audit.IntentKey{Scope: initialSetupScope, KeyDigest: audit.Fingerprint(setup.ReviewDigest), RequestDigest: audit.Fingerprint(setup.RequestDigest)}
 	if audit.ValidateEventDraft(event) != nil || audit.ValidateIntentKey(key) != nil {
 		return newStoreError("INPUT_INVALID", "initial-setup", false, nil)

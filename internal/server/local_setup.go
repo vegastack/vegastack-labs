@@ -15,6 +15,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/identity"
 	"github.com/vegastack/vegastack-labs/internal/serverconfig"
 	"github.com/vegastack/vegastack-labs/internal/store"
 	"github.com/vegastack/vegastack-labs/internal/strictjson"
@@ -164,7 +165,7 @@ func loadLocalSetup(ctx context.Context, setupPath, profilePath string, uid uint
 	if json.Unmarshal(sanitized, &reviewRequest) != nil {
 		return out, setupFailure(generated.ErrorCodeInputInvalid)
 	}
-	review := store.InitialSetupReview{Request: reviewRequest, RequestDigest: setupSHA256(raw), SlackProfileDigest: setupSHA256(slackRaw), SlackWorkspaceID: out.slack.WorkspaceID, SlackUserID: out.slack.SlackUserID, SlackHumanID: out.slack.HumanID, SlackAuthorityID: out.slack.AuthorityID, SlackChannelID: out.slack.ChannelID}
+	review := store.InitialSetupReview{Request: reviewRequest, RequestDigest: setupSHA256(raw), Acknowledgement: store.InitialAcknowledgementBinding{ProfileDigest: setupSHA256(slackRaw), ExternalScopeID: out.slack.WorkspaceID, ExternalSubjectID: out.slack.SlackUserID, HumanID: out.slack.HumanID, AuthorityID: out.slack.AuthorityID, DeliveryTargetID: out.slack.ChannelID, Method: identity.SlackSocketModeMethod}}
 	out.canonical, err = json.Marshal(review)
 	if err != nil {
 		return out, setupFailure(generated.ErrorCodeInputInvalid)
@@ -174,7 +175,7 @@ func loadLocalSetup(ctx context.Context, setupPath, profilePath string, uid uint
 	if json.Indent(&pretty, out.canonical, "", "  ") != nil {
 		return out, setupFailure(generated.ErrorCodeInputInvalid)
 	}
-	out.readable = fmt.Sprintf("Initialize this local control service only. No host admission or recovery qualification.\nReview digest: %s\n%s", out.digest, pretty.String())
+	out.readable = fmt.Sprintf("Initialize this local control service only. No host admission or recovery qualification.\nSlack mapping: externalScopeId = workspace; externalSubjectId = user; deliveryTargetId = channel.\nReview digest: %s\n%s", out.digest, pretty.String())
 	if len(out.readable) > maxLocalSetupBytes {
 		return out, setupFailure(generated.ErrorCodeInputInvalid)
 	}

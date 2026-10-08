@@ -21,6 +21,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/acknowledgement"
 	"github.com/vegastack/vegastack-labs/internal/adapters/slack"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/identity"
 	"github.com/vegastack/vegastack-labs/internal/result"
 	"github.com/vegastack/vegastack-labs/internal/store"
 )
@@ -157,7 +158,13 @@ func (f *setupAcceptance) send(card acknowledgement.RequestCard, change func(map
 		change(binding)
 	}
 	value, _ := json.Marshal(binding)
-	envelope := map[string]any{"envelope_id": "setup-envelope", "type": "interactive", "payload": map[string]any{"type": "block_actions", "team": map[string]string{"id": "T-setup"}, "user": map[string]string{"id": "U-setup"}, "actions": []map[string]string{{"action_id": "approve", "value": string(value)}}}}
+	// Normal Slack metadata from the documented block_actions / Socket Mode envelopes.
+	envelope := map[string]any{"envelope_id": "setup-envelope", "type": "interactive", "accepts_response_payload": true, "payload": map[string]any{
+		"type": "block_actions", "api_app_id": "A-setup", "trigger_id": "synthetic-trigger", "response_url": "https://example.invalid/synthetic", "is_enterprise_install": false,
+		"team": map[string]string{"id": "T-setup", "domain": "synthetic"}, "user": map[string]string{"id": "U-setup", "username": "synthetic", "team_id": "T-setup"},
+		"container": map[string]any{"type": "message", "message_ts": "1.0", "channel_id": "C-setup", "is_ephemeral": false}, "channel": map[string]string{"id": "C-setup", "name": "setup"},
+		"message": map[string]any{"type": "message", "ts": "1.0", "text": card.ReviewText},
+		"actions": []map[string]string{{"action_id": "approve", "block_id": "setup-actions", "type": "button", "action_ts": "1.0", "value": string(value)}}}}
 	raw, _ := json.Marshal(envelope)
 	f.transport.incoming <- raw
 }
@@ -227,6 +234,11 @@ func TestLocalSetupFirstStartAndRestart(t *testing.T) {
 	}
 	if !strings.Contains(card.ReviewText, "gate-profile-initial") || strings.Contains(card.ReviewText, f.request.RequestNonce) || strings.Contains(card.ReviewText, card.Nonce) {
 		t.Fatal("review missing scope or leaking nonce")
+	}
+	for _, field := range []string{`"externalScopeId": "T-setup"`, `"externalSubjectId": "U-setup"`, `"deliveryTargetId": "C-setup"`, `"humanId": "human-a"`, `"authorityId": "authority-setup"`, `"method": "` + identity.SlackSocketModeMethod + `"`, `"profileDigest": "sha256:`} {
+		if !strings.Contains(card.ReviewText, field) {
+			t.Fatalf("review missing complete mapping: %s", field)
+		}
 	}
 	f.send(card, nil)
 	f.ready(done, http.StatusOK)

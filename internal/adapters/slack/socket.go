@@ -67,7 +67,7 @@ func (transport *HTTPTransport) Open(ctx context.Context, appToken []byte) (Sock
 		OK  bool   `json:"ok"`
 		URL string `json:"url"`
 	}
-	if decodeClosed(body, &result) != nil || !result.OK || !transport.allowedSocketURL(result.URL) {
+	if decodeProvider(ctx, body, &result, 16<<10) != nil || !result.OK || !transport.allowedSocketURL(result.URL) {
 		return nil, fmt.Errorf("slack connections response")
 	}
 	connection, _, err := websocket.Dial(ctx, result.URL, &websocket.DialOptions{HTTPClient: transport.client})
@@ -123,14 +123,14 @@ func (transport *HTTPTransport) Publish(ctx context.Context, botToken []byte, ch
 		return err
 	}
 	defer response.Body.Close()
-	result, err := io.ReadAll(io.LimitReader(response.Body, 16<<10))
-	if err != nil || len(result) >= 16<<10 || response.StatusCode != http.StatusOK {
+	result, err := io.ReadAll(io.LimitReader(response.Body, MaxEnvelopeBytes+1))
+	if err != nil || len(result) > MaxEnvelopeBytes || response.StatusCode != http.StatusOK {
 		return fmt.Errorf("slack publish response")
 	}
 	var status struct {
 		OK bool `json:"ok"`
 	}
-	if decodeClosed(result, &status) != nil || !status.OK {
+	if decodeProvider(ctx, result, &status, MaxEnvelopeBytes) != nil || !status.OK {
 		return fmt.Errorf("slack publish response")
 	}
 	return nil

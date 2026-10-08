@@ -276,7 +276,7 @@ func TestHTTPAndWebSocketFixtureComposePublishAckAndCandidate(t *testing.T) {
 			return
 		}
 		writer.Header().Set("Content-Type", "application/json")
-		_, _ = writer.Write([]byte(`{"ok":true,"url":"wss://wss.slack.com/link/?ticket=fixture-ticket&app_id=fixture-app"}`))
+		_, _ = writer.Write([]byte(`{"ok":true,"url":"wss://wss.slack.com/link/?ticket=fixture-ticket&app_id=fixture-app","response_metadata":{"warnings":[]}}`))
 	})
 	handler.HandleFunc("/chat", func(writer http.ResponseWriter, request *http.Request) {
 		if request.Header.Get("Authorization") != "Bearer "+fixtureSlackCredential {

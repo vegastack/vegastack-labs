@@ -6,7 +6,7 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 
 - **What:** An administrator can review and approve the exact first setup in Slack. The existing executable creates its database once, imports only the listed permissions, and serves the normal local API. Later starts use that database without another setup approval.
 - **Why:** The working-first path needed a real first start without adding signing systems or automating OS installation.
-- **How it went:** Real protected-file and startup tests exposed copied fixture permissions, Slack provider-ID casing and stale request assumptions. Those were corrected while keeping the actual store, approval and API checks in the tests.
+- **How it went:** Real protected-file and startup tests exposed copied fixture permissions, Slack provider-ID casing and stale request assumptions. Those were corrected while keeping the actual store, approval and API checks in the tests. Independent review also caught ordinary Slack response metadata and provider-specific storage fields; the transport now accepts bounded provider metadata and the complete reviewed mapping uses neutral storage fields. Pre-database denial history remains explicitly deferred.
 - **Changed:** Complete visible setup review · durable approval before creation · atomic initial authority and audit · refusal to overwrite existing or partial data · ordinary restart.
 - **Decisions:** D-131 records the operator-approved protected-file plus Slack authority for this restricted path. Signed release verification remains, and no live deployment, host admission or recovery qualification is claimed.
 

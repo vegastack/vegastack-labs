@@ -32,7 +32,7 @@ func setupPendingFixture(t *testing.T) (*pendingSetupApproval, acknowledgement.C
 	sanitized, _ := json.Marshal(fields)
 	var reviewed generated.LocalSetupReviewRequest
 	_ = json.Unmarshal(sanitized, &reviewed)
-	value := store.InitialSetupReview{Request: reviewed, RequestDigest: setupSHA256(raw), SlackHumanID: request.InitialHumanID, SlackAuthorityID: "authority-setup"}
+	value := store.InitialSetupReview{Request: reviewed, RequestDigest: setupSHA256(raw), Acknowledgement: store.InitialAcknowledgementBinding{HumanID: request.InitialHumanID, AuthorityID: "authority-setup", Method: identity.SlackSocketModeMethod}}
 	canonical, _ := json.Marshal(value)
 	review := localSetupReview{request: request, slack: slackAcknowledgementProfile{AuthorityID: "authority-setup"}, canonical: canonical, digest: setupSHA256(canonical), readable: string(canonical)}
 	pending, err := newPendingSetupApproval(review, time.Now)

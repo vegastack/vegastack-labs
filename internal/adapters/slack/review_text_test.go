@@ -26,6 +26,7 @@ func TestHTTPPublishCompleteReviewText(t *testing.T) {
 		{"boundary-plus-one", strings.Repeat("a", 3001), 2},
 		{"unicode-boundary", strings.Repeat("界", 2999) + "🙂é", 2},
 		{"maximum", strings.Repeat("a", 32<<10), 11},
+		{"maximum-escaped", strings.Repeat("<", 32<<10), 11},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			transport, payload, calls := reviewTextTransport(t)
@@ -117,7 +118,8 @@ func reviewTextTransport(t *testing.T) (*HTTPTransport, *[]byte, *int) {
 		if err != nil {
 			t.Error(err)
 		}
-		_, _ = w.Write([]byte(`{"ok":true}`))
+		response, _ := json.Marshal(map[string]any{"ok": true, "channel": "channel-approval", "ts": "123.456", "message": json.RawMessage(payload)})
+		_, _ = w.Write(response)
 	}))
 	t.Cleanup(server.Close)
 	client := server.Client()

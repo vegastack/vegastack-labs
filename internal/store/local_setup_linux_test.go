@@ -67,7 +67,7 @@ func TestLocalSetupFoundationAuthority(t *testing.T) {
 		t.Fatalf("request binding not durable %q %v", requestDigest, err)
 	}
 	var method string
-	if err := s.conn.QueryRowContext(ctx, "SELECT principal_method FROM audit_events").Scan(&method); err != nil || method != identity.SlackSocketModeMethod {
+	if err := s.conn.QueryRowContext(ctx, "SELECT principal_method FROM audit_events").Scan(&method); err != nil || method != setup.Approval.Method {
 		t.Fatalf("audit method %q %v", method, err)
 	}
 	if err := s.Close(); err != nil {

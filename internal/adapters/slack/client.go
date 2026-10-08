@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -20,7 +21,9 @@ import (
 )
 
 const (
-	MaxEnvelopeBytes = 64 << 10
+	// A 32 KiB review may expand sixfold when echoed as escaped JSON.
+	// Leave 64 KiB for provider metadata and action bindings, still bounded.
+	MaxEnvelopeBytes = 256 << 10
 	MaxJSONDepth     = 16
 	credentialUse    = "slack-acknowledgement"
 )
@@ -232,7 +235,7 @@ func rejectionSourcePrincipal(ctx context.Context, raw []byte) identity.Principa
 		return unknown
 	}
 	var envelope interactiveEnvelope
-	if decodeClosed(raw, &envelope) != nil || envelope.Type != "interactive" || !validOpaqueID(envelope.Payload.Team.ID) || !validOpaqueID(envelope.Payload.User.ID) {
+	if json.Unmarshal(raw, &envelope) != nil || envelope.Type != "interactive" || !validOpaqueID(envelope.Payload.Team.ID) || !validOpaqueID(envelope.Payload.User.ID) {
 		return unknown
 	}
 	actor := sha256.Sum256([]byte("slack-actor-v1\x00" + envelope.Payload.Team.ID + "\x00" + envelope.Payload.User.ID))

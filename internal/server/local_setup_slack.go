@@ -35,7 +35,7 @@ func newPendingSetupApproval(review localSetupReview, clock func() time.Time) (*
 		return nil, err
 	}
 	var frozen store.InitialSetupReview
-	if json.Unmarshal(review.canonical, &frozen) != nil || frozen.RequestDigest == "" || frozen.SlackHumanID != review.request.InitialHumanID || frozen.SlackAuthorityID != review.slack.AuthorityID {
+	if json.Unmarshal(review.canonical, &frozen) != nil || frozen.RequestDigest == "" || frozen.Acknowledgement.Method != identity.SlackSocketModeMethod || frozen.Acknowledgement.HumanID != review.request.InitialHumanID || frozen.Acknowledgement.AuthorityID != review.slack.AuthorityID {
 		return nil, setupFailure(generated.ErrorCodeInputInvalid)
 	}
 	challenge := make([]byte, 32)
@@ -70,7 +70,7 @@ func (p *pendingSetupApproval) Submit(ctx context.Context, c acknowledgement.Can
 	if c.Action == acknowledgement.ActionReject {
 		p.err = setupFailure(generated.ErrorCodeAuthorizationDenied)
 	} else {
-		approval := store.InitialSetupApproval{HumanID: c.Human.ID, AuthorityID: c.AuthorityID, ReviewDigest: r.PlanDigest, RequestDigest: p.requestDigest, DecidedAt: c.DecidedAt}
+		approval := store.InitialSetupApproval{HumanID: c.Human.ID, Method: c.Human.Method, AuthorityID: c.AuthorityID, ReviewDigest: r.PlanDigest, RequestDigest: p.requestDigest, DecidedAt: c.DecidedAt}
 		if p.persist == nil {
 			p.err = setupFailure(generated.ErrorCodePrerequisiteBlocked)
 		} else {
