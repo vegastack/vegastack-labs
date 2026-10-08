@@ -32,11 +32,11 @@ func (r *HostAdoptionRepository) adoptionPreparationFailure(ctx context.Context,
 	intent := discoveryIntent(attribution, "host.adoption.prepare-denied", id, hostdiscovery.Digest(id), digest)
 	intent.Event.Target = audit.Target{Kind: "host-adoption-denial", ID: Code(*outcome)}
 	for attempt := 0; attempt < 2; attempt++ {
-		health, err := r.store.Health(ctx)
+		current, err := NewPlanRepository(r.store).CurrentRevision(ctx)
 		if err != nil {
 			break
 		}
-		_, err = r.store.AppendOperationalAudit(ctx, OperationalAuditRequest{Expected: health.Revision, Idempotency: intent.Idempotency, Event: intent.Event, Destinations: []audit.OutboxRequirement{}})
+		_, err = r.store.AppendOperationalAudit(ctx, OperationalAuditRequest{Expected: current, Idempotency: intent.Idempotency, Event: intent.Event, Destinations: []audit.OutboxRequirement{}})
 		if err == nil {
 			return
 		}

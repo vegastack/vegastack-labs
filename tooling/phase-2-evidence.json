@@ -361,7 +361,7 @@
         "imports": [
           "github.com/vegastack/vegastack-labs/internal/hostadoption"
         ],
-        "mutationBoundaryDigest": "sha256:7ef7316dd752a9b52a4c214bd7535d6012318d29cfc1816c9721e09fffe95ab0"
+        "mutationBoundaryDigest": "sha256:dc12027f58bd4d8769a40f700755d67b2d5f4a3ee459d4f1c9fb6ce2c0c5bb3b"
       }
     ]
   },

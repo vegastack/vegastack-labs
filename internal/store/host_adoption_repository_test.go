@@ -437,3 +437,17 @@ func TestHostAdoptionDeniedPreparationAuditFailure(t *testing.T) {
 		t.Fatal("denied draft persisted", err)
 	}
 }
+
+func TestHostAdoptionDeniedPreparationRecordsAudit(t *testing.T) {
+	f := newRegistrationStoreFixture(t)
+	if _, err := f.s.conn.ExecContext(f.ctx, `UPDATE effective_authorization_grants SET status='revoked' WHERE capability='host.adoption.prepare'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.repo.StageDraft(f.ctx, f.request, f.attr); Code(err) != generated.ErrorCodeAuthorizationDenied {
+		t.Fatalf("denial audit failed: %v", err)
+	}
+	var n int
+	if err := f.s.conn.QueryRowContext(f.ctx, `SELECT COUNT(*) FROM audit_events WHERE event_type='host.adoption.prepare-denied'`).Scan(&n); err != nil || n != 1 {
+		t.Fatalf("audit count %d: %v", n, err)
+	}
+}
