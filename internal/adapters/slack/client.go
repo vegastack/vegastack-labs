@@ -265,8 +265,13 @@ func (adapter *Adapter) log(event string) {
 }
 
 func validConfig(config Config) bool {
-	for _, value := range []string{config.AppTokenReference.ID, config.BotTokenReference.ID, config.WorkspaceID, config.SlackUserID, config.HumanID, config.AuthorityID, config.ChannelID, config.ApproveActionID, config.RejectActionID} {
+	for _, value := range []string{config.AppTokenReference.ID, config.BotTokenReference.ID, config.HumanID, config.AuthorityID, config.ApproveActionID, config.RejectActionID} {
 		if !authorization.ValidIdentifier(value) {
+			return false
+		}
+	}
+	for _, value := range []string{config.WorkspaceID, config.SlackUserID, config.ChannelID} {
+		if !validOpaqueID(value) {
 			return false
 		}
 	}

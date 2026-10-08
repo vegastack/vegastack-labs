@@ -20,8 +20,10 @@ import (
 )
 
 const (
-	slackConnectionsOpenURL = "https://slack.com/api/apps.connections.open"
-	slackPostMessageURL     = "https://slack.com/api/chat.postMessage"
+	slackConnectionsOpenURL    = "https://slack.com/api/apps.connections.open"
+	slackPostMessageURL        = "https://slack.com/api/chat.postMessage"
+	maxReviewTextBytes         = 32 << 10
+	maxReviewSectionCharacters = 3000
 )
 
 var dynamicSlackSocketHost = regexp.MustCompile(`^wss-[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.slack\.com$`)
@@ -77,6 +79,10 @@ func (transport *HTTPTransport) Open(ctx context.Context, appToken []byte) (Sock
 }
 
 func (transport *HTTPTransport) Publish(ctx context.Context, botToken []byte, channel, approveActionID, rejectActionID string, card acknowledgement.RequestCard) error {
+	// Reject rather than truncate: the human must receive the complete scope.
+	if len(card.ReviewText) > maxReviewTextBytes || !utf8.ValidString(card.ReviewText) {
+		return slackError(generated.ErrorCodeInputInvalid, "slack-review-text", false)
+	}
 	value, err := json.Marshal(actionBinding{PlanID: card.Request.PlanID, PlanDigest: card.Request.PlanDigest, TargetDigest: card.Request.TargetDigest, ReasonDigest: card.Request.ReasonDigest, Nonce: card.Nonce, StateRevision: card.Request.StateRevision, RecoveryEpoch: card.Request.RecoveryEpoch, ExpiresAt: card.Request.ExpiresAt})
 	if err != nil {
 		return err
@@ -88,6 +94,19 @@ func (transport *HTTPTransport) Publish(ctx context.Context, botToken []byte, ch
 			map[string]any{"type": "button", "text": map[string]string{"type": "plain_text", "text": "Approve"}, "style": "primary", "action_id": approveActionID, "value": string(value)},
 			map[string]any{"type": "button", "text": map[string]string{"type": "plain_text", "text": "Reject"}, "style": "danger", "action_id": rejectActionID, "value": string(value)},
 		}}},
+	}
+	if card.ReviewText != "" {
+		// The byte cap permits at most 11 sections plus the existing actions block.
+		characters := []rune(card.ReviewText)
+		blocks := make([]any, 0, 12)
+		for len(characters) > 0 {
+			count := min(len(characters), maxReviewSectionCharacters)
+			blocks = append(blocks, map[string]any{"type": "section", "text": map[string]any{
+				"type": "plain_text", "text": string(characters[:count]), "emoji": false,
+			}})
+			characters = characters[count:]
+		}
+		payload["blocks"] = append(blocks, payload["blocks"].([]any)...)
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {
