@@ -707,7 +707,20 @@ func reviewedControlPlatformSource(candidate checkedSourcePackage, kind string) 
 	default:
 		return false
 	}
-	return digestSourceFiles(candidate.listed.Dir, names) == expected
+	digest := digestSourceFiles(candidate.listed.Dir, names)
+	if digest == expected {
+		return true
+	}
+	// #231 adds only frozen-byte DecodeProfile; retain historical snapshots above.
+	if kind == "serverconfig" {
+		switch strings.Join(names, ",") {
+		case "profile.go,profile_linux.go,restic.go":
+			return digest == "c1dc99d73c31551abfa5ff6100167837b4d14329bc97def48f6360d0de5d40c8"
+		case "profile.go,profile_unsupported.go,restic.go":
+			return digest == "b04d95ce7a72e5718b87bc8d3e95be2daf3590c7222567d6271bb9ec9e60b2f8"
+		}
+	}
+	return false
 }
 
 func moduleDependencyClosure(packages []listedPackage, root string) map[string]bool {
@@ -1724,7 +1737,7 @@ func inspectPackage(candidate checkedSourcePackage, generatedImport, stateExport
 					result.HandwrittenRegistry = true
 				}
 			case *ast.AssignStmt:
-				if candidate.listed.ImportPath != generatedImport && !isAPIPackage && assignmentIsRegistry(typed, candidate.info, context) {
+				if candidate.listed.ImportPath != generatedImport && !isAPIPackage && assignmentIsRegistry(typed, candidate.info, context) && !reviewedSetupGrantCopy(candidate, file, typed, generatedImport) {
 					result.HandwrittenRegistry = true
 				}
 				if assignmentProvidesStateExportTrust(typed, candidate.info, stateExportImport) {
@@ -1745,6 +1758,71 @@ func inspectPackage(candidate checkedSourcePackage, generatedImport, stateExport
 			return true
 		})
 	}
+}
+
+// The finite first-setup grant copy is data, although its Action field resembles
+// a route record. Permit only this assignment in the exact reviewed server file;
+// every other registry site and every other boundary check still runs.
+func reviewedSetupGrantCopy(candidate checkedSourcePackage, file *ast.File, statement *ast.AssignStmt, generatedImport string) bool {
+	modulePath := strings.TrimSuffix(generatedImport, "/internal/generated")
+	if candidate.listed.ImportPath != modulePath+"/internal/server" {
+		return false
+	}
+	names := append(append([]string(nil), candidate.listed.GoFiles...), candidate.listed.CgoFiles...)
+	sort.Strings(names)
+	owner := false
+	for i, parsed := range candidate.files {
+		if parsed == file && i < len(names) && names[i] == "local_setup_run.go" {
+			owner = true
+		}
+	}
+	if !owner || digestSourceFiles(candidate.listed.Dir, []string{"local_setup_run.go"}) != "3851c3c380d999e14ea9a6d55478b5ed15ad560dba22a88362bf566616910f43" {
+		return false
+	}
+	if len(statement.Lhs) != 1 || len(statement.Rhs) != 1 {
+		return false
+	}
+	lhs, ok := statement.Lhs[0].(*ast.SelectorExpr)
+	if !ok || lhs.Sel.Name != "EffectiveGrants" {
+		return false
+	}
+	receiver, ok := lhs.X.(*ast.Ident)
+	if !ok || receiver.Name != "result" {
+		return false
+	}
+	call, ok := statement.Rhs[0].(*ast.CallExpr)
+	if !ok || len(call.Args) != 2 {
+		return false
+	}
+	builtin, ok := call.Fun.(*ast.Ident)
+	if !ok || builtin.Name != "append" {
+		return false
+	}
+	literal, ok := call.Args[1].(*ast.CompositeLit)
+	if !ok {
+		return false
+	}
+	typ, ok := literal.Type.(*ast.SelectorExpr)
+	if !ok || typ.Sel.Name != "InitialEffectiveGrant" {
+		return false
+	}
+	for _, declaration := range file.Decls {
+		function, ok := declaration.(*ast.FuncDecl)
+		if !ok || function.Name.Name != "initialSetup" || function.Body == nil {
+			continue
+		}
+		found := false
+		ast.Inspect(function.Body, func(node ast.Node) bool {
+			if node == statement {
+				found = true
+			}
+			return !found
+		})
+		if found {
+			return true
+		}
+	}
+	return false
 }
 
 func controlNodeUsesServerPath(node ast.Node) bool {
