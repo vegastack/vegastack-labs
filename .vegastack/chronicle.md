@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 08-10-2026 — A machine can be registered without changing it ([#222](https://github.com/vegastack/vegastack-labs/issues/222))
+
+- **What:** An administrator can prepare a registration, review the exact machine identity in the existing plan, approve it and read the saved machine as unadmitted. The operation changes only the control database.
+- **Why:** The operator asked for the smallest useful working slice before additional hardening or advanced recovery.
+- **How it went:** Isolated Linux integration exposed the executor's closed operation list and background identity context; both now use the exact existing authority path. No inventory machines were contacted.
+- **Changed:** Inert registration draft · exact identity confirmation in JSON and readable plans · atomic approved registration · redacted host read.
+- **Decisions:** None; the approved simplicity mandate and administrator confirmation choice were reused. Admission, live discovery prerequisites and role setup remain pending.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/6.4.1-simple-host-registration
+
 ## 07-10-2026 — Live application and database hosts are excluded from development
 
 - **What:** Nodes 04 and 05 are explicitly excluded from all direct and indirect operations, including reads and CI. The prepared workflow disables shared-pool scheduling before assignment until safe runner routing can be verified.

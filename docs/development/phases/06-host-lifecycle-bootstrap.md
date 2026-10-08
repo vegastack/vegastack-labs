@@ -23,13 +23,19 @@ Operator instruction on 07-10-2026: **`vsk-node-04` and `vsk-node-05` are out of
 
 Issue 6.3 solution approved on 07-10-2026 against `b9074cc675a7862b0878c60ef8ec135bc91ebabb`. This records the approved 6.3 development batch; it grants no operational authority.
 
+## Working-first registration delivery — 08-10-2026
+
+The operator approved reduced briefs and concrete plan v2 for [#222](https://github.com/vegastack/vegastack-labs/issues/222) and [#232](https://github.com/vegastack/vegastack-labs/issues/232). Issue #222 extends the existing API and plan/acknowledgement/run engine with one `host.adopt` database effect and an `adopted-unadmitted` read projection. The immutable plan includes the administrator's exact identity/target confirmation in JSON and readable form. There are no new signing systems, services, host-side actions or admission claims.
+
+Issue #232 consumes these contracts after #222 integration. Other Phase 6 implementation remains deferred under the simplicity mandate. Registration tests cover synthetic identity, stale/current grants, exact approval/lease binding, duplicates, audit rollback and unchanged admission state. Isolated Linux software integration requires its own explicit environment approval; it does not qualify a real OS baseline or authorize fleet onboarding.
+
 ## Destination and existing decisions
 
 Implement a portable path from a named untrusted candidate to separately approved, verified host admission, role installation, control-plane bootstrap and recovery. One `vsk-labs` executable, server-owned SQLite, central typed adapters/Ansible, and the existing exact-plan acknowledgement/executor remain controlling. Discovery cannot prove hardening or apply quarantine. D-123 and D-126–D-130 govern privilege, Debian enforcement and disposable qualification. Mac mini/iMac remain required within v1 in a later Phase 6 batch; Ubuntu remains parked. Complete v1 precedes the first fleet onboarding rehearsal.
 
 ## Ownership map
 
-These are development IDs, not permission to create or execute every future issue. Preserve already published references. Only 6.3 is the approved current implementation batch.
+These are development IDs, not permission to create or execute every future issue. Preserve already published references. The earlier 6.3 batch below is historical. The separately approved working-first batch on 08-10-2026 is #222 database registration followed by #232 CLI integration; expanded hardening/recovery work stays deferred.
 
 | ID | Outcome / dependency |
 |---|---|
