@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 08-10-2026 — The terminal can discover, register and inspect a machine ([#232](https://github.com/vegastack/vegastack-labs/issues/232))
+
+- **What:** Three existing node commands now call the server through its protected transport. Operators can collect an untrusted observation, prepare registration and inspect the saved unadmitted record. Applying registration still uses the existing separately acknowledged plan.
+- **Why:** The next working-first slice needed a usable terminal path through the registration feature.
+- **How it went:** Existing closed command and transport lists needed exact additions. Isolated Linux verification exercises the built executable and real database with a synthetic SSH peer; no inventory machine is involved.
+- **Changed:** Node discover · inert node add · database-only node inspect · readable and JSON output · explicit denial and deferred admission status.
+- **Decisions:** None; existing contracts and the operator's simplicity mandate remain controlling. Broader lifecycle workflows and actual host qualification remain deferred.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/6.10.2-node-cli
+
 ## 08-10-2026 — A machine can be registered without changing it ([#222](https://github.com/vegastack/vegastack-labs/issues/222))
 
 - **What:** An administrator can prepare a registration, review the exact machine identity in the existing plan, approve it and read the saved machine as unadmitted. The operation changes only the control database.

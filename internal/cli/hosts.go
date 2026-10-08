@@ -81,7 +81,7 @@ func (app *App) runHostCommand(ctx context.Context, mode outputMode, p parsedArg
 	if mode == outputJSON {
 		return writeRemoteJSON(app.stdout, r.Raw, r.ExitCode)
 	}
-	_, err = fmt.Fprintf(app.stdout, "Inert registration draft %s\nDeclaration: %s\nState revision: %d; recovery epoch: %d\nNext: create an exact plan for declaration revision 1, obtain human acknowledgement, then apply. No machine has been registered yet.\n", r.Data.DraftID, r.Data.DeclarationID, r.Data.StateRevision, r.Data.RecoveryEpoch)
+	_, err = fmt.Fprintf(app.stdout, "Inert registration draft %s\nDeclaration: %s\nState revision: %d; recovery epoch: %d\nNext: create an exact plan for declaration revision 1, obtain human acknowledgement, then apply. This command only prepares the draft.\n", r.Data.DraftID, r.Data.DeclarationID, r.Data.StateRevision, r.Data.RecoveryEpoch)
 	if err != nil {
 		return exitCodeFor(generated.ErrorCodeIntegrityFailure)
 	}

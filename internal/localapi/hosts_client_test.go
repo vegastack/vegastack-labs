@@ -120,3 +120,22 @@ func TestHostClientAdoptionBinding(t *testing.T) {
 		})
 	}
 }
+
+func TestHostClientPreservesDenial(t *testing.T) {
+	for _, code := range []string{generated.ErrorCodeAuthorizationDenied, generated.ErrorCodePrerequisiteBlocked} {
+		t.Run(code, func(t *testing.T) {
+			e, err := clientTestFactory().Failure("api.v1.hosts.get", generated.RunStatusFailed, code, "read", false, 2, 7, struct{}{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			raw, _ := json.Marshal(e)
+			raw = append(raw, '\n')
+			_, profile, captured := serveFixedResponse(t, expectedHTTPStatus(code), raw)
+			response, err := NewClient(clientTestFactory()).GetManagedHost(context.Background(), profile, "host-a")
+			<-captured
+			if err != nil || response.ExitCode != generated.ErrorExitCodes[code] || !bytes.Equal(response.Raw, raw) || response.Result.StateRevision != 7 {
+				t.Fatalf("failure changed %+v %v", response, err)
+			}
+		})
+	}
+}

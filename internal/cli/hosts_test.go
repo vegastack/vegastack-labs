@@ -66,3 +66,39 @@ func TestNodeCommandRejectsInputBeforeClient(t *testing.T) {
 		t.Fatalf("invalid ID code %d calls %d", code, stub.calls)
 	}
 }
+
+func TestNodeOutputParityUsesSameServerFacts(t *testing.T) {
+	for _, action := range []string{"discover", "add", "inspect"} {
+		t.Run(action, func(t *testing.T) {
+			stub := successfulControlOperations(t)
+			args := []string{"node", action, "--config", "profile.json"}
+			var files *stubFileReader
+			if action == "inspect" {
+				args = append(args, "--host-id", "host-a")
+			} else {
+				args = append(args, "--file", "input.json")
+				files = &stubFileReader{content: syntheticHostRequest(t, "node "+action)}
+			}
+			code, human, _ := runTestAppWithOptions(t, context.Background(), args, nil, WithControlOperations(stub, files))
+			if code != 0 {
+				t.Fatal(human)
+			}
+			code, raw, _ := runTestAppWithOptions(t, context.Background(), append(args, "--output", "json"), nil, WithControlOperations(stub, files))
+			if code != 0 {
+				t.Fatal(raw)
+			}
+			facts := map[string][]string{"discover": {"observation-a", "target-a", "incomplete"}, "add": {"draft-a", "declaration-a"}, "inspect": {"host-a", "adopted-unadmitted"}}[action]
+			for _, fact := range facts {
+				if !strings.Contains(human, fact) || !strings.Contains(raw, fact) {
+					t.Fatalf("missing fact %s human=%s JSON=%s", fact, human, raw)
+				}
+			}
+			if stub.calls != 2 {
+				t.Fatalf("hidden operation: %d calls", stub.calls)
+			}
+			if action == "add" && (!strings.Contains(human, "only prepares") || strings.Contains(human, "No machine has")) {
+				t.Fatal("inaccurate add claim", human)
+			}
+		})
+	}
+}

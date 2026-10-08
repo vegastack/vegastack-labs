@@ -903,6 +903,13 @@ const (
 // part of the reviewed boundary: adding a raw forwarding helper, a new client
 // method, an init hook, a target-specific file, or a syscall path fails closed
 // until the complete package is independently reviewed and resealed.
+
+// #232 extends only the exact typed host client closure.
+const (
+	reviewedHostLocalAPILinuxDigest       = "e38e9b31ada27afc4f08bb33b82d375ca1fcdd4c58b8e00fd4e9fe3bee3eaab7"
+	reviewedHostLocalAPIUnsupportedDigest = "4710ccbccede43377e03b93bba6124fbd288661ff7ccd3806798e570daff092f"
+)
+
 func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 	names := append([]string(nil), candidate.listed.GoFiles...)
 	sort.Strings(names)
@@ -953,6 +960,7 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 		withRestore := containsString(names, "restore_client.go")
 		withSchedule := containsString(names, "schedule_client.go")
 		withDatabase := containsString(names, "database_client.go")
+		withHosts := containsString(names, "hosts_client.go")
 		if containsString(names, "listener_linux.go") {
 			exact := "audit_client.go,backup_client.go,client.go,credential_client.go,credential_lifecycle_client.go,gates_client.go,listener.go,listener_linux.go"
 			if withRestore {
@@ -963,6 +971,9 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 			}
 			if withDatabase {
 				exact = "audit_client.go,backup_client.go,client.go,credential_client.go,credential_lifecycle_client.go,database_client.go,gates_client.go,listener.go,listener_linux.go,restore_client.go,schedule_client.go"
+			}
+			if withHosts {
+				exact = strings.Replace(exact, "gates_client.go,", "gates_client.go,hosts_client.go,", 1)
 			}
 			if strings.Join(names, ",") != exact {
 				return false
@@ -976,6 +987,9 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 			}
 			if withDatabase {
 				expected = reviewedDatabaseLocalAPILinuxDigest
+				if withHosts {
+					expected = reviewedHostLocalAPILinuxDigest
+				}
 			}
 		} else {
 			exact := "audit_client.go,backup_client.go,client.go,credential_client.go,credential_lifecycle_client.go,gates_client.go,listener.go,listener_unsupported.go"
@@ -987,6 +1001,9 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 			}
 			if withDatabase {
 				exact = "audit_client.go,backup_client.go,client.go,credential_client.go,credential_lifecycle_client.go,database_client.go,gates_client.go,listener.go,listener_unsupported.go,restore_client.go,schedule_client.go"
+			}
+			if withHosts {
+				exact = strings.Replace(exact, "gates_client.go,", "gates_client.go,hosts_client.go,", 1)
 			}
 			if strings.Join(names, ",") != exact {
 				return false
@@ -1000,6 +1017,9 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 			}
 			if withDatabase {
 				expected = reviewedDatabaseLocalAPIUnsupportedDigest
+				if withHosts {
+					expected = reviewedHostLocalAPIUnsupportedDigest
+				}
 			}
 		}
 	} else if containsString(names, "backup_client.go") {
