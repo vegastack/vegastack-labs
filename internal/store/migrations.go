@@ -19,7 +19,7 @@ import (
 // 0009 to #74, 0010 to #69, 0011 to #104, 0012 to #123, 0013 to #124, and
 // 0014 to #107, 0015 to #125, 0016 to #133, 0017 to #106,
 // 0018 to #140, 0019 to #117, 0020 to #163, 0021 to #154, 0022 to #115,
-// 0023 to #114, 0024 to #108, 0025 to #118, 0026 to #109, and 0027 to #217.
+// 0023 to #114, 0024 to #108, 0025 to #118, 0026 to #109, 0027 to #217, and 0028 to #222.
 
 //go:embed migrations/*.sql
 var embeddedMigrations embed.FS
@@ -67,6 +67,7 @@ var embeddedMigrationManifest = []migrationManifestEntry{
 	{ID: 25, Name: "0025_offsite_retirements", SHA256: mustSHA256("741a6d7ec87aadf3dc5672367794adc2ea64e28fa47aae4a53a03017ceb2c8d4")},
 	{ID: 26, Name: "0026_scheduled_policies", SHA256: mustSHA256("b3e2d05e870b6e862c0549bbc8be6c5e801ece5c6389028c3a0601e4c587bb77")},
 	{ID: 27, Name: "0027_host_discovery", SHA256: mustSHA256("99752b5b6ef0bdd203a7810e60d1110a99b9e87d5bbdffb68d2f9af45b2d13dc")},
+	{ID: 28, Name: "0028_host_adoption", SHA256: mustSHA256("9cf0e888b0356d2a9abf699cce3bb3d92843c83606f64d6de63ce8f4973ff677")},
 }
 
 func Catalog() ([]Migration, error) {

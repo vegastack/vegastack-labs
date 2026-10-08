@@ -13,6 +13,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/gate"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/hostadoption"
 	"github.com/vegastack/vegastack-labs/internal/stateexport"
 	"github.com/vegastack/vegastack-labs/internal/store"
 )
@@ -37,7 +38,12 @@ type Repository interface {
 	CommitDeclarationAndPlan(context.Context, store.PlanCommitRequest) (store.PlanCommitResult, error)
 }
 
+type HostAdoptionDraftReader interface {
+	GetDraft(context.Context, string) (store.HostAdoptionDraft, error)
+}
+
 type Config struct {
+	HostAdoptions       HostAdoptionDraftReader
 	Repository          Repository
 	Observations        ObservationReader
 	Clock               func() time.Time
@@ -175,6 +181,24 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 		operations[index] = generated.PlanOperation{Sequence: operation.Sequence, OperationID: operation.OperationID, OperationType: operation.OperationType, AdapterID: operation.AdapterID, ExecutorID: service.config.OperationExecutorID, TargetID: operation.TargetID, InputDigest: operation.InputDigest, ArtifactDigest: operation.ArtifactDigest, Idempotent: operation.Idempotent}
 	}
 	risk := service.config.Risk
+	var adoption *generated.HostAdoptionRequest
+	for _, op := range operations {
+		if op.AdapterID != "core.host-adoption" && op.OperationType != "host.adopt" {
+			continue
+		}
+		if len(operations) != 1 || declaration.DeclarationType != "host.adoption" || op.AdapterID != "core.host-adoption" || op.OperationType != "host.adopt" || op.InputDigest != op.ArtifactDigest || !op.Idempotent || service.config.AuthorizationBranch != "human" || service.config.ExecutorMode != "central" || service.config.HostAdoptions == nil {
+			return store.PlanCommitResult{}, planError(generated.ErrorCodeAuthorizationDenied)
+		}
+		draft, err := service.config.HostAdoptions.GetDraft(ctx, op.TargetID)
+		if err != nil {
+			return store.PlanCommitResult{}, err
+		}
+		if draft.ID != op.TargetID || draft.Digest != op.InputDigest || hostadoption.Digest(draft.Request) != draft.Digest {
+			return store.PlanCommitResult{}, planError(generated.ErrorCodeIntegrityFailure)
+		}
+		adoption = &draft.Request
+		risk = string(authorization.RiskControlPlane)
+	}
 	for _, op := range operations {
 		if op.AdapterID != "core.host-discovery-target" && !strings.HasPrefix(op.OperationType, "host.discovery-target.") {
 			continue
@@ -223,6 +247,7 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 	desired.Operations = declarationOperations
 	desired.Extensions = append(make([]generated.ContractExtension, 0, len(declaration.Extensions)), declaration.Extensions...)
 	candidate := generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", DeclarationID: declaration.DeclarationID, Binding: generated.PlanBinding{RecoveryEpoch: current.RecoveryEpoch, PriorStateRevision: current.StateRevision, StateRevision: current.StateRevision + 1, DeclarationRevision: desired.Revision, ObservationFingerprint: fingerprint, TargetDigest: targets, ReasonDigest: reason, PolicyVersion: service.config.PolicyVersion, ToolVersion: service.config.ToolVersion, ContractVersion: service.config.ContractVersion}, Operations: operations, Status: "planned", Risk: risk, AuthorizationBranch: service.config.AuthorizationBranch, ExecutorMode: service.config.ExecutorMode, ExecutorID: service.config.ExecutorID, CreatedAt: created.Format(time.RFC3339), ExpiresAt: created.Add(time.Duration(generated.PlanValiditySeconds) * time.Second).Format(time.RFC3339), Extensions: extensions}
+	candidate.HostAdoption = adoption
 	readable := readablePlan(candidate)
 	candidate.ReadableDigest = sha([]byte(readable))
 	candidate.PlanDigest, err = planDigest(candidate)

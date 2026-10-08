@@ -46,11 +46,11 @@ func Validate(r generated.HostAdoptionRequest, o generated.HostObservation, t ge
 		facts[f.Name] = f.Value
 	}
 	for _, blocker := range o.Blockers {
-		if strings.Contains(blocker, "conflict") || strings.Contains(blocker, "mismatch") || blocker == "unsupported-profile" || blocker == "stale-observation" {
+		if blocker == "identity-conflict" || blocker == "inventory-identity-mismatch" || blocker == "os-version-conflict" || blocker == "os-mismatch" || blocker == "os-version-mismatch" || blocker == "architecture-mismatch" || blocker == "unsupported-profile" || blocker == "stale-observation" {
 			return deny()
 		}
 	}
-	if facts["os.id"] != "debian" || facts["os.version"] != "13" || facts["architecture"] != "amd64" || (t.ExpectedVersion == "13.6" && facts["os.point-version"] != "13.6") {
+	if facts["os.id"] != "debian" || facts["os.version"] != "13" || facts["architecture"] != "amd64" || (facts["os.point-version"] != "" && strings.SplitN(facts["os.point-version"], ".", 2)[0] != "13") || (t.ExpectedVersion == "13.6" && facts["os.point-version"] != "13.6") {
 		return deny()
 	}
 	kind := "product-serial"

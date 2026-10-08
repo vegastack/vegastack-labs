@@ -353,6 +353,15 @@
           "github.com/vegastack/vegastack-labs/internal/hostdiscovery"
         ],
         "mutationBoundaryDigest": "sha256:7faf9e31847907a32364104fa88946d9cfcd3b91c6b0b9c0abe1958e3bee2d19"
+      },
+      {
+        "id": "phase6-issue222-v1",
+        "issue": 222,
+        "commands": [],
+        "imports": [
+          "github.com/vegastack/vegastack-labs/internal/hostadoption"
+        ],
+        "mutationBoundaryDigest": "sha256:70c07b6fe1c51055fd57402ad41a612586fe6613528b97c960477446d8df3095"
       }
     ]
   },

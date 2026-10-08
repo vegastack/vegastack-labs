@@ -28,6 +28,7 @@ func TestRegistrationKeepsHardeningSeparate(t *testing.T) {
 		t.Fatal(err)
 	}
 	r.Confirmation.TargetRevision++
+
 	if Validate(r, o, b, n) == nil {
 		t.Fatal("changed target accepted")
 	}
@@ -54,9 +55,43 @@ func TestRegistrationRejectsInvalidIdentity(t *testing.T) {
 			case "observation":
 				r.ObservationDigest = hostdiscovery.Digest("wrong")
 			}
+			if name == "missing" || name == "conflict" {
+				o.ContentDigest = ""
+				o.ContentDigest = hostdiscovery.Digest(o)
+				r.ObservationDigest = o.ContentDigest
+			}
 			if Validate(r, o, b, n) == nil {
 				t.Fatal("invalid registration accepted")
 			}
 		})
+	}
+}
+
+func TestRegistrationQualifiedVirtualAndPointVersion(t *testing.T) {
+	r, o, b, n := registrationFixture(t)
+	r.Confirmation.IdentityClass = "qualified-virtual"
+	r.Confirmation.IdentityKind = "product-uuid"
+	o.Facts[3].Name = "product-uuid"
+	o.Facts[3].Operation = "product-uuid"
+	o.Facts[3].Value = "synthetic-uuid"
+	r.Confirmation.IdentityDigest = IdentityDigest("product-uuid", "synthetic-uuid")
+	o.ContentDigest = ""
+	o.ContentDigest = hostdiscovery.Digest(o)
+	r.ObservationDigest = o.ContentDigest
+	if err := Validate(r, o, b, n); err != nil {
+		t.Fatal(err)
+	}
+	b.ExpectedVersion = "13.6"
+	if Validate(r, o, b, n) == nil {
+		t.Fatal("missing exact point version accepted")
+	}
+	f := hostdiscovery.Fact("os.point-version", "13.6", "debian-version")
+	f.CapturedAt = n.Format(time.RFC3339)
+	o.Facts = append(o.Facts, f)
+	o.ContentDigest = ""
+	o.ContentDigest = hostdiscovery.Digest(o)
+	r.ObservationDigest = o.ContentDigest
+	if err := Validate(r, o, b, n); err != nil {
+		t.Fatal(err)
 	}
 }
