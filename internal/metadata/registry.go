@@ -599,7 +599,7 @@ func serverRunCommand() CommandDefinition {
 		Risk:         RiskLocalService,
 		Flags: append([]FlagDefinition{
 			{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read the protected server profile at this explicit path."},
- {Name: "--setup", Kind: FlagValue, ValueName: "path", Required: false, Summary: "Initialize an absent database only after exact Slack approval of this protected local setup record."},
+			{Name: "--setup", Kind: FlagValue, ValueName: "path", Required: false, Summary: "Initialize an absent database only after exact Slack approval of this protected local setup record."},
 		}, commonFlags()...),
 		ResultSchema: runResultSchemaID,
 		Examples:     []ExampleDefinition{{Summary: "Run the local control service in the foreground.", Arguments: []string{"server", "run", "--config", "fixture/server-profile.json"}}},

@@ -38,7 +38,7 @@ test("the original Phase 2 baseline stays immutable while later waves have exact
   });
   assert.deepEqual(manifest.contract.reviewedWaves.at(-3), {"id": "phase6-issue232-v1", "issue": 232, "commands": ["node add", "node discover", "node inspect"], "imports": [], "mutationBoundaryDigest": "sha256:009a11861bf03d816c93be80a71b9106c83aa3d84363c6fd18d60615124bbc5c"});
   assert.deepEqual(manifest.contract.reviewedWaves.at(-2), {id:"phase6-issue224-v1",issue:224,commands:[],imports:[],mutationBoundaryDigest:"sha256:ba0a383633791808ffde2a179992770877857cc1dc0c448910265740c18c7ecc"});
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-1), {"id":"phase6-issue231-v1","issue":231,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:5e456f7fa5540256c2303db7db39d64527e44a72571214cd3b240e01cf2615fb"});
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-1), {"id":"phase6-issue231-v1","issue":231,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:62ab549d020ba5899614c3a6da4d9227a6f02deb33c9a3042144fadbe42c5198"});
   assert.equal(manifest.contract.reviewedWaves[0].id, "phase5-issue104-v1");
   assert.deepEqual(manifest.contract.reviewedWaves[0].commands, ["gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft"]);
   assert.deepEqual(manifest.contract.reviewedWaves[0].imports, ["github.com/vegastack/vegastack-labs/internal/gate"]);
