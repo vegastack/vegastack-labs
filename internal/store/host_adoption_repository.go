@@ -64,7 +64,7 @@ func (r *HostAdoptionRepository) validate(ctx context.Context, row discoveryRow,
 	}
 	// Later observations may reveal an identity conflict after this snapshot.
 	for _, fact := range obs.Facts {
-		if fact.Name != req.Confirmation.IdentityKind {
+		if fact.Name != "machine-id" && fact.Name != "product-uuid" && fact.Name != "product-serial" {
 			continue
 		}
 		var duplicates int
@@ -87,7 +87,8 @@ func (r *HostAdoptionRepository) validate(ctx context.Context, row discoveryRow,
 	}
 	return target.Binding, nil
 }
-func (r *HostAdoptionRepository) StageDraft(ctx context.Context, req generated.HostAdoptionRequest, a audit.Attribution) (HostAdoptionDraft, error) {
+func (r *HostAdoptionRepository) StageDraft(ctx context.Context, req generated.HostAdoptionRequest, a audit.Attribution) (_ HostAdoptionDraft, outcome error) {
+	defer r.adoptionPreparationFailure(ctx, req, &outcome)
 	if err := r.store.Read(ctx, func(tx ReadTx) error {
 		_, err := r.validate(ctx, func(q string, args ...any) *sql.Row { return tx.queryRow(ctx, q, args...) }, req, a)
 		return err

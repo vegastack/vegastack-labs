@@ -37,6 +37,14 @@ import (
 // Real temporary SQLite, API, declaration/plan, synthetic Slack approval and run engine.
 // No collector, credential resolver, host transport, or external adapter is registered.
 func TestHostAdoptionAcceptanceHasNoExternalAction(t *testing.T) {
+	hostAdoptionAcceptance(t, "success")
+}
+func TestHostAdoptionAcceptanceDenials(t *testing.T) {
+	for _, mode := range []string{"prepare-denied", "missing-ack", "wrong-ack"} {
+		t.Run(mode, func(t *testing.T) { hostAdoptionAcceptance(t, mode) })
+	}
+}
+func hostAdoptionAcceptance(t *testing.T, mode string) {
 	principal := identity.Principal{ID: "operator-a", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}
 	ctx := identity.WithVerifiedPrincipal(context.Background(), principal)
 	captureStart := time.Now().UTC().Truncate(time.Second)
@@ -173,6 +181,34 @@ func TestHostAdoptionAcceptanceHasNoExternalAction(t *testing.T) {
 	}
 	declarationID := "host-adoption-" + hostadoption.Digest(req)[7:39]
 	grant("declaration.author", "declaration", declarationID, "author")
+	if mode == "prepare-denied" {
+		exec(`UPDATE effective_authorization_grants SET status='revoked' WHERE capability='host.adoption.prepare'`)
+		w := request("POST", "/api/v1/host-adoptions/draft", req, true)
+		if w.Code != http.StatusForbidden {
+			t.Fatalf("prepare denial status %d", w.Code)
+		}
+		var drafts, hosts, failures int
+		if err := db.QueryRow(`SELECT COUNT(*) FROM host_adoption_drafts`).Scan(&drafts); err != nil {
+			t.Fatal(err)
+		}
+		if err := db.QueryRow(`SELECT COUNT(*) FROM managed_hosts`).Scan(&hosts); err != nil {
+			t.Fatal(err)
+		}
+		if err := db.QueryRow(`SELECT COUNT(*) FROM audit_events WHERE event_type='host.adoption.prepare-denied'`).Scan(&failures); err != nil {
+			t.Fatal(err)
+		}
+		if drafts != 0 || hosts != 0 || failures != 1 {
+			t.Fatalf("denial result drafts=%d hosts=%d audit=%d", drafts, hosts, failures)
+		}
+		var payload string
+		if err := db.QueryRow(`SELECT CAST(canonical_payload AS TEXT) FROM audit_events WHERE event_type='host.adoption.prepare-denied'`).Scan(&payload); err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(payload, "synthetic-serial") || strings.Contains(payload, "127.0.0.1") {
+			t.Fatal("failure audit leaked facts")
+		}
+		return
+	}
 	var draft generated.HostAdoptionSubmission
 	decode(request("POST", "/api/v1/host-adoptions/draft", req, true), &draft)
 	var n int
@@ -223,7 +259,23 @@ func TestHostAdoptionAcceptanceHasNoExternalAction(t *testing.T) {
 	branch := "human"
 	decision := generated.AuthorizationDecision{Schema: generated.SchemaIDAuthorizationDecision, SchemaVersion: "1.0.0", DecisionID: "decision-discovery", PrincipalID: human.ID, Action: "execute", TargetID: plan.Operations[0].TargetID, Allowed: true, Branch: &branch, ReasonCode: authorization.ReasonAllowed, GrantRevision: 1, PlanDigest: plan.PlanDigest, DecidedAt: time.Now().UTC().Truncate(time.Second).Format(time.RFC3339), Extensions: []generated.ContractExtension{}}
 	submission := runengine.SubmitRequest{Reference: generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, IdempotencyKey: "run-a", Extensions: []generated.ContractExtension{}}, Authorization: decision, Acknowledgement: &approved, Attribution: audit.Attribution{AuthenticatedPrincipalID: principal.ID, AuthenticatedPrincipalMethod: principal.Method, ResponsibleHumanPrincipalID: &human.ID}}
+	if mode == "missing-ack" {
+		submission.Acknowledgement = nil
+	}
+	if mode == "wrong-ack" {
+		submission.Acknowledgement.AcknowledgementID = "wrong-ack"
+	}
 	applied, err := engine.Submit(ctx, submission)
+	if mode != "success" {
+		var hosts int
+		if queryErr := db.QueryRow(`SELECT COUNT(*) FROM managed_hosts`).Scan(&hosts); queryErr != nil {
+			t.Fatal(queryErr)
+		}
+		if err == nil || hosts != 0 {
+			t.Fatalf("invalid acknowledgement accepted: %v hosts=%d", err, hosts)
+		}
+		return
+	}
 
 	if err != nil || applied.Status != "succeeded" {
 		t.Fatalf("registration failed: %+v %v", applied, err)

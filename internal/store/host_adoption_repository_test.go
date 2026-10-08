@@ -47,7 +47,7 @@ func newRegistrationStoreFixture(t *testing.T) *registrationStoreFixture {
 	exec(`INSERT INTO host_discovery_targets VALUES('candidate-a',1,'fixture-target','active','fixture-plan',0)`)
 	now := s.config.Clock().UTC().Truncate(time.Second)
 	facts := []generated.HostDiscoveryFact{}
-	for _, v := range []struct{ n, v, o string }{{"os.id", "debian", "os-release"}, {"os.version", "13", "os-release"}, {"architecture", "amd64", "architecture"}, {"product-serial", "synthetic-serial", "product-serial"}} {
+	for _, v := range []struct{ n, v, o string }{{"os.id", "debian", "os-release"}, {"os.version", "13", "os-release"}, {"architecture", "amd64", "architecture"}, {"product-serial", "synthetic-serial", "product-serial"}, {"product-uuid", "synthetic-uuid", "product-uuid"}, {"machine-id", "synthetic-machine", "machine-id"}} {
 		f := hostdiscovery.Fact(v.n, v.v, v.o)
 		f.CapturedAt = now.Format(time.RFC3339)
 		facts = append(facts, f)
@@ -80,7 +80,7 @@ func (f *registrationStoreFixture) CountHosts(t *testing.T) int {
 	}
 	return n
 }
-func (f *registrationStoreFixture) bind(t *testing.T, d HostAdoptionDraft) HostAdoptionApply {
+func (f *registrationStoreFixture) bind(t *testing.T, d HostAdoptionDraft, modes ...string) HostAdoptionApply {
 	t.Helper()
 	exec := func(q string, args ...any) {
 		t.Helper()
@@ -96,10 +96,33 @@ func (f *registrationStoreFixture) bind(t *testing.T, d HostAdoptionDraft) HostA
 	leaseID := "lease-" + id
 	ackID := "ack-" + id
 	p := generated.Plan{PlanID: planID, PlanDigest: hash, AuthorizationBranch: "human", ExecutorMode: "central", Risk: "control-plane", HostAdoption: &d.Request, Operations: []generated.PlanOperation{{OperationType: "host.adopt", AdapterID: "core.host-adoption", TargetID: id, InputDigest: d.Digest, ArtifactDigest: d.Digest}}}
+	mode := ""
+	if len(modes) > 0 {
+		mode = modes[0]
+	}
+	consumed := any("now")
+	runAck := any(ackID)
+	ackDigest := hash
+	switch mode {
+	case "missing-ack":
+		runAck = nil
+	case "unconsumed-ack":
+		consumed = nil
+	case "wrong-ack":
+		ackDigest = hostdiscovery.Digest("wrong-plan")
+	case "embedded-confirmation":
+		copy := d.Request
+		copy.Confirmation.IdentityDigest = hostdiscovery.Digest("wrong-identity")
+		p.HostAdoption = &copy
+	case "input-binding":
+		p.Operations[0].InputDigest = hostdiscovery.Digest("wrong-input")
+	case "unknown-operation":
+		p.Operations[0].OperationType = "host.unknown"
+	}
 	raw, _ := json.Marshal(p)
 	exec(`INSERT INTO immutable_plans VALUES(?,?,'fixture-declaration',1,1,0,?,?,?,?,?,?,'2026-01-01T00:00:00Z','2026-12-01T00:00:00Z')`, planID, hash, hash, hash, hash, raw, "fixture", hash)
-	exec(`INSERT INTO acknowledgement_requests VALUES(?,?,?,?,?,'operator-a','fixture-authority',?,0,0,'later','approved',?,?,'now','now','now')`, ackID, planID, hash, hash, hash, hash, []byte(`{}`), []byte(`{}`))
-	exec(`INSERT INTO plan_runs VALUES(?,?,?,'decision',?,'1.0.0','central','executor',?,'running',0,'not-requested','pending',NULL,0,0,0,?,?,?,'now','now')`, runID, planID, hash, ackID, hash, hash, hash, []byte(`{}`))
+	exec(`INSERT INTO acknowledgement_requests VALUES(?,?,?,?,?,'operator-a','fixture-authority',?,0,0,'later','approved',?,?,'now','now',?)`, ackID, planID, ackDigest, hash, hash, hash, []byte(`{}`), []byte(`{}`), consumed)
+	exec(`INSERT INTO plan_runs VALUES(?,?,?,'decision',?,'1.0.0','central','executor',?,'running',0,'not-requested','pending',NULL,0,0,0,?,?,?,'now','now')`, runID, planID, hash, runAck, hash, hash, hash, []byte(`{}`))
 	exec(`INSERT INTO plan_run_steps VALUES(?,?,1,'adopt','host.adopt','core.host-adoption','executor',?,?,?,1,'running','intent-recorded',?,NULL,'now',NULL)`, stepID, runID, id, d.Digest, d.Digest, leaseID)
 	exec(`INSERT INTO target_execution_leases (lease_id,run_id,step_id,target_id,binding_digest,nonce_digest,recovery_epoch,claimed_at,renew_after,expires_at,maximum_expires_at,status,canonical_bytes) VALUES(?,?,?,?,?,?,0,'2026-01-01T00:00:00Z','2026-12-01T00:00:00Z',?,'later','active',?)`, leaseID, runID, stepID, id, hash, hash, f.s.config.Clock().Add(time.Hour).UTC().Format(time.RFC3339), []byte(`{}`))
 	for _, v := range []struct{ action, cap, kind string }{{"acknowledge", "plan.acknowledge", "plan-target"}, {"execute", "host.adopt", "execution-target"}} {
@@ -263,5 +286,154 @@ func TestHostAdoptionReadGrantAndAppendOnly(t *testing.T) {
 	}
 	if _, err := f.repo.Get(f.ctx, "synthetic-host"); err == nil {
 		t.Fatal("revoked read permitted")
+	}
+}
+
+// Persist a second synthetic target/observation, keeping the original immutable.
+func (f *registrationStoreFixture) otherObservation(t *testing.T, sharedKind string, index bool) generated.HostObservation {
+	t.Helper()
+	exec := func(q string, args ...any) {
+		t.Helper()
+		if _, err := f.s.conn.ExecContext(f.ctx, q, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var raw []byte
+	if err := f.s.conn.QueryRowContext(f.ctx, `SELECT canonical_bytes FROM host_discovery_drafts WHERE draft_id='fixture-target'`).Scan(&raw); err != nil {
+		t.Fatal(err)
+	}
+	var target generated.HostDiscoveryTargetDraftRequest
+	if err := json.Unmarshal(raw, &target); err != nil {
+		t.Fatal(err)
+	}
+	target.Target.TargetID = "candidate-b"
+	raw, _ = json.Marshal(target)
+	digest := hostdiscovery.Digest(target)
+	exec(`INSERT INTO host_discovery_drafts VALUES('second-target','candidate-b',1,0,'activate',?,?,'operator-a',1,0)`, digest, raw)
+	exec(`INSERT INTO host_discovery_targets VALUES('candidate-b',1,'second-target','active','fixture-plan',0)`)
+	var obs generated.HostObservation
+	if err := f.s.conn.QueryRowContext(f.ctx, `SELECT canonical_bytes FROM host_observations WHERE observation_id='fixture-observation'`).Scan(&raw); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(raw, &obs); err != nil {
+		t.Fatal(err)
+	}
+	obs.ObservationID = "second-observation"
+	obs.TargetID = "candidate-b"
+	obs.TargetDigest = digest
+	for i := range obs.Facts {
+		fact := &obs.Facts[i]
+		if fact.Name == "machine-id" || fact.Name == "product-uuid" || fact.Name == "product-serial" {
+			if fact.Name != sharedKind {
+				fact.Value = "different-" + fact.Value
+			}
+		}
+	}
+	obs.ContentDigest = ""
+	obs.ContentDigest = hostdiscovery.Digest(obs)
+	raw, _ = json.Marshal(obs)
+	hash := hostdiscovery.Digest("second-observation")
+	exec(`INSERT INTO host_discovery_attempts VALUES('second-observation','operator-a',?,?,'candidate-b',1,?,1,1,0,'later',?)`, hash, hash, digest, []byte(`{}`))
+	exec(`INSERT INTO host_observations VALUES('second-observation','candidate-b',1,?,?,1,0)`, raw, hostdiscovery.Digest(obs))
+	if index {
+		for _, fact := range obs.Facts {
+			if fact.Name == "machine-id" || fact.Name == "product-uuid" || fact.Name == "product-serial" {
+				exec(`INSERT INTO host_observation_identities VALUES('second-observation','candidate-b',?,?)`, fact.Name, hostdiscovery.Digest(fact.Value))
+			}
+		}
+	}
+	exec(`INSERT INTO effective_authorization_grants VALUES('second-prepare','operator-a','control-plane-admin','author','host.adoption.prepare','host-discovery-target','candidate-b',NULL,1,'active','now','now')`)
+	return obs
+}
+func TestHostAdoptionLaterNonselectedIdentityConflict(t *testing.T) {
+	for _, kind := range []string{"machine-id", "product-uuid", "product-serial"} {
+		for _, phase := range []string{"stage", "apply"} {
+			t.Run(kind+"/"+phase, func(t *testing.T) {
+				f := newRegistrationStoreFixture(t)
+				if kind == "product-serial" {
+					f.request.Confirmation.IdentityClass = "qualified-virtual"
+					f.request.Confirmation.IdentityKind = "product-uuid"
+					f.request.Confirmation.IdentityDigest = hostadoption.IdentityDigest("product-uuid", "synthetic-uuid")
+				}
+				var draft HostAdoptionDraft
+				if phase == "apply" {
+					draft = f.Stage(t)
+				}
+				f.otherObservation(t, kind, true)
+				if phase == "stage" {
+					if _, err := f.repo.StageDraft(f.ctx, f.request, f.attr); err == nil {
+						t.Fatal("older observation ignored later identity conflict")
+					}
+				} else {
+					b := f.bind(t, draft)
+					if _, err := f.repo.Apply(f.ctx, b); err == nil {
+						t.Fatal("apply ignored later identity conflict")
+					}
+				}
+				if f.CountHosts(t) != 0 {
+					t.Fatal("conflict committed host")
+				}
+			})
+		}
+	}
+}
+func TestHostAdoptionDifferentTargetsSameConfirmedIdentity(t *testing.T) {
+	f := newRegistrationStoreFixture(t)
+	d1 := f.Stage(t)
+	b1 := f.bind(t, d1)
+	other := f.otherObservation(t, "product-serial", false)
+	f.request.HostID = "different-host"
+	f.request.IdempotencyKey = "different-key"
+	f.request.ObservationID = other.ObservationID
+	f.request.ObservationDigest = other.ContentDigest
+	f.request.Confirmation.TargetDigest = other.TargetDigest
+	d2 := f.Stage(t)
+	b2 := f.bind(t, d2)
+	if _, err := f.repo.Apply(f.ctx, b1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.repo.Apply(f.ctx, b2); err == nil {
+		t.Fatal("same identity registered on distinct targets")
+	}
+	if f.CountHosts(t) != 1 {
+		t.Fatal("duplicate identity persisted")
+	}
+}
+
+func TestHostAdoptionPersistedApprovalAndPlanDenials(t *testing.T) {
+	for _, mode := range []string{"missing-ack", "unconsumed-ack", "wrong-ack", "embedded-confirmation", "input-binding", "unknown-operation"} {
+		t.Run(mode, func(t *testing.T) {
+			f := newRegistrationStoreFixture(t)
+			d := f.Stage(t)
+			b := f.bind(t, d, mode)
+			_, err := f.repo.Apply(f.ctx, b)
+			want := generated.ErrorCodePlanStale
+			if mode == "missing-ack" || mode == "unconsumed-ack" || mode == "wrong-ack" {
+				want = generated.ErrorCodeApprovalRequired
+			}
+			if Code(err) != want {
+				t.Fatalf("denial %s want %s: %v", Code(err), want, err)
+			}
+			if f.CountHosts(t) != 0 {
+				t.Fatal("denied binding committed host")
+			}
+		})
+	}
+}
+
+func TestHostAdoptionDeniedPreparationAuditFailure(t *testing.T) {
+	f := newRegistrationStoreFixture(t)
+	if _, err := f.s.conn.ExecContext(f.ctx, `UPDATE effective_authorization_grants SET status='revoked' WHERE capability='host.adoption.prepare'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.s.conn.ExecContext(f.ctx, `CREATE TRIGGER failure_audit_block BEFORE INSERT ON audit_events BEGIN SELECT RAISE(ABORT,'fixture audit failure'); END`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.repo.StageDraft(f.ctx, f.request, f.attr); Code(err) != generated.ErrorCodeIntegrityFailure {
+		t.Fatalf("missing denial audit did not fail closed: %v", err)
+	}
+	var n int
+	if err := f.s.conn.QueryRowContext(f.ctx, `SELECT COUNT(*) FROM host_adoption_drafts`).Scan(&n); err != nil || n != 0 {
+		t.Fatal("denied draft persisted", err)
 	}
 }

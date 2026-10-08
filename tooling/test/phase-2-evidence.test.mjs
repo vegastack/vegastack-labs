@@ -34,7 +34,7 @@ test("the original Phase 2 baseline stays immutable while later waves have exact
   assert.deepEqual(manifest.contract.reviewedWaves.at(-1), {
     id: "phase6-issue222-v1", issue: 222, commands: [],
     imports: ["github.com/vegastack/vegastack-labs/internal/hostadoption"],
-    mutationBoundaryDigest: "sha256:70c07b6fe1c51055fd57402ad41a612586fe6613528b97c960477446d8df3095",
+    mutationBoundaryDigest: "sha256:7ef7316dd752a9b52a4c214bd7535d6012318d29cfc1816c9721e09fffe95ab0",
   });
   assert.equal(manifest.contract.reviewedWaves[0].id, "phase5-issue104-v1");
   assert.deepEqual(manifest.contract.reviewedWaves[0].commands, ["gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft"]);
