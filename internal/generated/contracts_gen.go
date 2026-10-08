@@ -129,6 +129,7 @@ const (
 	SchemaIDGateView                               = "vegastack-labs.dev/gate-view"
 	SchemaIDHostAdoptionRequest                    = "vegastack-labs.dev/host-adoption-request"
 	SchemaIDHostAdoptionSubmission                 = "vegastack-labs.dev/host-adoption-submission"
+	SchemaIDHostDiscoveryConsoleConfirmation       = "vegastack-labs.dev/host-discovery-console-confirmation"
 	SchemaIDHostDiscoveryFact                      = "vegastack-labs.dev/host-discovery-fact"
 	SchemaIDHostDiscoveryRequest                   = "vegastack-labs.dev/host-discovery-request"
 	SchemaIDHostDiscoverySubmission                = "vegastack-labs.dev/host-discovery-submission"
@@ -1794,6 +1795,13 @@ type HostAdoptionSubmission struct {
 	RecoveryEpoch int64  `json:"recoveryEpoch"`
 }
 
+type HostDiscoveryConsoleConfirmation struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	TargetDigest  string `json:"targetDigest"`
+	Method        string `json:"method"`
+}
+
 type HostDiscoveryFact struct {
 	Schema        string `json:"schema"`
 	SchemaVersion string `json:"schemaVersion"`
@@ -1821,34 +1829,37 @@ type HostDiscoverySubmission struct {
 }
 
 type HostDiscoveryTarget struct {
-	Schema                 string  `json:"schema"`
-	SchemaVersion          string  `json:"schemaVersion"`
-	TargetID               string  `json:"targetId"`
-	Revision               int64   `json:"revision"`
-	Address                string  `json:"address"`
-	Port                   int64   `json:"port"`
-	User                   string  `json:"user"`
-	HostKey                string  `json:"hostKey"`
-	ProfileID              string  `json:"profileId"`
-	CredentialReferenceID  string  `json:"credentialReferenceId"`
-	MaterialVersion        string  `json:"materialVersion"`
-	ExpectedOS             string  `json:"expectedOs"`
-	ExpectedVersion        string  `json:"expectedVersion"`
-	ExpectedArchitecture   string  `json:"expectedArchitecture"`
-	InventoryDraftID       *string `json:"inventoryDraftId"`
-	InventoryDraftRevision int64   `json:"inventoryDraftRevision"`
-	AssetID                *string `json:"assetId"`
-	RecoveryEpoch          int64   `json:"recoveryEpoch"`
+	Schema                    string  `json:"schema"`
+	SchemaVersion             string  `json:"schemaVersion"`
+	TargetID                  string  `json:"targetId"`
+	Revision                  int64   `json:"revision"`
+	Address                   string  `json:"address"`
+	Port                      int64   `json:"port"`
+	User                      string  `json:"user"`
+	HostKey                   string  `json:"hostKey"`
+	ProfileID                 string  `json:"profileId"`
+	CredentialReferenceID     string  `json:"credentialReferenceId"`
+	MaterialVersion           string  `json:"materialVersion"`
+	ExpectedOS                string  `json:"expectedOs"`
+	ExpectedVersion           string  `json:"expectedVersion"`
+	ExpectedArchitecture      string  `json:"expectedArchitecture"`
+	InventoryDraftID          *string `json:"inventoryDraftId"`
+	InventoryDraftRevision    int64   `json:"inventoryDraftRevision"`
+	AssetID                   *string `json:"assetId"`
+	RecoveryEpoch             int64   `json:"recoveryEpoch"`
+	CredentialMode            *string `json:"credentialMode,omitempty"`
+	CredentialPublicKeyDigest *string `json:"credentialPublicKeyDigest,omitempty"`
 }
 
 type HostDiscoveryTargetDraftRequest struct {
-	Schema                 string              `json:"schema"`
-	SchemaVersion          string              `json:"schemaVersion"`
-	Target                 HostDiscoveryTarget `json:"target"`
-	Action                 string              `json:"action"`
-	ExpectedTargetRevision int64               `json:"expectedTargetRevision"`
-	ExpectedStateRevision  int64               `json:"expectedStateRevision"`
-	IdempotencyKey         string              `json:"idempotencyKey"`
+	Schema                 string                            `json:"schema"`
+	SchemaVersion          string                            `json:"schemaVersion"`
+	Target                 HostDiscoveryTarget               `json:"target"`
+	Action                 string                            `json:"action"`
+	ExpectedTargetRevision int64                             `json:"expectedTargetRevision"`
+	ExpectedStateRevision  int64                             `json:"expectedStateRevision"`
+	IdempotencyKey         string                            `json:"idempotencyKey"`
+	ConsoleConfirmation    *HostDiscoveryConsoleConfirmation `json:"consoleConfirmation,omitempty"`
 }
 
 type HostDiscoveryTargetDraftSubmission struct {
@@ -2233,23 +2244,24 @@ type OutboxRecordData struct {
 }
 
 type Plan struct {
-	Schema              string               `json:"schema"`
-	SchemaVersion       string               `json:"schemaVersion"`
-	PlanID              string               `json:"planId"`
-	PlanDigest          string               `json:"planDigest"`
-	DeclarationID       string               `json:"declarationId"`
-	Binding             PlanBinding          `json:"binding"`
-	Operations          []PlanOperation      `json:"operations"`
-	Status              string               `json:"status"`
-	Risk                string               `json:"risk"`
-	AuthorizationBranch string               `json:"authorizationBranch"`
-	ExecutorMode        string               `json:"executorMode"`
-	ExecutorID          *string              `json:"executorId"`
-	CreatedAt           string               `json:"createdAt"`
-	ExpiresAt           string               `json:"expiresAt"`
-	ReadableDigest      string               `json:"readableDigest"`
-	HostAdoption        *HostAdoptionRequest `json:"hostAdoption,omitempty"`
-	Extensions          []ContractExtension  `json:"extensions"`
+	Schema              string                           `json:"schema"`
+	SchemaVersion       string                           `json:"schemaVersion"`
+	PlanID              string                           `json:"planId"`
+	PlanDigest          string                           `json:"planDigest"`
+	DeclarationID       string                           `json:"declarationId"`
+	Binding             PlanBinding                      `json:"binding"`
+	Operations          []PlanOperation                  `json:"operations"`
+	Status              string                           `json:"status"`
+	Risk                string                           `json:"risk"`
+	AuthorizationBranch string                           `json:"authorizationBranch"`
+	ExecutorMode        string                           `json:"executorMode"`
+	ExecutorID          *string                          `json:"executorId"`
+	CreatedAt           string                           `json:"createdAt"`
+	ExpiresAt           string                           `json:"expiresAt"`
+	ReadableDigest      string                           `json:"readableDigest"`
+	HostAdoption        *HostAdoptionRequest             `json:"hostAdoption,omitempty"`
+	HostDiscoveryTarget *HostDiscoveryTargetDraftRequest `json:"hostDiscoveryTarget,omitempty"`
+	Extensions          []ContractExtension              `json:"extensions"`
 }
 
 type PlanBinding struct {

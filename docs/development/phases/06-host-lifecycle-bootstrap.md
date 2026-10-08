@@ -27,7 +27,7 @@ Issue 6.3 solution approved on 07-10-2026 against `b9074cc675a7862b0878c60ef8ec1
 
 The operator approved reduced briefs and concrete plan v2 for [#222](https://github.com/vegastack/vegastack-labs/issues/222) and [#232](https://github.com/vegastack/vegastack-labs/issues/232). Issue #222 extends the existing API and plan/acknowledgement/run engine with one `host.adopt` database effect and an `adopted-unadmitted` read projection. The immutable plan includes the administrator's exact identity/target confirmation in JSON and readable form. There are no new signing systems, services, host-side actions or admission claims.
 
-Issue #232 consumes these contracts after #222 integration. Other Phase 6 implementation remains deferred under the simplicity mandate. Registration tests cover synthetic identity, stale/current grants, exact approval/lease binding, duplicates, audit rollback and unchanged admission state. Isolated Linux software integration requires its own explicit environment approval; it does not qualify a real OS baseline or authorize fleet onboarding.
+Issue #232 consumes these contracts after #222 integration. Issue #224 separately adds the approved discovery-only preloaded key path below. Other expanded Phase 6 implementation remains deferred under the simplicity mandate. Registration tests cover synthetic identity, stale/current grants, exact approval/lease binding, duplicates, audit rollback and unchanged admission state. Isolated Linux software integration requires its own explicit environment approval; it does not qualify a real OS baseline or authorize fleet onboarding.
 
 ## Destination and existing decisions
 
@@ -35,7 +35,7 @@ Implement a portable path from a named untrusted candidate to separately approve
 
 ## Ownership map
 
-These are development IDs, not permission to create or execute every future issue. Preserve already published references. The earlier 6.3 batch below is historical. The separately approved working-first batch on 08-10-2026 is #222 database registration followed by #232 CLI integration; expanded hardening/recovery work stays deferred.
+These are development IDs, not permission to create or execute every future issue. Preserve already published references. The earlier 6.3 batch below is historical. The separately approved working-first batch on 08-10-2026 includes #222 database registration, #232 CLI integration and #224 discovery-only preloaded key authorization; expanded hardening/recovery work stays deferred.
 
 | ID | Outcome / dependency |
 |---|---|
@@ -54,7 +54,7 @@ These are development IDs, not permission to create or execute every future issu
 
 No existing downstream issue is renumbered. Exact briefs for later batches require their own planning and approval. Scope overlaps in proposed 6.4/6.10/6.11 must be closed before those batches, not guessed during 6.3.
 
-## Approved current batch: 6.3 only
+## Historical approved batch: 6.3
 
 The approved brief identified one additional security decision, approved by the operator: the server currently has no host-discovery target binding that establishes which endpoint/key/credential it may use. Inventory drafts and schema-valid host identities cannot grant that authority.
 
@@ -78,10 +78,18 @@ The later phase exit must demonstrate approved enrollment, denied unsupported/st
 
 ## Implementation qualification status
 
-The database-only target effect uses the existing core run-effect router, including persisted plan/run/step/lease and consumed acknowledgement checks. It requires a recovery verifier; production uses the existing unavailable verifier until that prerequisite is qualified. The discovery credential consumer likewise has no automatic production resolver registration. Both fail closed. Test fixtures explicitly supply synthetic recovery/profile/credential proofs and a loopback SSH peer; no actual host account or command execution is qualified here. The operator separately approved starting/stopping the workstation-local `vsk163-custody` VM for isolated Linux tests on 07-10-2026; this is not cluster or fleet authority.
+The database-only target effect uses the existing core run-effect router, including persisted plan/run/step/lease and consumed acknowledgement checks. The legacy qualified-reference mode requires a recovery verifier; production retains the existing unavailable verifier until that prerequisite is qualified. The separately approved preloaded-discovery mode uses the exact administrator-console confirmation described below. The discovery credential consumer likewise has no automatic production resolver registration. Both fail closed. Test fixtures explicitly supply synthetic recovery/profile/credential proofs and a loopback SSH peer; no actual host account or command execution is qualified here. The operator separately approved starting/stopping the workstation-local `vsk163-custody` VM for isolated Linux tests on 07-10-2026; this is not cluster or fleet authority.
 
 ## Working-first CLI delivery
 
-Issue [#232](https://github.com/vegastack/vegastack-labs/issues/232) activates only `node discover`, `node add` and `node inspect`. Their typed clients use the existing local or constrained SSH operator transport, with exact route/command bindings and unchanged server grants. Discovery still needs an activated exact target and qualified existing prerequisites. Add prepares a database-only draft; the existing plan/acknowledgement/apply flow registers it as `adopted-unadmitted`. Inspect reads the database and makes no host connection. The generated registry keeps all other node/control-plane lifecycle commands planned.
+Issue [#232](https://github.com/vegastack/vegastack-labs/issues/232) activates only `node discover`, `node add` and `node inspect`. Their typed clients use the existing local or constrained SSH operator transport, with exact route/command bindings and unchanged server grants. Discovery still needs an activated exact target and the prerequisites for its explicitly selected credential mode. Add prepares a database-only draft; the existing plan/acknowledgement/apply flow registers it as `adopted-unadmitted`. Inspect reads the database and makes no host connection. The generated registry keeps all other node/control-plane lifecycle commands planned.
 
 Verification uses a built Linux executable, a temporary server database and synthetic loopback SSH peer; the human acknowledgement adapter is a fixture. No fixture qualifies live discovery, host security, workload admission or Phase 6 completion. The standing shipping instruction permits PR/merge/continuation for this approved Linux working-first batch after its exact local proof and independent review. Shared CI remains suspended; infrastructure and releases retain separate approval.
+
+## Working-first preloaded discovery — 08-10-2026
+
+Issue [#224](https://github.com/vegastack/vegastack-labs/issues/224) adds explicit `preloaded-discovery` mode. Its exact human-acknowledged target plan displays the complete target, pinned SSH host key, credential reference/version, public-key fingerprint and administrator-confirmed independent console access. Applying the plan changes only the database. The Linux server reads the administrator-preloaded protected file, checks its public key before dialing, and repeats authorization and key checks before SSH authentication. It runs only the existing bounded read operations.
+
+Omitted credential mode retains qualified-reference behavior and its unavailable production recovery prerequisite; there is no automatic fallback. The new mode never activates a global credential reference, registers a general resolver, passes a hardening gate or admits workloads. Removing a key does not block an acknowledged revoke plan. Plan expiry controls execution; an already applied target remains subject to current target/profile/grant/epoch checks after the activation plan expires.
+
+The user approved this software design and isolated workstation-local VM tests on 08-10-2026. Those tests use temporary databases, synthetic keys and loopback peers. They authorize no key installation, fleet discovery, deployment or native qualification. Nodes04/05 remain completely excluded; Mac/iMac and broader recovery/hardening remain deferred.

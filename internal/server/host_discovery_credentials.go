@@ -11,7 +11,11 @@ import (
 type discoveryTargetVerifier interface {
 	CheckCollection(context.Context, hostdiscovery.Target) error
 }
+type preloadedDiscoveryKeyReader interface {
+	Borrow(context.Context, hostdiscovery.Target) (*credentialref.Value, error)
+}
 type hostDiscoveryCredentials struct {
+	preloaded  preloadedDiscoveryKeyReader
 	targets    discoveryTargetVerifier
 	references recoveryCredentialReferences
 	profiles   recoveryCredentialProfiles
@@ -29,12 +33,32 @@ func (b hostDiscoveryCredentials) resolve(ctx context.Context, target hostdiscov
 	blocked := func() (*credentialref.Value, error) {
 		return nil, hostdiscovery.Error(generated.ErrorCodePrerequisiteBlocked)
 	}
-	if b.targets == nil || b.references == nil || b.profiles == nil || b.resolvers == nil || b.targets.CheckCollection(ctx, target) != nil {
+	if b.targets == nil || b.profiles == nil || b.targets.CheckCollection(ctx, target) != nil {
 		return blocked()
 	}
 	t := target.Binding
 	profile, err := b.profiles.GetAppliedProfileScope(ctx)
 	if err != nil || profile.ProfileID != t.ProfileID || profile.RecoveryEpoch != t.RecoveryEpoch || profile.StateRevision > target.StateRevision {
+		return blocked()
+	}
+	if t.CredentialMode != nil {
+		if *t.CredentialMode != "preloaded-discovery" || b.preloaded == nil {
+			return blocked()
+		}
+		value, err := b.preloaded.Borrow(ctx, target)
+		if err != nil || value == nil || len(value.Bytes()) == 0 || b.targets.CheckCollection(ctx, target) != nil {
+			if value != nil {
+				value.Close()
+			}
+			return blocked()
+		}
+		if !borrow {
+			value.Close()
+			return nil, nil
+		}
+		return value, nil
+	}
+	if b.references == nil || b.resolvers == nil || t.CredentialPublicKeyDigest != nil {
 		return blocked()
 	}
 	ref, err := b.references.GetActiveVersion(ctx, t.CredentialReferenceID, t.RecoveryEpoch)

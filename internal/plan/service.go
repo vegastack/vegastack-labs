@@ -14,6 +14,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/gate"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostadoption"
+	"github.com/vegastack/vegastack-labs/internal/hostdiscovery"
 	"github.com/vegastack/vegastack-labs/internal/stateexport"
 	"github.com/vegastack/vegastack-labs/internal/store"
 )
@@ -42,19 +43,23 @@ type HostAdoptionDraftReader interface {
 	GetDraft(context.Context, string) (store.HostAdoptionDraft, error)
 }
 
+type HostDiscoveryDraftReader interface {
+	GetDraft(context.Context, string) (store.DiscoveryDraft, error)
+}
 type Config struct {
-	HostAdoptions       HostAdoptionDraftReader
-	Repository          Repository
-	Observations        ObservationReader
-	Clock               func() time.Time
-	PolicyVersion       string
-	ToolVersion         string
-	ContractVersion     string
-	Risk                string
-	AuthorizationBranch string
-	ExecutorMode        string
-	ExecutorID          *string
-	OperationExecutorID string
+	HostDiscoveryTargets HostDiscoveryDraftReader
+	HostAdoptions        HostAdoptionDraftReader
+	Repository           Repository
+	Observations         ObservationReader
+	Clock                func() time.Time
+	PolicyVersion        string
+	ToolVersion          string
+	ContractVersion      string
+	Risk                 string
+	AuthorizationBranch  string
+	ExecutorMode         string
+	ExecutorID           *string
+	OperationExecutorID  string
 }
 
 type Service struct{ config Config }
@@ -182,6 +187,7 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 	}
 	risk := service.config.Risk
 	var adoption *generated.HostAdoptionRequest
+	var discovery *generated.HostDiscoveryTargetDraftRequest
 	for _, op := range operations {
 		if op.AdapterID != "core.host-adoption" && op.OperationType != "host.adopt" {
 			continue
@@ -205,6 +211,19 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 		}
 		if len(operations) != 1 || declaration.DeclarationType != "host.discovery-target" || op.AdapterID != "core.host-discovery-target" || (op.OperationType != "host.discovery-target.activate" && op.OperationType != "host.discovery-target.revoke") || op.InputDigest != op.ArtifactDigest || service.config.AuthorizationBranch != "human" || service.config.ExecutorMode != "central" {
 			return store.PlanCommitResult{}, planError(generated.ErrorCodeAuthorizationDenied)
+		}
+		if service.config.HostDiscoveryTargets == nil {
+			return store.PlanCommitResult{}, planError(generated.ErrorCodePrerequisiteBlocked)
+		}
+		draft, err := service.config.HostDiscoveryTargets.GetDraft(ctx, op.TargetID)
+		if err != nil {
+			return store.PlanCommitResult{}, err
+		}
+		if draft.ID != op.TargetID || draft.Digest != op.InputDigest || hostdiscovery.Digest(draft.Request) != draft.Digest || hostdiscovery.ValidateConsoleConfirmation(draft.Request) != nil || op.OperationType != "host.discovery-target."+draft.Request.Action {
+			return store.PlanCommitResult{}, planError(generated.ErrorCodeIntegrityFailure)
+		}
+		if draft.Request.Target.CredentialMode != nil {
+			discovery = &draft.Request
 		}
 		risk = string(authorization.RiskControlPlane)
 	}
@@ -248,6 +267,7 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 	desired.Extensions = append(make([]generated.ContractExtension, 0, len(declaration.Extensions)), declaration.Extensions...)
 	candidate := generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", DeclarationID: declaration.DeclarationID, Binding: generated.PlanBinding{RecoveryEpoch: current.RecoveryEpoch, PriorStateRevision: current.StateRevision, StateRevision: current.StateRevision + 1, DeclarationRevision: desired.Revision, ObservationFingerprint: fingerprint, TargetDigest: targets, ReasonDigest: reason, PolicyVersion: service.config.PolicyVersion, ToolVersion: service.config.ToolVersion, ContractVersion: service.config.ContractVersion}, Operations: operations, Status: "planned", Risk: risk, AuthorizationBranch: service.config.AuthorizationBranch, ExecutorMode: service.config.ExecutorMode, ExecutorID: service.config.ExecutorID, CreatedAt: created.Format(time.RFC3339), ExpiresAt: created.Add(time.Duration(generated.PlanValiditySeconds) * time.Second).Format(time.RFC3339), Extensions: extensions}
 	candidate.HostAdoption = adoption
+	candidate.HostDiscoveryTarget = discovery
 	readable := readablePlan(candidate)
 	candidate.ReadableDigest = sha([]byte(readable))
 	candidate.PlanDigest, err = planDigest(candidate)

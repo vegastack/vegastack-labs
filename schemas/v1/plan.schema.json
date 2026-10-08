@@ -74,6 +74,230 @@
       ],
       "type": "object"
     },
+    "host-discovery-console-confirmation": {
+      "additionalProperties": false,
+      "properties": {
+        "method": {
+          "enum": [
+            "administrator-verified-console"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-discovery-console-confirmation"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "targetDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "targetDigest",
+        "method"
+      ],
+      "type": "object"
+    },
+    "host-discovery-target": {
+      "additionalProperties": false,
+      "properties": {
+        "address": {
+          "maxLength": 45,
+          "minLength": 1,
+          "type": "string"
+        },
+        "assetId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "credentialMode": {
+          "enum": [
+            null,
+            "preloaded-discovery"
+          ],
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "credentialPublicKeyDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "credentialReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "expectedArchitecture": {
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
+        },
+        "expectedOs": {
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
+        },
+        "expectedVersion": {
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
+        },
+        "hostKey": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "type": "string"
+        },
+        "inventoryDraftId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "inventoryDraftRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "materialVersion": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "port": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "profileId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "revision": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-discovery-target"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "targetId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "user": {
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "targetId",
+        "revision",
+        "address",
+        "port",
+        "user",
+        "hostKey",
+        "profileId",
+        "credentialReferenceId",
+        "materialVersion",
+        "expectedOs",
+        "expectedVersion",
+        "expectedArchitecture",
+        "inventoryDraftId",
+        "inventoryDraftRevision",
+        "assetId",
+        "recoveryEpoch"
+      ],
+      "type": "object"
+    },
+    "host-discovery-target-draft-request": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "enum": [
+            "activate",
+            "revoke"
+          ],
+          "type": "string"
+        },
+        "consoleConfirmation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/host-discovery-console-confirmation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expectedStateRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "expectedTargetRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "idempotencyKey": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-discovery-target-draft-request"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/$defs/host-discovery-target"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "target",
+        "action",
+        "expectedTargetRevision",
+        "expectedStateRevision",
+        "idempotencyKey"
+      ],
+      "type": "object"
+    },
     "host-identity-confirmation": {
       "additionalProperties": false,
       "properties": {
@@ -295,6 +519,16 @@
       "anyOf": [
         {
           "$ref": "#/$defs/host-adoption-request"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "hostDiscoveryTarget": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/host-discovery-target-draft-request"
         },
         {
           "type": "null"

@@ -4850,6 +4850,11 @@
       "artifactPath": "schemas/v1/host-adoption-submission.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/host-discovery-console-confirmation",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-discovery-console-confirmation.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/host-discovery-fact",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/host-discovery-fact.schema.json"

@@ -35,7 +35,11 @@ func RegisterHostDiscoveryOperations(app *Application, c HostDiscoveryOperations
 	return nil
 }
 func discoveryInput(r *http.Request, schema string, fields []string, out any) error {
-	if err := decodeOperationRequest(r, 16384, fields, out); err != nil {
+	var optional []string
+	if schema == generated.SchemaIDHostDiscoveryTargetDraftRequest {
+		optional = []string{"consoleConfirmation"}
+	}
+	if err := decodeOperationRequest(r, 16384, fields, out, optional...); err != nil {
 		return err
 	}
 	raw, _ := json.Marshal(out)

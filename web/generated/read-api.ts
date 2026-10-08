@@ -639,6 +639,47 @@ export interface HostAdoptionRequest {
   readonly "confirmation": HostIdentityConfirmation;
 }
 
+export interface HostDiscoveryConsoleConfirmation {
+  readonly "schema": "vegastack-labs.dev/host-discovery-console-confirmation";
+  readonly "schemaVersion": "1.0.0";
+  readonly "targetDigest": string;
+  readonly "method": "administrator-verified-console";
+}
+
+export interface HostDiscoveryTarget {
+  readonly "schema": "vegastack-labs.dev/host-discovery-target";
+  readonly "schemaVersion": "1.0.0";
+  readonly "targetId": string;
+  readonly "revision": number;
+  readonly "address": string;
+  readonly "port": number;
+  readonly "user": string;
+  readonly "hostKey": string;
+  readonly "profileId": string;
+  readonly "credentialReferenceId": string;
+  readonly "materialVersion": string;
+  readonly "expectedOs": string;
+  readonly "expectedVersion": string;
+  readonly "expectedArchitecture": string;
+  readonly "inventoryDraftId": string | null;
+  readonly "inventoryDraftRevision": number;
+  readonly "assetId": string | null;
+  readonly "recoveryEpoch": number;
+  readonly "credentialMode"?: "preloaded-discovery" | null;
+  readonly "credentialPublicKeyDigest"?: string | null;
+}
+
+export interface HostDiscoveryTargetDraftRequest {
+  readonly "schema": "vegastack-labs.dev/host-discovery-target-draft-request";
+  readonly "schemaVersion": "1.0.0";
+  readonly "target": HostDiscoveryTarget;
+  readonly "action": "activate" | "revoke";
+  readonly "expectedTargetRevision": number;
+  readonly "expectedStateRevision": number;
+  readonly "idempotencyKey": string;
+  readonly "consoleConfirmation"?: HostDiscoveryConsoleConfirmation | null;
+}
+
 export interface HostIdentityConfirmation {
   readonly "schema": "vegastack-labs.dev/host-identity-confirmation";
   readonly "schemaVersion": "1.0.0";
@@ -698,6 +739,7 @@ export interface Plan {
   readonly "expiresAt": string;
   readonly "readableDigest": string;
   readonly "hostAdoption"?: HostAdoptionRequest | null;
+  readonly "hostDiscoveryTarget"?: HostDiscoveryTargetDraftRequest | null;
   readonly "extensions": ReadonlyArray<ContractExtension>;
 }
 
@@ -4472,6 +4514,270 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/host-discovery-console-confirmation",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/host-discovery-console-confirmation"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "targetDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "method",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "administrator-verified-console"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/host-discovery-target",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/host-discovery-target"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "targetId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "revision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "address",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 45
+      },
+      {
+        "name": "port",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "user",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 32
+      },
+      {
+        "name": "hostKey",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 2048
+      },
+      {
+        "name": "profileId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "credentialReferenceId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "materialVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "expectedOs",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 32
+      },
+      {
+        "name": "expectedVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 32
+      },
+      {
+        "name": "expectedArchitecture",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 32
+      },
+      {
+        "name": "inventoryDraftId",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "inventoryDraftRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "assetId",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "credentialMode",
+        "kind": "string",
+        "required": false,
+        "nullable": true,
+        "enum": [
+          "preloaded-discovery"
+        ]
+      },
+      {
+        "name": "credentialPublicKeyDigest",
+        "kind": "string",
+        "required": false,
+        "nullable": true,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/host-discovery-target-draft-request",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/host-discovery-target-draft-request"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "target",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/host-discovery-target"
+      },
+      {
+        "name": "action",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "activate",
+          "revoke"
+        ]
+      },
+      {
+        "name": "expectedTargetRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "expectedStateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "idempotencyKey",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "consoleConfirmation",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "ref": "vegastack-labs.dev/host-discovery-console-confirmation"
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/host-identity-confirmation",
     "fields": [
       {
@@ -4869,6 +5175,13 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": false,
         "nullable": true,
         "ref": "vegastack-labs.dev/host-adoption-request"
+      },
+      {
+        "name": "hostDiscoveryTarget",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "ref": "vegastack-labs.dev/host-discovery-target-draft-request"
       },
       {
         "name": "extensions",
@@ -5811,6 +6124,18 @@ function decodeGateView(value: unknown): GateView {
 
 function decodeHostAdoptionRequest(value: unknown): HostAdoptionRequest {
   return decodeSchema("vegastack-labs.dev/host-adoption-request", value) as unknown as HostAdoptionRequest;
+}
+
+function decodeHostDiscoveryConsoleConfirmation(value: unknown): HostDiscoveryConsoleConfirmation {
+  return decodeSchema("vegastack-labs.dev/host-discovery-console-confirmation", value) as unknown as HostDiscoveryConsoleConfirmation;
+}
+
+function decodeHostDiscoveryTarget(value: unknown): HostDiscoveryTarget {
+  return decodeSchema("vegastack-labs.dev/host-discovery-target", value) as unknown as HostDiscoveryTarget;
+}
+
+function decodeHostDiscoveryTargetDraftRequest(value: unknown): HostDiscoveryTargetDraftRequest {
+  return decodeSchema("vegastack-labs.dev/host-discovery-target-draft-request", value) as unknown as HostDiscoveryTargetDraftRequest;
 }
 
 function decodeHostIdentityConfirmation(value: unknown): HostIdentityConfirmation {

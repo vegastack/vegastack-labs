@@ -39,6 +39,11 @@ func readablePlan(plan generated.Plan) string {
 		c := r.Confirmation
 		fmt.Fprintf(&body, "Register host %s as adopted-unadmitted; no machine changes.\nTarget revision %d binding/key digest %s\nIdentity %s/%s digest %s; confirmed %s\nAdministrator attestation: I independently verified this exact machine and its identity against the pinned target key. Acknowledging this plan approves that confirmation, not workload admission.\n", r.HostID, c.TargetRevision, c.TargetDigest, c.IdentityClass, c.IdentityKind, c.IdentityDigest, c.ConfirmedAt)
 	}
+	if plan.HostDiscoveryTarget != nil {
+		r := plan.HostDiscoveryTarget
+		raw, _, _ := stateexport.CanonicalJSON(r)
+		fmt.Fprintf(&body, "Discovery-only target %s: %s\nExact target and administrator confirmation: %s\nAcknowledging this plan confirms independent machine identity and console access. No host configuration, global credential qualification or workload admission.\n", r.Target.TargetID, r.Action, raw)
+	}
 	return body.String()
 }
 

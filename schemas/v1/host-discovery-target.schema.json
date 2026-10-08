@@ -15,6 +15,23 @@
         "null"
       ]
     },
+    "credentialMode": {
+      "enum": [
+        null,
+        "preloaded-discovery"
+      ],
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "credentialPublicKeyDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "credentialReferenceId": {
       "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
       "type": "string"

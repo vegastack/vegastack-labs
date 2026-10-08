@@ -1147,6 +1147,7 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 - `expiresAt`
 - `readableDigest`
 - `hostAdoption`
+- `hostDiscoveryTarget`
 - `extensions`
 
 ### `vegastack-labs.dev/plan-create-request`
