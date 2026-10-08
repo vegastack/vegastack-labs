@@ -127,6 +127,8 @@ const (
 	SchemaIDGateProfileDraftRequest                = "vegastack-labs.dev/gate-profile-draft-request"
 	SchemaIDGateProfileDraftSubmission             = "vegastack-labs.dev/gate-profile-draft-submission"
 	SchemaIDGateView                               = "vegastack-labs.dev/gate-view"
+	SchemaIDHostAdoptionRequest                    = "vegastack-labs.dev/host-adoption-request"
+	SchemaIDHostAdoptionSubmission                 = "vegastack-labs.dev/host-adoption-submission"
 	SchemaIDHostDiscoveryFact                      = "vegastack-labs.dev/host-discovery-fact"
 	SchemaIDHostDiscoveryRequest                   = "vegastack-labs.dev/host-discovery-request"
 	SchemaIDHostDiscoverySubmission                = "vegastack-labs.dev/host-discovery-submission"
@@ -135,6 +137,7 @@ const (
 	SchemaIDHostDiscoveryTargetDraftSubmission     = "vegastack-labs.dev/host-discovery-target-draft-submission"
 	SchemaIDHostHardeningEvidenceFact              = "vegastack-labs.dev/host-hardening-evidence-fact"
 	SchemaIDHostIdentity                           = "vegastack-labs.dev/host-identity"
+	SchemaIDHostIdentityConfirmation               = "vegastack-labs.dev/host-identity-confirmation"
 	SchemaIDHostObservation                        = "vegastack-labs.dev/host-observation"
 	SchemaIDHostProfile                            = "vegastack-labs.dev/host-profile"
 	SchemaIDHostRole                               = "vegastack-labs.dev/host-role"
@@ -166,6 +169,7 @@ const (
 	SchemaIDInventoryImportRequest                 = "vegastack-labs.dev/inventory-import-request"
 	SchemaIDLocalPrincipalBinding                  = "vegastack-labs.dev/local-principal-binding"
 	SchemaIDLocalRetentionLockCatalog              = "vegastack-labs.dev/local-retention-lock-catalog"
+	SchemaIDManagedHost                            = "vegastack-labs.dev/managed-host"
 	SchemaIDOffsiteRunSpec                         = "vegastack-labs.dev/offsite-run-spec"
 	SchemaIDOutboxRecordData                       = "vegastack-labs.dev/outbox-record-data"
 	SchemaIDPlan                                   = "vegastack-labs.dev/plan"
@@ -1764,6 +1768,28 @@ type GateView struct {
 	ApplicabilityReasonCode string         `json:"applicabilityReasonCode"`
 }
 
+type HostAdoptionRequest struct {
+	Schema                string                   `json:"schema"`
+	SchemaVersion         string                   `json:"schemaVersion"`
+	HostID                string                   `json:"hostId"`
+	ObservationID         string                   `json:"observationId"`
+	ObservationDigest     string                   `json:"observationDigest"`
+	IdempotencyKey        string                   `json:"idempotencyKey"`
+	ExpectedStateRevision int64                    `json:"expectedStateRevision"`
+	RecoveryEpoch         int64                    `json:"recoveryEpoch"`
+	Confirmation          HostIdentityConfirmation `json:"confirmation"`
+}
+
+type HostAdoptionSubmission struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	DraftID       string `json:"draftId"`
+	DeclarationID string `json:"declarationId"`
+	ContentDigest string `json:"contentDigest"`
+	StateRevision int64  `json:"stateRevision"`
+	RecoveryEpoch int64  `json:"recoveryEpoch"`
+}
+
 type HostDiscoveryFact struct {
 	Schema        string `json:"schema"`
 	SchemaVersion string `json:"schemaVersion"`
@@ -1856,6 +1882,17 @@ type HostIdentity struct {
 	IdentityClass string  `json:"identityClass"`
 	AssetID       *string `json:"assetId"`
 	StateRevision int64   `json:"stateRevision"`
+}
+
+type HostIdentityConfirmation struct {
+	Schema         string `json:"schema"`
+	SchemaVersion  string `json:"schemaVersion"`
+	TargetDigest   string `json:"targetDigest"`
+	TargetRevision int64  `json:"targetRevision"`
+	IdentityDigest string `json:"identityDigest"`
+	IdentityClass  string `json:"identityClass"`
+	IdentityKind   string `json:"identityKind"`
+	ConfirmedAt    string `json:"confirmedAt"`
 }
 
 type HostObservation struct {
@@ -2138,6 +2175,19 @@ type LocalRetentionLockCatalog struct {
 	Revision             int64                 `json:"revision"`
 	Complete             bool                  `json:"complete"`
 	Locks                []BackupRetentionLock `json:"locks"`
+}
+
+type ManagedHost struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	HostID        string `json:"hostId"`
+	TargetID      string `json:"targetId"`
+	ObservationID string `json:"observationId"`
+	ProfileID     string `json:"profileId"`
+	IdentityClass string `json:"identityClass"`
+	Status        string `json:"status"`
+	StateRevision int64  `json:"stateRevision"`
+	RecoveryEpoch int64  `json:"recoveryEpoch"`
 }
 
 type OffsiteRunSpec struct {
@@ -3082,9 +3132,11 @@ var Endpoints = []Endpoint{
 	{ID: "api.v1.gates.get", Method: "GET", Path: "/api/v1/gates/{gateId}", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/gate-view", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.gates.list", Method: "GET", Path: "/api/v1/gates", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/gate-list-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.health.get", Method: "GET", Path: "/api/v1/health", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/server-status-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.host-adoptions.draft", Method: "POST", Path: "/api/v1/host-adoptions/draft", Availability: "available", OwnerPhase: "6", QuerySchema: "", RequestSchema: "vegastack-labs.dev/host-adoption-request", DataSchema: "vegastack-labs.dev/host-adoption-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.host-discovery-targets.draft", Method: "POST", Path: "/api/v1/host-discovery-targets/draft", Availability: "available", OwnerPhase: "6", QuerySchema: "", RequestSchema: "vegastack-labs.dev/host-discovery-target-draft-request", DataSchema: "vegastack-labs.dev/host-discovery-target-draft-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.host-observations.create", Method: "POST", Path: "/api/v1/host-observations", Availability: "available", OwnerPhase: "6", QuerySchema: "", RequestSchema: "vegastack-labs.dev/host-discovery-request", DataSchema: "vegastack-labs.dev/host-discovery-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.host-observations.get", Method: "GET", Path: "/api/v1/host-observations/{observationID}", Availability: "available", OwnerPhase: "6", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/host-observation", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.hosts.get", Method: "GET", Path: "/api/v1/hosts/{hostID}", Availability: "available", OwnerPhase: "6", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/managed-host", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.inventory-diffs.create", Method: "POST", Path: "/api/v1/inventory-diffs", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "vegastack-labs.dev/inventory-diff-request", DataSchema: "vegastack-labs.dev/inventory-diff-data", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.inventory-draft-aliases.get", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/aliases/{recordId}", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-alias-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.inventory-draft-aliases.list", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/aliases", Availability: "available", OwnerPhase: "2", QuerySchema: "vegastack-labs.dev/api-page-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-alias-list-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},

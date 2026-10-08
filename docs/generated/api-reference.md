@@ -38,9 +38,11 @@ Contract schema: `1.22.0`
 | `api.v1.gates.get` | `GET` | `/api/v1/gates/{gateId}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/gate-view` |
 | `api.v1.gates.list` | `GET` | `/api/v1/gates` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/gate-list-data` |
 | `api.v1.health.get` | `GET` | `/api/v1/health` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/server-status-data` |
+| `api.v1.host-adoptions.draft` | `POST` | `/api/v1/host-adoptions/draft` | `available` | `operator` | `finite` | `vegastack-labs.dev/host-adoption-request` | `vegastack-labs.dev/host-adoption-submission` |
 | `api.v1.host-discovery-targets.draft` | `POST` | `/api/v1/host-discovery-targets/draft` | `available` | `operator` | `finite` | `vegastack-labs.dev/host-discovery-target-draft-request` | `vegastack-labs.dev/host-discovery-target-draft-submission` |
 | `api.v1.host-observations.create` | `POST` | `/api/v1/host-observations` | `available` | `operator` | `finite` | `vegastack-labs.dev/host-discovery-request` | `vegastack-labs.dev/host-discovery-submission` |
 | `api.v1.host-observations.get` | `GET` | `/api/v1/host-observations/{observationID}` | `available` | `operator` | `finite` | `` | `vegastack-labs.dev/host-observation` |
+| `api.v1.hosts.get` | `GET` | `/api/v1/hosts/{hostID}` | `available` | `operator` | `finite` | `` | `vegastack-labs.dev/managed-host` |
 | `api.v1.inventory-diffs.create` | `POST` | `/api/v1/inventory-diffs` | `available` | `operator` | `finite` | `vegastack-labs.dev/inventory-diff-request` | `vegastack-labs.dev/inventory-diff-data` |
 | `api.v1.inventory-draft-aliases.get` | `GET` | `/api/v1/inventory-drafts/{draftId}/revisions/{revision}/aliases/{recordId}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/api-inventory-alias-data` |
 | `api.v1.inventory-draft-aliases.list` | `GET` | `/api/v1/inventory-drafts/{draftId}/revisions/{revision}/aliases` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/api-inventory-alias-list-data` |

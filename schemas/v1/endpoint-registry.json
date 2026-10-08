@@ -438,6 +438,19 @@
       ]
     },
     {
+      "id": "api.v1.host-adoptions.draft",
+      "method": "POST",
+      "path": "/api/v1/host-adoptions/draft",
+      "availability": "available",
+      "ownerPhase": "6",
+      "requestSchema": "vegastack-labs.dev/host-adoption-request",
+      "dataSchema": "vegastack-labs.dev/host-adoption-submission",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
       "id": "api.v1.host-discovery-targets.draft",
       "method": "POST",
       "path": "/api/v1/host-discovery-targets/draft",
@@ -470,6 +483,18 @@
       "availability": "available",
       "ownerPhase": "6",
       "dataSchema": "vegastack-labs.dev/host-observation",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.hosts.get",
+      "method": "GET",
+      "path": "/api/v1/hosts/{hostID}",
+      "availability": "available",
+      "ownerPhase": "6",
+      "dataSchema": "vegastack-labs.dev/managed-host",
       "stream": "finite",
       "audiences": [
         "operator"
