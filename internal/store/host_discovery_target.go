@@ -24,7 +24,7 @@ type DiscoveryActivation struct {
 func (r *HostDiscoveryRepository) StageDraft(ctx context.Context, request generated.HostDiscoveryTargetDraftRequest, a audit.Attribution) (_ DiscoveryDraft, outcome error) {
 	defer r.discoveryFailureAudit(ctx, "draft", request.Target.TargetID, &outcome)
 	raw, _ := json.Marshal(request)
-	if generated.ValidateContractJSON(generated.SchemaIDHostDiscoveryTargetDraftRequest, raw, generated.ContractExact) != nil || hostdiscovery.ValidateTarget(request.Target) != nil || request.Target.Revision != request.ExpectedTargetRevision+1 {
+	if generated.ValidateContractJSON(generated.SchemaIDHostDiscoveryTargetDraftRequest, raw, generated.ContractExact) != nil || hostdiscovery.ValidateConsoleConfirmation(request) != nil || request.Target.Revision != request.ExpectedTargetRevision+1 {
 		return DiscoveryDraft{}, discoveryError(generated.ErrorCodeInputInvalid)
 	}
 	// Audit replay skips its business callback, so authorize before either path.

@@ -1,6 +1,7 @@
 package metadata
 
 const (
+	discoveryConsoleID         = "vegastack-labs.dev/host-discovery-console-confirmation"
 	discoveryTargetID          = "vegastack-labs.dev/host-discovery-target"
 	discoveryDraftID           = "vegastack-labs.dev/host-discovery-target-draft-request"
 	discoveryRequestID         = "vegastack-labs.dev/host-discovery-request"
@@ -21,6 +22,7 @@ func discoveryRef(name, goName, ref string) FieldDefinition {
 }
 func hostDiscoverySchemas() []SchemaDefinition {
 	return []SchemaDefinition{
+		phase5Schema(discoveryConsoleID, phase5Digest("targetDigest", "TargetDigest"), phase5Enum("method", "Method", "administrator-verified-console")),
 		phase5Schema(discoveryTargetID,
 			phase5ID("targetId", "TargetID"), phase5Positive("revision", "Revision"),
 			discoveryText("address", "Address", 45), phase5Positive("port", "Port"),
@@ -28,11 +30,13 @@ func hostDiscoverySchemas() []SchemaDefinition {
 			phase5ID("profileId", "ProfileID"), phase5ID("credentialReferenceId", "CredentialReferenceID"), phase5ID("materialVersion", "MaterialVersion"),
 			discoveryText("expectedOs", "ExpectedOS", 32), discoveryText("expectedVersion", "ExpectedVersion", 32), discoveryText("expectedArchitecture", "ExpectedArchitecture", 32),
 			phase5NullableID("inventoryDraftId", "InventoryDraftID"), phase5Nonnegative("inventoryDraftRevision", "InventoryDraftRevision"), phase5NullableID("assetId", "AssetID"),
-			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch")),
+			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+			FieldDefinition{JSONName: "credentialMode", GoName: "CredentialMode", Kind: ValueString, Nullable: true, OmitEmpty: true, Enum: []string{"preloaded-discovery"}},
+			FieldDefinition{JSONName: "credentialPublicKeyDigest", GoName: "CredentialPublicKeyDigest", Kind: ValueString, Nullable: true, OmitEmpty: true, Pattern: "^sha256:[a-f0-9]{64}$"}),
 		phase5Schema(discoveryDraftID,
 			discoveryRef("target", "Target", discoveryTargetID), phase5Enum("action", "Action", "activate", "revoke"),
 			phase5Nonnegative("expectedTargetRevision", "ExpectedTargetRevision"), phase5Nonnegative("expectedStateRevision", "ExpectedStateRevision"),
-			phase5ID("idempotencyKey", "IdempotencyKey")),
+			phase5ID("idempotencyKey", "IdempotencyKey"), FieldDefinition{JSONName: "consoleConfirmation", GoName: "ConsoleConfirmation", Kind: ValueObject, Nullable: true, OmitEmpty: true, Ref: discoveryConsoleID}),
 		phase5Schema(discoveryDraftSubmissionID,
 			phase5ID("draftId", "DraftID"), phase5ID("declarationId", "DeclarationID"), phase5Digest("contentDigest", "ContentDigest"),
 			phase5Nonnegative("stateRevision", "StateRevision"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch")),

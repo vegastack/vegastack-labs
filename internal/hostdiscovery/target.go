@@ -29,5 +29,32 @@ func ValidateTarget(value generated.HostDiscoveryTarget) error {
 	if (value.InventoryDraftID == nil) != (value.AssetID == nil) || (value.InventoryDraftID == nil && value.InventoryDraftRevision != 0) || (value.InventoryDraftID != nil && value.InventoryDraftRevision < 1) {
 		return deny()
 	}
+	if value.CredentialMode == nil {
+		if value.CredentialPublicKeyDigest != nil {
+			return deny()
+		}
+	} else if *value.CredentialMode != "preloaded-discovery" || value.CredentialPublicKeyDigest == nil {
+		return deny()
+	}
+	return nil
+}
+
+// ValidateConsoleConfirmation binds the administrator's attestation to the entire target.
+// It is inert until the existing human acknowledgement approves its exact plan.
+func ValidateConsoleConfirmation(r generated.HostDiscoveryTargetDraftRequest) error {
+	raw, err := json.Marshal(r)
+	if err != nil || generated.ValidateContractJSON(generated.SchemaIDHostDiscoveryTargetDraftRequest, raw, generated.ContractExact) != nil || ValidateTarget(r.Target) != nil {
+		return Error(generated.ErrorCodeInputInvalid)
+	}
+	if r.Target.CredentialMode == nil {
+		if r.ConsoleConfirmation != nil {
+			return Error(generated.ErrorCodeInputInvalid)
+		}
+		return nil
+	}
+	c := r.ConsoleConfirmation
+	if c == nil || c.Method != "administrator-verified-console" || c.TargetDigest != Digest(r.Target) {
+		return Error(generated.ErrorCodeInputInvalid)
+	}
 	return nil
 }

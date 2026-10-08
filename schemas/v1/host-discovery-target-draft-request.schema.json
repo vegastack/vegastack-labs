@@ -1,5 +1,39 @@
 {
   "$defs": {
+    "host-discovery-console-confirmation": {
+      "additionalProperties": false,
+      "properties": {
+        "method": {
+          "enum": [
+            "administrator-verified-console"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-discovery-console-confirmation"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "targetDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "targetDigest",
+        "method"
+      ],
+      "type": "object"
+    },
     "host-discovery-target": {
       "additionalProperties": false,
       "properties": {
@@ -10,6 +44,23 @@
         },
         "assetId": {
           "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "credentialMode": {
+          "enum": [
+            null,
+            "preloaded-discovery"
+          ],
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "credentialPublicKeyDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
           "type": [
             "string",
             "null"
@@ -125,6 +176,16 @@
         "revoke"
       ],
       "type": "string"
+    },
+    "consoleConfirmation": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/host-discovery-console-confirmation"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "expectedStateRevision": {
       "minimum": 0,
