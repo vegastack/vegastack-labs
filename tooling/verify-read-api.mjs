@@ -59,6 +59,11 @@ const REVIEWED_BACKUP_ENDPOINTS = [
   "api.v1.backup-policy-drafts.create", "api.v1.backup-retention-lock-drafts.create", "api.v1.backup-retirement-drafts.create",
   "api.v1.backup-verifications.create", "api.v1.backups.status",
 ];
+// #222 adds one inert draft and one unadmitted-host read, never admission.
+const REVIEWED_ADOPTION_ENDPOINTS = [
+  {id: "api.v1.host-adoptions.draft", method: "POST", path: "/api/v1/host-adoptions/draft", availability: "available", ownerPhase: "6", requestSchema: "vegastack-labs.dev/host-adoption-request", dataSchema: "vegastack-labs.dev/host-adoption-submission", stream: "finite", audiences: ["operator"]},
+  {id: "api.v1.hosts.get", method: "GET", path: "/api/v1/hosts/{hostID}", availability: "available", ownerPhase: "6", dataSchema: "vegastack-labs.dev/managed-host", stream: "finite", audiences: ["operator"]},
+];
 const REVIEWED_DISCOVERY_ENDPOINTS = ["api.v1.host-discovery-targets.draft", "api.v1.host-observations.create", "api.v1.host-observations.get"];
 const REVIEWED_OPERATOR_ENDPOINTS = [
   "api.v1.database-backups.create", "api.v1.database-exports.create", "api.v1.database-restores.create", "api.v1.database-verifications.create",
@@ -106,8 +111,13 @@ export async function verifyReadAPI(root = ROOT) {
       const operatorIDs = ids.filter((id) => REVIEWED_OPERATOR_ENDPOINTS.includes(id));
       const lifecycleIDs = ids.filter((id) => id.startsWith("api.v1.credential-lifecycle-"));
       const discoveryIDs = ids.filter((id) => id.startsWith("api.v1.host-discovery-") || id.startsWith("api.v1.host-observations."));
-      const historicalIDs = ids.filter((id) => !gateIDs.includes(id) && !credentialImportIDs.includes(id) && !auditIDs.includes(id) && !lifecycleIDs.includes(id) && !backupIDs.includes(id) && !operatorIDs.includes(id) && !discoveryIDs.includes(id));
-      if (JSON.stringify(discoveryIDs) !== JSON.stringify(REVIEWED_DISCOVERY_ENDPOINTS) || JSON.stringify(historicalIDs) !== JSON.stringify(EXPECTED_ENDPOINTS) ||
+      const adoptionIDs = ids.filter((id) => id.startsWith("api.v1.host-adoptions.") || id.startsWith("api.v1.hosts."));
+      const adoptionExact = JSON.stringify(adoptionIDs) === JSON.stringify(REVIEWED_ADOPTION_ENDPOINTS.map(({id}) => id)) && REVIEWED_ADOPTION_ENDPOINTS.every((expected) => {
+        const actual = registry.endpoints.find(({id}) => id === expected.id);
+        return actual && Object.keys(actual).length === Object.keys(expected).length && Object.entries(expected).every(([key, value]) => JSON.stringify(actual[key]) === JSON.stringify(value));
+      });
+      const historicalIDs = ids.filter((id) => !gateIDs.includes(id) && !credentialImportIDs.includes(id) && !auditIDs.includes(id) && !lifecycleIDs.includes(id) && !backupIDs.includes(id) && !operatorIDs.includes(id) && !discoveryIDs.includes(id) && !adoptionIDs.includes(id));
+      if (!adoptionExact || JSON.stringify(discoveryIDs) !== JSON.stringify(REVIEWED_DISCOVERY_ENDPOINTS) || JSON.stringify(historicalIDs) !== JSON.stringify(EXPECTED_ENDPOINTS) ||
           JSON.stringify(gateIDs) !== JSON.stringify(REVIEWED_GATE_ENDPOINTS) ||
           JSON.stringify(credentialImportIDs) !== JSON.stringify(REVIEWED_CREDENTIAL_IMPORT_ENDPOINTS) ||
           JSON.stringify(auditIDs) !== JSON.stringify(REVIEWED_AUDIT_ENDPOINTS) || JSON.stringify(lifecycleIDs) !== JSON.stringify(REVIEWED_CREDENTIAL_LIFECYCLE_ENDPOINTS) || JSON.stringify(operatorIDs) !== JSON.stringify(REVIEWED_OPERATOR_ENDPOINTS) ||

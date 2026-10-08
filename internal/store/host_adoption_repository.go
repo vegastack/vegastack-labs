@@ -33,6 +33,12 @@ func adoptionGrant(ctx context.Context, row discoveryRow, resource, kind, action
 	if !ok || !identity.ValidPrincipal(p) {
 		return "", adoptionError(generated.ErrorCodeAuthenticationRequired)
 	}
+	return adoptionPrincipalGrant(p, row, resource, kind, action, capability, admin)
+}
+func adoptionPrincipalGrant(p identity.Principal, row discoveryRow, resource, kind, action, capability string, admin bool) (string, error) {
+	if !identity.ValidPrincipal(p) {
+		return "", adoptionError(generated.ErrorCodeAuthenticationRequired)
+	}
 	var count int
 	err := row(`SELECT COUNT(*) FROM effective_authorization_principals p JOIN effective_authorization_grants g ON g.principal_id=p.principal_id AND g.grant_revision=p.grant_revision WHERE p.principal_id=? AND p.principal_kind=? AND p.status='active' AND g.status='active' AND g.action=? AND g.capability=? AND g.resource_kind=? AND g.resource_id=? AND (g.action!='execute' OR (g.branch='human' AND g.role_id='control-plane-admin')) AND (?=0 OR g.role_id IN ('infrastructure-admin','control-plane-admin'))`, p.ID, string(identity.EffectivePrincipalKind(p)), action, capability, kind, resource, admin).Scan(&count)
 	if err != nil || count == 0 {
@@ -41,11 +47,21 @@ func adoptionGrant(ctx context.Context, row discoveryRow, resource, kind, action
 	return p.ID, nil
 }
 func (r *HostAdoptionRepository) validate(ctx context.Context, row discoveryRow, req generated.HostAdoptionRequest, a audit.Attribution) (generated.HostDiscoveryTarget, error) {
+	p, ok := identity.PrincipalFromContext(ctx)
+	if !ok {
+		return generated.HostDiscoveryTarget{}, adoptionError(generated.ErrorCodeAuthenticationRequired)
+	}
+	return r.validatePrincipal(p, row, req, a)
+}
+
+// validatePrincipal is internal to registration. Its execution caller resolves
+// the persisted run identity; public preparation must use validate above.
+func (r *HostAdoptionRepository) validatePrincipal(principal identity.Principal, row discoveryRow, req generated.HostAdoptionRequest, a audit.Attribution) (generated.HostDiscoveryTarget, error) {
 	obs, err := readDiscoveryObservation(row, req.ObservationID)
 	if err != nil {
 		return generated.HostDiscoveryTarget{}, adoptionError(generated.ErrorCodePrerequisiteBlocked)
 	}
-	p, err := adoptionGrant(ctx, row, obs.TargetID, "host-discovery-target", "author", "host.adoption.prepare", true)
+	p, err := adoptionPrincipalGrant(principal, row, obs.TargetID, "host-discovery-target", "author", "host.adoption.prepare", true)
 	if err != nil {
 		return generated.HostDiscoveryTarget{}, err
 	}
@@ -197,13 +213,12 @@ func (r *HostAdoptionRepository) applyBinding(ctx context.Context, row discovery
 	if !identity.ValidPrincipal(principal) || (principal.Kind == identity.PrincipalAgent && req.Attribution.Agent == nil) {
 		return generated.HostDiscoveryTarget{}, RevisionToken{}, "", "", adoptionError(generated.ErrorCodeAuthorizationDenied)
 	}
-	ctx = identity.WithVerifiedPrincipal(ctx, principal)
 
-	target, err := r.validate(ctx, row, d.Request, req.Attribution)
+	target, err := r.validatePrincipal(principal, row, d.Request, req.Attribution)
 	if err != nil {
 		return generated.HostDiscoveryTarget{}, RevisionToken{}, "", "", err
 	}
-	if _, err := adoptionGrant(ctx, row, d.ID, "execution-target", "execute", "host.adopt", true); err != nil {
+	if _, err := adoptionPrincipalGrant(principal, row, d.ID, "execution-target", "execute", "host.adopt", true); err != nil {
 		return generated.HostDiscoveryTarget{}, RevisionToken{}, "", "", err
 	}
 	var raw []byte
