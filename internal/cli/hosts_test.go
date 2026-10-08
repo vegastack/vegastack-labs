@@ -1,10 +1,8 @@
 package cli
 
 import (
-	"context"
 	"encoding/json"
 	"github.com/vegastack/vegastack-labs/internal/generated"
-	"github.com/vegastack/vegastack-labs/internal/localapi"
 	"strings"
 	"testing"
 )
@@ -23,82 +21,4 @@ func syntheticHostRequest(t *testing.T, command string) []byte {
 		t.Fatal(err)
 	}
 	return raw
-}
-func (stub *stubControlOperations) DiscoverHost(_ context.Context, _ string, _ generated.HostDiscoveryRequest) (localapi.TypedResponse[generated.HostDiscoverySubmission], error) {
-	stub.calls++
-	return stub.hostDiscoveryResponse, stub.err
-}
-func (stub *stubControlOperations) SubmitHostAdoption(_ context.Context, _ string, _ generated.HostAdoptionRequest) (localapi.TypedResponse[generated.HostAdoptionSubmission], error) {
-	stub.calls++
-	return stub.hostAdoptionResponse, stub.err
-}
-func (stub *stubControlOperations) GetManagedHost(_ context.Context, _, _ string) (localapi.TypedResponse[generated.ManagedHost], error) {
-	stub.calls++
-	return stub.hostInspectResponse, stub.err
-}
-func TestNodeCommandRejectsInputBeforeClient(t *testing.T) {
-	for _, action := range []string{"discover", "add"} {
-		for _, variant := range []string{"missing", "malformed", "oversized", "unknown-field"} {
-			t.Run(action+"/"+variant, func(t *testing.T) {
-				stub := successfulControlOperations(t)
-				raw := syntheticHostRequest(t, "node "+action)
-				args := []string{"node", action, "--config", "profile.json", "--file", "input.json", "--output", "json"}
-				switch variant {
-				case "missing":
-					args = []string{"node", action, "--config", "profile.json", "--output", "json"}
-				case "malformed":
-					raw = []byte("{")
-				case "oversized":
-					raw = append(raw, []byte(strings.Repeat(" ", 16384))...)
-				case "unknown-field":
-					raw = append([]byte(`{"unknown":true,`), raw[1:]...)
-				}
-				code, _, _ := runTestAppWithOptions(t, context.Background(), args, nil, WithControlOperations(stub, &stubFileReader{content: raw}))
-				if code != 2 || stub.calls != 0 {
-					t.Fatalf("code %d calls %d", code, stub.calls)
-				}
-			})
-		}
-	}
-	stub := successfulControlOperations(t)
-	code, _, _ := runTestAppWithOptions(t, context.Background(), []string{"node", "inspect", "--config", "profile.json", "--host-id", "../wrong", "--output", "json"}, nil, WithControlOperations(stub, nil))
-	if code != 2 || stub.calls != 0 {
-		t.Fatalf("invalid ID code %d calls %d", code, stub.calls)
-	}
-}
-
-func TestNodeOutputParityUsesSameServerFacts(t *testing.T) {
-	for _, action := range []string{"discover", "add", "inspect"} {
-		t.Run(action, func(t *testing.T) {
-			stub := successfulControlOperations(t)
-			args := []string{"node", action, "--config", "profile.json"}
-			var files *stubFileReader
-			if action == "inspect" {
-				args = append(args, "--host-id", "host-a")
-			} else {
-				args = append(args, "--file", "input.json")
-				files = &stubFileReader{content: syntheticHostRequest(t, "node "+action)}
-			}
-			code, human, _ := runTestAppWithOptions(t, context.Background(), args, nil, WithControlOperations(stub, files))
-			if code != 0 {
-				t.Fatal(human)
-			}
-			code, raw, _ := runTestAppWithOptions(t, context.Background(), append(args, "--output", "json"), nil, WithControlOperations(stub, files))
-			if code != 0 {
-				t.Fatal(raw)
-			}
-			facts := map[string][]string{"discover": {"observation-a", "target-a", "incomplete"}, "add": {"draft-a", "declaration-a"}, "inspect": {"host-a", "adopted-unadmitted"}}[action]
-			for _, fact := range facts {
-				if !strings.Contains(human, fact) || !strings.Contains(raw, fact) {
-					t.Fatalf("missing fact %s human=%s JSON=%s", fact, human, raw)
-				}
-			}
-			if stub.calls != 2 {
-				t.Fatalf("hidden operation: %d calls", stub.calls)
-			}
-			if action == "add" && (!strings.Contains(human, "only prepares") || strings.Contains(human, "No machine has")) {
-				t.Fatal("inaccurate add claim", human)
-			}
-		})
-	}
 }

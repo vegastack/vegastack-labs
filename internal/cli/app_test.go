@@ -27,6 +27,10 @@ func TestEveryGeneratedCommandHasTruthfulRuntimeBehavior(t *testing.T) {
 		command := command
 		t.Run(strings.Join(command.Path, "_"), func(t *testing.T) {
 			t.Parallel()
+			if command.Availability == generated.AvailabilityAvailable && strings.HasPrefix(commandName(command.Path), "node ") {
+				testNodeCommandThroughTransport(t, command.Path[1])
+				return
+			}
 			operations := &stubReleaseOperations{
 				inspectData: generated.ReleaseInspectData{ReleaseID: "v1.2.3", VerificationStatus: "not-verified"},
 				verifyData: generated.ReleaseVerifyData{
@@ -50,9 +54,6 @@ func TestEveryGeneratedCommandHasTruthfulRuntimeBehavior(t *testing.T) {
 			}
 			if strings.HasPrefix(commandName(command.Path), "credential ") && commandName(command.Path) != generated.CommandNameCredentialImport {
 				files.content = syntheticLifecycleRequest(t, commandName(command.Path))
-			}
-			if commandName(command.Path) == generated.CommandNameNodeDiscover || commandName(command.Path) == generated.CommandNameNodeAdd {
-				files.content = syntheticHostRequest(t, commandName(command.Path))
 			}
 			if commandName(command.Path) == generated.CommandNameSchedulePolicyDraft {
 				files.content, _ = json.Marshal(syntheticScheduledPolicy())
