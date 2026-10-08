@@ -18,18 +18,23 @@ test("the original Phase 2 baseline stays immutable while later waves have exact
   assert.equal(manifest.contract.postPhase2MutationBoundaryDigest, "sha256:ec30a4cc9d4a6e5a3fc9817a55a5b0a1697adcae57b950325edd563637d308a8");
   assert.equal(manifest.contract.productionDependencyDigest, "sha256:a9e8788558fa5c3347b5b8464d8d5e4a67dcc9357e5ae07478b606a806f78133");
   assert.equal(manifest.contract.mutationAvailable, false);
-  assert.equal(manifest.contract.reviewedWaves?.length, 31);
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-2), {
+  assert.equal(manifest.contract.reviewedWaves?.length, 32);
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-3), {
     id: "phase6-issue213-v1",
     issue: 213,
     commands: [],
     imports: [],
     mutationBoundaryDigest: "sha256:f940d0544d5cf9094303d1a0cf8d699bbe5c103992a236aa2a40ec5189f62d2e",
   });
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-1), {
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-2), {
     id: "phase6-issue217-v1", issue: 217, commands: [],
     imports: ["github.com/vegastack/vegastack-labs/internal/adapter/hostdiscovery", "github.com/vegastack/vegastack-labs/internal/hostdiscovery"],
     mutationBoundaryDigest: "sha256:7faf9e31847907a32364104fa88946d9cfcd3b91c6b0b9c0abe1958e3bee2d19",
+  });
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-1), {
+    id: "phase6-issue222-v1", issue: 222, commands: [],
+    imports: ["github.com/vegastack/vegastack-labs/internal/hostadoption"],
+    mutationBoundaryDigest: "sha256:9a9d3879f1cc6b252559d8f04b9f5b5682a95541675811582d6409fb0b96578c",
   });
   assert.equal(manifest.contract.reviewedWaves[0].id, "phase5-issue104-v1");
   assert.deepEqual(manifest.contract.reviewedWaves[0].commands, ["gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft"]);

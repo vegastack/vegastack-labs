@@ -2,6 +2,26 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 08-10-2026 — A machine can be registered without changing it ([#222](https://github.com/vegastack/vegastack-labs/issues/222))
+
+- **What:** An administrator can prepare a registration, review the exact machine identity in the existing plan, approve it and read the saved machine as unadmitted. The operation changes only the control database.
+- **Why:** The operator asked for the smallest useful working slice before additional hardening or advanced recovery.
+- **How it went:** Isolated Linux integration exposed the executor's closed operation list and background identity context; both now use the exact existing authority path. No inventory machines were contacted.
+- **Changed:** Inert registration draft · exact identity confirmation in JSON and readable plans · atomic approved registration · redacted host read.
+- **Decisions:** None; the approved simplicity mandate and administrator confirmation choice were reused. Admission, live discovery prerequisites and role setup remain pending.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/6.4.1-simple-host-registration
+
+## 07-10-2026 — Live application and database hosts are excluded from development
+
+- **What:** Nodes 04 and 05 are explicitly excluded from all direct and indirect operations, including reads and CI. The prepared workflow disables shared-pool scheduling before assignment until safe runner routing can be verified.
+- **Why:** The operator identified live applications and databases on both machines and prohibited any contact.
+- **How it went:** The existing hostname check was too late to prevent runner assignment. GitHub denied runner-label inspection, so no labels were guessed; CI remains suspended. No host was contacted.
+- **Changed:** Standing rules · current planning documents · open issue scopes · scheduling block · denial regression tests.
+- **Decisions:** none; this enforces the operator's explicit operational exclusion. Older workflow revisions must not be dispatched; repository changes still require the normal shipping route.
+
+— approved by (omkarmohanta09) · built by Codex · branch chore/exclude-protected-nodes-04-05
+
 ## 07-10-2026 — Host inspection gains an explicit permission boundary ([#217](https://github.com/vegastack/vegastack-labs/issues/217))
 
 - **What:** The server can prepare an inert permission record for one candidate and collect bounded observations through its API when all prerequisites are qualified. A scan never approves a machine to host workloads. Production activation and credentials remain blocked where qualification is unavailable.

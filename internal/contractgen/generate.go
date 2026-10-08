@@ -709,7 +709,7 @@ func renderGo(registry metadata.Registry) ([]byte, error) {
 	for _, schema := range registry.Schemas {
 		fmt.Fprintf(&output, "type %s struct {\n", schemaGoName(schema.ID))
 		for _, field := range schema.Fields {
-			fmt.Fprintf(&output, "\t%s %s `json:%s`\n", field.GoName, goFieldType(field), strconv.Quote(field.JSONName))
+			fmt.Fprintf(&output, "\t%s %s `json:%s`\n", field.GoName, goFieldType(field), strconv.Quote(fieldJSONTag(field)))
 		}
 		output.WriteString("}\n\n")
 	}
@@ -1009,4 +1009,11 @@ func markdownText(value string) string {
 	value = strings.ReplaceAll(value, "|", "\\|")
 	value = strings.ReplaceAll(value, "\r", " ")
 	return strings.ReplaceAll(value, "\n", " ")
+}
+
+func fieldJSONTag(field metadata.FieldDefinition) string {
+	if field.OmitEmpty && !field.Required {
+		return field.JSONName + ",omitempty"
+	}
+	return field.JSONName
 }

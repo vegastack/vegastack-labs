@@ -74,6 +74,8 @@ jobs:
   verify_trusted:
     name: Public foundation checks
     needs: plan
+    # Shared-pool routing cannot guarantee exclusion of nodes 04/05; block scheduling.
+    if: ${{ false }}
     runs-on: [self-hosted, linux, x64, vsk-runner]
     timeout-minutes: 25
     steps:
@@ -85,7 +87,7 @@ jobs:
         run: |
           if [ "$FULL_CHECK" = true ] && [ -z "$NATIVE_CREDENTIAL_SHA" ] && [ "$BACKUP_ACCEPTANCE" != true ]; then
             case "$(hostname)" in
-              vsk-node-01|vsk-node-05|vsk-node-06|vsk-node-07|vsk-node-08) ;;
+              vsk-node-01|vsk-node-06|vsk-node-07|vsk-node-08) ;;
               *) echo "Refusing unapproved ordinary CI runner" >&2; exit 1 ;;
             esac
           else

@@ -1,8 +1,26 @@
 # Host onboarding and hardening
 
+> **Working-first scope correction (08-10-2026):** Additional hardening and advanced recovery below are deferred. Build a small useful end-to-end feature using existing platform components first. Historical control requirements are not completed or waived as qualification evidence. The [simplicity mandate](../AGENTS.md#working-first--simplicity-mandate) and protected-host exclusion control current work.
+
+> **Current operational exclusion (07-10-2026):** `vsk-node-04` and `vsk-node-05` host live applications/databases and must not be contacted or operated, including read-only discovery, CI and indirect provider/controller actions. Historical role assignments below grant no permission. See the [hard exclusion](../AGENTS.md#protected-live-hosts--hard-exclusion).
+
 Status: confirmed outcomes and selected Debian design, with real-OS profile qualification pending. The user requires basic hardening on every added managed host and has clarified that Ansible should perform the configuration needed for lab admission. SSH-only Fail2ban, bounded auditd and AIDE for the control role, daily/after-change checks, and separate native security-data updates remain selected. Issue 6.2 records the [Debian 13 settings and disposable-test strategy](development/debian-13-host-hardening.md); they are not implemented roles or live evidence. Mac mini/iMac enforcement and test-target selection move to a later Phase 6 batch **within v1**; their existing requirements remain. [D-116](decisions-and-sources.md#d-116) · [D-119](decisions-and-sources.md#d-119) · [D-126–D-130](decisions-and-sources.md#d-126)
 
 [Security policy](security-and-operations.md) · [Automation and support matrix](automation-and-agents.md#os-and-architecture-support-matrix) · [Development roadmap](development/roadmap.md)
+
+## Database registration — working-first slice
+
+Issue [#222](https://github.com/vegastack/vegastack-labs/issues/222) adds registration of an already observed Debian candidate through the existing server API. Registration writes only the control database. It does not connect to a host, install software, create credentials, assign roles, or qualify either admission gate.
+
+1. Use an existing current observation and its exact content digest. Confirm the actual machine independently against the pinned target key: product serial for a physical machine, product UUID for a qualified virtual machine. Record the identity digest, target binding digest/revision and confirmation time in `HostIdentityConfirmation`.
+2. Submit `HostAdoptionRequest` to `POST /api/v1/host-adoptions/draft` with an explicit host ID, observation ID/digest, expected state revision, recovery epoch and idempotency key. The exact target preparation grant and declaration-author grant are required. This creates an inert draft, not a host.
+3. Prepare and create the existing declaration plan. Read both its canonical JSON `hostAdoption` and readable administrator-attestation text; check the machine, identity class/kind/digest and target key binding before acknowledging. The existing human branch requires control-plane-admin approval; registration cannot use a preauthorized branch.
+4. Apply that exact plan through the existing run engine. Current execution and preparation grants, current approving-human grant, target binding, observation freshness, recovery epoch and active execution lease are rechecked before the atomic host/audit write. Competing registrations cannot reuse a host, target or confirmed identity.
+5. Read `GET /api/v1/hosts/{hostID}` with the exact `host.read` grant. Its projection is `adopted-unadmitted` and omits raw serials, addresses and credentials. This is the same procedure for a human or agent; the agent cannot supply its own human approval.
+
+An expired or conflicting observation requires a new permitted observation and new plan; existing host registration is immutable and replacement is outside this slice. Existing Debian major-version targets may register a matching Debian 13 observation; a target declaring 13.6 requires that exact observed point version. Neither case establishes OS hardening or qualification. Missing disk/memory/thermal facts remain missing and unrelated hardening blockers stay unresolved.
+
+Production discovery credential/recovery prerequisites remain blocked from Issue #217. Repository tests use synthetic observations, temporary databases and a separately approved isolated Linux environment; they are not live fleet evidence. CLI integration belongs to Issue #232. Nodes 04/05 remain entirely excluded, including reads and indirect effects.
 
 ## Outcome and scope
 

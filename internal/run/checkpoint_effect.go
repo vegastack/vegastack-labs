@@ -145,9 +145,12 @@ func checkpointDigest(data []byte) audit.Fingerprint {
 	return audit.Fingerprint("sha256:" + hex.EncodeToString(sum[:]))
 }
 
-type CoreRouter struct{ Gate, Checkpoint, Recovery, Schedule, ScheduleObserve, DiscoveryTarget CoreEffect }
+type CoreRouter struct{ Gate, Checkpoint, Recovery, Schedule, ScheduleObserve, DiscoveryTarget, Adoption CoreEffect }
 
 func (router CoreRouter) Execute(ctx context.Context, binding ExactStepBinding) (adapter.Effect, error) {
+	if binding.Step.AdapterID == "core.host-adoption" && router.Adoption != nil {
+		return router.Adoption.Execute(ctx, binding)
+	}
 	if binding.Step.AdapterID == "core.host-discovery-target" && router.DiscoveryTarget != nil {
 		return router.DiscoveryTarget.Execute(ctx, binding)
 	}
@@ -170,6 +173,9 @@ func (router CoreRouter) Execute(ctx context.Context, binding ExactStepBinding) 
 }
 
 func (router CoreRouter) Verify(ctx context.Context, binding ExactStepBinding, result adapter.Effect) (adapter.Verification, error) {
+	if binding.Step.AdapterID == "core.host-adoption" && router.Adoption != nil {
+		return router.Adoption.Verify(ctx, binding, result)
+	}
 	if binding.Step.AdapterID == "core.host-discovery-target" && router.DiscoveryTarget != nil {
 		return router.DiscoveryTarget.Verify(ctx, binding, result)
 	}

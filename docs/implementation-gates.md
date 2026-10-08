@@ -1,5 +1,7 @@
 # Implementation gates and evidence procedures
 
+> **Current operational exclusion (07-10-2026):** `vsk-node-04` and `vsk-node-05` host live applications/databases and must not be contacted or operated, including read-only discovery, CI and indirect provider/controller actions. Historical role assignments below grant no permission. See the [hard exclusion](../AGENTS.md#protected-live-hosts--hard-exclusion).
+
 This appendix turns every remaining audit item into an executable gate. It does not claim that physical inspection, provider configuration, real-host testing or a production mutation occurred. A design can be closed in this specification while its activation evidence remains required.
 
 The portable platform owns the gate/evidence model. Concrete serials, node candidates, provider choices and phase numbers below belong to the VegaStack Labs deployment profile. [Architecture boundary](../README.md#architecture-boundary)

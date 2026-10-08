@@ -1,5 +1,9 @@
 # Full-scope development roadmap
 
+> **Working-first scope correction (08-10-2026):** Additional hardening and advanced recovery below are deferred. Build a small useful end-to-end feature using existing platform components first. Historical control requirements are not completed or waived as qualification evidence. The [simplicity mandate](../../AGENTS.md#working-first--simplicity-mandate) and protected-host exclusion control current work.
+
+> **Current operational exclusion (07-10-2026):** `vsk-node-04` and `vsk-node-05` host live applications/databases and must not be contacted or operated, including read-only discovery, CI and indirect provider/controller actions. Historical role assignments below grant no permission. See the [hard exclusion](../../AGENTS.md#protected-live-hosts--hard-exclusion).
+
 Status: phase boundaries and complete scope allocation approved by the user on 26-08-2026. Phases 0 through 5 are explicitly accepted. [Phase 4](phases/04-declarations-plans-authorization-execution.md) was accepted on 14-09-2026 at exact `main` commit `6bbb81231644c84ef34c8633e9de5671a4186180`. [Phase 5](phases/05-evidence-secrets-backups-recovery.md) was accepted on 28-09-2026 at exact `main` commit `9a433b43b59030285607435a8326814a311f3687`. Phase 6 Issue 6.3 is the current approved development batch; later phase solutions and operational authority retain their separate approvals.
 
 Rollout timing confirmed on 26-08-2026: finish and verify the complete v1 platform before the first lab onboarding rehearsal. Isolated implementation tests still run throughout development; the inventory fleet is not an early deployment pilot. [D-117](../decisions-and-sources.md#d-117)

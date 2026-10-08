@@ -1,5 +1,7 @@
 # Contributing
 
+> **Current operational exclusion (07-10-2026):** `vsk-node-04` and `vsk-node-05` host live applications/databases and must not be contacted or operated, including read-only discovery, CI and indirect provider/controller actions. Historical role assignments below grant no permission. See the [hard exclusion](AGENTS.md#protected-live-hosts--hard-exclusion).
+
 VegaStack Labs uses a credential-free public development lane. Read [AGENTS.md](AGENTS.md) and the [development mandate](docs/development/operating-mandate.md) before changing code.
 
 ## Toolchain

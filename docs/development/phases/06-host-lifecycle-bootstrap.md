@@ -1,6 +1,33 @@
 # Phase 6 — Host lifecycle and control-plane bootstrap
 
+## Working first — simplicity mandate
+
+Operator instruction on 08-10-2026: build the smallest useful working cluster-management executable first. Reuse the existing `vsk-labs` executable, server-owned SQLite, API, authorization and plan/acknowledgement flow. Do not add services, daemons, signing systems, trust ceremonies, proof registries, generic frameworks or advanced recovery machinery merely to anticipate future needs. Every new component must be necessary for the immediate working feature; prefer extending an existing path.
+
+Additional hardening and advanced recovery are deferred until a concrete need is established and their scope is separately agreed. The earlier comprehensive Phase 6 brief approval does not require implementing those additions now. Supersede the expanded plans and revise the delivery order around a small end-to-end working slice. Do not report deferred controls or full-v1/native acceptance as passed, and do not describe a registered machine as security-qualified.
+
+Keep the existing basic authorization, explicit mutation approval, secret handling and data-preservation boundaries. Nodes04/05 remain absolutely excluded, including reads, CI and indirect effects. This simplicity mandate grants no live access, deployment, VM operation, release or permission to bypass existing checks. It changes development priority and implementation scope, not infrastructure authority.
+
+
+## Protected live hosts — hard exclusion
+
+Operator instruction on 07-10-2026: **`vsk-node-04` and `vsk-node-05` are out of scope until the operator explicitly lifts this exclusion for named targets and actions.** They host live applications and databases. This supersedes earlier read-only permission, CI-pool permission, role assignments and test-host exceptions for these machines.
+
+- No connection or operation: no SSH, discovery, probes, read-only inspection, CI jobs, deployment, installation, configuration, service changes, restarts, reboot, shutdown, backup/restore, credential rotation/revocation, deletion or formatting.
+- The exclusion follows the physical machines through IP addresses, DNS names, aliases, inventory IDs, role names and runner identities. Never bypass it by renaming a target or using a provider, controller, shared network/service or wildcard group. Exclude indirect actions that could affect their workloads, databases, connectivity or credentials.
+- Before any authorized infrastructure operation, resolve its full target set from already available records without contacting these hosts. If identity or indirect impact cannot be ruled out, stop before connecting. Do not use either host as a proxy, controller, test machine or recovery target.
+- Historical inventory and synthetic fixtures may retain their names; those records confer no operational permission. No replacement control host is selected by this exclusion.
+- Do not dispatch CI from any revision using the shared `vsk-runner` selector. A hostname check after assignment is insufficient. The self-hosted job is disabled pending verified scheduling labels/groups that exclude both hosts before assignment and review of the replacement workflow. Never modify runner services or registrations on these hosts to achieve the exclusion.
+- General batch, implementation, test or deployment approval does not lift this rule. Other real targets still require their own scoped approval.
+
+
 Issue 6.3 solution approved on 07-10-2026 against `b9074cc675a7862b0878c60ef8ec135bc91ebabb`. This records the approved 6.3 development batch; it grants no operational authority.
+
+## Working-first registration delivery — 08-10-2026
+
+The operator approved reduced briefs and concrete plan v2 for [#222](https://github.com/vegastack/vegastack-labs/issues/222) and [#232](https://github.com/vegastack/vegastack-labs/issues/232). Issue #222 extends the existing API and plan/acknowledgement/run engine with one `host.adopt` database effect and an `adopted-unadmitted` read projection. The immutable plan includes the administrator's exact identity/target confirmation in JSON and readable form. There are no new signing systems, services, host-side actions or admission claims.
+
+Issue #232 consumes these contracts after #222 integration. Other Phase 6 implementation remains deferred under the simplicity mandate. Registration tests cover synthetic identity, stale/current grants, exact approval/lease binding, duplicates, audit rollback and unchanged admission state. Isolated Linux software integration requires its own explicit environment approval; it does not qualify a real OS baseline or authorize fleet onboarding.
 
 ## Destination and existing decisions
 
@@ -8,7 +35,7 @@ Implement a portable path from a named untrusted candidate to separately approve
 
 ## Ownership map
 
-These are development IDs, not permission to create or execute every future issue. Preserve already published references. Only 6.3 is the approved current implementation batch.
+These are development IDs, not permission to create or execute every future issue. Preserve already published references. The earlier 6.3 batch below is historical. The separately approved working-first batch on 08-10-2026 is #222 database registration followed by #232 CLI integration; expanded hardening/recovery work stays deferred.
 
 | ID | Outcome / dependency |
 |---|---|

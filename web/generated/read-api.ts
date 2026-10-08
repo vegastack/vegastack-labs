@@ -627,6 +627,29 @@ export interface GateView {
   readonly "applicabilityReasonCode": string;
 }
 
+export interface HostAdoptionRequest {
+  readonly "schema": "vegastack-labs.dev/host-adoption-request";
+  readonly "schemaVersion": "1.0.0";
+  readonly "hostId": string;
+  readonly "observationId": string;
+  readonly "observationDigest": string;
+  readonly "idempotencyKey": string;
+  readonly "expectedStateRevision": number;
+  readonly "recoveryEpoch": number;
+  readonly "confirmation": HostIdentityConfirmation;
+}
+
+export interface HostIdentityConfirmation {
+  readonly "schema": "vegastack-labs.dev/host-identity-confirmation";
+  readonly "schemaVersion": "1.0.0";
+  readonly "targetDigest": string;
+  readonly "targetRevision": number;
+  readonly "identityDigest": string;
+  readonly "identityClass": "physical" | "qualified-virtual";
+  readonly "identityKind": "product-serial" | "product-uuid";
+  readonly "confirmedAt": string;
+}
+
 export interface InventoryDraftCounts {
   readonly "assets": number;
   readonly "nodes": number;
@@ -674,6 +697,7 @@ export interface Plan {
   readonly "createdAt": string;
   readonly "expiresAt": string;
   readonly "readableDigest": string;
+  readonly "hostAdoption"?: HostAdoptionRequest | null;
   readonly "extensions": ReadonlyArray<ContractExtension>;
 }
 
@@ -4376,6 +4400,149 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/host-adoption-request",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/host-adoption-request"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "hostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "observationId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "observationDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "idempotencyKey",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "expectedStateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "confirmation",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/host-identity-confirmation"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/host-identity-confirmation",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/host-identity-confirmation"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "targetDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "targetRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "identityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "identityClass",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "physical",
+          "qualified-virtual"
+        ]
+      },
+      {
+        "name": "identityKind",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "product-serial",
+          "product-uuid"
+        ]
+      },
+      {
+        "name": "confirmedAt",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/inventory-draft-counts",
     "fields": [
       {
@@ -4695,6 +4862,13 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "hostAdoption",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "ref": "vegastack-labs.dev/host-adoption-request"
       },
       {
         "name": "extensions",
@@ -5633,6 +5807,14 @@ function decodeGateListData(value: unknown): GateListData {
 
 function decodeGateView(value: unknown): GateView {
   return decodeSchema("vegastack-labs.dev/gate-view", value) as unknown as GateView;
+}
+
+function decodeHostAdoptionRequest(value: unknown): HostAdoptionRequest {
+  return decodeSchema("vegastack-labs.dev/host-adoption-request", value) as unknown as HostAdoptionRequest;
+}
+
+function decodeHostIdentityConfirmation(value: unknown): HostIdentityConfirmation {
+  return decodeSchema("vegastack-labs.dev/host-identity-confirmation", value) as unknown as HostIdentityConfirmation;
 }
 
 function decodeInventoryDraftCounts(value: unknown): InventoryDraftCounts {

@@ -178,3 +178,19 @@ test("the reviewed discovery routes remain exact", async (t) => {
   const root = await fixtureRepo(t, {"schemas/v1/endpoint-registry.json": JSON.stringify(extra)});
   assert.ok((await verifyReadAPI(root)).codes.includes("READ_API_ENDPOINT_DRIFT"));
 });
+
+test("the reviewed #222 registration routes remain closed and exact", async (t) => {
+  const registry = JSON.parse(await readFile(path.join(process.cwd(), "schemas/v1/endpoint-registry.json"), "utf8"));
+  assert.equal((await verifyReadAPI()).status, "pass");
+  for (const id of ["api.v1.host-adoptions.draft", "api.v1.hosts.get"]) {
+    for (const mutation of ["remove", "method", "path", "dataSchema", "audiences", "extra"]) {
+      const copy = structuredClone(registry);
+      const endpoint = copy.endpoints.find((value) => value.id === id);
+      if (mutation === "remove") copy.endpoints = copy.endpoints.filter((value) => value.id !== id);
+      else if (mutation === "extra") copy.endpoints.push({...endpoint, id: "api.v1.hosts.admit"});
+      else endpoint[mutation] = mutation === "audiences" ? ["operator", "browser"] : "unreviewed";
+      const root = await fixtureRepo(t, {"schemas/v1/endpoint-registry.json": JSON.stringify(copy)});
+      assert.ok((await verifyReadAPI(root)).codes.includes("READ_API_ENDPOINT_DRIFT"), `${id}/${mutation}`);
+    }
+  }
+});

@@ -1,0 +1,71 @@
+{
+  "$id": "vegastack-labs.dev/managed-host",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "hostId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "identityClass": {
+      "enum": [
+        "physical",
+        "qualified-virtual"
+      ],
+      "type": "string"
+    },
+    "observationId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "profileId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/managed-host"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "stateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "status": {
+      "enum": [
+        "adopted-unadmitted"
+      ],
+      "type": "string"
+    },
+    "targetId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "hostId",
+    "targetId",
+    "observationId",
+    "profileId",
+    "identityClass",
+    "status",
+    "stateRevision",
+    "recoveryEpoch"
+  ],
+  "title": "VegaStack Labs managed host",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

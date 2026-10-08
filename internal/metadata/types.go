@@ -145,6 +145,7 @@ type SchemaDefinition struct {
 }
 
 type FieldDefinition struct {
+	OmitEmpty            bool // Omit an absent optional pointer from canonical Go JSON.
 	JSONName             string
 	GoName               string
 	Kind                 ValueKind

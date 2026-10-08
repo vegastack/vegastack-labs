@@ -34,6 +34,11 @@ func readablePlan(plan generated.Plan) string {
 	for _, operation := range plan.Operations {
 		fmt.Fprintf(&body, "%d. %s %s via %s/%s on %s input=%s artifact=%s idempotent=%t\n", operation.Sequence, operation.OperationID, operation.OperationType, operation.AdapterID, operation.ExecutorID, operation.TargetID, operation.InputDigest, operation.ArtifactDigest, operation.Idempotent)
 	}
+	if plan.HostAdoption != nil {
+		r := plan.HostAdoption
+		c := r.Confirmation
+		fmt.Fprintf(&body, "Register host %s as adopted-unadmitted; no machine changes.\nTarget revision %d binding/key digest %s\nIdentity %s/%s digest %s; confirmed %s\nAdministrator attestation: I independently verified this exact machine and its identity against the pinned target key. Acknowledging this plan approves that confirmation, not workload admission.\n", r.HostID, c.TargetRevision, c.TargetDigest, c.IdentityClass, c.IdentityKind, c.IdentityDigest, c.ConfirmedAt)
+	}
 	return body.String()
 }
 

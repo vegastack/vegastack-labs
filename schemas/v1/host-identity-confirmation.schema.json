@@ -1,0 +1,62 @@
+{
+  "$id": "vegastack-labs.dev/host-identity-confirmation",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "confirmedAt": {
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": "string"
+    },
+    "identityClass": {
+      "enum": [
+        "physical",
+        "qualified-virtual"
+      ],
+      "type": "string"
+    },
+    "identityDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "identityKind": {
+      "enum": [
+        "product-serial",
+        "product-uuid"
+      ],
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/host-identity-confirmation"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "targetDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "targetRevision": {
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "targetDigest",
+    "targetRevision",
+    "identityDigest",
+    "identityClass",
+    "identityKind",
+    "confirmedAt"
+  ],
+  "title": "VegaStack Labs host identity confirmation",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

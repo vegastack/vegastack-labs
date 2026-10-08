@@ -4658,6 +4658,16 @@
       "artifactPath": "schemas/v1/gate-view.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/host-adoption-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-adoption-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/host-adoption-submission",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-adoption-submission.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/host-discovery-fact",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/host-discovery-fact.schema.json"
@@ -4696,6 +4706,11 @@
       "id": "vegastack-labs.dev/host-identity",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/host-identity.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/host-identity-confirmation",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-identity-confirmation.schema.json"
     },
     {
       "id": "vegastack-labs.dev/host-observation",
@@ -4835,6 +4850,11 @@
       "id": "vegastack-labs.dev/local-retention-lock-catalog",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/local-retention-lock-catalog.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/managed-host",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/managed-host.schema.json"
     },
     {
       "id": "vegastack-labs.dev/offsite-run-spec",
