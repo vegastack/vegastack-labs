@@ -116,6 +116,13 @@ func (r *HostDiscoveryRepository) ApplyTarget(ctx context.Context, request Disco
 		if op.AdapterID != "core.host-discovery-target" || op.OperationType != "host.discovery-target."+draft.Request.Action || op.TargetID != draft.ID || op.InputDigest != draft.Digest || op.ArtifactDigest != draft.Digest {
 			return discoveryError(generated.ErrorCodePlanStale)
 		}
+		if draft.Request.Target.CredentialMode != nil {
+			if hostdiscovery.ValidateConsoleConfirmation(draft.Request) != nil || plan.HostDiscoveryTarget == nil || hostdiscovery.Digest(*plan.HostDiscoveryTarget) != draft.Digest {
+				return discoveryError(generated.ErrorCodePlanStale)
+			}
+		} else if plan.HostDiscoveryTarget != nil {
+			return discoveryError(generated.ErrorCodePlanStale)
+		}
 		var current RevisionToken
 		if err := tx.QueryRowContext(ctx, `SELECT state_revision,recovery_epoch FROM system_meta WHERE id=1`).Scan(&current.StateRevision, &current.RecoveryEpoch); err != nil {
 			return err
@@ -127,6 +134,21 @@ func (r *HostDiscoveryRepository) ApplyTarget(ctx context.Context, request Disco
 		err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM plan_runs r JOIN acknowledgement_requests a ON a.acknowledgement_id=r.acknowledgement_id JOIN plan_run_steps s ON s.run_id=r.run_id JOIN target_execution_leases l ON l.lease_id=s.active_lease_id WHERE r.run_id=? AND r.plan_id=? AND r.plan_digest=? AND r.status='running' AND a.status='approved' AND a.consumed_at IS NOT NULL AND a.plan_digest=? AND s.step_id=? AND s.target_id=? AND s.input_digest=? AND s.artifact_digest=? AND s.effect_state='intent-recorded' AND s.status='running' AND l.lease_id=? AND l.status='active' AND l.run_id=r.run_id AND l.step_id=s.step_id AND l.target_id=s.target_id AND r.executor_mode='central' AND r.recovery_epoch=a.recovery_epoch AND a.recovery_epoch=l.recovery_epoch AND a.plan_id=r.plan_id AND s.adapter_id='core.host-discovery-target' AND l.expires_at>? AND l.recovery_epoch=?`, request.RunID, request.PlanID, request.PlanDigest, request.PlanDigest, request.StepID, draft.ID, draft.Digest, draft.Digest, request.LeaseID, r.store.config.Clock().UTC().Format(time.RFC3339), epoch).Scan(&count)
 		if err != nil || count != 1 {
 			return discoveryError(generated.ErrorCodeApprovalRequired)
+		}
+		if draft.Request.Target.CredentialMode != nil {
+			var human string
+			if err := tx.QueryRowContext(ctx, `SELECT a.human_id FROM plan_runs r JOIN acknowledgement_requests a ON a.acknowledgement_id=r.acknowledgement_id WHERE r.run_id=?`, request.RunID).Scan(&human); err != nil {
+				return discoveryError(generated.ErrorCodeApprovalRequired)
+			}
+			if request.Attribution.ResponsibleHumanPrincipalID == nil || *request.Attribution.ResponsibleHumanPrincipalID != human {
+				return discoveryError(generated.ErrorCodeAuthorizationDenied)
+			}
+			if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM effective_authorization_principals p JOIN effective_authorization_grants g ON g.principal_id=p.principal_id AND g.grant_revision=p.grant_revision WHERE p.principal_id=? AND p.principal_kind='human' AND p.status='active' AND g.status='active' AND g.role_id='control-plane-admin' AND g.action='acknowledge' AND g.branch='human' AND g.capability='plan.acknowledge' AND g.resource_kind='plan-target' AND g.resource_id=?`, human, draft.ID).Scan(&count); err != nil || count == 0 {
+				return discoveryError(generated.ErrorCodeAuthorizationDenied)
+			}
+			if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM effective_authorization_principals p JOIN effective_authorization_grants g ON g.principal_id=p.principal_id AND g.grant_revision=p.grant_revision JOIN audit_events a ON a.principal_id=p.principal_id WHERE p.principal_id=? AND p.status='active' AND a.event_type='run.created' AND a.correlation_id=? AND a.principal_method=? AND g.status='active' AND g.role_id='control-plane-admin' AND g.action='execute' AND g.branch='human' AND g.capability=? AND g.resource_kind='execution-target' AND g.resource_id=?`, request.Attribution.AuthenticatedPrincipalID, request.RunID, request.Attribution.AuthenticatedPrincipalMethod, op.OperationType, draft.ID).Scan(&count); err != nil || count == 0 {
+				return discoveryError(generated.ErrorCodeAuthorizationDenied)
+			}
 		}
 		var latest int64
 		if err := tx.QueryRowContext(ctx, `SELECT COALESCE(MAX(revision),0) FROM host_discovery_targets WHERE target_id=?`, draft.Request.Target.TargetID).Scan(&latest); err != nil {

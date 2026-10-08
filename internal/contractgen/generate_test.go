@@ -261,6 +261,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/gate-view.schema.json",
 		"schemas/v1/host-adoption-request.schema.json",
 		"schemas/v1/host-adoption-submission.schema.json",
+		"schemas/v1/host-discovery-console-confirmation.schema.json",
 		"schemas/v1/host-discovery-fact.schema.json",
 		"schemas/v1/host-discovery-request.schema.json",
 		"schemas/v1/host-discovery-submission.schema.json",
@@ -747,8 +748,8 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 			}
 		}
 	}
-	if available != 51 || planned != 24 {
-		t.Fatalf("command availability = (%d available, %d planned), want (51, 24)", available, planned)
+	if available != 54 || planned != 21 {
+		t.Fatalf("command availability = (%d available, %d planned), want (54, 21)", available, planned)
 	}
 	// #102's 17 available/38 planned baseline remains the arithmetic base:
 	// #104 promoted four exact gate commands and added one exact profile draft;

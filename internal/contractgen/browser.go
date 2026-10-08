@@ -74,7 +74,7 @@ func browserSchemaGraph(registry metadata.Registry, endpoints []metadata.Endpoin
 			return artifactError("GENERATED_SCHEMA_MISSING", browserClientPath)
 		}
 		for _, field := range definition.Fields {
-			if browserSecretField(field.JSONName) || (field.AdditionalProperties && !browserEnvelopeDataField(definition.ID, field.JSONName)) {
+			if (browserSecretField(field.JSONName) && !discoveryPublicPlanField(definition.ID, field.JSONName)) || (field.AdditionalProperties && !browserEnvelopeDataField(definition.ID, field.JSONName)) {
 				return artifactError("GENERATED_BROWSER_SCHEMA_UNSAFE", browserClientPath)
 			}
 			for _, reference := range []string{field.Ref, field.ItemRef} {
@@ -949,4 +949,13 @@ func browserType(field metadata.FieldDefinition) string {
 		value += " | null"
 	}
 	return value
+}
+
+// These exact discovery plan fields carry references and a public fingerprint,
+// never private key bytes. Other credential-shaped browser fields remain denied.
+func discoveryPublicPlanField(schemaID, name string) bool {
+	if schemaID != "vegastack-labs.dev/host-discovery-target" {
+		return false
+	}
+	return name == "credentialReferenceId" || name == "credentialMode" || name == "credentialPublicKeyDigest"
 }

@@ -101,7 +101,7 @@ func discoveryAcceptanceFlow(t *testing.T, qualified bool, pointVersion, expecte
 	if err != nil {
 		t.Fatal(err)
 	}
-	plans, err := planengine.NewService(planengine.Config{Repository: revisions, Observations: observations, Clock: time.Now, PolicyVersion: "1.0.0", ToolVersion: "1.0.0", ContractVersion: "1.0.0", Risk: "destructive", AuthorizationBranch: "human", ExecutorMode: "central", OperationExecutorID: "executor-central"})
+	plans, err := planengine.NewService(planengine.Config{HostDiscoveryTargets: repo, Repository: revisions, Observations: observations, Clock: time.Now, PolicyVersion: "1.0.0", ToolVersion: "1.0.0", ContractVersion: "1.0.0", Risk: "destructive", AuthorizationBranch: "human", ExecutorMode: "central", OperationExecutorID: "executor-central"})
 	if err != nil {
 		t.Fatal(err)
 	}

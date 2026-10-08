@@ -226,7 +226,7 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	plans, err := planengine.NewService(planengine.Config{HostAdoptions: store.NewHostAdoptionRepository(authority), Repository: planRepository, Observations: observations, Clock: time.Now, PolicyVersion: "1.0.0", ToolVersion: operations.build.ToolVersion, ContractVersion: "1.0.0", Risk: "destructive", AuthorizationBranch: "human", ExecutorMode: "central", OperationExecutorID: "executor-central"})
+	plans, err := planengine.NewService(planengine.Config{HostDiscoveryTargets: store.NewHostDiscoveryRepository(authority), HostAdoptions: store.NewHostAdoptionRepository(authority), Repository: planRepository, Observations: observations, Clock: time.Now, PolicyVersion: "1.0.0", ToolVersion: operations.build.ToolVersion, ContractVersion: "1.0.0", Risk: "destructive", AuthorizationBranch: "human", ExecutorMode: "central", OperationExecutorID: "executor-central"})
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err
@@ -376,7 +376,7 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		return err
 	}
 	discoveryRepository := store.NewHostDiscoveryRepository(authority)
-	discoveryEffect := &runengine.HostDiscoveryTargetEffect{Repository: discoveryRepository, Approvals: store.NewAcknowledgementRepository(authority), RecoveryPrecheck: runengine.UnavailableGateVerifier{}}
+	discoveryEffect := &runengine.HostDiscoveryTargetEffect{Repository: discoveryRepository, Approvals: store.NewAcknowledgementRepository(authority), RecoveryPrecheck: discoveryConsoleGate{targets: discoveryRepository, fallback: runengine.UnavailableGateVerifier{}}}
 	coreRouter := runengine.CoreRouter{Adoption: &runengine.HostAdoptionEffect{Repository: store.NewHostAdoptionRepository(authority), Approvals: store.NewAcknowledgementRepository(authority)}, DiscoveryTarget: discoveryEffect, Gate: coreGate, Recovery: recoveryCore, Schedule: scheduleCore, ScheduleObserve: scheduleObserver}
 	credentialRepository := store.NewCredentialRepository(authority)
 	if err := api.RegisterHostAdoptionOperations(application, api.HostAdoptionOperations{Hosts: store.NewHostAdoptionRepository(authority), Declarations: declarations, Results: factory}); err != nil {

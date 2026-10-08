@@ -2,6 +2,11 @@ package plan
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
+	"github.com/vegastack/vegastack-labs/internal/hostdiscovery"
+	"golang.org/x/crypto/ssh"
+	"strings"
 	"testing"
 	"time"
 
@@ -17,6 +22,10 @@ func TestCreateDerivesSealedSingleDiscoveryTargetRisk(t *testing.T) {
 	declaration.Extensions = []generated.ContractExtension{}
 	repository := &fakePlanRepository{declaration: declaration, current: store.RevisionToken{StateRevision: 9, RecoveryEpoch: 2}}
 	service := newTestService(t, repository, &fakeObservations{fingerprint: testDigestString("b")}, func() time.Time { return time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC) })
+	draft := discoveryPlanDraft(t)
+	service.config.HostDiscoveryTargets = discoveryPlanReader{draft}
+	repository.declaration.Operations[0].InputDigest = draft.Digest
+	repository.declaration.Operations[0].ArtifactDigest = draft.Digest
 	request := validRequest()
 	request.Extensions = declaration.Extensions
 	created, err := service.Create(context.Background(), AuthorScope{PrincipalID: "principal-test", PrincipalMethod: "local-os-peer"}, request)
@@ -64,4 +73,17 @@ func TestCreateRejectsUnsealedOrBroadenedDiscoveryTargetPlan(t *testing.T) {
 			}
 		})
 	}
+}
+
+type discoveryPlanReader struct{ draft store.DiscoveryDraft }
+
+func (r discoveryPlanReader) GetDraft(context.Context, string) (store.DiscoveryDraft, error) {
+	return r.draft, nil
+}
+func discoveryPlanDraft(t *testing.T) store.DiscoveryDraft {
+	_, private, _ := ed25519.GenerateKey(rand.Reader)
+	key, _ := ssh.NewSignerFromKey(private)
+	target := generated.HostDiscoveryTarget{Schema: generated.SchemaIDHostDiscoveryTarget, SchemaVersion: "1.0.0", TargetID: "synthetic", Revision: 1, Address: "127.0.0.1", Port: 2222, User: "inspect", HostKey: strings.TrimSpace(string(ssh.MarshalAuthorizedKey(key.PublicKey()))), ProfileID: "profile-a", CredentialReferenceID: "key-a", MaterialVersion: "v1", ExpectedOS: "debian", ExpectedVersion: "13", ExpectedArchitecture: "amd64"}
+	r := generated.HostDiscoveryTargetDraftRequest{Schema: generated.SchemaIDHostDiscoveryTargetDraftRequest, SchemaVersion: "1.0.0", Target: target, Action: "activate", IdempotencyKey: "fixture"}
+	return store.DiscoveryDraft{ID: "target-discovery", Digest: hostdiscovery.Digest(r), Request: r}
 }
