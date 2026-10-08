@@ -382,7 +382,7 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 	if err := api.RegisterHostAdoptionOperations(application, api.HostAdoptionOperations{Hosts: store.NewHostAdoptionRepository(authority), Declarations: declarations, Results: factory}); err != nil {
 		return err
 	}
-	if err := registerHostDiscovery(application, authority, adapters, declarations, factory); err != nil {
+	if err := registerHostDiscovery(application, authority, adapters, declarations, factory, profile.SocketOwnerUID); err != nil {
 		_ = application.Shutdown(ctx)
 		return err
 	}
