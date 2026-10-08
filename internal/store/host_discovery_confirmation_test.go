@@ -13,7 +13,7 @@ import (
 // These repository tests deliberately seed persisted engine records to challenge
 // the transaction boundary. Full API/engine acceptance uses no such seeding.
 func TestConfirmedDiscoveryTransactionAuthorization(t *testing.T) {
-	for _, mode := range []string{"valid", "missing-ack", "unconsumed-ack", "wrong-ack", "embedded-confirmation", "input-binding", "unknown-operation", "revoked-human", "revoked-executor"} {
+	for _, mode := range []string{"valid", "missing-ack", "unconsumed-ack", "wrong-ack", "embedded-confirmation", "input-binding", "unknown-operation", "revoked-human", "revoked-executor", "malformed-expiry", "expired-plan"} {
 		t.Run(mode, func(t *testing.T) {
 			f := newRegistrationStoreFixture(t)
 			target := discoveryFixtureTarget(t)
@@ -42,6 +42,9 @@ func TestConfirmedDiscoveryTransactionAuthorization(t *testing.T) {
 			_, err := NewHostDiscoveryRepository(f.s).ApplyTarget(f.ctx, activation)
 			if (err == nil) != (mode == "valid") {
 				t.Fatalf("apply %s: %v", mode, err)
+			}
+			if (mode == "expired-plan" || mode == "malformed-expiry") && Code(err) != generated.ErrorCodePlanStale {
+				t.Fatalf("expiry denial code=%v", err)
 			}
 			var count int
 			if err := f.s.conn.QueryRowContext(f.ctx, `SELECT COUNT(*) FROM host_discovery_targets WHERE target_id=?`, target.TargetID).Scan(&count); err != nil {
@@ -75,7 +78,7 @@ func bindConfirmedDiscovery(t *testing.T, f *registrationStoreFixture, d Discove
 	stepID := "step-" + id
 	leaseID := "lease-" + id
 	ackID := "ack-" + id
-	p := generated.Plan{PlanID: planID, PlanDigest: hash, AuthorizationBranch: "human", ExecutorMode: "central", Risk: "control-plane", HostDiscoveryTarget: &d.Request, Operations: []generated.PlanOperation{{OperationType: "host.discovery-target.activate", AdapterID: "core.host-discovery-target", TargetID: id, InputDigest: d.Digest, ArtifactDigest: d.Digest}}}
+	p := generated.Plan{ExpiresAt: f.s.config.Clock().Add(time.Minute).UTC().Format(time.RFC3339), PlanID: planID, PlanDigest: hash, AuthorizationBranch: "human", ExecutorMode: "central", Risk: "control-plane", HostDiscoveryTarget: &d.Request, Operations: []generated.PlanOperation{{OperationType: "host.discovery-target.activate", AdapterID: "core.host-discovery-target", TargetID: id, InputDigest: d.Digest, ArtifactDigest: d.Digest}}}
 	mode := ""
 	if len(modes) > 0 {
 		mode = modes[0]
@@ -84,6 +87,10 @@ func bindConfirmedDiscovery(t *testing.T, f *registrationStoreFixture, d Discove
 	runAck := any(ackID)
 	ackDigest := hash
 	switch mode {
+	case "malformed-expiry":
+		p.ExpiresAt = "invalid"
+	case "expired-plan":
+		p.ExpiresAt = f.s.config.Clock().UTC().Format(time.RFC3339)
 	case "missing-ack":
 		runAck = nil
 	case "unconsumed-ack":

@@ -117,6 +117,13 @@ func (r *HostDiscoveryRepository) ApplyTarget(ctx context.Context, request Disco
 			return discoveryError(generated.ErrorCodePlanStale)
 		}
 		if draft.Request.Target.CredentialMode != nil {
+			// Admission precedes this transaction. Its lease can remain live
+			// after the immutable plan expires, so check execution authority
+			// again at the database mutation boundary (including revocation).
+			expires, err := time.Parse(time.RFC3339, plan.ExpiresAt)
+			if err != nil || !r.store.config.Clock().UTC().Before(expires) {
+				return discoveryError(generated.ErrorCodePlanStale)
+			}
 			if hostdiscovery.ValidateConsoleConfirmation(draft.Request) != nil || plan.HostDiscoveryTarget == nil || hostdiscovery.Digest(*plan.HostDiscoveryTarget) != draft.Digest {
 				return discoveryError(generated.ErrorCodePlanStale)
 			}

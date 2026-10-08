@@ -200,19 +200,111 @@ func TestPreloadedDiscoveryAPIRaceAfterDial(t *testing.T) {
 	}
 }
 
+func TestPreloadedDiscoveryAPIAcknowledgementGrantRevocation(t *testing.T) {
+	for _, phase := range []string{"before-request", "before-decision"} {
+		t.Run(phase, func(t *testing.T) {
+			f := newPreloadedDiscoveryAcceptance(t)
+			p := f.plan(f.draft("activate", f.target))
+			human := identity.Principal{ID: "operator-a", Method: identity.SlackSocketModeMethod, Kind: identity.PrincipalHuman}
+			scope := acknowledgement.Scope{Human: human, AuthorityID: "fixture-authority", Nonce: "fixture-" + p.PlanID}
+			revoke := func() {
+				f.exec(`UPDATE effective_authorization_grants SET status='revoked' WHERE action='acknowledge' AND capability='plan.acknowledge' AND resource_id=?`, p.Operations[0].TargetID)
+			}
+			if phase == "before-request" {
+				revoke()
+				if _, err := f.ack.Request(context.Background(), scope, p.PlanID); err == nil {
+					t.Fatal("revoked acknowledgement request accepted")
+				}
+				f.assertCount("acknowledgement_requests", 0)
+			} else {
+				card, err := f.ack.Request(context.Background(), scope, p.PlanID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				revoke()
+				_, err = f.ack.Decide(context.Background(), acknowledgement.Candidate{Human: human, AuthorityID: card.Request.AuthorityID, Action: acknowledgement.ActionApprove, PlanID: p.PlanID, PlanDigest: p.PlanDigest, TargetDigest: p.Binding.TargetDigest, ReasonDigest: p.Binding.ReasonDigest, Nonce: card.Nonce, StateRevision: p.Binding.StateRevision, RecoveryEpoch: p.Binding.RecoveryEpoch, ExpiresAt: mustAcceptanceTime(t, p.ExpiresAt), DecidedAt: f.now})
+				if err == nil {
+					t.Fatal("revoked acknowledgement decision accepted")
+				}
+			}
+			var approved int
+			if err := f.db.QueryRow(`SELECT COUNT(*) FROM acknowledgement_requests WHERE status='approved'`).Scan(&approved); err != nil || approved != 0 {
+				t.Fatalf("approved rows=%d err=%v", approved, err)
+			}
+			if w := f.execute(p); w.Code == http.StatusOK {
+				t.Fatal("revoked acknowledgement enabled apply")
+			}
+			f.assertCount("host_discovery_targets", 0)
+			f.denyDiscovery(phase)
+			if f.connections.Load() != 0 {
+				t.Fatal("revoked acknowledgement contacted peer")
+			}
+		})
+	}
+}
+
+func TestPreloadedDiscoveryAPIExpiryAfterAdmission(t *testing.T) {
+	for _, action := range []string{"activate", "revoke"} {
+		t.Run(action, func(t *testing.T) {
+			f := newPreloadedDiscoveryAcceptance(t)
+			target := f.target
+			expectedRows := 0
+			if action == "revoke" {
+				p := f.plan(f.draft("activate", target))
+				f.approve(p)
+				f.apply(p)
+				target.Revision++
+				expectedRows = 1
+			}
+			p := f.plan(f.draft(action, target))
+			f.approve(p)
+			expiry := mustAcceptanceTime(t, p.ExpiresAt)
+			f.now = expiry.Add(-2 * time.Second)
+			crossed := false
+			f.afterAdmission = func(leaseDeadline time.Time) {
+				crossed = true
+				f.now = expiry.Add(time.Second)
+				if !f.now.Before(leaseDeadline) {
+					t.Fatal("expiry fixture also expired lease")
+				}
+			}
+			w := f.execute(p)
+			if !crossed {
+				t.Fatal("did not reach admitted leased execution")
+			}
+			if w.Code == http.StatusOK {
+				t.Fatal("plan expired after admission still applied")
+			}
+			f.assertCount("host_discovery_targets", expectedRows)
+			var status string
+			if err := f.db.QueryRow(`SELECT status FROM plan_runs WHERE plan_id=?`, p.PlanID).Scan(&status); err != nil || status != "failed" {
+				t.Fatalf("run status=%s err=%v", status, err)
+			}
+			var failures int
+			if err := f.db.QueryRow(`SELECT COUNT(*) FROM audit_events WHERE event_type='run.step-failed-before-effect'`).Scan(&failures); err != nil || failures < 1 {
+				t.Fatalf("failure audit=%d err=%v", failures, err)
+			}
+			if f.connections.Load() != 0 {
+				t.Fatal("expired target operation contacted peer")
+			}
+		})
+	}
+}
+
 type preloadedDiscoveryAcceptance struct {
-	t           *testing.T
-	now         time.Time
-	db          *sql.DB
-	authority   *store.Store
-	app         *api.Application
-	ack         *acknowledgement.Service
-	target      generated.HostDiscoveryTarget
-	keyPath     string
-	commands    *atomic.Int32
-	connections atomic.Int32
-	afterAccept atomic.Pointer[func() error]
-	sequence    int
+	t              *testing.T
+	now            time.Time
+	db             *sql.DB
+	authority      *store.Store
+	app            *api.Application
+	ack            *acknowledgement.Service
+	target         generated.HostDiscoveryTarget
+	keyPath        string
+	commands       *atomic.Int32
+	connections    atomic.Int32
+	afterAccept    atomic.Pointer[func() error]
+	afterAdmission func(time.Time)
+	sequence       int
 }
 
 func newPreloadedDiscoveryAcceptance(t *testing.T) *preloadedDiscoveryAcceptance {
@@ -291,13 +383,16 @@ func newPreloadedDiscoveryAcceptance(t *testing.T) *preloadedDiscoveryAcceptance
 	if err := registerHostDiscovery(f.app, f.authority, registry, declarations, factory, uint32(os.Getuid())); err != nil {
 		t.Fatal(err)
 	}
-	f.ack, err = acknowledgement.NewService(acknowledgement.Config{Repository: store.NewAcknowledgementRepository(f.authority), Plans: lifecycleAcceptancePlanReader{plans}, Authorizer: lifecycleAcceptanceAuthorizer{}, Clock: clock})
+	f.ack, err = acknowledgement.NewService(acknowledgement.Config{Repository: store.NewAcknowledgementRepository(f.authority), Plans: lifecycleAcceptancePlanReader{plans}, Authorizer: authorization.NewEvaluator(policy), Clock: clock})
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Align the simulated clock with a real timeout of the same remaining lease
 	// duration; backdated history must not disable or prematurely expire leases.
 	engine, err := runengine.NewEngine(runengine.Config{Repository: store.NewRunRepository(f.authority), Plans: plans, Admission: runengine.NewAdmissionGate(f.ack, clock), LeaseContext: func(ctx context.Context, deadline time.Time) (context.Context, context.CancelFunc) {
+		if f.afterAdmission != nil {
+			f.afterAdmission(deadline)
+		}
 		return context.WithTimeout(ctx, deadline.Sub(clock()))
 	}, Adapters: registry, Core: runengine.CoreRouter{DiscoveryTarget: &runengine.HostDiscoveryTargetEffect{Repository: repository, Approvals: store.NewAcknowledgementRepository(f.authority), RecoveryPrecheck: discoveryConsoleGate{targets: repository, fallback: runengine.UnavailableGateVerifier{}}}}, Clock: clock})
 	if err != nil {
