@@ -201,6 +201,10 @@ func apiSSHArgumentsAllowed(operationID, requestPath string, arguments []string)
 		if id, ok := apiSSHPathID(requestPath, "/api/v1/runs/", ""); ok && reflect.DeepEqual(arguments, []string{"--run-id", id, "--output", "json"}) {
 			return requestPath, true
 		}
+	case "api.v1.hosts.get":
+		if id, ok := apiSSHPathID(requestPath, "/api/v1/hosts/", ""); ok && reflect.DeepEqual(arguments, []string{"node", "inspect", "--host-id", id}) && apiSSHCommandAvailable([]string{"node", "inspect"}) {
+			return requestPath, true
+		}
 	case "api.v1.gates.get":
 		if id, ok := apiSSHBoundPathValue(requestPath, "/api/v1/gates/", "", validAPISSHGateID); ok && reflect.DeepEqual(arguments, []string{"gate", "inspect", "--gate-id", id}) && apiSSHCommandAvailable([]string{"gate", "inspect"}) {
 			return requestPath, true
@@ -256,6 +260,9 @@ func validAPISSHGateID(id string) bool {
 
 func apiSSHCommandArguments(operationID string) ([]string, bool) {
 	commands := map[string][]string{
+		"api.v1.host-observations.create":             {"node", "discover"},
+		"api.v1.host-adoptions.draft":                 {"node", "add"},
+		"api.v1.hosts.get":                            {"node", "inspect"},
 		"api.v1.health.get":                           {"server", "status"},
 		"api.v1.summary.get":                          {"status"},
 		"api.v1.database-status.get":                  {"database", "status"},

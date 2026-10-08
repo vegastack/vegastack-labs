@@ -65,6 +65,9 @@ type TypedResponse[T any] struct {
 }
 
 type Client interface {
+	DiscoverHost(context.Context, serverconfig.Profile, generated.HostDiscoveryRequest) (TypedResponse[generated.HostDiscoverySubmission], error)
+	SubmitHostAdoption(context.Context, serverconfig.Profile, generated.HostAdoptionRequest) (TypedResponse[generated.HostAdoptionSubmission], error)
+	GetManagedHost(context.Context, serverconfig.Profile, string) (TypedResponse[generated.ManagedHost], error)
 	SubmitScheduledPolicyDraft(context.Context, serverconfig.Profile, generated.ScheduledJobPolicy) (TypedResponse[generated.ScheduledPolicyDraftSubmission], error)
 	ListScheduledPolicies(context.Context, serverconfig.Profile) (TypedResponse[generated.BrowserScheduledJobPolicyListData], error)
 	InspectScheduledPolicy(context.Context, serverconfig.Profile, string) (TypedResponse[generated.BrowserScheduledJobPolicy], error)
@@ -307,6 +310,13 @@ func requestTyped[T any](client *client, ctx context.Context, profile serverconf
 }
 
 func remoteCommandArguments(spec requestSpec) []string {
+	if spec.command == "api.v1.hosts.get" {
+		if id, ok := pathID(spec.path, "/api/v1/hosts/", ""); ok {
+			return []string{"node", "inspect", "--host-id", id}
+		}
+		return nil
+	}
+
 	if spec.command == "api.v1.summary.get" {
 		return []string{"--output", "json"}
 	}
@@ -359,6 +369,8 @@ func remoteCommandArguments(spec requestSpec) []string {
 		return nil
 	}
 	arguments := map[string][]string{
+		"api.v1.host-observations.create":             {"node", "discover"},
+		"api.v1.host-adoptions.draft":                 {"node", "add"},
 		generated.CommandNameServerStatus:             {"server", "status"},
 		"api.v1.summary.get":                          {"status"},
 		"api.v1.database-status.get":                  {"database", "status"},
