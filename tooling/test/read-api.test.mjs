@@ -196,17 +196,18 @@ test("the reviewed #222 registration routes remain closed and exact", async (t) 
 });
 
 
-test("the reviewed #223 host-action draft requires its complete exact endpoint metadata", async (t) => {
+for (const family of ["host-actions", "host-access"]) {
+test(`the reviewed ${family} draft requires its complete exact endpoint metadata`, async (t) => {
   const registry = JSON.parse(await readFile(path.join(process.cwd(), "schemas/v1/endpoint-registry.json"), "utf8"));
   assert.equal((await verifyReadAPI()).status, "pass");
-  const id = "api.v1.host-actions.draft";
+  const id = `api.v1.${family}.draft`;
   for (const mutation of ["remove", "id", "method", "path", "availability", "ownerPhase", "requestSchema", "dataSchema", "stream", "audiences", "extra-field", "duplicate", "direct-execute", "unrelated-route", "historical-route"]) {
     const copy = structuredClone(registry);
     const endpoint = copy.endpoints.find((value) => value.id === id);
     if (mutation === "remove") copy.endpoints = copy.endpoints.filter((value) => value.id !== id);
     else if (mutation === "extra-field") endpoint.allowDirectExecution = true;
     else if (mutation === "duplicate") copy.endpoints.push({...endpoint});
-    else if (mutation === "direct-execute") copy.endpoints.push({...endpoint, id: "api.v1.host-actions.execute", path: "/api/v1/host-actions/execute"});
+    else if (mutation === "direct-execute") copy.endpoints.push({...endpoint, id: `api.v1.${family}.execute`, path: `/api/v1/${family}/execute`});
     else if (mutation === "unrelated-route") copy.endpoints.push({...endpoint, id: "api.v1.unreviewed.draft", path: "/api/v1/unreviewed/draft"});
     else if (mutation === "historical-route") copy.endpoints = copy.endpoints.filter((value) => value.id !== "api.v1.summary.get");
     else endpoint[mutation] = mutation === "audiences" ? ["operator", "browser"] : "unreviewed";
@@ -214,3 +215,4 @@ test("the reviewed #223 host-action draft requires its complete exact endpoint m
     assert.ok((await verifyReadAPI(root)).codes.includes("READ_API_ENDPOINT_DRIFT"), mutation);
   }
 });
+}
