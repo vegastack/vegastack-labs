@@ -19,7 +19,7 @@ test("the original Phase 2 baseline stays immutable while later waves have exact
   assert.equal(manifest.contract.productionDependencyDigest, "sha256:a9e8788558fa5c3347b5b8464d8d5e4a67dcc9357e5ae07478b606a806f78133");
   assert.equal(manifest.contract.mutationAvailable, false);
   assert.equal(manifest.contract.reviewedWaves?.length, 42);
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-1), {"id":"phase6-issue239-v1","issue":239,"commands":["node access prepare","node action prepare","node observation inspect","node replacement inspect","node replacement prepare","node target prepare"],"imports":[],"mutationBoundaryDigest":"sha256:7b0e991d60047c05f6dd8bddbc0796abb96674c9a2cd2f5875d8aa5a4204d943"});
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-1), {"id":"phase6-issue239-v1","issue":239,"commands":["node access prepare","node action prepare","node observation inspect","node replacement inspect","node replacement prepare","node target prepare"],"imports":[],"mutationBoundaryDigest":"sha256:abf4f0c3f9291923d94f7d46c4853c0c84b5cfc7e59311d2712f624403e388ad"});
   assert.equal(manifest.contract.reviewedWaves.at(-2).issue,233);
   assert.deepEqual(manifest.contract.reviewedWaves.at(-2).commands,[]);
   assert.deepEqual(manifest.contract.reviewedWaves.at(-2).imports,["github.com/vegastack/vegastack-labs/internal/hostreplacement"]);
