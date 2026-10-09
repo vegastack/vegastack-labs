@@ -3,7 +3,12 @@
 package qualification
 
 import (
+	"bytes"
+	"context"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/hostaction"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -164,5 +169,132 @@ func TestNativeGrantAndStatusPreparationStayScoped(t *testing.T) {
 	status.GrantBatch = in.GrantBatch
 	if validatePreparation(scope, status) == nil {
 		t.Fatal("status accepted payload")
+	}
+}
+
+func TestBootstrapPreparationRequiresScopedProfileAndProtectedCredentialSlot(t *testing.T) {
+	s, err := validateScope(scopeFixture())
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := generated.NativeStepRequest{Operation: "prepare", GuestID: "subject", RecoveryEpoch: 0}
+	p := generated.NativePreparationRequest{Binding: b, Kind: "profile", Profile: &generated.GateProfileDraftRequest{ProfileID: s.value.ProfileID, RecoveryEpoch: 0}}
+	if validatePreparation(s, p) != nil {
+		t.Fatal("scoped profile rejected")
+	}
+	bad := p
+	q := *p.Profile
+	q.ProfileID = "outside"
+	bad.Profile = &q
+	if validatePreparation(s, bad) == nil {
+		t.Fatal("outside profile accepted")
+	}
+	q = *p.Profile
+	q.RecoveryEpoch = 1
+	bad.Profile = &q
+	if validatePreparation(s, bad) == nil {
+		t.Fatal("stale profile epoch accepted")
+	}
+	g := s.guests[b.GuestID]
+	c := generated.NativePreparationRequest{Binding: b, Kind: "credential-import", CredentialSlot: g.Role + "-ssh", CredentialImport: &generated.CredentialImportRequest{ReferenceID: "native-ssh-" + g.HostID, TargetID: g.HostID, ConsumerID: hostaction.AdapterID, PurposeID: hostaction.PurposeID, ResolverID: "native-systemd", RecoveryEpoch: 0}}
+	if validatePreparation(s, c) != nil {
+		t.Fatal("scoped credential rejected")
+	}
+	for _, variant := range []string{"slot", "host", "reference", "resolver", "consumer", "purpose", "epoch", "mixed", "absent"} {
+		t.Run(variant, func(t *testing.T) {
+			bad := c
+			v := *c.CredentialImport
+			bad.CredentialImport = &v
+			switch variant {
+			case "slot":
+				bad.CredentialSlot = "../../secret"
+			case "host":
+				v.TargetID = "outside"
+			case "reference":
+				v.ReferenceID = "unrelated"
+			case "resolver":
+				v.ResolverID = "external"
+			case "consumer":
+				v.ConsumerID = "other"
+			case "purpose":
+				v.PurposeID = "other"
+			case "epoch":
+				v.RecoveryEpoch = 1
+			case "mixed":
+				bad.Profile = p.Profile
+			case "absent":
+				bad.CredentialImport = nil
+			}
+			if validatePreparation(s, bad) == nil {
+				t.Fatal("credential scope widened")
+			}
+		})
+	}
+	p.CredentialSlot = g.Role + "-ssh"
+	if validatePreparation(s, p) == nil {
+		t.Fatal("unused slot accepted")
+	}
+}
+
+func TestFixtureImportMaterialProtectedLocalFiles(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("requires the actual nonroot service identity")
+	}
+	uid := uint32(os.Geteuid())
+	root := t.TempDir()
+	if err := os.Chmod(root, 0700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(root, "native-ssh-subject")
+	material := []byte("synthetic-private-material-for-software-test")
+	if err := os.WriteFile(path, material, 0600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := readFixtureImportMaterialAt(context.Background(), root, uid, "subject-ssh")
+	if err != nil || !bytes.Equal(got, material) {
+		t.Fatal("prepared private material unavailable", err)
+	}
+	for i := range got {
+		got[i] = 0
+	}
+	for _, variant := range []string{"unknown-slot", "root-identity", "wrong-identity", "loose-directory", "loose-file", "symlink-file", "symlink-directory", "missing-file"} {
+		t.Run(variant, func(t *testing.T) {
+			useRoot, useUID, slot := root, uid, "subject-ssh"
+			switch variant {
+			case "unknown-slot":
+				slot = "/other/secret"
+			case "root-identity":
+				useUID = 0
+			case "wrong-identity":
+				useUID = uid + 1
+			case "loose-directory":
+				if os.Chmod(root, 0755) != nil {
+					t.Fatal("chmod")
+				}
+				defer os.Chmod(root, 0700)
+			case "loose-file":
+				if os.Chmod(path, 0644) != nil {
+					t.Fatal("chmod")
+				}
+				defer os.Chmod(path, 0600)
+			case "symlink-file":
+				if os.Rename(path, path+".saved") != nil || os.Symlink(path+".saved", path) != nil {
+					t.Fatal("link")
+				}
+				defer func() { os.Remove(path); os.Rename(path+".saved", path) }()
+			case "symlink-directory":
+				useRoot = root + "-link"
+				if os.Symlink(root, useRoot) != nil {
+					t.Fatal("link")
+				}
+				defer os.Remove(useRoot)
+			case "missing-file":
+				slot = "current-ssh"
+			}
+			b, e := readFixtureImportMaterialAt(context.Background(), useRoot, useUID, slot)
+			if e == nil || len(b) != 0 {
+				t.Fatal("private material boundary escaped")
+			}
+		})
 	}
 }

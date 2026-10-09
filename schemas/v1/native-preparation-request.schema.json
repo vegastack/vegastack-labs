@@ -869,6 +869,80 @@
       ],
       "type": "object"
     },
+    "credential-import-request": {
+      "additionalProperties": false,
+      "properties": {
+        "consumerId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "expectedStateRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "idempotencyKey": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "materialVersion": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "purposeId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "referenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "resolverId": {
+          "enum": [
+            "native-systemd"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/credential-import-request"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.1.0"
+          ],
+          "type": "string"
+        },
+        "targetDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "targetId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "expectedStateRevision",
+        "recoveryEpoch",
+        "targetDigest",
+        "idempotencyKey",
+        "referenceId",
+        "consumerId",
+        "purposeId",
+        "targetId",
+        "resolverId",
+        "materialVersion"
+      ],
+      "type": "object"
+    },
     "credential-lifecycle-request": {
       "additionalProperties": false,
       "properties": {
@@ -1400,6 +1474,82 @@
         "collectionDigest",
         "roleDigest",
         "backend"
+      ],
+      "type": "object"
+    },
+    "gate-profile-draft-request": {
+      "additionalProperties": false,
+      "properties": {
+        "bindingId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "capabilities": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "expectedStateRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "idempotencyKey": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "policyId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "policyVersion": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
+          "type": "string"
+        },
+        "profileId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "profileVersion": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/gate-profile-draft-request"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.1.0"
+          ],
+          "type": "string"
+        },
+        "targetDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "expectedStateRevision",
+        "recoveryEpoch",
+        "targetDigest",
+        "idempotencyKey",
+        "bindingId",
+        "profileId",
+        "profileVersion",
+        "policyId",
+        "policyVersion",
+        "capabilities"
       ],
       "type": "object"
     },
@@ -3833,6 +3983,16 @@
     "binding": {
       "$ref": "#/$defs/native-step-request"
     },
+    "credentialImport": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/credential-import-request"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "credentialLifecycle": {
       "anyOf": [
         {
@@ -3842,6 +4002,17 @@
           "type": "null"
         }
       ]
+    },
+    "credentialSlot": {
+      "enum": [
+        "controller-ssh",
+        "subject-ssh",
+        "custodian-ssh",
+        "replacement-ssh",
+        "previous-ssh",
+        "current-ssh"
+      ],
+      "type": "string"
     },
     "declarationId": {
       "maxLength": 128,
@@ -3916,7 +4087,9 @@
         "fixture-approval",
         "producer-lookup",
         "grant-batch",
-        "database-status"
+        "database-status",
+        "profile",
+        "credential-import"
       ],
       "type": "string"
     },
@@ -3924,6 +4097,16 @@
       "anyOf": [
         {
           "$ref": "#/$defs/native-producer-lookup-request"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "profile": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/gate-profile-draft-request"
         },
         {
           "type": "null"

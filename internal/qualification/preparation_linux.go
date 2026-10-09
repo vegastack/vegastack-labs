@@ -3,8 +3,12 @@
 package qualification
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	nativecredential "github.com/vegastack/vegastack-labs/internal/adapter/nativecredential"
+	"golang.org/x/sys/unix"
+	"os"
 	"path/filepath"
 	"strconv"
 
@@ -37,7 +41,8 @@ func executePreparation(ctx context.Context, scope validatedNativeScope, step ge
 }
 
 // A preparation slot holds exactly one existing typed API input. It cannot
-// select a URL, command, identity, credential material or database connection.
+// select a URL, command, identity, plaintext material or database connection.
+// Import selects only a closed, administrator-prepared private fixture slot.
 func validatePreparation(scope validatedNativeScope, in generated.NativePreparationRequest) error {
 	if in.Binding.Operation != "prepare" {
 		return ErrUnavailable
@@ -48,6 +53,20 @@ func validatePreparation(scope validatedNativeScope, in generated.NativePreparat
 		return ErrUnavailable
 	}
 	switch in.Kind {
+	case "profile":
+		if in.Profile == nil || in.Profile.ProfileID != scope.value.ProfileID || in.Profile.RecoveryEpoch != in.Binding.RecoveryEpoch {
+			return ErrUnavailable
+		}
+		selected.Profile = in.Profile
+	case "credential-import":
+		if in.CredentialImport == nil {
+			return ErrUnavailable
+		}
+		c := in.CredentialImport
+		if c.TargetID != g.HostID || c.ReferenceID != "native-ssh-"+g.HostID || c.ConsumerID != hostaction.AdapterID || c.PurposeID != hostaction.PurposeID || c.ResolverID != "native-systemd" || c.RecoveryEpoch != in.Binding.RecoveryEpoch || (in.CredentialSlot != g.Role+"-ssh" && in.CredentialSlot != "previous-ssh" && in.CredentialSlot != "current-ssh") {
+			return ErrUnavailable
+		}
+		selected.CredentialImport, selected.CredentialSlot = c, in.CredentialSlot
 	case "database-status":
 		// No caller-selected target or request body.
 	case "grant-batch":
@@ -57,6 +76,7 @@ func validatePreparation(scope validatedNativeScope, in generated.NativePreparat
 		allowed := map[string]bool{scope.value.ProfileID: true, "profile-drafts": true}
 		for _, guest := range scope.guests {
 			allowed[guest.HostID] = true
+			allowed["native-ssh-"+guest.HostID] = true
 		}
 		for _, grant := range in.GrantBatch.Changes {
 			if !allowed[grant.ResourceID] {
@@ -198,6 +218,29 @@ func preparationResult[T any](response localapi.TypedResponse[T]) generated.Nati
 func dispatchPreparation(ctx context.Context, c localapi.Client, p serverconfig.Profile, in generated.NativePreparationRequest) (generated.NativePreparationResult, error) {
 	var out generated.NativePreparationResult
 	switch in.Kind {
+	case "profile":
+		r, e := c.SubmitProfileDraft(ctx, p, *in.Profile)
+		out = preparationResult(r)
+		if e == nil && r.ExitCode == 0 {
+			out.Profile = &r.Data
+		}
+		return out, e
+	case "credential-import":
+		raw, e := readFixtureImportMaterial(ctx, p.SocketOwnerUID, in.CredentialSlot)
+		if e != nil {
+			return out, ErrUnavailable
+		}
+		defer func() {
+			for i := range raw {
+				raw[i] = 0
+			}
+		}()
+		r, e := c.ImportCredential(ctx, p, *in.CredentialImport, bytes.NewReader(raw))
+		out = preparationResult(r)
+		if e == nil && r.ExitCode == 0 {
+			out.CredentialImport = &r.Data
+		}
+		return out, e
 	case "database-status":
 		r, e := c.DatabaseStatus(ctx, p)
 		out = preparationResult(r)
@@ -354,4 +397,30 @@ func dispatchPreparation(ctx context.Context, c localapi.Client, p serverconfig.
 		return out, e
 	}
 	return out, ErrUnavailable
+}
+
+// No caller path or credential bytes enter a native preparation request.
+func readFixtureImportMaterial(ctx context.Context, uid uint32, slot string) ([]byte, error) {
+	return readFixtureImportMaterialAt(ctx, "/run/vsk-labs-control-credentials", uid, slot)
+}
+
+func readFixtureImportMaterialAt(ctx context.Context, root string, uid uint32, slot string) ([]byte, error) {
+	name := map[string]string{"controller-ssh": "native-ssh-controller", "subject-ssh": "native-ssh-subject", "custodian-ssh": "native-ssh-custodian", "replacement-ssh": "native-ssh-replacement", "previous-ssh": "native-previous-ssh", "current-ssh": "native-current-ssh"}[slot]
+	if name == "" || uid == 0 || uint32(os.Geteuid()) != uid {
+		return nil, ErrUnavailable
+	}
+	if ownedDirectory(root, uid) != nil {
+		return nil, ErrUnavailable
+	}
+	fd, e := unix.Openat2(unix.AT_FDCWD, root, &unix.OpenHow{Flags: unix.O_RDONLY | unix.O_DIRECTORY | unix.O_CLOEXEC, Resolve: unix.RESOLVE_NO_SYMLINKS | unix.RESOLVE_NO_MAGICLINKS})
+	if e != nil {
+		return nil, ErrUnavailable
+	}
+	dir := os.NewFile(uintptr(fd), "fixture-import-directory")
+	defer dir.Close()
+	var st unix.Stat_t
+	if unix.Fstat(fd, &st) != nil || st.Uid != uid || st.Mode&0777 != 0700 {
+		return nil, ErrUnavailable
+	}
+	return nativecredential.ReadLoadedBytes(ctx, dir, name, uid)
 }

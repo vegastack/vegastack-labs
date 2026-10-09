@@ -250,7 +250,7 @@ func Current() Registry {
 	}
 
 	return Registry{
-		SchemaVersion:   "1.27.0",
+		SchemaVersion:   "1.28.0",
 		Commands:        commands,
 		Endpoints:       endpoints,
 		GateDefinitions: CurrentGateDefinitions(),

@@ -466,6 +466,60 @@
       ],
       "type": "object"
     },
+    "credential-import-submission": {
+      "additionalProperties": false,
+      "properties": {
+        "ciphertextFingerprint": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "draftId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "referenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/credential-import-submission"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.1.0"
+          ],
+          "type": "string"
+        },
+        "stateRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "draft"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "draftId",
+        "referenceId",
+        "ciphertextFingerprint",
+        "status",
+        "stateRevision",
+        "recoveryEpoch"
+      ],
+      "type": "object"
+    },
     "credential-lifecycle-submission": {
       "additionalProperties": false,
       "properties": {
@@ -974,6 +1028,60 @@
         "reasonCode",
         "evidenceSource",
         "readyForInput"
+      ],
+      "type": "object"
+    },
+    "gate-profile-draft-submission": {
+      "additionalProperties": false,
+      "properties": {
+        "bindingId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "changeId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "draftId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/gate-profile-draft-submission"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.1.0"
+          ],
+          "type": "string"
+        },
+        "stateRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "draft"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "draftId",
+        "changeId",
+        "bindingId",
+        "status",
+        "stateRevision",
+        "recoveryEpoch"
       ],
       "type": "object"
     },
@@ -4366,6 +4474,16 @@
         }
       ]
     },
+    "credentialImport": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/credential-import-submission"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "credentialLifecycle": {
       "anyOf": [
         {
@@ -4444,6 +4562,16 @@
       "anyOf": [
         {
           "$ref": "#/$defs/native-producer-reference"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "profile": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/gate-profile-draft-submission"
         },
         {
           "type": "null"

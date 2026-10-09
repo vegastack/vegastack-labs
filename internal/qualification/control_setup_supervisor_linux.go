@@ -332,7 +332,13 @@ func superviseFixtureControl(ctx context.Context, s generated.NativeSlackFixture
 	}
 	// Initial setup deliberately has no signer. Activate only the protected
 	// prepared signer and optional existing backup backend after measuring
-	// every setup/refusal/restart case.
+	// every setup/refusal/restart case. The exact applied capability profile is
+	// prepared through ordinary API/plan/ack/run while this initial child lives.
+	// Its root-only marker is scheduling input, never profile or native evidence;
+	// ordinary final startup independently requires the actual applied profile.
+	if e = awaitFixtureBootstrapProfile(ctx); e != nil {
+		return e
+	}
 	before, e = fixtureControlPreimage()
 	if e != nil || c.stop(syscall.SIGTERM) != nil {
 		return ErrUnavailable

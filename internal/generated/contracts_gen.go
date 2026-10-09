@@ -6,7 +6,7 @@ import "encoding/json"
 
 const (
 	SchemaMajor                                    = 1
-	RegistrySchemaVersion                          = "1.27.0"
+	RegistrySchemaVersion                          = "1.28.0"
 	AvailabilityAvailable                          = "available"
 	AvailabilityPlanned                            = "planned"
 	FlagKindValue                                  = "value"
@@ -3514,6 +3514,9 @@ type NativePreparationRequest struct {
 	DeclarationRevision int64                            `json:"declarationRevision,omitempty"`
 	Identifier          string                           `json:"identifier,omitempty"`
 	GateID              string                           `json:"gateId,omitempty"`
+	CredentialSlot      string                           `json:"credentialSlot,omitempty"`
+	Profile             *GateProfileDraftRequest         `json:"profile,omitempty"`
+	CredentialImport    *CredentialImportRequest         `json:"credentialImport,omitempty"`
 	GrantBatch          *AuthorizationGrantBatchRequest  `json:"grantBatch,omitempty"`
 	ProducerLookup      *NativeProducerLookupRequest     `json:"producerLookup,omitempty"`
 	FixtureApproval     *NativeSlackFixtureApproval      `json:"fixtureApproval,omitempty"`
@@ -3538,6 +3541,8 @@ type NativePreparationResult struct {
 	SchemaVersion       string                              `json:"schemaVersion"`
 	Result              RunResult                           `json:"result"`
 	ExitCode            int64                               `json:"exitCode"`
+	Profile             *GateProfileDraftSubmission         `json:"profile,omitempty"`
+	CredentialImport    *CredentialImportSubmission         `json:"credentialImport,omitempty"`
 	GrantDeclaration    *DeclarationRevision                `json:"grantDeclaration,omitempty"`
 	DatabaseStatus      *DatabaseStatusData                 `json:"databaseStatus,omitempty"`
 	ProducerReference   *NativeProducerReference            `json:"producerReference,omitempty"`
