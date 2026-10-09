@@ -534,6 +534,15 @@ function encodePathInteger(value: number, name: string): string {
   return String(value);
 }
 
+function hostGateQuery(value: HostGateQuery | undefined): string {
+  if (value === undefined) return "";
+  const query = decodeHostGateQuery(value);
+  const params = new URLSearchParams();
+  if (query.subjectId !== undefined) params.set("subjectId", query.subjectId);
+  const encoded = params.toString();
+  return encoded === "" ? "" : "?" + encoded;
+}
+
 function pageQuery(value: ApiPageQuery | undefined): string {
   if (value === undefined) return "";
   const query = decodeApiPageQuery(value);
@@ -791,6 +800,9 @@ func renderFiniteMethod(output *bytes.Buffer, endpoint metadata.EndpointDefiniti
 		queryFunction := "pageQuery"
 		if endpoint.QuerySchema == "vegastack-labs.dev/api-source-list-query" {
 			queryFunction = "sourceListQuery"
+		}
+		if endpoint.QuerySchema == "vegastack-labs.dev/host-gate-query" {
+			queryFunction = "hostGateQuery"
 		}
 		pathExpression += " + " + queryFunction + "(query)"
 	}

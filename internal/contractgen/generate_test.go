@@ -901,3 +901,22 @@ func TestGenerateDoesNotLeakRejectedMetadata(t *testing.T) {
 		t.Fatalf("Generate() leaked rejected metadata: %q", err)
 	}
 }
+
+func TestHostGateQueryUsesExactSerializer(t *testing.T) {
+	artifacts, err := Generate(metadata.Current())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, a := range artifacts {
+		if a.Path == browserClientPath {
+			s := string(a.Content)
+			for _, want := range []string{"function hostGateQuery(value: HostGateQuery", `params.set("subjectId", query.subjectId)`, "hostGateQuery(query)"} {
+				if !strings.Contains(s, want) {
+					t.Fatal("missing exact host query serializer", want)
+				}
+			}
+			return
+		}
+	}
+	t.Fatal("missing browser client")
+}

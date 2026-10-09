@@ -7102,6 +7102,15 @@ function encodePathInteger(value: number, name: string): string {
   return String(value);
 }
 
+function hostGateQuery(value: HostGateQuery | undefined): string {
+  if (value === undefined) return "";
+  const query = decodeHostGateQuery(value);
+  const params = new URLSearchParams();
+  if (query.subjectId !== undefined) params.set("subjectId", query.subjectId);
+  const encoded = params.toString();
+  return encoded === "" ? "" : "?" + encoded;
+}
+
 function pageQuery(value: ApiPageQuery | undefined): string {
   if (value === undefined) return "";
   const query = decodeApiPageQuery(value);
@@ -7297,11 +7306,11 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
     },
     async getGate(path, query = {}, options = {}) {
       const operation = "api.v1.gates.get";
-      return performRead(fetchTransport, "/api/v1/gates/" + encodePathString(path.gateId, "gateId") + "" + pageQuery(query), options, operation, decodeGateView);
+      return performRead(fetchTransport, "/api/v1/gates/" + encodePathString(path.gateId, "gateId") + "" + hostGateQuery(query), options, operation, decodeGateView);
     },
     async listGates(query = {}, options = {}) {
       const operation = "api.v1.gates.list";
-      return performRead(fetchTransport, "/api/v1/gates" + pageQuery(query), options, operation, decodeGateListData);
+      return performRead(fetchTransport, "/api/v1/gates" + hostGateQuery(query), options, operation, decodeGateListData);
     },
     async getHealth(options = {}) {
       const operation = "api.v1.health.get";
@@ -7511,11 +7520,11 @@ export function createPhase5Client(fetchTransport: FetchTransport): Phase5Client
     },
     async getGate(path, query = {}, options = {}) {
       const operation = "api.v1.gates.get";
-      return performRead(fetchTransport, "/api/v1/gates/" + encodePathString(path.gateId, "gateId") + "" + pageQuery(query), options, operation, decodeGateView);
+      return performRead(fetchTransport, "/api/v1/gates/" + encodePathString(path.gateId, "gateId") + "" + hostGateQuery(query), options, operation, decodeGateView);
     },
     async listGates(query = {}, options = {}) {
       const operation = "api.v1.gates.list";
-      return performRead(fetchTransport, "/api/v1/gates" + pageQuery(query), options, operation, decodeGateListData);
+      return performRead(fetchTransport, "/api/v1/gates" + hostGateQuery(query), options, operation, decodeGateListData);
     },
     async listRecoveryPoints(query = {}, options = {}) {
       const operation = "api.v1.recovery-points.list";
