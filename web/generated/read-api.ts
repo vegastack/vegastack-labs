@@ -19,6 +19,8 @@
 // api.v1.host-discovery-targets.draft
 // api.v1.host-observations.create
 // api.v1.host-observations.get
+// api.v1.host-replacements.create
+// api.v1.host-replacements.get
 // api.v1.hosts.get
 // api.v1.inventory-draft-aliases.get
 // api.v1.inventory-draft-aliases.list
@@ -1206,6 +1208,48 @@ export interface HostReplacementSourceReference {
   readonly "manifestDigest": string;
   readonly "sourceBindingDigest": string;
   readonly "custodyBindingDigest": string;
+}
+
+export interface HostReplacementState {
+  readonly "schema": "vegastack-labs.dev/host-replacement-state";
+  readonly "schemaVersion": "1.0.0";
+  readonly "replacementId": string;
+  readonly "declarationId": string;
+  readonly "oldHostId": string;
+  readonly "newHostId": string;
+  readonly "bindingDigest": string;
+  readonly "oldIdentityDigest": string;
+  readonly "newIdentityDigest": string;
+  readonly "roleBindingDigest": string;
+  readonly "declarationRevision": number;
+  readonly "priorOwnershipGeneration": number;
+  readonly "proposedOwnershipGeneration": number;
+  readonly "roleIntentRevision": number;
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
+  readonly "status": "staged" | "frozen" | "restore-pending" | "verification-required" | "qualification-required" | "committed";
+  readonly "restorationClass": "control-database" | "stateless-role";
+  readonly "aliasBindings": ReadonlyArray<HostReplacementAliasBinding>;
+  readonly "nextAction": "approve-freeze" | "resolve-fences" | "stage-restore" | "restart-candidate" | "verify-restore" | "qualify-replacement" | "prepare-commit" | "none";
+  readonly "blockers": ReadonlyArray<string>;
+  readonly "planId": string | null;
+  readonly "runId": string | null;
+  readonly "restorePlanId": string | null;
+  readonly "freezeEventDigest"?: string;
+  readonly "restorationReceiptDigest"?: string;
+  readonly "admissionSnapshotDigest"?: string;
+  readonly "continuityDigest"?: string;
+}
+
+export interface HostReplacementSubmission {
+  readonly "schema": "vegastack-labs.dev/host-replacement-submission";
+  readonly "schemaVersion": "1.0.0";
+  readonly "replacementId": string;
+  readonly "draftId": string;
+  readonly "declarationId": string;
+  readonly "contentDigest": string;
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
 }
 
 export interface HostRoleFoundation {
@@ -8769,6 +8813,299 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/host-replacement-state",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/host-replacement-state"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "replacementId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "declarationId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "oldHostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "newHostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "bindingDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "oldIdentityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "newIdentityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "roleBindingDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "declarationRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "priorOwnershipGeneration",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "proposedOwnershipGeneration",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "roleIntentRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "status",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "staged",
+          "frozen",
+          "restore-pending",
+          "verification-required",
+          "qualification-required",
+          "committed"
+        ]
+      },
+      {
+        "name": "restorationClass",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "control-database",
+          "stateless-role"
+        ]
+      },
+      {
+        "name": "aliasBindings",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/host-replacement-alias-binding",
+        "minItems": 1,
+        "maxItems": 32
+      },
+      {
+        "name": "nextAction",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "approve-freeze",
+          "resolve-fences",
+          "stage-restore",
+          "restart-candidate",
+          "verify-restore",
+          "qualify-replacement",
+          "prepare-commit",
+          "none"
+        ]
+      },
+      {
+        "name": "blockers",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "maxItems": 32,
+        "uniqueItems": true
+      },
+      {
+        "name": "planId",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "runId",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "restorePlanId",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "freezeEventDigest",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "restorationReceiptDigest",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "admissionSnapshotDigest",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "continuityDigest",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/host-replacement-submission",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/host-replacement-submission"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "replacementId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "draftId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "declarationId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "contentDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/host-role-foundation",
     "fields": [
       {
@@ -11483,6 +11820,14 @@ function decodeHostReplacementSourceReference(value: unknown): HostReplacementSo
   return decodeSchema("vegastack-labs.dev/host-replacement-source-reference", value) as unknown as HostReplacementSourceReference;
 }
 
+function decodeHostReplacementState(value: unknown): HostReplacementState {
+  return decodeSchema("vegastack-labs.dev/host-replacement-state", value) as unknown as HostReplacementState;
+}
+
+function decodeHostReplacementSubmission(value: unknown): HostReplacementSubmission {
+  return decodeSchema("vegastack-labs.dev/host-replacement-submission", value) as unknown as HostReplacementSubmission;
+}
+
 function decodeHostRoleFoundation(value: unknown): HostRoleFoundation {
   return decodeSchema("vegastack-labs.dev/host-role-foundation", value) as unknown as HostRoleFoundation;
 }
@@ -11852,6 +12197,7 @@ export type ReadClient = {
   readonly listGates: (query?: HostGateQuery, options?: RequestOptions) => Promise<ReadResult<GateListData>>;
   readonly getHealth: (options?: RequestOptions) => Promise<ReadResult<ServerStatusData>>;
   readonly getHostObservation: (path: { readonly observationID: string }, options?: RequestOptions) => Promise<ReadResult<HostObservation>>;
+  readonly getHostReplacement: (path: { readonly replacementId: string }, options?: RequestOptions) => Promise<ReadResult<HostReplacementState>>;
   readonly getHosts: (path: { readonly hostID: string }, options?: RequestOptions) => Promise<ReadResult<ManagedHost>>;
   readonly getInventoryDraftAlias: (path: { readonly draftId: string; readonly revision: number; readonly recordId: string }, options?: RequestOptions) => Promise<ReadResult<ApiInventoryAliasData>>;
   readonly listInventoryDraftAliases: (path: { readonly draftId: string; readonly revision: number }, query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<ApiInventoryAliasListData>>;
@@ -11920,6 +12266,10 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
     async getHostObservation(path, options = {}) {
       const operation = "api.v1.host-observations.get";
       return performRead(fetchTransport, "/api/v1/host-observations/" + encodePathString(path.observationID, "observationID") + "", options, operation, decodeHostObservation);
+    },
+    async getHostReplacement(path, options = {}) {
+      const operation = "api.v1.host-replacements.get";
+      return performRead(fetchTransport, "/api/v1/host-replacements/" + encodePathString(path.replacementId, "replacementId") + "", options, operation, decodeHostReplacementState);
     },
     async getHosts(path, options = {}) {
       const operation = "api.v1.hosts.get";
@@ -12171,6 +12521,8 @@ export type HostClient = {
   readonly prepareHostTarget: (request: HostDiscoveryTargetDraftRequest, options?: RequestOptions) => Promise<ReadResult<HostDiscoveryTargetDraftSubmission>>;
   readonly discoverHost: (request: HostDiscoveryRequest, options?: RequestOptions) => Promise<ReadResult<HostDiscoverySubmission>>;
   readonly getHostObservation: (path: { readonly observationID: string }, options?: RequestOptions) => Promise<ReadResult<HostObservation>>;
+  readonly prepareHostReplacement: (request: HostReplacementRequest, options?: RequestOptions) => Promise<ReadResult<HostReplacementSubmission>>;
+  readonly getHostReplacement: (path: { readonly replacementId: string }, options?: RequestOptions) => Promise<ReadResult<HostReplacementState>>;
   readonly getHosts: (path: { readonly hostID: string }, options?: RequestOptions) => Promise<ReadResult<ManagedHost>>;
 };
 
@@ -12204,6 +12556,15 @@ export function createHostClient(fetchTransport: FetchTransport): HostClient {
     async getHostObservation(path, options = {}) {
       const operation = "api.v1.host-observations.get";
       return performRead(fetchTransport, "/api/v1/host-observations/" + encodePathString(path.observationID, "observationID") + "", options, operation, decodeHostObservation);
+    },
+    async prepareHostReplacement(request, options = {}) {
+      const operation = "api.v1.host-replacements.create";
+      const body = decodeHostReplacementRequest(request);
+      return performChange(fetchTransport, "/api/v1/host-replacements", body, options, operation, decodeHostReplacementSubmission, false);
+    },
+    async getHostReplacement(path, options = {}) {
+      const operation = "api.v1.host-replacements.get";
+      return performRead(fetchTransport, "/api/v1/host-replacements/" + encodePathString(path.replacementId, "replacementId") + "", options, operation, decodeHostReplacementState);
     },
     async getHosts(path, options = {}) {
       const operation = "api.v1.hosts.get";

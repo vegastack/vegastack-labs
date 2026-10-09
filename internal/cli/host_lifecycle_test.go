@@ -31,7 +31,7 @@ func TestHostLifecycleCLIRejectsMalformedBeforeTransport(t *testing.T) {
 	for _, tt := range []struct {
 		command string
 		limit   int64
-	}{{"target", 16384}, {"action", 131072}, {"access", 1048576}} {
+	}{{"target", 16384}, {"action", 131072}, {"access", 1048576}, {"replacement", 32768}} {
 		t.Run(tt.command, func(t *testing.T) {
 			f := &lifecycleControlFixture{stubControlOperations: successfulControlOperations(t)}
 			files := &stubFileReader{content: []byte(`{"unknown":"secret-canary"}`)}

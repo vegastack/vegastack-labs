@@ -44,8 +44,8 @@ Contract schema: `1.25.0`
 | `api.v1.host-discovery-targets.draft` | `POST` | `/api/v1/host-discovery-targets/draft` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/host-discovery-target-draft-request` | `vegastack-labs.dev/host-discovery-target-draft-submission` |
 | `api.v1.host-observations.create` | `POST` | `/api/v1/host-observations` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/host-discovery-request` | `vegastack-labs.dev/host-discovery-submission` |
 | `api.v1.host-observations.get` | `GET` | `/api/v1/host-observations/{observationID}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/host-observation` |
-| `api.v1.host-replacements.create` | `POST` | `/api/v1/host-replacements` | `available` | `operator` | `finite` | `vegastack-labs.dev/host-replacement-request` | `vegastack-labs.dev/host-replacement-submission` |
-| `api.v1.host-replacements.get` | `GET` | `/api/v1/host-replacements/{replacementId}` | `available` | `operator` | `finite` | `` | `vegastack-labs.dev/host-replacement-state` |
+| `api.v1.host-replacements.create` | `POST` | `/api/v1/host-replacements` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/host-replacement-request` | `vegastack-labs.dev/host-replacement-submission` |
+| `api.v1.host-replacements.get` | `GET` | `/api/v1/host-replacements/{replacementId}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/host-replacement-state` |
 | `api.v1.hosts.get` | `GET` | `/api/v1/hosts/{hostID}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/managed-host` |
 | `api.v1.inventory-diffs.create` | `POST` | `/api/v1/inventory-diffs` | `available` | `operator` | `finite` | `vegastack-labs.dev/inventory-diff-request` | `vegastack-labs.dev/inventory-diff-data` |
 | `api.v1.inventory-draft-aliases.get` | `GET` | `/api/v1/inventory-drafts/{draftId}/revisions/{revision}/aliases/{recordId}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/api-inventory-alias-data` |

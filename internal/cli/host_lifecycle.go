@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"strings"
 )
 
 func (app *App) runHostLifecycleCommand(ctx context.Context, mode outputMode, p parsedArguments) int {
@@ -13,6 +14,23 @@ func (app *App) runHostLifecycleCommand(ctx context.Context, mode outputMode, p 
 		return app.fail(mode, p.commandName(), generated.ErrorCodeIntegrityFailure, "host-control", generated.RunStatusFailed, false)
 	}
 	config := p.Value(generated.FlagConfig)
+	if p.commandName() == generated.CommandNameNodeReplacementInspect {
+		r, e := control.GetHostReplacement(ctx, config, p.Value(generated.FlagReplacementID))
+		if e != nil {
+			return app.failServer(mode, p.commandName(), e)
+		}
+		if r.ExitCode != 0 {
+			return app.remoteFailure(mode, r.Raw, r.Result, r.ExitCode)
+		}
+		if mode == outputJSON {
+			return writeRemoteJSON(app.stdout, r.Raw, r.ExitCode)
+		}
+		_, e = fmt.Fprintf(app.stdout, "Replacement %s: %s\nFormer host: %s; replacement host: %s\nRestoration: %s\nOwnership generation: %d → %d\nBlockers: %s\nNext action: %s\nState revision: %d; recovery epoch: %d\n", r.Data.ReplacementID, r.Data.Status, r.Data.OldHostID, r.Data.NewHostID, r.Data.RestorationClass, r.Data.PriorOwnershipGeneration, r.Data.ProposedOwnershipGeneration, strings.Join(r.Data.Blockers, ", "), r.Data.NextAction, r.Data.StateRevision, r.Data.RecoveryEpoch)
+		if e != nil {
+			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+		}
+		return 0
+	}
 	if p.commandName() == generated.CommandNameNodeObservationInspect {
 		r, e := control.GetHostObservation(ctx, config, p.Value(generated.FlagObservationID))
 		if e != nil {
@@ -32,6 +50,8 @@ func (app *App) runHostLifecycleCommand(ctx context.Context, mode outputMode, p 
 	}
 	schema, limit := generated.SchemaIDHostDiscoveryTargetDraftRequest, int64(16384)
 	switch p.commandName() {
+	case generated.CommandNameNodeReplacementPrepare:
+		schema, limit = generated.SchemaIDHostReplacementRequest, 32768
 	case generated.CommandNameNodeActionPrepare:
 		schema, limit = generated.SchemaIDHostActionRequest, 131072
 	case generated.CommandNameNodeAccessPrepare:
@@ -48,6 +68,23 @@ func (app *App) runHostLifecycleCommand(ctx context.Context, mode outputMode, p 
 		return app.fail(mode, p.commandName(), generated.ErrorCodeInputInvalid, "host-request", generated.RunStatusFailed, false)
 	}
 	switch p.commandName() {
+	case generated.CommandNameNodeReplacementPrepare:
+		var in generated.HostReplacementRequest
+		_ = json.Unmarshal(raw, &in)
+		r, e := control.PrepareHostReplacement(ctx, config, in)
+		if e != nil {
+			return app.failServer(mode, p.commandName(), e)
+		}
+		if r.ExitCode != 0 {
+			return app.remoteFailure(mode, r.Raw, r.Result, r.ExitCode)
+		}
+		if mode == outputJSON {
+			return writeRemoteJSON(app.stdout, r.Raw, r.ExitCode)
+		}
+		if _, e = fmt.Fprintf(app.stdout, "Replacement %s: %s draft\nFormer host: %s; replacement host: %s\nAliases: %d; restoration: %s\n", r.Data.ReplacementID, in.Operation, in.OldHostID, in.NewHostID, len(in.AliasBindings), in.RestorationClass); e != nil {
+			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+		}
+		return app.printHostDraft(r.Data.DraftID, r.Data.DeclarationID, r.Data.ContentDigest, r.Data.StateRevision, r.Data.RecoveryEpoch)
 	case generated.CommandNameNodeTargetPrepare:
 		var in generated.HostDiscoveryTargetDraftRequest
 		_ = json.Unmarshal(raw, &in)

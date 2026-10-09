@@ -532,6 +532,7 @@
       "dataSchema": "vegastack-labs.dev/host-replacement-submission",
       "stream": "finite",
       "audiences": [
+        "browser",
         "operator"
       ]
     },
@@ -544,6 +545,7 @@
       "dataSchema": "vegastack-labs.dev/host-replacement-state",
       "stream": "finite",
       "audiences": [
+        "browser",
         "operator"
       ]
     },

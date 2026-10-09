@@ -59,3 +59,18 @@ func (operations *Operations) GetHostObservation(ctx context.Context, configPath
 	}
 	return client.GetHostObservation(ctx, profile, input)
 }
+
+func (operations *Operations) PrepareHostReplacement(ctx context.Context, configPath string, input generated.HostReplacementRequest) (localapi.TypedResponse[generated.HostReplacementSubmission], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.HostReplacementSubmission]{}, err
+	}
+	return client.PrepareHostReplacement(ctx, profile, input)
+}
+func (operations *Operations) GetHostReplacement(ctx context.Context, configPath string, id string) (localapi.TypedResponse[generated.HostReplacementState], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.HostReplacementState]{}, err
+	}
+	return client.GetHostReplacement(ctx, profile, id)
+}

@@ -2854,7 +2854,7 @@
           "valueName": "id",
           "required": true,
           "repeatable": false,
-          "summary": "Select one saved observation.",
+          "summary": "Select one saved lifecycle record.",
           "enum": null
         },
         {
@@ -2919,6 +2919,151 @@
       "availability": "planned",
       "ownerPhase": "6",
       "risk": "unassigned"
+    },
+    {
+      "path": [
+        "node",
+        "replacement",
+        "inspect"
+      ],
+      "summary": "Read the durable replacement stage and safe next action.",
+      "availability": "available",
+      "ownerPhase": "6",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--replacement-id",
+          "kind": "value",
+          "valueName": "id",
+          "required": true,
+          "repeatable": false,
+          "summary": "Select one saved lifecycle record.",
+          "enum": null
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/host-replacement-state",
+      "examples": [
+        {
+          "summary": "Read the durable replacement stage and safe next action.",
+          "arguments": [
+            "node",
+            "replacement",
+            "inspect",
+            "--config",
+            "fixture/server-profile.json",
+            "--replacement-id",
+            "replacement-a",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "node",
+        "replacement",
+        "prepare"
+      ],
+      "summary": "Prepare an inert exact host replacement continuation.",
+      "availability": "available",
+      "ownerPhase": "6",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one bounded typed request JSON file.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/host-replacement-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/host-replacement-submission",
+      "examples": [
+        {
+          "summary": "Prepare an inert exact host replacement continuation.",
+          "arguments": [
+            "node",
+            "replacement",
+            "prepare",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/host-request.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [

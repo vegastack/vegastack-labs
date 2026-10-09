@@ -170,6 +170,16 @@ Available commands:
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
     --source-revision <revision> Record the source revision supplied by its owner.
+  node access prepare      Prepare an inert access policy and probe sequence.
+    --config <path>        Read one protected server profile.
+    --file <path>          Read one bounded typed request JSON file.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  node action prepare      Prepare an inert typed host action draft.
+    --config <path>        Read one protected server profile.
+    --file <path>          Read one bounded typed request JSON file.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   node add                 Prepare inert host registration; approval and apply remain separate.
     --config <path>        Read one protected server profile.
     --file <path>          Read one exact request JSON file (16 KiB max).
@@ -185,9 +195,29 @@ Available commands:
     --host-id <id>         Select one registered host ID.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  node observation inspect Read an existing discovery observation without contacting the host.
+    --config <path>        Read one protected server profile.
+    --observation-id <id>  Select one saved lifecycle record.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  node replacement inspect Read the durable replacement stage and safe next action.
+    --config <path>        Read one protected server profile.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --replacement-id <id>  Select one saved lifecycle record.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  node replacement prepare Prepare an inert exact host replacement continuation.
+    --config <path>        Read one protected server profile.
+    --file <path>          Read one bounded typed request JSON file.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   node role prepare        Prepare an inert role action draft; exact approval and apply remain separate.
     --config <path>        Read one protected server profile.
     --file <path>          Read one exact host-action request JSON file (128 KiB max).
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  node target prepare      Prepare an inert discovery target draft.
+    --config <path>        Read one protected server profile.
+    --file <path>          Read one bounded typed request JSON file.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   plan                     Create an immutable plan from one exact inert declaration revision.

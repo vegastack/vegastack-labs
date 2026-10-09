@@ -494,11 +494,37 @@ Read an existing discovery observation without contacting the host.
 Owner phase: `6` · risk: `read-only` · availability: `available`
 
 - `--config <path>` — Read one protected server profile.
-- `--observation-id <id>` — Select one saved observation.
+- `--observation-id <id>` — Select one saved lifecycle record.
 - `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
 - `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
 
 - Read an existing discovery observation without contacting the host.: `vsk-labs node observation inspect --config fixture/server-profile.json --observation-id observation-a --output json`
+
+### `vsk-labs node replacement inspect`
+
+Read the durable replacement stage and safe next action.
+
+Owner phase: `6` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read one protected server profile.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--replacement-id <id>` — Select one saved lifecycle record.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Read the durable replacement stage and safe next action.: `vsk-labs node replacement inspect --config fixture/server-profile.json --replacement-id replacement-a --output json`
+
+### `vsk-labs node replacement prepare`
+
+Prepare an inert exact host replacement continuation.
+
+Owner phase: `6` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected server profile.
+- `--file <path>` — Read one bounded typed request JSON file.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Prepare an inert exact host replacement continuation.: `vsk-labs node replacement prepare --config fixture/server-profile.json --file fixture/host-request.json --output json`
 
 ### `vsk-labs node role prepare`
 

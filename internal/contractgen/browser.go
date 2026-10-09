@@ -38,7 +38,7 @@ func browserReadEndpoints(registry metadata.Registry) ([]metadata.EndpointDefini
 
 func hostBrowserMutation(id string) bool {
 	switch id {
-	case "api.v1.host-discovery-targets.draft", "api.v1.host-observations.create", "api.v1.host-adoptions.draft", "api.v1.host-actions.draft", "api.v1.host-access.draft":
+	case "api.v1.host-discovery-targets.draft", "api.v1.host-observations.create", "api.v1.host-adoptions.draft", "api.v1.host-actions.draft", "api.v1.host-access.draft", "api.v1.host-replacements.create":
 		return true
 	}
 	return false
@@ -867,6 +867,10 @@ func browserPathParameters(path string) []string {
 
 func browserMethodName(endpoint metadata.EndpointDefinition) string {
 	switch endpoint.ID {
+	case "api.v1.host-replacements.create":
+		return "prepareHostReplacement"
+	case "api.v1.host-replacements.get":
+		return "getHostReplacement"
 	case "api.v1.host-discovery-targets.draft":
 		return "prepareHostTarget"
 	case "api.v1.host-observations.create":

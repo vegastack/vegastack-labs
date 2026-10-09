@@ -438,6 +438,7 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 	}
 
 	wantAvailable := map[string]bool{
+		"node target prepare": false, "node action prepare": false, "node access prepare": false, "node observation inspect": false, "node replacement prepare": false, "node replacement inspect": false,
 		"node discover": false, "node add": false, "node inspect": false, "node role prepare": false, "server prepare": false,
 		"help": false, "release inspect": false, "release verify": false, "server api-ssh": false, "server run": false, "server status": false, "version": false,
 		"status": false, "database status": false, "inventory import": false, "inventory diff": false, "inventory export": false,

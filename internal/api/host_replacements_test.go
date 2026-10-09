@@ -85,41 +85,43 @@ func replacementAPIGrants(in generated.HostReplacementRequest) []authorization.E
 	}
 }
 func TestReplacementAPIRequiresBothSubjectsAndExactAuthorGrant(t *testing.T) {
-	for _, operation := range []string{"freeze", "commit"} {
-		in := replacementAPIInput()
-		in.Operation = operation
-		raw, _ := json.Marshal(in)
-		for _, missing := range []int{-1, 0, 1, 2} {
-			grants := replacementAPIGrants(in)
-			if missing >= 0 {
-				grants = append(grants[:missing], grants[missing+1:]...)
-			}
-			app, repo, decl := replacementAPIApp(t, grants)
-			w := replacementAPICall(app, "POST", "/api/v1/host-replacements", string(raw), identity.LocalOSPeerMethod)
-			if missing >= 0 {
-				if w.Code != http.StatusForbidden || repo.stages != 0 || decl.calls != 0 {
-					t.Fatalf("missing grant%d status%d stages%d", missing, w.Code, repo.stages)
+	for _, method := range []string{identity.LocalOSPeerMethod, identity.CloudflareAccessMethod} {
+		for _, operation := range []string{"freeze", "commit"} {
+			in := replacementAPIInput()
+			in.Operation = operation
+			raw, _ := json.Marshal(in)
+			for _, missing := range []int{-1, 0, 1, 2} {
+				grants := replacementAPIGrants(in)
+				if missing >= 0 {
+					grants = append(grants[:missing], grants[missing+1:]...)
 				}
-				continue
-			}
-			if w.Code != http.StatusOK || repo.stages != 1 || decl.calls != 1 {
-				t.Fatalf("good draft %d %s", w.Code, w.Body.String())
-			}
-			op := decl.request.Operations[0]
-			if op.OperationType != "host.replacement."+operation || op.AdapterID != hostreplacement.AdapterID || op.TargetID != decl.request.DeclarationID || !op.Idempotent || op.InputDigest != hostaction.Digest(in) || len(decl.request.Extensions) != 1 {
-				t.Fatal("draft widened operation")
+				app, repo, decl := replacementAPIApp(t, grants)
+				w := replacementAPICall(app, "POST", "/api/v1/host-replacements", string(raw), method)
+				if missing >= 0 {
+					if w.Code != http.StatusForbidden || repo.stages != 0 || decl.calls != 0 {
+						t.Fatalf("missing grant%d status%d stages%d", missing, w.Code, repo.stages)
+					}
+					continue
+				}
+				if w.Code != http.StatusOK || repo.stages != 1 || decl.calls != 1 {
+					t.Fatalf("good draft %d %s", w.Code, w.Body.String())
+				}
+				op := decl.request.Operations[0]
+				if op.OperationType != "host.replacement."+operation || op.AdapterID != hostreplacement.AdapterID || op.TargetID != decl.request.DeclarationID || !op.Idempotent || op.InputDigest != hostaction.Digest(in) || len(decl.request.Extensions) != 1 {
+					t.Fatal("draft widened operation")
+				}
 			}
 		}
 	}
 }
-func TestReplacementAPIRejectsBrowserMalformedAndUnscopedRead(t *testing.T) {
+func TestReplacementAPIRejectsMalformedAndUnscopedRead(t *testing.T) {
 	in := replacementAPIInput()
 	raw, _ := json.Marshal(in)
 	good := string(raw)
 	for _, tc := range []struct {
 		body, method string
 		status       int
-	}{{good, identity.CloudflareAccessMethod, 403}, {strings.TrimSuffix(good, "}") + `,"reset":true}`, identity.LocalOSPeerMethod, 400}, {strings.Replace(good, `"osPreparation":{`, `"osPreparation":{"reset":true,`, 1), identity.LocalOSPeerMethod, 400}, {strings.Repeat(" ", hostreplacement.MaximumInput+1), identity.LocalOSPeerMethod, 400}, {good, "", 401}} {
+	}{{good, identity.SlackSocketModeMethod, 403}, {strings.TrimSuffix(good, "}") + `,"reset":true}`, identity.LocalOSPeerMethod, 400}, {strings.Replace(good, `"osPreparation":{`, `"osPreparation":{"reset":true,`, 1), identity.LocalOSPeerMethod, 400}, {strings.Repeat(" ", hostreplacement.MaximumInput+1), identity.LocalOSPeerMethod, 400}, {good, "", 401}} {
 		app, repo, _ := replacementAPIApp(t, replacementAPIGrants(in))
 		w := replacementAPICall(app, "POST", "/api/v1/host-replacements", tc.body, tc.method)
 		if w.Code != tc.status || repo.stages != 0 {

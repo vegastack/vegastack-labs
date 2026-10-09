@@ -41,8 +41,8 @@ func (app *Application) replacementDraft(c HostReplacementOperations) func(http.
 	return func(w http.ResponseWriter, r *http.Request, _ authorization.ReadScope, _ map[string]string) {
 		const op = "api.v1.host-replacements.create"
 		principal, ok := identity.PrincipalFromContext(r.Context())
-		if !ok || principal.Method != identity.LocalOSPeerMethod {
-			app.failure(w, op, apiFailure(generated.ErrorCodeAuthorizationDenied, "operator-local"))
+		if !ok || (principal.Method != identity.LocalOSPeerMethod && principal.Method != identity.CloudflareAccessMethod) {
+			app.failure(w, op, apiFailure(generated.ErrorCodeAuthorizationDenied, "replacement-client"))
 			return
 		}
 		var in generated.HostReplacementRequest
@@ -107,8 +107,8 @@ func (app *Application) replacementGet(c HostReplacementOperations) func(http.Re
 	return func(w http.ResponseWriter, r *http.Request, _ authorization.ReadScope, p map[string]string) {
 		const op = "api.v1.host-replacements.get"
 		principal, ok := identity.PrincipalFromContext(r.Context())
-		if !ok || principal.Method != identity.LocalOSPeerMethod {
-			app.failure(w, op, apiFailure(generated.ErrorCodeAuthorizationDenied, "operator-local"))
+		if !ok || (principal.Method != identity.LocalOSPeerMethod && principal.Method != identity.CloudflareAccessMethod) {
+			app.failure(w, op, apiFailure(generated.ErrorCodeAuthorizationDenied, "replacement-client"))
 			return
 		}
 		if r.URL.RawQuery != "" || !pathToken.MatchString(p["replacementId"]) {

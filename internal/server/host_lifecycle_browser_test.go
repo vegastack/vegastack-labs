@@ -10,7 +10,7 @@ import (
 // Exercises the actual browser authentication middleware before body parsing.
 // Store-backed target grants and revision checks are covered by the Linux API integration.
 func TestHostLifecycleBrowserSessionBoundary(t *testing.T) {
-	for _, path := range []string{"/api/v1/host-discovery-targets/draft", "/api/v1/host-observations", "/api/v1/host-adoptions/draft", "/api/v1/host-actions/draft", "/api/v1/host-access/draft"} {
+	for _, path := range []string{"/api/v1/host-discovery-targets/draft", "/api/v1/host-observations", "/api/v1/host-adoptions/draft", "/api/v1/host-actions/draft", "/api/v1/host-access/draft", "/api/v1/host-replacements"} {
 		for _, mode := range []string{"valid", "missing-session", "expired-session", "foreign-origin"} {
 			t.Run(path+"/"+mode, func(t *testing.T) {
 				auth, _, sessions := newBrowserAuthFixture(t)

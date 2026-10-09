@@ -77,6 +77,8 @@ type HostControlOperations interface {
 	PrepareHostTarget(context.Context, string, generated.HostDiscoveryTargetDraftRequest) (localapi.TypedResponse[generated.HostDiscoveryTargetDraftSubmission], error)
 	SubmitHostAction(context.Context, string, generated.HostActionRequest) (localapi.TypedResponse[generated.HostActionSubmission], error)
 	SubmitHostAccess(context.Context, string, generated.HostAccessDraftRequest) (localapi.TypedResponse[generated.HostActionSubmission], error)
+	PrepareHostReplacement(context.Context, string, generated.HostReplacementRequest) (localapi.TypedResponse[generated.HostReplacementSubmission], error)
+	GetHostReplacement(context.Context, string, string) (localapi.TypedResponse[generated.HostReplacementState], error)
 	GetHostObservation(context.Context, string, string) (localapi.TypedResponse[generated.HostObservation], error)
 	DiscoverHost(context.Context, string, generated.HostDiscoveryRequest) (localapi.TypedResponse[generated.HostDiscoverySubmission], error)
 	SubmitHostAdoption(context.Context, string, generated.HostAdoptionRequest) (localapi.TypedResponse[generated.HostAdoptionSubmission], error)
@@ -458,7 +460,7 @@ func (app *App) Run(ctx context.Context, args []string) int {
 		return app.handlePlanResponse(mode, response)
 	case generated.CommandNameNodeRolePrepare, generated.CommandNameServerPrepare:
 		return app.runRolePrepare(ctx, mode, parsed)
-	case generated.CommandNameNodeTargetPrepare, generated.CommandNameNodeActionPrepare, generated.CommandNameNodeAccessPrepare, generated.CommandNameNodeObservationInspect:
+	case generated.CommandNameNodeReplacementPrepare, generated.CommandNameNodeReplacementInspect, generated.CommandNameNodeTargetPrepare, generated.CommandNameNodeActionPrepare, generated.CommandNameNodeAccessPrepare, generated.CommandNameNodeObservationInspect:
 		return app.runHostLifecycleCommand(ctx, mode, parsed)
 	case generated.CommandNameNodeDiscover, generated.CommandNameNodeAdd, generated.CommandNameNodeInspect:
 		return app.runHostCommand(ctx, mode, parsed)
@@ -569,6 +571,7 @@ func (app *App) failAPISSH(err error) int {
 func emptyRun(value generated.RunPresentation) bool { return value.Run.RunID == "" }
 
 var serverErrorTargets = map[string]struct{}{
+	"host-replacement": {}, "replacement-id": {},
 	"application-health": {}, "application-shutdown": {}, "application-start": {},
 	"context": {}, "control-operations": {}, "control-service": {}, "control-service-drain": {}, "control-service-lock": {}, "control-service-request": {},
 	"control-service-response": {}, "control-socket": {}, "control-socket-parent": {},

@@ -89,3 +89,24 @@ func (client *client) SubmitHostAccess(ctx context.Context, profile serverconfig
 		return data.DraftID == id && data.DeclarationID == id && data.RecoveryEpoch == input.Subject.RecoveryEpoch && data.RecoveryEpoch == r.RecoveryEpoch && data.StateRevision == r.StateRevision && data.StateRevision >= input.Subject.ExpectedStateRevision
 	})
 }
+
+func (client *client) PrepareHostReplacement(ctx context.Context, profile serverconfig.Profile, input generated.HostReplacementRequest) (TypedResponse[generated.HostReplacementSubmission], error) {
+	raw, err := json.Marshal(input)
+	if err != nil || len(raw) > 32768 || !validGateData(input, generated.SchemaIDHostReplacementRequest) {
+		return TypedResponse[generated.HostReplacementSubmission]{}, failure.New(generated.ErrorCodeInputInvalid, "host-replacement", false)
+	}
+	sum := sha256.Sum256(raw)
+	digest := "sha256:" + hex.EncodeToString(sum[:])
+	id := "host-replacement-" + digest[7:39]
+	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodPost, "/api/v1/host-replacements", "api.v1.host-replacements.create", maxOperationResponseBodyBytes, operationTimeout, false}, input, func(data generated.HostReplacementSubmission, r generated.RunResult) bool {
+		return validGateData(data, generated.SchemaIDHostReplacementSubmission) && data.ReplacementID == input.ReplacementID && data.DraftID == id && data.DeclarationID == id && data.ContentDigest == digest && data.StateRevision == r.StateRevision && data.StateRevision >= input.ExpectedStateRevision && data.RecoveryEpoch == r.RecoveryEpoch && data.RecoveryEpoch == input.RecoveryEpoch
+	})
+}
+func (client *client) GetHostReplacement(ctx context.Context, profile serverconfig.Profile, id string) (TypedResponse[generated.HostReplacementState], error) {
+	if !validPathToken(id) {
+		return TypedResponse[generated.HostReplacementState]{}, failure.New(generated.ErrorCodeInputInvalid, "replacement-id", false)
+	}
+	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodGet, "/api/v1/host-replacements/" + id, "api.v1.host-replacements.get", maxOperationResponseBodyBytes, operationTimeout, false}, nil, func(data generated.HostReplacementState, r generated.RunResult) bool {
+		return validGateData(data, generated.SchemaIDHostReplacementState) && data.ReplacementID == id && data.StateRevision == r.StateRevision && data.RecoveryEpoch == r.RecoveryEpoch
+	})
+}

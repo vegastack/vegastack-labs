@@ -24,4 +24,14 @@ Once authenticated server authority exists, prepare and approve the control role
 
 Follow the underlying role action's bounded recovery procedure. Preserve account data, directory contents, owned-file journals and the existing database. An unresolved role installation journal blocks retries; the Console cannot clear it. An unchanged active control-role reapply verifies state without writes or restart. Different active control configuration remains refused.
 
-This workflow consumes the implemented Linux foundation. Native acceptance and future provider capabilities remain separate requirements. macOS role installation and replacement/recovery UI are not completed by this portion of issue #239. Nodes04/05 remain excluded, and development or UI availability grants no live host authorization.
+This workflow consumes the implemented Linux foundation. Native acceptance and future provider capabilities remain separate requirements. macOS role installation remains unsupported. Nodes04/05 remain excluded, and development or UI availability grants no live host authorization.
+
+## Replacement and recovery
+
+Prepare a bounded `HostReplacementRequest` from current authorized records. In **Host replacement and recovery**, load that file and review the distinct old/new hosts and identities, target revisions and SSH key digests, exact alias owners and generations, role declarations, preserved volumes/resources and recovery epoch. Control-database replacement additionally names the verified source point, manifest and custody references; stateless replacement does not restore database payloads. The browser does not calculate authoritative bindings or edit arbitrary request bodies.
+
+Confirm the displayed impact, then choose **Prepare replacement draft**. This acknowledgement of the preview is not execution approval. Continue through **Create exact plan**, the existing Slack acknowledgement and the exact-plan run controls. CLI equivalents are `node replacement prepare --config <profile> --file <request.json>` and `node replacement inspect --config <profile> --replacement-id <id>`.
+
+Inspect the replacement by its exact ID after each stage. The displayed status, blockers, next action, ownership generations and epoch come from the server. Frozen aliases are not transferred aliases. A staged restore, restarted candidate, successful service or incomplete native admission must not be treated as completed replacement. Use **Backups and recovery** for existing recovery-point selection, restore verification and its safe next action. Follow the owner’s recovery-required procedure without automatic resubmission or reimaging.
+
+Once fences, restoration when applicable, and current destination admission are verified, prepare a fresh commit request and a separate approved plan. A stale epoch, denied destination or changed binding requires current server state and a new plan; browser confirmation cannot bypass these checks. Preserve the old host’s data. The server’s committed state records alias ownership transfer, not native acceptance or future provider readiness.

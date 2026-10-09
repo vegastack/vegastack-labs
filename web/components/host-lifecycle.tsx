@@ -1,5 +1,7 @@
 "use client";
 
+import { HostReplacement } from "@/components/host-replacement";
+
 import { useState, type FormEvent } from "react";
 import { HostAdmission, InitialControlGuidance } from "@/components/host-admission";
 import { HostPolicyForm } from "@/components/host-policy-form";
@@ -76,6 +78,7 @@ function HostLifecycleContent({ initialHostId }: { initialHostId: string | null 
     {host.data ? <HostAdmission key={host.data.data.hostId} hostId={host.data.data.hostId} revision={host.data.data.stateRevision} epoch={host.data.data.recoveryEpoch} /> : null}
     <HostPolicyForm onPrepared={saveDraft} />
     <InitialControlGuidance />
+    <HostReplacement onPrepared={saveDraft} />
     {draft ? <Card><CardHeader><CardTitle>Draft prepared</CardTitle><CardDescription>No host action has been applied.</CardDescription></CardHeader><CardContent className="space-y-3"><p>Declaration: {draft.declarationId}</p><p className="break-all">Digest: {draft.digest}</p><Button disabled={busy} onClick={async()=>{try{const p=await planning.mutateAsync(draft.declarationId);setPlanId(p.planId);}catch{}}}>Create exact plan</Button><ExactPlanLauncher key={planId ?? draft.declarationId} kind={draft.kind} planId={planId} destructive /></CardContent></Card> : null}
   </section>;
 }
