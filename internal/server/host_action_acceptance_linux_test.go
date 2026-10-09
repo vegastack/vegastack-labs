@@ -49,7 +49,33 @@ func TestHostActionAcceptance(t *testing.T) {
 		t.Run(mode, func(t *testing.T) { hostActionAcceptance(t, mode) })
 	}
 }
-func hostActionAcceptance(t *testing.T, actionMode string) {
+
+type hostActionAcceptanceHooks struct {
+	DenialCode     string
+	EnrollmentOnly bool
+	Challenge      func(*testing.T, *sql.DB, *time.Time, *HostActionAuthority, generated.HostActionEnvelope, generated.HostActionChallenge) (generated.HostActionAuthorization, error)
+	Enrollment     func(*testing.T, hostActionEnrollmentFixture) adapter.CredentialResolver
+}
+type hostActionEnrollmentFixture struct {
+	Context             context.Context
+	Authority           *store.Store
+	DB                  *sql.DB
+	Clock               func() time.Time
+	AdvanceClock        func(time.Duration)
+	Declarations        *change.Service
+	App                 *api.Application
+	Results             *result.Factory
+	Key                 []byte
+	DestinationIdentity string
+	TargetDigest        string
+}
+
+func hostActionAcceptance(t *testing.T, actionMode string, options ...hostActionAcceptanceHooks) {
+	var hooks hostActionAcceptanceHooks
+	if len(options) > 0 {
+		hooks = options[0]
+	}
+
 	principal := identity.Principal{ID: "operator-a", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}
 	ctx := identity.WithVerifiedPrincipal(context.Background(), principal)
 	captureStart := time.Now().UTC().Truncate(time.Second)
@@ -255,7 +281,21 @@ func hostActionAcceptance(t *testing.T, actionMode string) {
 	}
 
 	// Explicit synthetic precondition; this does not install or qualify systemd credentials.
-	exec(`INSERT INTO credential_reference_versions VALUES('synthetic-version','action-key','host-action','host-action-ssh','synthetic-host','native-systemd','version-a',?,'active',1,0,?,?,'fixture-declaration',1,'fixture-plan',?,'fixture-run','fixture-step','fixture-lease','operator-a','now')`, hash, time.Now().UTC().Truncate(time.Second).Format(time.RFC3339), []byte(`["host-action"]`), hash)
+	pk, err := x509.MarshalPKCS8PrivateKey(private)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var credentialResolver adapter.CredentialResolver = hostActionAcceptanceCredential{key: pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: pk})}
+	if hooks.Enrollment != nil {
+		credentialResolver = hooks.Enrollment(t, hostActionEnrollmentFixture{Context: ctx, Authority: authority, DB: db, Clock: clock, AdvanceClock: func(d time.Duration) { fixtureNow = fixtureNow.Add(d) }, Declarations: declarations, App: app, Results: factory, Key: pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: pk}), DestinationIdentity: hostadoption.IdentityDigest("product-serial", "synthetic-serial"), TargetDigest: digest})
+
+		if hooks.EnrollmentOnly {
+			return
+		}
+	} else {
+		exec(`INSERT INTO credential_reference_versions VALUES('synthetic-version','action-key','host-action','host-action-ssh','synthetic-host','native-systemd','version-a',?,'active',1,0,?,?,'fixture-declaration',1,'fixture-plan',?,'fixture-run','fixture-step','fixture-lease','operator-a','now')`, hash, time.Now().UTC().Truncate(time.Second).Format(time.RFC3339), []byte(`["host-action"]`), hash)
+	}
+
 	exec(`INSERT INTO effective_authorization_principals VALUES('automation-a','agent','active',1,'now','now')`)
 	exec(`INSERT INTO effective_authorization_grants VALUES('automation-action','automation-a','infrastructure-admin','execute','host.action.execute','execution-target','synthetic-host','human',1,'active','now','now')`)
 	grant("host.action.prepare", "host", "synthetic-host", "author")
@@ -319,7 +359,13 @@ func hostActionAcceptance(t *testing.T, actionMode string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	actionAdapter, err := transport.New(hostActionTargets{repository: actionRepo, allowed: []string{identityDigest}}, &HostActionBundleIssuer{Repository: actionRepo, Signer: actionSigner, Clock: time.Now}, liveAuthority)
+	var challengeAuthority transport.Authority = liveAuthority
+	if hooks.Challenge != nil {
+		challengeAuthority = hostActionChallengeFunc(func(ctx context.Context, e generated.HostActionEnvelope, c generated.HostActionChallenge) (generated.HostActionAuthorization, error) {
+			return hooks.Challenge(t, db, &fixtureNow, liveAuthority, e, c)
+		})
+	}
+	actionAdapter, err := transport.New(hostActionTargets{repository: actionRepo, allowed: []string{identityDigest}}, &HostActionBundleIssuer{Repository: actionRepo, Signer: actionSigner, Clock: time.Now}, challengeAuthority)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -327,11 +373,7 @@ func hostActionAcceptance(t *testing.T, actionMode string) {
 	if err = registry.Register(hostaction.AdapterID, actionAdapter); err != nil {
 		t.Fatal(err)
 	}
-	pk, err := x509.MarshalPKCS8PrivateKey(private)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = registry.RegisterCredentialResolver(adapter.CredentialCapabilityScope{ResolverID: "native-systemd", ConsumerID: "host-action", ProfileID: "synthetic-profile", CapabilityID: "synthetic-capability", Enabled: true}, hostActionAcceptanceCredential{key: pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: pk})}); err != nil {
+	if err = registry.RegisterCredentialResolver(adapter.CredentialCapabilityScope{ResolverID: "native-systemd", ConsumerID: "host-action", ProfileID: "synthetic-profile", CapabilityID: "synthetic-capability", Enabled: true}, credentialResolver); err != nil {
 		t.Fatal(err)
 	}
 	engine, err = runengine.NewEngine(runengine.Config{Repository: store.NewRunRepository(authority), Plans: plans, Admission: runengine.NewAdmissionGate(acknowledger, time.Now), Adapters: registry, SecretGate: hostActionGate{targets: actionRepo, allowed: []string{identityDigest}}, CredentialStep: &runengine.CredentialStep{Bindings: credentials, Resolvers: registry, Profiles: hostActionAcceptanceProfile{}, Plans: plans, Clock: time.Now}, Clock: time.Now})
@@ -351,14 +393,20 @@ func hostActionAcceptance(t *testing.T, actionMode string) {
 	applied, err = engine.Submit(ctx, submission)
 	if actionMode != "success" {
 		expectedCode := generated.ErrorCodeExecutionFailed
+		if hooks.DenialCode != "" {
+			expectedCode = hooks.DenialCode
+		}
 		if actionMode == "missing-action-ack" {
 			expectedCode = generated.ErrorCodeApprovalRequired
 		}
 		if runengine.Code(err) != expectedCode {
 			t.Fatalf("denial exercised wrong boundary: wanted %s got %v", expectedCode, err)
 		}
-		if (err == nil && applied.Status == "succeeded") || wrote.Load() != 0 || actionSigner.calls != 0 {
+		if (err == nil && applied.Status == "succeeded") || wrote.Load() != 0 || (actionMode != "challenge-denial" && actionSigner.calls != 0) {
 			t.Fatalf("denial changed peer: status=%s error=%v writes=%d", applied.Status, err, wrote.Load())
+		}
+		if _, statErr := os.Stat(filepath.Join(directory, "action-result")); !os.IsNotExist(statErr) {
+			t.Fatalf("denied action created output file: %v", statErr)
 		}
 		return
 	}
@@ -535,4 +583,10 @@ func hostActionAcceptanceSlackApproval(t *testing.T, service *acknowledgement.Se
 		t.Fatal("synthetic Slack approval timed out")
 	}
 	return generated.Acknowledgement{}
+}
+
+type hostActionChallengeFunc func(context.Context, generated.HostActionEnvelope, generated.HostActionChallenge) (generated.HostActionAuthorization, error)
+
+func (f hostActionChallengeFunc) Authorize(ctx context.Context, e generated.HostActionEnvelope, c generated.HostActionChallenge) (generated.HostActionAuthorization, error) {
+	return f(ctx, e, c)
 }
