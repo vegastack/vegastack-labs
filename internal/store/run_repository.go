@@ -91,7 +91,11 @@ type RunOperationResult struct {
 	ErrorCode string
 }
 
-type RunRepository struct{ store *Store }
+type RunRepository struct {
+	store         *Store
+	roleGates     *GateRepository
+	roleReadiness HostRoleReadiness
+}
 
 func NewRunRepository(store *Store) *RunRepository { return &RunRepository{store: store} }
 
@@ -296,16 +300,23 @@ func (repository *RunRepository) AcquireTargetLease(ctx context.Context, lease g
 	if repository == nil || repository.store == nil || !validLease(lease) {
 		return newStoreError(generated.ErrorCodeInputInvalid, "target-lease", false, nil)
 	}
+	roleSnapshot, err := repository.roleReservationSnapshot(ctx, lease.RunID)
+	if err != nil {
+		return err
+	}
 	canonical, _ := json.Marshal(lease)
 	requestDigest := digestParts("target-lease", lease.LeaseID, lease.BindingDigest, lease.NonceDigest)
 	event := audit.EventDraft{Type: "run.lease-acquired", CorrelationID: lease.RunID, Attribution: attribution, Target: audit.Target{Kind: "run", ID: lease.RunID}, After: ptrFingerprint(audit.Fingerprint(lease.BindingDigest))}
-	_, err := repository.store.executeAuditIntent(ctx, intentRequest{Idempotency: audit.IntentKey{Scope: "run-lease", KeyDigest: digestParts("lease-key", lease.LeaseID), RequestDigest: requestDigest}, Event: event}, false, func(ctx context.Context, transaction *sql.Tx) error {
+	_, err = repository.store.executeAuditIntent(ctx, intentRequest{Idempotency: audit.IntentKey{Scope: "run-lease", KeyDigest: digestParts("lease-key", lease.LeaseID), RequestDigest: requestDigest}, Event: event}, false, func(ctx context.Context, transaction *sql.Tx) error {
 		run, plan, err := runAndPlanInTx(ctx, transaction, lease.RunID)
 		if err != nil {
 			return err
 		}
 		if generated.ValidateExecutorLeaseBinding(plan, run, lease) != nil || run.Status != "running" || lease.Status != "active" {
 			return newStoreError(generated.ErrorCodeStateConflict, "target-lease", false, nil)
+		}
+		if err := repository.validateRoleReservation(ctx, transaction, plan, lease.RunID, roleSnapshot); err != nil {
+			return err
 		}
 		_, err = transaction.ExecContext(ctx, `INSERT INTO target_execution_leases(lease_id,run_id,step_id,target_id,binding_digest,nonce_digest,recovery_epoch,claimed_at,renew_after,expires_at,maximum_expires_at,status,canonical_bytes) VALUES(?,?,?,?,?,?,?,?,?,?,?,? ,?)`, lease.LeaseID, lease.RunID, lease.StepID, lease.TargetID, lease.BindingDigest, lease.NonceDigest, lease.RecoveryEpoch, lease.ClaimedAt, lease.RenewAfter, lease.LeaseExpiresAt, lease.MaximumExpiresAt, lease.Status, canonical)
 		return err
@@ -353,6 +364,10 @@ func (repository *RunRepository) BeginStep(ctx context.Context, request StepBegi
 	if request.At.IsZero() || request.At.Location() != time.UTC || !validRunToken(request.StepID) || !validRunToken(request.LeaseID) {
 		return generated.Run{}, newStoreError(generated.ErrorCodeInputInvalid, "run-step", false, nil)
 	}
+	roleSnapshot, err := repository.roleReservationSnapshot(ctx, request.RunID)
+	if err != nil {
+		return generated.Run{}, err
+	}
 	return repository.mutateRun(ctx, request.RunID, "run.step-intent-recorded", strings.Join([]string{request.StepID, request.LeaseID, request.At.Format(time.RFC3339Nano)}, ":"), request.Attribution, func(run *generated.Run, transaction *sql.Tx) error {
 		step := findStep(run, request.StepID)
 		if run.Status != "running" || step == nil || step.Status != "queued" || step.EffectState != "not-started" {
@@ -362,9 +377,16 @@ func (repository *RunRepository) BeginStep(ctx context.Context, request StepBegi
 		if err := transaction.QueryRowContext(ctx, `SELECT COUNT(*) FROM target_execution_leases WHERE lease_id=? AND run_id=? AND step_id=? AND status='active'`, request.LeaseID, request.RunID, request.StepID).Scan(&active); err != nil || active != 1 {
 			return newStoreError(generated.ErrorCodeStateConflict, "run-step-lease", false, err)
 		}
+		_, plan, err := runAndPlanInTx(ctx, transaction, request.RunID)
+		if err != nil {
+			return err
+		}
+		if err = repository.validateRoleReservation(ctx, transaction, plan, request.RunID, roleSnapshot); err != nil {
+			return err
+		}
 		step.Status, step.EffectState = "running", "intent-recorded"
 		run.UpdatedAt = request.At.UTC().Truncate(time.Second).Format(time.RFC3339)
-		_, err := transaction.ExecContext(ctx, `UPDATE plan_run_steps SET status='running',effect_state='intent-recorded',active_lease_id=?,started_at=? WHERE step_id=? AND run_id=? AND status='queued' AND effect_state='not-started'`, request.LeaseID, run.UpdatedAt, request.StepID, request.RunID)
+		_, err = transaction.ExecContext(ctx, `UPDATE plan_run_steps SET status='running',effect_state='intent-recorded',active_lease_id=?,started_at=? WHERE step_id=? AND run_id=? AND status='queued' AND effect_state='not-started'`, request.LeaseID, run.UpdatedAt, request.StepID, request.RunID)
 		return err
 	})
 }

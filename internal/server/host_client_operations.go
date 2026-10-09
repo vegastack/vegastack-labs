@@ -27,3 +27,11 @@ func (operations *Operations) GetManagedHost(ctx context.Context, configPath str
 	}
 	return client.GetManagedHost(ctx, profile, input)
 }
+
+func (operations *Operations) SubmitHostAction(ctx context.Context, configPath string, input generated.HostActionRequest) (localapi.TypedResponse[generated.HostActionSubmission], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.HostActionSubmission]{}, err
+	}
+	return client.SubmitHostAction(ctx, profile, input)
+}

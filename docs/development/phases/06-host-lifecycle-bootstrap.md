@@ -45,6 +45,14 @@ Issue #231 now supplies the missing production first-start path: administrator-p
 
 Verification uses actual protected files, real signature verification, SQLite, the production Slack adapter with synthetic transport, and the ordinary Unix API. Linux arm64 workstation-VM tests substitute the existing supported-platform probe only for software composition; they do not claim Debian13 amd64, hardware, hardening, recovery, workload admission or full Phase 6 acceptance. At that delivery, expanded setup, privileged-action and recovery work remained deferred; the 09-10-2026 direction above restores the outstanding Linux duties. Mac/iMac remain deferred. No live host or real Slack workspace was used.
 
+## Current Linux development batch — 09-10-2026
+
+The operator resumed the remaining Linux Phase 6 implementation with standing plan, PR and merge authority after required checks and fresh review. This supersedes the historical 6.3-only batch statements below. The existing executable, server-owned database and exact acknowledgement boundaries remain controlling; Mac/iMac stay deferred within v1 and full Phase 6 acceptance remains pending.
+
+Issue #229 is merged and owns the common admission evaluator. Delivery continues with [#230 role foundations](https://github.com/vegastack/vegastack-labs/issues/230), then [#233 replacement/recovery](https://github.com/vegastack/vegastack-labs/issues/233), [#228 native qualification](https://github.com/vegastack/vegastack-labs/issues/228), and [#234 integrated Linux reporting](https://github.com/vegastack/vegastack-labs/issues/234). Preserved [#239 CLI/Console work](https://github.com/vegastack/vegastack-labs/issues/239) consumes the actual merged contracts.
+
+Issue #230 owns inert initial account/path preparation and post-setup control service installation/handoff omitted from reduced #231. The server remains the sole initial database writer and acknowledgement authority. See the [role installation procedure](../linux-role-installation.md). Repository development grants no fleet rollout, real Slack action, CI dispatch, release or additional infrastructure permission.
+
 ## Destination and existing decisions
 
 Implement a portable path from a named untrusted candidate to separately approved, verified host admission, role installation, control-plane bootstrap and recovery. One `vsk-labs` executable, server-owned SQLite, central typed adapters/Ansible, and the existing exact-plan acknowledgement/executor remain controlling. Discovery cannot prove hardening or apply quarantine. D-123 and D-126–D-130 govern privilege, Debian enforcement and disposable qualification. Mac mini/iMac remain required within v1 in a later Phase 6 batch; Ubuntu remains parked. Complete v1 precedes the first fleet onboarding rehearsal.

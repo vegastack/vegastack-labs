@@ -1,0 +1,66 @@
+{
+  "$id": "vegastack-labs.dev/linux-role-directory",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "expectedDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "expectedState": {
+      "enum": [
+        "absent",
+        "owned"
+      ],
+      "type": "string"
+    },
+    "gid": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "mode": {
+      "enum": [
+        "0700",
+        "0750"
+      ],
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/linux-role-directory"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "selector": {
+      "enum": [
+        "config",
+        "state",
+        "runtime",
+        "work"
+      ],
+      "type": "string"
+    },
+    "uid": {
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "selector",
+    "uid",
+    "gid",
+    "mode",
+    "expectedState"
+  ],
+  "title": "VegaStack Labs linux role directory",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

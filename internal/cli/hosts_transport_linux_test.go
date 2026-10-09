@@ -55,7 +55,8 @@ func hostTransportFixture(t *testing.T, action string) ([]string, []byte, []byte
 	}
 	config := filepath.Join(directory, "profile.json")
 	write(config, generated.ServerProfile{Schema: generated.SchemaIDServerProfile, SchemaVersion: "1.3.0", SocketPath: socket, SocketOwnerUID: int64(os.Geteuid()), SocketMode: "0600", ShutdownGraceSeconds: 5, InventoryExportRoot: directory, PrincipalBindings: []generated.LocalPrincipalBinding{{UID: int64(os.Geteuid()), PrincipalID: "fixture-operator"}}, RemoteRead: generated.RemoteReadProfile{Enabled: false}})
-	args := []string{"node", action, "--config", config}
+	args := append([]string{"node"}, strings.Fields(action)...)
+	args = append(args, "--config", config)
 	var request []byte
 	var data any
 	var schema, route, operation, method string
@@ -73,6 +74,15 @@ func hostTransportFixture(t *testing.T, action string) ([]string, []byte, []byte
 		id := "host-adoption-" + content[7:39]
 		data = generated.HostAdoptionSubmission{Schema: generated.SchemaIDHostAdoptionSubmission, SchemaVersion: "1.0.0", DraftID: id, DeclarationID: id, ContentDigest: content}
 		schema, route, operation, method = generated.SchemaIDHostAdoptionSubmission, "/api/v1/host-adoptions/draft", "api.v1.host-adoptions.draft", "POST"
+	case "role prepare":
+		input := syntheticRoleRequest(t)
+		request, _ = json.Marshal(input)
+		// Server-owned rendering may change the request digest; the exact plan
+		// remains the later approval boundary.
+		content := "sha256:" + strings.Repeat("b", 64)
+		id := "host-action-" + content[7:39]
+		data = generated.HostActionSubmission{Schema: generated.SchemaIDHostActionSubmission, SchemaVersion: "1.0.0", DraftID: id, DeclarationID: id, ContentDigest: content, StateRevision: 2}
+		schema, route, operation, method = generated.SchemaIDHostActionSubmission, "/api/v1/host-actions/draft", "api.v1.host-actions.draft", "POST"
 	case "inspect":
 		data = generated.ManagedHost{Schema: generated.SchemaIDManagedHost, SchemaVersion: "1.0.0", HostID: "host-a", TargetID: "target-a", ObservationID: "observation-a", ProfileID: "profile-a", IdentityClass: "physical", Status: "adopted-unadmitted"}
 		schema, route, operation, method = generated.SchemaIDManagedHost, "/api/v1/hosts/host-a", "api.v1.hosts.get", "GET"
@@ -93,7 +103,12 @@ func hostTransportFixture(t *testing.T, action string) ([]string, []byte, []byte
 	}
 	build := result.BuildInfo{ToolVersion: "test", ReleaseBuildID: "test"}
 	factory := result.NewFactory(build, func() (string, error) { return "request-host-transport", nil })
-	envelope, err := factory.SuccessWithRequestID(operation, "request-host-transport", false, 0, 0, data)
+	envelope, err := factory.SuccessWithRequestID(operation, "request-host-transport", false, 0, func() int64 {
+		if action == "role prepare" {
+			return 2
+		}
+		return 0
+	}(), data)
 	if err != nil {
 		t.Fatal(err)
 	}

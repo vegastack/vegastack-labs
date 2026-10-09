@@ -14,6 +14,7 @@ type RevisionToken struct {
 }
 
 type ApplicationHealth struct {
+	InstanceID    string
 	SafeMode      bool
 	RecoveryEpoch int64
 	StateRevision int64

@@ -18,31 +18,34 @@ test("the original Phase 2 baseline stays immutable while later waves have exact
   assert.equal(manifest.contract.postPhase2MutationBoundaryDigest, "sha256:ec30a4cc9d4a6e5a3fc9817a55a5b0a1697adcae57b950325edd563637d308a8");
   assert.equal(manifest.contract.productionDependencyDigest, "sha256:a9e8788558fa5c3347b5b8464d8d5e4a67dcc9357e5ae07478b606a806f78133");
   assert.equal(manifest.contract.mutationAvailable, false);
-  assert.equal(manifest.contract.reviewedWaves?.length, 39);
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-10), {
+  assert.equal(manifest.contract.reviewedWaves?.length, 40);
+  assert.equal(manifest.contract.reviewedWaves.at(-1).issue,230);
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-1).commands,["node role prepare","server prepare"]);
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-1).imports,["github.com/vegastack/vegastack-labs/internal/linuxrole"]);
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-11), {
     id: "phase6-issue213-v1",
     issue: 213,
     commands: [],
     imports: [],
     mutationBoundaryDigest: "sha256:f940d0544d5cf9094303d1a0cf8d699bbe5c103992a236aa2a40ec5189f62d2e",
   });
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-9), {
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-10), {
     id: "phase6-issue217-v1", issue: 217, commands: [],
     imports: ["github.com/vegastack/vegastack-labs/internal/adapter/hostdiscovery", "github.com/vegastack/vegastack-labs/internal/hostdiscovery"],
     mutationBoundaryDigest: "sha256:7faf9e31847907a32364104fa88946d9cfcd3b91c6b0b9c0abe1958e3bee2d19",
   });
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-8), {
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-9), {
     id: "phase6-issue222-v1", issue: 222, commands: [],
     imports: ["github.com/vegastack/vegastack-labs/internal/hostadoption"],
     mutationBoundaryDigest: "sha256:9a9d3879f1cc6b252559d8f04b9f5b5682a95541675811582d6409fb0b96578c",
   });
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-7), {"id": "phase6-issue232-v1", "issue": 232, "commands": ["node add", "node discover", "node inspect"], "imports": [], "mutationBoundaryDigest": "sha256:009a11861bf03d816c93be80a71b9106c83aa3d84363c6fd18d60615124bbc5c"});
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-6), {id:"phase6-issue224-v1",issue:224,commands:[],imports:[],mutationBoundaryDigest:"sha256:ba0a383633791808ffde2a179992770877857cc1dc0c448910265740c18c7ecc"});
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-5), {"id":"phase6-issue231-v1","issue":231,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:62ab549d020ba5899614c3a6da4d9227a6f02deb33c9a3042144fadbe42c5198"});
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-4), {"id":"phase6-issue223-v1","issue":223,"commands":[],"imports":["github.com/vegastack/vegastack-labs/internal/adapter/hostaction","github.com/vegastack/vegastack-labs/internal/hostaction"],"mutationBoundaryDigest":"sha256:95ee78c6cd02d0210b4dc3b0f0544a260ea90d2e8be3d6af1157d3f8e09c7a15"});
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-3), {"id":"phase6-issue225-v1","issue":225,"commands":[],"imports":["github.com/vegastack/vegastack-labs/ansible","github.com/vegastack/vegastack-labs/internal/debianaccess"],"mutationBoundaryDigest":"sha256:249edd7b52560d6aa3adde148a574628816a39f3853b4f0b489d07753010c90d"});
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-2), {"id":"phase6-issue226-v1","issue":226,"commands":[],"imports":["github.com/vegastack/vegastack-labs/internal/debianbaseline"],"mutationBoundaryDigest":"sha256:6d55250f6c92eb292cd5400e7bb80d03ddde1ff3950f3ed727da16837c980a4a"});
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-1), {"id":"phase6-issue229-v1","issue":229,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:3560c11c09d8106bb43c2ea9b847c48cd15a77b59b14f1edad326b4557793314"});
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-8), {"id": "phase6-issue232-v1", "issue": 232, "commands": ["node add", "node discover", "node inspect"], "imports": [], "mutationBoundaryDigest": "sha256:009a11861bf03d816c93be80a71b9106c83aa3d84363c6fd18d60615124bbc5c"});
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-7), {id:"phase6-issue224-v1",issue:224,commands:[],imports:[],mutationBoundaryDigest:"sha256:ba0a383633791808ffde2a179992770877857cc1dc0c448910265740c18c7ecc"});
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-6), {"id":"phase6-issue231-v1","issue":231,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:62ab549d020ba5899614c3a6da4d9227a6f02deb33c9a3042144fadbe42c5198"});
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-5), {"id":"phase6-issue223-v1","issue":223,"commands":[],"imports":["github.com/vegastack/vegastack-labs/internal/adapter/hostaction","github.com/vegastack/vegastack-labs/internal/hostaction"],"mutationBoundaryDigest":"sha256:95ee78c6cd02d0210b4dc3b0f0544a260ea90d2e8be3d6af1157d3f8e09c7a15"});
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-4), {"id":"phase6-issue225-v1","issue":225,"commands":[],"imports":["github.com/vegastack/vegastack-labs/ansible","github.com/vegastack/vegastack-labs/internal/debianaccess"],"mutationBoundaryDigest":"sha256:249edd7b52560d6aa3adde148a574628816a39f3853b4f0b489d07753010c90d"});
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-3), {"id":"phase6-issue226-v1","issue":226,"commands":[],"imports":["github.com/vegastack/vegastack-labs/internal/debianbaseline"],"mutationBoundaryDigest":"sha256:6d55250f6c92eb292cd5400e7bb80d03ddde1ff3950f3ed727da16837c980a4a"});
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-2), {"id":"phase6-issue229-v1","issue":229,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:3560c11c09d8106bb43c2ea9b847c48cd15a77b59b14f1edad326b4557793314"});
   assert.equal(manifest.contract.reviewedWaves[0].id, "phase5-issue104-v1");
   assert.deepEqual(manifest.contract.reviewedWaves[0].commands, ["gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft"]);
   assert.deepEqual(manifest.contract.reviewedWaves[0].imports, ["github.com/vegastack/vegastack-labs/internal/gate"]);

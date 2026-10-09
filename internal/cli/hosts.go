@@ -29,6 +29,11 @@ func (app *App) runHostCommand(ctx context.Context, mode outputMode, p parsedArg
 		if err != nil {
 			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
 		}
+		if role := r.Data.RoleFoundation; role != nil {
+			if _, err = fmt.Fprintf(app.stdout, "Role foundation: %s (%s)\nControl service (last recorded): %s\nBlockers: %s\n", role.RoleID, role.Status, role.ServiceState, strings.Join(role.Blockers, ", ")); err != nil {
+				return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+			}
+		}
 		return 0
 	}
 	if app.files == nil {

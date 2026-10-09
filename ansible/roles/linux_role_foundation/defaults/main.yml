@@ -1,0 +1,5 @@
+---
+# No target defaults: every account, path selector and capacity is exact input.
+role_files: {}
+# Role slices are enabled only by an exact multi-user.target.wants symlink.
+# Exact systemd-tmpfiles d entries recreate only declared noncontrol runtime directories.

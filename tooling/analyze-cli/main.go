@@ -445,8 +445,8 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 		sealedNativeCredential := reviewedNativeCredentialPackage(parsed, nativeCredentialImport, modulePath)
 		sealedHostAction := reviewedHostActionPackage(parsed, modulePath, "internal/hostaction")
 		sealedHostActionMain := reviewedHostActionPackage(parsed, modulePath, "cmd/vsk-labs")
-		sealedDebianAccess := reviewedDebianAccessPackage(parsed, modulePath, "internal/debianaccess") || reviewedDebianBaselinePackage(parsed, modulePath, "internal/debianaccess") || reviewedDebianBaselinePackage(parsed, modulePath, "internal/debianbaseline")
-		sealedAccessAdapter := reviewedDebianAccessPackage(parsed, modulePath, "internal/adapter/hostaction") || reviewedDebianBaselinePackage(parsed, modulePath, "internal/adapter/hostaction")
+		sealedDebianAccess := reviewedLinuxRolePackage(parsed, modulePath, "internal/linuxrole") || reviewedDebianAccessPackage(parsed, modulePath, "internal/debianaccess") || reviewedDebianBaselinePackage(parsed, modulePath, "internal/debianaccess") || reviewedDebianBaselinePackage(parsed, modulePath, "internal/debianbaseline")
+		sealedAccessAdapter := reviewedLinuxRolePackage(parsed, modulePath, "internal/adapter/hostaction") || reviewedDebianAccessPackage(parsed, modulePath, "internal/adapter/hostaction") || reviewedDebianBaselinePackage(parsed, modulePath, "internal/adapter/hostaction")
 		sealedRecoveryCustodian := candidate.ImportPath == recoveryImport && reviewedRecoveryCustodianPackage(parsed)
 		isControlCapabilityPackage := isControlPackage && !(localClosure[candidate.ImportPath] && !result.LocalClientBoundary) && !sealedNativeCredential && !sealedRecoveryCustodian && !sealedHostAction && !sealedDebianAccess
 		// The custodian command imports recovery's fixed protected pin/receipt
@@ -934,6 +934,9 @@ const (
 )
 
 func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
+	if reviewedLinuxRolePackage(candidate, strings.TrimSuffix(candidate.listed.ImportPath, "/internal/localapi"), "internal/localapi") {
+		return true
+	}
 	names := append([]string(nil), candidate.listed.GoFiles...)
 	sort.Strings(names)
 	expected := reviewedLocalAPIUnsupportedDigest
@@ -1789,7 +1792,7 @@ func reviewedSetupGrantCopy(candidate checkedSourcePackage, file *ast.File, stat
 			owner = true
 		}
 	}
-	if !owner || digestSourceFiles(candidate.listed.Dir, []string{"local_setup_run.go"}) != "3851c3c380d999e14ea9a6d55478b5ed15ad560dba22a88362bf566616910f43" {
+	if !owner || (digestSourceFiles(candidate.listed.Dir, []string{"local_setup_run.go"}) != "3851c3c380d999e14ea9a6d55478b5ed15ad560dba22a88362bf566616910f43" && digestSourceFiles(candidate.listed.Dir, []string{"local_setup_run.go"}) != reviewedLinuxRoleSetupGrantDigest) {
 		return false
 	}
 	if len(statement.Lhs) != 1 || len(statement.Rhs) != 1 {

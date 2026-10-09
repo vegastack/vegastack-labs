@@ -14,11 +14,13 @@ import (
 )
 
 type HostControlResultsRequest struct {
-	Operation   adapter.Operation
-	Binding     adapter.ExactExecutionBinding
-	Effect      adapter.Effect
-	Result      generated.HostActionResult
-	Attribution audit.Attribution
+	RoleNetworkSnapshot *HostAdmissionSnapshot
+	RoleNetworkGates    *GateRepository
+	Operation           adapter.Operation
+	Binding             adapter.ExactExecutionBinding
+	Effect              adapter.Effect
+	Result              generated.HostActionResult
+	Attribution         audit.Attribution
 }
 
 func (s *Store) HostAccessRunAttribution(ctx context.Context, runID string) (audit.Attribution, error) {
@@ -56,7 +58,7 @@ func (s *Store) RecordHostControlResults(ctx context.Context, q HostControlResul
 			return actionError(generated.ErrorCodeApprovalRequired)
 		}
 		var p generated.Plan
-		if json.Unmarshal(raw, &p) != nil || p.PlanID != q.Binding.PlanID || p.PlanDigest != q.Binding.PlanDigest || (p.HostBaselineScope == nil && p.HostAccessSequence == nil && (p.HostAction == nil || p.HostAction.ActionID != "debian.access.collect")) || p.Binding.StateRevision != q.Binding.StateRevision || p.Binding.RecoveryEpoch != q.Binding.RecoveryEpoch {
+		if json.Unmarshal(raw, &p) != nil || p.PlanID != q.Binding.PlanID || p.PlanDigest != q.Binding.PlanDigest || (p.HostRoleScope == nil && p.HostBaselineScope == nil && p.HostAccessSequence == nil && (p.HostAction == nil || p.HostAction.ActionID != "debian.access.collect")) || p.Binding.StateRevision != q.Binding.StateRevision || p.Binding.RecoveryEpoch != q.Binding.RecoveryEpoch {
 			return actionError(generated.ErrorCodePlanStale)
 		}
 		d, op, e := actionDraftForPlan(row, p, q.Operation.OperationID)
@@ -82,6 +84,20 @@ func (s *Store) RecordHostControlResults(ctx context.Context, q HostControlResul
 		if e = validateAccessCurrentTargets(row, p, s.config.Clock()); e != nil {
 			return e
 		}
+		for _, m := range q.Result.ControlMeasurements {
+			if m.ControlID == "linux.role-network-boundary" && m.Status == "passed" {
+				if q.RoleNetworkSnapshot == nil || q.RoleNetworkGates == nil || q.RoleNetworkGates.store != s || q.RoleNetworkSnapshot.Host.HostID != q.Operation.TargetID {
+					return actionError(generated.ErrorCodePrerequisiteBlocked)
+				}
+				readCtx, err := hostRunReadContext(ctx, row, q.Binding.RunID)
+				if err != nil {
+					return err
+				}
+				if err := q.RoleNetworkGates.validateHostAdmissionSnapshot(readCtx, ReadTx{handle: tx}, *q.RoleNetworkSnapshot); err != nil {
+					return err
+				}
+			}
+		}
 		apply := d
 		sequenceDigest := hostaction.Digest(d.Request)
 		if p.HostAccessSequence != nil {
@@ -96,6 +112,15 @@ func (s *Store) RecordHostControlResults(ctx context.Context, q HostControlResul
 			input, e = baselineProjection(p)
 			if len(q.Result.ControlMeasurements) != len(p.HostBaselineScope.ControlIDs) {
 				return actionError(generated.ErrorCodeIntegrityFailure)
+			}
+		}
+		if p.HostRoleScope != nil {
+			input, e = roleProjection(p)
+			if len(q.Result.ControlMeasurements) != len(p.HostRoleScope.ControlIDs) {
+				return actionError(generated.ErrorCodeIntegrityFailure)
+			}
+			if err := authorizeRoleScope(ctx, row, p, q.Binding.RunID); err != nil {
+				return err
 			}
 		}
 		if e != nil {
@@ -130,6 +155,11 @@ func (s *Store) RecordHostControlResults(ctx context.Context, q HostControlResul
 					return e
 				}
 			}
+			if p.HostRoleScope != nil {
+				if e = validateRoleMeasurement(p, m, ordinal); e != nil {
+					return e
+				}
+			}
 			if probe != nil {
 				if e = validateAccessProbeMeasurement(*probe, m, ordinal); e != nil {
 					return e
@@ -138,6 +168,9 @@ func (s *Store) RecordHostControlResults(ctx context.Context, q HostControlResul
 			control := generated.HostControlResult{Schema: generated.SchemaIDHostControlResult, SchemaVersion: "1.0.0", HostID: input.HostID, IdentityDigest: input.HostIdentityDigest, IdentityClass: identityClass, ProfileID: input.ProfileID, OSFamily: input.ProfileLock.OSFamily, OSVersion: input.ProfileLock.OSVersion, Architecture: input.ProfileLock.Architecture, RoleID: "host", BaselineVersion: input.ActionVersion, ControlID: m.ControlID, ProducerID: m.ProducerID, ProducerVersion: m.ProducerVersion, ActionReceiptDigest: hostaction.BytesDigest(receiptRaw), DeclarationID: p.DeclarationID, DeclarationRevision: p.Binding.DeclarationRevision, RecoveryEpoch: p.Binding.RecoveryEpoch, ObservedAt: m.ObservedAt, Status: m.Status, MeasurementDigest: m.MeasurementDigest, PositiveProbeDigest: m.PositiveProbeDigest, NegativeProbeDigest: m.NegativeProbeDigest}
 			if p.HostBaselineScope != nil {
 				control.RoleID = p.HostBaselineScope.RoleID
+			}
+			if p.HostRoleScope != nil {
+				control.RoleID = p.HostRoleScope.RoleID
 			}
 			controlBytes, _ := json.Marshal(control)
 			measurementBytes, _ := json.Marshal(m)
@@ -154,6 +187,9 @@ func (s *Store) RecordHostControlResults(ctx context.Context, q HostControlResul
 	return e
 }
 func validateAccessCurrentTargets(row discoveryRow, p generated.Plan, now time.Time) error {
+	if p.HostRoleScope != nil {
+		return validateRoleCurrent(row, p)
+	}
 	if p.HostBaselineScope != nil {
 		return validateBaselineCurrent(row, p, now)
 	}

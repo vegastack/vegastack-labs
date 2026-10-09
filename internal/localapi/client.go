@@ -65,6 +65,7 @@ type TypedResponse[T any] struct {
 }
 
 type Client interface {
+	SubmitHostAction(context.Context, serverconfig.Profile, generated.HostActionRequest) (TypedResponse[generated.HostActionSubmission], error)
 	DiscoverHost(context.Context, serverconfig.Profile, generated.HostDiscoveryRequest) (TypedResponse[generated.HostDiscoverySubmission], error)
 	SubmitHostAdoption(context.Context, serverconfig.Profile, generated.HostAdoptionRequest) (TypedResponse[generated.HostAdoptionSubmission], error)
 	GetManagedHost(context.Context, serverconfig.Profile, string) (TypedResponse[generated.ManagedHost], error)

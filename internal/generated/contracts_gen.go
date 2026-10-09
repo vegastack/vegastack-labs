@@ -115,6 +115,7 @@ const (
 	SchemaIDBrowserScheduledJobPolicyListData      = "vegastack-labs.dev/browser-scheduled-job-policy-list-data"
 	SchemaIDCloudflareAccessProfile                = "vegastack-labs.dev/cloudflare-access-profile"
 	SchemaIDContractExtension                      = "vegastack-labs.dev/contract-extension"
+	SchemaIDControlHandoffInput                    = "vegastack-labs.dev/control-handoff-input"
 	SchemaIDCredentialImportRequest                = "vegastack-labs.dev/credential-import-request"
 	SchemaIDCredentialImportSubmission             = "vegastack-labs.dev/credential-import-submission"
 	SchemaIDCredentialLifecycleRequest             = "vegastack-labs.dev/credential-lifecycle-request"
@@ -184,6 +185,8 @@ const (
 	SchemaIDHostProfile                            = "vegastack-labs.dev/host-profile"
 	SchemaIDHostRole                               = "vegastack-labs.dev/host-role"
 	SchemaIDHostRoleAlias                          = "vegastack-labs.dev/host-role-alias"
+	SchemaIDHostRoleFoundation                     = "vegastack-labs.dev/host-role-foundation"
+	SchemaIDHostRoleScope                          = "vegastack-labs.dev/host-role-scope"
 	SchemaIDHostVolumeBinding                      = "vegastack-labs.dev/host-volume-binding"
 	SchemaIDInventoryDiffCounts                    = "vegastack-labs.dev/inventory-diff-counts"
 	SchemaIDInventoryDiffData                      = "vegastack-labs.dev/inventory-diff-data"
@@ -210,6 +213,10 @@ const (
 	SchemaIDInventoryFinding                       = "vegastack-labs.dev/inventory-finding"
 	SchemaIDInventoryImportData                    = "vegastack-labs.dev/inventory-import-data"
 	SchemaIDInventoryImportRequest                 = "vegastack-labs.dev/inventory-import-request"
+	SchemaIDLinuxRoleAccount                       = "vegastack-labs.dev/linux-role-account"
+	SchemaIDLinuxRoleDirectory                     = "vegastack-labs.dev/linux-role-directory"
+	SchemaIDLinuxRoleInput                         = "vegastack-labs.dev/linux-role-input"
+	SchemaIDLinuxRoleResources                     = "vegastack-labs.dev/linux-role-resources"
 	SchemaIDLocalPrincipalBinding                  = "vegastack-labs.dev/local-principal-binding"
 	SchemaIDLocalRetentionLockCatalog              = "vegastack-labs.dev/local-retention-lock-catalog"
 	SchemaIDLocalSetupEffectiveGrant               = "vegastack-labs.dev/local-setup-effective-grant"
@@ -250,6 +257,8 @@ const (
 	SchemaIDRestoreVerifyRequest                   = "vegastack-labs.dev/restore-verify-request"
 	SchemaIDResultError                            = "vegastack-labs.dev/result-error"
 	SchemaIDRoleObservation                        = "vegastack-labs.dev/role-observation"
+	SchemaIDRolePreparation                        = "vegastack-labs.dev/role-preparation"
+	SchemaIDRolePreparedFile                       = "vegastack-labs.dev/role-prepared-file"
 	SchemaIDRun                                    = "vegastack-labs.dev/run"
 	SchemaIDRunPresentation                        = "vegastack-labs.dev/run-presentation"
 	SchemaIDRunReferenceRequest                    = "vegastack-labs.dev/run-reference-request"
@@ -337,6 +346,7 @@ const (
 	CommandNameNodeDiscover                        = "node discover"
 	CommandNameNodeInspect                         = "node inspect"
 	FlagHostID                                     = "--host-id"
+	CommandNameNodeRolePrepare                     = "node role prepare"
 	CommandNamePlan                                = "plan"
 	FlagDeclarationID                              = "--declaration-id"
 	FlagRevision                                   = "--revision"
@@ -366,6 +376,7 @@ const (
 	CommandNameServerAPISSH                        = "server api-ssh"
 	FlagDeviceID                                   = "--device-id"
 	FlagSSHPrincipalID                             = "--ssh-principal-id"
+	CommandNameServerPrepare                       = "server prepare"
 	CommandNameServerRun                           = "server run"
 	FlagSetup                                      = "--setup"
 	CommandNameServerStatus                        = "server status"
@@ -1603,6 +1614,23 @@ type ContractExtension struct {
 	ValueDigest string `json:"valueDigest"`
 }
 
+type ControlHandoffInput struct {
+	Schema                  string `json:"schema"`
+	SchemaVersion           string `json:"schemaVersion"`
+	ForegroundPID           int64  `json:"foregroundPid"`
+	ForegroundStartIdentity string `json:"foregroundStartIdentity"`
+	ServiceUID              int64  `json:"serviceUid"`
+	DatabaseInstanceID      string `json:"databaseInstanceId"`
+	RecoveryEpoch           int64  `json:"recoveryEpoch"`
+	WriterLockDigest        string `json:"writerLockDigest"`
+	UnitDigest              string `json:"unitDigest"`
+	ConfigDigest            string `json:"configDigest"`
+	ExecutableDigest        string `json:"executableDigest"`
+	SocketIdentityDigest    string `json:"socketIdentityDigest"`
+	ExpiresAt               string `json:"expiresAt"`
+	RollbackDeadline        string `json:"rollbackDeadline"`
+}
+
 type CredentialImportRequest struct {
 	Schema                string `json:"schema"`
 	SchemaVersion         string `json:"schemaVersion"`
@@ -2539,6 +2567,35 @@ type HostRoleAlias struct {
 	Value         string `json:"value"`
 }
 
+type HostRoleFoundation struct {
+	Schema            string   `json:"schema"`
+	SchemaVersion     string   `json:"schemaVersion"`
+	RoleID            string   `json:"roleId"`
+	RoleBindingDigest string   `json:"roleBindingDigest,omitempty"`
+	Status            string   `json:"status"`
+	ServiceState      string   `json:"serviceState"`
+	Blockers          []string `json:"blockers"`
+}
+
+type HostRoleScope struct {
+	Schema                     string   `json:"schema"`
+	SchemaVersion              string   `json:"schemaVersion"`
+	SubjectHostID              string   `json:"subjectHostId"`
+	SubjectIdentityDigest      string   `json:"subjectIdentityDigest"`
+	ExecutionHostID            string   `json:"executionHostId"`
+	ExecutionIdentityDigest    string   `json:"executionIdentityDigest"`
+	ProfileID                  string   `json:"profileId"`
+	ProfileLockDigest          string   `json:"profileLockDigest"`
+	RoleID                     string   `json:"roleId"`
+	ControlIDs                 []string `json:"controlIds"`
+	AffectedBaselineControlIDs []string `json:"affectedBaselineControlIds"`
+	BaselineSnapshotDigest     string   `json:"baselineSnapshotDigest"`
+	CurrentRoleBindingDigest   string   `json:"currentRoleBindingDigest,omitempty"`
+	RoleBindingDigest          string   `json:"roleBindingDigest"`
+	NetworkingRequired         bool     `json:"networkingRequired"`
+	StandbyRequired            bool     `json:"standbyRequired"`
+}
+
 type HostVolumeBinding struct {
 	Schema                          string `json:"schema"`
 	SchemaVersion                   string `json:"schemaVersion"`
@@ -2784,6 +2841,70 @@ type InventoryImportRequest struct {
 	Content               string `json:"content"`
 }
 
+type LinuxRoleAccount struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	Selector      string `json:"selector"`
+	UID           int64  `json:"uid"`
+	GID           int64  `json:"gid"`
+	Existing      bool   `json:"existing"`
+}
+
+type LinuxRoleDirectory struct {
+	Schema         string `json:"schema"`
+	SchemaVersion  string `json:"schemaVersion"`
+	Selector       string `json:"selector"`
+	UID            int64  `json:"uid"`
+	GID            int64  `json:"gid"`
+	Mode           string `json:"mode"`
+	ExpectedState  string `json:"expectedState"`
+	ExpectedDigest string `json:"expectedDigest,omitempty"`
+}
+
+type LinuxRoleInput struct {
+	Schema                     string               `json:"schema"`
+	SchemaVersion              string               `json:"schemaVersion"`
+	HostID                     string               `json:"hostId"`
+	HostIdentityDigest         string               `json:"hostIdentityDigest"`
+	ProfileID                  string               `json:"profileId"`
+	ProfileLockDigest          string               `json:"profileLockDigest"`
+	RoleID                     string               `json:"roleId"`
+	ControlIDs                 []string             `json:"controlIds"`
+	AffectedBaselineControlIDs []string             `json:"affectedBaselineControlIds"`
+	BaselineSnapshotDigest     string               `json:"baselineSnapshotDigest,omitempty"`
+	CurrentRoleBindingDigest   string               `json:"currentRoleBindingDigest,omitempty"`
+	RoleBindingDigest          string               `json:"roleBindingDigest"`
+	NetworkingRequired         bool                 `json:"networkingRequired"`
+	StandbyRequired            bool                 `json:"standbyRequired"`
+	NetworkAccess              *DebianAccessInput   `json:"networkAccess,omitempty"`
+	ProfileLock                DebianProfileLock    `json:"profileLock"`
+	ActionVersion              string               `json:"actionVersion"`
+	AutomationUID              int64                `json:"automationUid"`
+	Accounts                   []LinuxRoleAccount   `json:"accounts"`
+	Directories                []LinuxRoleDirectory `json:"directories"`
+	Resources                  LinuxRoleResources   `json:"resources"`
+	RenderedPolicyDigest       string               `json:"renderedPolicyDigest"`
+	ExecutableDigest           string               `json:"executableDigest"`
+	ConfigDigest               string               `json:"configDigest"`
+	ExpectedServiceState       string               `json:"expectedServiceState"`
+	ExpectedUnitDigest         string               `json:"expectedUnitDigest,omitempty"`
+	ExpectedTmpfilesDigest     string               `json:"expectedTmpfilesDigest,omitempty"`
+	Handoff                    *ControlHandoffInput `json:"handoff,omitempty"`
+}
+
+type LinuxRoleResources struct {
+	Schema              string `json:"schema"`
+	SchemaVersion       string `json:"schemaVersion"`
+	MemoryMaxBytes      int64  `json:"memoryMaxBytes"`
+	CPUQuotaPercent     int64  `json:"cpuQuotaPercent"`
+	TasksMax            int64  `json:"tasksMax"`
+	MinimumFreeBytes    int64  `json:"minimumFreeBytes"`
+	MinimumFreePercent  int64  `json:"minimumFreePercent"`
+	CapacityMemoryBytes int64  `json:"capacityMemoryBytes"`
+	CapacityCPUPercent  int64  `json:"capacityCpuPercent"`
+	CapacityTasks       int64  `json:"capacityTasks"`
+}
+
 type LocalPrincipalBinding struct {
 	UID         int64  `json:"uid"`
 	PrincipalID string `json:"principalId"`
@@ -2866,16 +2987,17 @@ type LocalSetupReviewRequest struct {
 }
 
 type ManagedHost struct {
-	Schema        string `json:"schema"`
-	SchemaVersion string `json:"schemaVersion"`
-	HostID        string `json:"hostId"`
-	TargetID      string `json:"targetId"`
-	ObservationID string `json:"observationId"`
-	ProfileID     string `json:"profileId"`
-	IdentityClass string `json:"identityClass"`
-	Status        string `json:"status"`
-	StateRevision int64  `json:"stateRevision"`
-	RecoveryEpoch int64  `json:"recoveryEpoch"`
+	Schema         string              `json:"schema"`
+	SchemaVersion  string              `json:"schemaVersion"`
+	RoleFoundation *HostRoleFoundation `json:"roleFoundation,omitempty"`
+	HostID         string              `json:"hostId"`
+	TargetID       string              `json:"targetId"`
+	ObservationID  string              `json:"observationId"`
+	ProfileID      string              `json:"profileId"`
+	IdentityClass  string              `json:"identityClass"`
+	Status         string              `json:"status"`
+	StateRevision  int64               `json:"stateRevision"`
+	RecoveryEpoch  int64               `json:"recoveryEpoch"`
 }
 
 type NativeRestartPresentation struct {
@@ -2951,6 +3073,7 @@ type Plan struct {
 	NativeRestart        *NativeRestartPresentation        `json:"nativeRestart,omitempty"`
 	HostActionNativeUnit string                            `json:"hostActionNativeUnit,omitempty"`
 	HostActionConsole    *HostActionCredentialConfirmation `json:"hostActionConsole,omitempty"`
+	HostRoleScope        *HostRoleScope                    `json:"hostRoleScope,omitempty"`
 	HostBaselineScope    *HostBaselineScope                `json:"hostBaselineScope,omitempty"`
 	HostAccessSequence   *HostAccessSequence               `json:"hostAccessSequence,omitempty"`
 	HostAction           *HostActionRequest                `json:"hostAction,omitempty"`
@@ -3383,6 +3506,23 @@ type RoleObservation struct {
 	Verification      string `json:"verification"`
 }
 
+type RolePreparation struct {
+	Schema        string             `json:"schema"`
+	SchemaVersion string             `json:"schemaVersion"`
+	Input         LinuxRoleInput     `json:"input"`
+	Files         []RolePreparedFile `json:"files"`
+	PolicyDigest  string             `json:"policyDigest"`
+	Steps         []string           `json:"steps"`
+}
+
+type RolePreparedFile struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	Path          string `json:"path"`
+	Content       string `json:"content"`
+	Digest        string `json:"digest"`
+}
+
 type Run struct {
 	Schema                  string              `json:"schema"`
 	SchemaVersion           string              `json:"schemaVersion"`
@@ -3604,6 +3744,7 @@ type ServerProfile struct {
 }
 
 type ServerStatusData struct {
+	InstanceID        string `json:"instanceId,omitempty"`
 	State             string `json:"state"`
 	ReadAvailable     bool   `json:"readAvailable"`
 	MutationAvailable bool   `json:"mutationAvailable"`
@@ -3836,6 +3977,7 @@ var Commands = []Command{
 	{Path: []string{"node", "nominate"}, Summary: "Create an inert role-nomination change.", Availability: "planned", OwnerPhase: "6", Risk: "unassigned"},
 	{Path: []string{"node", "quarantine"}, Summary: "Create an inert node-quarantine change.", Availability: "planned", OwnerPhase: "6", Risk: "unassigned"},
 	{Path: []string{"node", "replace"}, Summary: "Create an inert node-replacement change.", Availability: "planned", OwnerPhase: "6", Risk: "unassigned"},
+	{Path: []string{"node", "role", "prepare"}, Summary: "Prepare an inert role action draft; exact approval and apply remain separate.", Availability: "available", OwnerPhase: "6", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one exact host-action request JSON file (128 KiB max).", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/host-action-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/host-action-submission", Examples: []Example{{Summary: "Prepare an inert role action draft; exact approval and apply remain separate.", Arguments: []string{"node", "role", "prepare", "--config", "fixture/server-profile.json", "--file", "fixture/role-action.json", "--output", "json"}}}},
 	{Path: []string{"plan"}, Summary: "Create an immutable plan from one exact inert declaration revision.", Availability: "available", OwnerPhase: "4", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--declaration-id", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Select one exact inert declaration.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--revision", Kind: "value", ValueName: "revision", Required: true, Repeatable: false, Summary: "Select the exact positive declaration revision.", Enum: []string(nil)}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/plan-create-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/plan", Examples: []Example{{Summary: "Create an immutable plan from one exact inert declaration revision.", Arguments: []string{"plan", "--config", "fixture/server-profile.json", "--declaration-id", "change-1", "--revision", "2", "--output", "json"}}}},
 	{Path: []string{"recovery", "witness", "collect"}, Summary: "Collect one bounded independent recovery witness on a separately administered custodian.", Availability: "available", OwnerPhase: "5", Risk: "mutation", Flags: []Flag{{Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one exact public recovery binding and required-boundary document (64 KiB max).", Enum: []string(nil)}, {Name: "--material-fd", Kind: "value", ValueName: "fd", Required: true, Repeatable: false, Summary: "Read the independently held protected material from an inherited descriptor.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}, {Name: "--signing-key-fd", Kind: "value", ValueName: "fd", Required: true, Repeatable: false, Summary: "Read the protected witness signing seed from an inherited descriptor.", Enum: []string(nil)}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/recovery-witness-collection-data", Examples: []Example{{Summary: "Collect one bounded independent recovery witness on a separately administered custodian.", Arguments: []string{"recovery", "witness", "collect", "--file", "fixture/recovery-witness-input.json", "--signing-key-fd", "3", "--material-fd", "4", "--output", "json"}}}},
 	{Path: []string{"release", "inspect"}, Summary: "Inspect a local release manifest and compatibility without claiming cryptographic verification.", Availability: "available", OwnerPhase: "1", Risk: "read-only", Flags: []Flag{{Name: "--manifest", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the local release manifest at this path.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/release-inspect-data", Examples: []Example{{Summary: "Inspect a local manifest as versioned JSON.", Arguments: []string{"release", "inspect", "--manifest", "release/manifest.json", "--output", "json"}}}},
@@ -3852,6 +3994,7 @@ var Commands = []Command{
 	{Path: []string{"schedule", "list"}, Summary: "List sanitized fixed scheduled policies.", Availability: "available", OwnerPhase: "5", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected local server profile.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/browser-scheduled-job-policy-list-data", Examples: []Example{{Summary: "List sanitized fixed scheduled policies.", Arguments: []string{"schedule", "list", "--config", "fixture/server-profile.json", "--output", "json"}}}},
 	{Path: []string{"schedule", "policy", "draft"}, Summary: "Store one inert exact scheduled-policy draft for later human-plan activation.", Availability: "available", OwnerPhase: "5", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected local server profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one exact scheduled-job-policy JSON file.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/scheduled-job-policy", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/scheduled-policy-draft-submission", Examples: []Example{{Summary: "Store one inert exact scheduled-policy draft for later human-plan activation.", Arguments: []string{"schedule", "policy", "draft", "--config", "fixture/server-profile.json", "--file", "fixture/scheduled-job-policy.json", "--output", "json"}}}},
 	{Path: []string{"server", "api-ssh"}, Summary: "Serve one constrained SSH API frame through the persistent control service.", Availability: "available", OwnerPhase: "4", Risk: "local-service", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--device-id", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Bind the server-configured forced command to this verified device.", Enum: []string(nil)}, {Name: "--ssh-principal-id", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Bind the server-configured forced command to this verified SSH principal.", Enum: []string(nil)}}, RequestSchema: "vegastack-labs.dev/api-ssh-request-frame-header", ResultSchema: "vegastack-labs.dev/api-ssh-response-frame-header", Examples: []Example{{Summary: "Serve one frame from an SSH forced-command configuration.", Arguments: []string{"server", "api-ssh", "--config", "fixture/server-profile.json", "--ssh-principal-id", "ssh-principal.operator", "--device-id", "device.operator"}}}},
+	{Path: []string{"server", "prepare"}, Summary: "Render inert Linux role prerequisites without filesystem or database mutation.", Availability: "available", OwnerPhase: "6", Risk: "read-only", Flags: []Flag{{Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one bounded Linux role input JSON file (32 KiB max).", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/linux-role-input", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/role-preparation", Examples: []Example{{Summary: "Render inert Linux role prerequisites without filesystem or database mutation.", Arguments: []string{"server", "prepare", "--file", "fixture/role-input.json", "--output", "json"}}}},
 	{Path: []string{"server", "run"}, Summary: "Run the persistent control service in the foreground.", Availability: "available", OwnerPhase: "2", Risk: "local-service", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}, {Name: "--setup", Kind: "value", ValueName: "path", Required: false, Repeatable: false, Summary: "Initialize an absent database only after exact Slack approval of this protected local setup record.", Enum: []string(nil)}}, ResultSchema: "vegastack-labs.dev/run-result", Examples: []Example{{Summary: "Run the local control service in the foreground.", Arguments: []string{"server", "run", "--config", "fixture/server-profile.json"}}}},
 	{Path: []string{"server", "status"}, Summary: "Query control-service health.", Availability: "available", OwnerPhase: "2", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/server-status-data", Examples: []Example{{Summary: "Query local control-service health as versioned JSON.", Arguments: []string{"server", "status", "--config", "fixture/server-profile.json", "--output", "json"}}}},
 	{Path: []string{"service", "deploy"}, Summary: "Create an inert service-deployment change.", Availability: "planned", OwnerPhase: "8", Risk: "unassigned"},

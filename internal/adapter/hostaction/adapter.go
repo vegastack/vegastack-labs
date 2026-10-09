@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/vegastack/vegastack-labs/internal/debianbaseline"
+	"github.com/vegastack/vegastack-labs/internal/linuxrole"
 	"net"
 	"strings"
 	"sync"
@@ -127,10 +128,19 @@ func (a *Adapter) ExecuteBoundWithCredentials(ctx context.Context, op adapter.Op
 		return adapter.Effect{EffectObserved: observed}, denied()
 	}
 	e := adapter.Effect{Status: result.Status, ResultDigest: result.ResultDigest, Changed: result.Changed, EffectObserved: result.EffectObserved}
+	if adapter.ValidateEffect(e) == nil && e.Status != "succeeded" && linuxrole.IsAction(b.ActionID) {
+		if a.recorder == nil || len(result.ControlMeasurements) == 0 {
+			return e, denied()
+		}
+		if err := a.remember(op, binding, e, result); err != nil {
+			return e, err
+		}
+		return e, nil
+	}
 	if adapter.ValidateEffect(e) != nil || e.Status != "succeeded" {
 		return adapter.Effect{EffectObserved: true}, denied()
 	}
-	if (strings.HasPrefix(b.ActionID, "debian.access.") || debianbaseline.IsAction(b.ActionID)) && (len(result.ControlMeasurements) == 0 || a.recorder == nil) {
+	if (strings.HasPrefix(b.ActionID, "debian.access.") || debianbaseline.IsAction(b.ActionID) || linuxrole.IsAction(b.ActionID)) && (len(result.ControlMeasurements) == 0 || a.recorder == nil) {
 		return adapter.Effect{EffectObserved: true}, denied()
 	}
 	if err := a.remember(op, binding, e, result); err != nil {

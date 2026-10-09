@@ -423,6 +423,18 @@
         "commands": [],
         "imports": [],
         "mutationBoundaryDigest": "sha256:3560c11c09d8106bb43c2ea9b847c48cd15a77b59b14f1edad326b4557793314"
+      },
+      {
+        "id": "phase6-issue230-v1",
+        "issue": 230,
+        "commands": [
+          "node role prepare",
+          "server prepare"
+        ],
+        "imports": [
+          "github.com/vegastack/vegastack-labs/internal/linuxrole"
+        ],
+        "mutationBoundaryDigest": "sha256:e677914fa02a8774fe05cfaa4ca272ad9cfc03b3b9a96c4e08b5b105ec2945e2"
       }
     ]
   },

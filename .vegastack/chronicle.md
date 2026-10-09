@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 09-10-2026 — Linux roles gain an approved installation path ([#230](https://github.com/vegastack/vegastack-labs/issues/230))
+
+- **What:** Operators can prepare an inert Linux role policy and stage its installation through the existing plan and human-acknowledgement flow. The control role can hand the foreground server to its OS service while preserving the same account and database; application, CI and reserve roles receive bounded account, directory and resource foundations.
+- **Why:** Registered machines needed actual role installation before later workload admission could assess their readiness.
+- **How it went:** Reboot persistence needed explicit slice enablement and runtime-directory recreation. The real background execution test also exposed a lost authorization context before any host effect.
+- **Changed:** Local role preparation · exact role drafts · current-baseline reservation · protected installation and handoff receipts · recorded role status · post-change evidence invalidation. Actual native qualification and provider readiness remain separate blockers.
+- **Decisions:** none.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/6.9-linux-role-foundations
+
 ## 09-10-2026 — Admission explains which machine checks are missing ([#229](https://github.com/vegastack/vegastack-labs/issues/229))
 
 - **What:** The two host gates use the registered machine's current action receipts and observations. A blocked decision identifies the missing or failed control. Reading a decision does not contact a machine or stop its services.

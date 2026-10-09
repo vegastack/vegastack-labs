@@ -1,0 +1,50 @@
+{
+  "$id": "vegastack-labs.dev/linux-role-account",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "existing": {
+      "type": "boolean"
+    },
+    "gid": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/linux-role-account"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "selector": {
+      "enum": [
+        "control",
+        "application",
+        "ci",
+        "standby"
+      ],
+      "type": "string"
+    },
+    "uid": {
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "selector",
+    "uid",
+    "gid",
+    "existing"
+  ],
+  "title": "VegaStack Labs linux role account",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

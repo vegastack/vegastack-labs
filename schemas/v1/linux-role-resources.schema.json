@@ -1,0 +1,66 @@
+{
+  "$id": "vegastack-labs.dev/linux-role-resources",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "capacityCpuPercent": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "capacityMemoryBytes": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "capacityTasks": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "cpuQuotaPercent": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "memoryMaxBytes": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "minimumFreeBytes": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "minimumFreePercent": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/linux-role-resources"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "tasksMax": {
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "memoryMaxBytes",
+    "cpuQuotaPercent",
+    "tasksMax",
+    "minimumFreeBytes",
+    "minimumFreePercent",
+    "capacityMemoryBytes",
+    "capacityCpuPercent",
+    "capacityTasks"
+  ],
+  "title": "VegaStack Labs linux role resources",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

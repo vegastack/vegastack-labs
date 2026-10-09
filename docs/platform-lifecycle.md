@@ -250,3 +250,7 @@ Run discovery through the existing node command only after that target is activa
 To stop future discovery, prepare a new target revision with action `revoke` and its exact console confirmation, review/acknowledge/apply the revoke plan through the same flow. Revocation reads no key and contacts no target, so a missing or replaced file cannot prevent it. Remove a real preloaded file only under its separately scoped operational permission. Existing observations remain historical data, not workload admission. Expired plans cannot activate or revoke; a previously applied target does not need recurring acknowledgement merely because its historical plan expired.
 
 Omitting `credentialMode` preserves the existing qualified-reference path. There is no fallback between modes. Preloaded discovery does not qualify a global credential, native service, recovery gate, OS baseline or workload role. All other consumers retain their existing requirements, and unsupported server operating systems reject this mode. Nodes04/05 are never eligible targets.
+
+## Linux role foundation workflow
+
+[Role preparation and installation](development/linux-role-installation.md) use the existing server-owned database and exact plan/acknowledgement path. Preparation is inert; current baseline admission precedes role installation, and fresh post-install controls precede workload admission. First control-service setup retains the same non-root foreground authority through an explicit handoff. Native qualification and later-provider enrollment remain separate requirements.

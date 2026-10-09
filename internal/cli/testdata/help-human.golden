@@ -185,6 +185,11 @@ Available commands:
     --host-id <id>         Select one registered host ID.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  node role prepare        Prepare an inert role action draft; exact approval and apply remain separate.
+    --config <path>        Read one protected server profile.
+    --file <path>          Read one exact host-action request JSON file (128 KiB max).
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   plan                     Create an immutable plan from one exact inert declaration revision.
     --config <path>        Read the protected server profile at this explicit path.
     --declaration-id <id>  Select one exact inert declaration.
@@ -266,6 +271,10 @@ Available commands:
     --config <path>        Read the protected server profile at this explicit path.
     --device-id <id>       Bind the server-configured forced command to this verified device.
     --ssh-principal-id <id> Bind the server-configured forced command to this verified SSH principal.
+  server prepare           Render inert Linux role prerequisites without filesystem or database mutation.
+    --file <path>          Read one bounded Linux role input JSON file (32 KiB max).
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   server run               Run the persistent control service in the foreground.
     --config <path>        Read the protected server profile at this explicit path.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.

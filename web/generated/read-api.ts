@@ -782,6 +782,25 @@ export interface HostIdentityConfirmation {
   readonly "confirmedAt": string;
 }
 
+export interface HostRoleScope {
+  readonly "schema": "vegastack-labs.dev/host-role-scope";
+  readonly "schemaVersion": "1.0.0";
+  readonly "subjectHostId": string;
+  readonly "subjectIdentityDigest": string;
+  readonly "executionHostId": string;
+  readonly "executionIdentityDigest": string;
+  readonly "profileId": string;
+  readonly "profileLockDigest": string;
+  readonly "roleId": "control" | "application" | "ci" | "recovery-spare" | "reserve";
+  readonly "controlIds": ReadonlyArray<string>;
+  readonly "affectedBaselineControlIds": ReadonlyArray<string>;
+  readonly "baselineSnapshotDigest": string;
+  readonly "currentRoleBindingDigest"?: string;
+  readonly "roleBindingDigest": string;
+  readonly "networkingRequired": boolean;
+  readonly "standbyRequired": boolean;
+}
+
 export interface InventoryDraftCounts {
   readonly "assets": number;
   readonly "nodes": number;
@@ -841,6 +860,7 @@ export interface Plan {
   readonly "nativeRestart"?: NativeRestartPresentation | null;
   readonly "hostActionNativeUnit"?: string;
   readonly "hostActionConsole"?: HostActionCredentialConfirmation | null;
+  readonly "hostRoleScope"?: HostRoleScope | null;
   readonly "hostBaselineScope"?: HostBaselineScope | null;
   readonly "hostAccessSequence"?: HostAccessSequence | null;
   readonly "hostAction"?: HostActionRequest | null;
@@ -935,6 +955,7 @@ export interface RunReferenceRequest {
 }
 
 export interface ServerStatusData {
+  readonly "instanceId"?: string;
   readonly "state": "starting" | "ready" | "safe-mode" | "stopping" | "unavailable";
   readonly "readAvailable": boolean;
   readonly "mutationAvailable": boolean;
@@ -5506,6 +5527,135 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/host-role-scope",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/host-role-scope"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "subjectHostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "subjectIdentityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "executionHostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "executionIdentityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "profileId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "profileLockDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "roleId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "control",
+          "application",
+          "ci",
+          "recovery-spare",
+          "reserve"
+        ]
+      },
+      {
+        "name": "controlIds",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "maxItems": 6,
+        "uniqueItems": true
+      },
+      {
+        "name": "affectedBaselineControlIds",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "maxItems": 16,
+        "uniqueItems": true
+      },
+      {
+        "name": "baselineSnapshotDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "currentRoleBindingDigest",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "roleBindingDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "networkingRequired",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "standbyRequired",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/inventory-draft-counts",
     "fields": [
       {
@@ -5897,6 +6047,13 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": false,
         "nullable": true,
         "ref": "vegastack-labs.dev/host-action-credential-confirmation"
+      },
+      {
+        "name": "hostRoleScope",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "ref": "vegastack-labs.dev/host-role-scope"
       },
       {
         "name": "hostBaselineScope",
@@ -6452,6 +6609,13 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     "id": "vegastack-labs.dev/server-status-data",
     "fields": [
       {
+        "name": "instanceId",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "maxLength": 128
+      },
+      {
         "name": "state",
         "kind": "string",
         "required": true,
@@ -6922,6 +7086,10 @@ function decodeHostGateQuery(value: unknown): HostGateQuery {
 
 function decodeHostIdentityConfirmation(value: unknown): HostIdentityConfirmation {
   return decodeSchema("vegastack-labs.dev/host-identity-confirmation", value) as unknown as HostIdentityConfirmation;
+}
+
+function decodeHostRoleScope(value: unknown): HostRoleScope {
+  return decodeSchema("vegastack-labs.dev/host-role-scope", value) as unknown as HostRoleScope;
 }
 
 function decodeInventoryDraftCounts(value: unknown): InventoryDraftCounts {
