@@ -72,3 +72,24 @@ func TestDiagnosticBudget(t *testing.T) {
 		t.Fatal("unbounded diagnostics accepted")
 	}
 }
+
+func TestVerificationAcceptsEngineOperationWithoutJITReferences(t *testing.T) {
+	a, op, b, v, _, _, _ := fixture(t, "success")
+	effect, err := a.ExecuteBoundWithCredentials(context.Background(), op, b, []*credentialref.Value{v})
+	if err != nil {
+		t.Fatal(err)
+	}
+	op.SecretReferences = nil
+	tampered := op
+	tampered.InputDigest = "sha256:" + strings.Repeat("b", 64)
+	if _, err = a.Verify(context.Background(), tampered, effect); err == nil {
+		t.Fatal("changed sealed credential manifest verified")
+	}
+	verification, err := a.Verify(context.Background(), op, effect)
+	if err != nil || !verification.Verified {
+		t.Fatalf("engine verification failed: %v", err)
+	}
+	if _, err = a.Verify(context.Background(), op, effect); err == nil {
+		t.Fatal("verification receipt reused")
+	}
+}

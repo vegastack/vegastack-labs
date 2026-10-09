@@ -66,13 +66,21 @@ func (a *Adapter) Verify(ctx context.Context, op adapter.Operation, e adapter.Ef
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	key := protocol.Digest(op) + "/" + e.ResultDigest
+	key := verificationKey(op, e.ResultDigest)
 	got, ok := a.completed[key]
 	if !ok || got != e {
 		return adapter.Verification{}, denied()
 	}
 	delete(a.completed, key)
 	return adapter.Verification{Verified: true, Digest: e.ResultDigest}, nil
+}
+
+// The engine delivers JIT references only to ExecuteBoundWithCredentials;
+// Verify receives the sealed plan operation. Its InputDigest already binds the
+// exact credential manifest, so transport-only references are not part of this key.
+func verificationKey(op adapter.Operation, resultDigest string) string {
+	op.SecretReferences = nil
+	return protocol.Digest(op) + "/" + resultDigest
 }
 func validTarget(t Target, b generated.HostActionBundle) bool {
 	return t.HostID == b.HostID && t.HostIdentityDigest == b.HostIdentityDigest && t.AutomationPrincipalID == b.AutomationPrincipalID && int64(t.CallerUID) == b.CallerUID && t.CallerUID > 0 && t.Revision > 0 && net.ParseIP(t.Address) != nil && t.Port > 0 && t.User != "" && t.User != "root" && !strings.ContainsAny(t.User, " \t\r\n\x00") && len(t.User) <= 64
@@ -117,6 +125,6 @@ func (a *Adapter) ExecuteBoundWithCredentials(ctx context.Context, op adapter.Op
 	if len(a.completed) >= 1024 {
 		return adapter.Effect{EffectObserved: true}, denied()
 	}
-	a.completed[protocol.Digest(op)+"/"+e.ResultDigest] = e
+	a.completed[verificationKey(op, e.ResultDigest)] = e
 	return e, nil
 }
