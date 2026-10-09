@@ -26,7 +26,12 @@ func TestReviewedCredentialImportAndAuditLocalClientWavesRejectChangedAndAddedSo
 					t.Fatal(err)
 				}
 			}
-			candidate := checkedSourcePackage{sourcePackage: sourcePackage{listed: listedPackage{Dir: temporary, GoFiles: testCase.files}}}
+			const module = "github.com/vegastack/vegastack-labs"
+			seal, ok := linuxRoleSourceSeals["internal/localapi|"+strings.Join(testCase.files, ",")]
+			if !ok {
+				t.Fatal("current local client seal missing")
+			}
+			candidate := checkedSourcePackage{sourcePackage: sourcePackage{listed: listedPackage{ImportPath: module + "/internal/localapi", Dir: temporary, GoFiles: testCase.files, Imports: append([]string(nil), seal.imports...)}}}
 			if !reviewedLocalAPISource(candidate) {
 				t.Fatal("the exact reviewed local gate, credential import, and audit client source was not accepted")
 			}

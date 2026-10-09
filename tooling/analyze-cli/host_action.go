@@ -29,6 +29,9 @@ var hostActionSourceSeals = map[string]hostActionSourceSeal{
 }
 
 func reviewedHostActionPackage(c checkedSourcePackage, module, relative string) bool {
+	if reviewedLinuxRolePackage(c, module, relative) {
+		return true
+	}
 	if c.listed.ImportPath != module+"/"+relative || len(c.listed.CgoFiles) != 0 {
 		return false
 	}

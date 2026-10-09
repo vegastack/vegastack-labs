@@ -21,6 +21,20 @@ func TestHostActionSourceSealRejectsChangedAddedOrImportedAuthority(t *testing.T
 	for key, seal := range debianBaselineSourceSeals {
 		currentSeals[key] = seal
 	}
+	// #230 replaces only the current composition/renderer closures; retain
+	// the older seals as immutable historical decisions.
+	for key := range currentSeals {
+		relative := strings.SplitN(key, "|", 2)[0]
+		if relative == "cmd/vsk-labs" || relative == "internal/adapter/hostaction" {
+			delete(currentSeals, key)
+		}
+	}
+	for key, seal := range linuxRoleSourceSeals {
+		relative := strings.SplitN(key, "|", 2)[0]
+		if relative == "cmd/vsk-labs" || relative == "internal/adapter/hostaction" {
+			currentSeals[key] = seal
+		}
+	}
 	for key, seal := range currentSeals {
 		t.Run(key, func(t *testing.T) {
 			parts := strings.SplitN(key, "|", 2)
