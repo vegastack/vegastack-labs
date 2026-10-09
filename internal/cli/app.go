@@ -452,6 +452,8 @@ func (app *App) Run(ctx context.Context, args []string) int {
 			return app.failServer(mode, parsed.commandName(), err)
 		}
 		return app.handlePlanResponse(mode, response)
+	case generated.CommandNameNodeRolePrepare, generated.CommandNameServerPrepare:
+		return app.runRolePrepare(ctx, mode, parsed)
 	case generated.CommandNameNodeDiscover, generated.CommandNameNodeAdd, generated.CommandNameNodeInspect:
 		return app.runHostCommand(ctx, mode, parsed)
 	case generated.CommandNameGateList, generated.CommandNameGateInspect, generated.CommandNameGateCheck, generated.CommandNameGateEvidence, generated.CommandNameGateProfileDraft:

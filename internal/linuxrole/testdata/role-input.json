@@ -1,0 +1,245 @@
+{
+  "schema": "vegastack-labs.dev/linux-role-input",
+  "schemaVersion": "1.0.0",
+  "hostId": "test-host",
+  "hostIdentityDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "profileId": "debian",
+  "profileLockDigest": "sha256:d9a1539dd4004eda4d1d2f7f47f62b7a229af83b07e27cad8928d69f0ddfc494",
+  "roleId": "control",
+  "controlIds": [
+    "linux.role-identity-paths",
+    "linux.role-service-resources"
+  ],
+  "affectedBaselineControlIds": [
+    "linux.resource-health",
+    "debian.host-firewall"
+  ],
+  "baselineSnapshotDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "roleBindingDigest": "sha256:d19cd8a59cb9de528fc0bc57e091b4a2911920a7510a49db3700c39c6abd3b82",
+  "networkingRequired": true,
+  "standbyRequired": false,
+  "networkAccess": {
+    "schema": "vegastack-labs.dev/debian-access-input",
+    "schemaVersion": "1.0.0",
+    "hostId": "test-host",
+    "hostIdentityDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "profileId": "debian",
+    "profileLockDigest": "sha256:d9a1539dd4004eda4d1d2f7f47f62b7a229af83b07e27cad8928d69f0ddfc494",
+    "profileLock": {
+      "schema": "vegastack-labs.dev/debian-profile-lock",
+      "schemaVersion": "1.0.0",
+      "imageDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "osFamily": "debian",
+      "osVersion": "13.6",
+      "architecture": "amd64",
+      "packageSourceDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "packages": [
+        {
+          "schema": "vegastack-labs.dev/access-package",
+          "schemaVersion": "1.0.0",
+          "name": "systemd",
+          "version": "1"
+        }
+      ],
+      "executableVersion": "1.0.0",
+      "ansibleVersion": "2.19.0",
+      "ansibleExecutableDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "collectionDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "roleDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "backend": "iptables-nft"
+    },
+    "actionVersion": "1.0.0",
+    "automationUid": 1000,
+    "accounts": [
+      {
+        "schema": "vegastack-labs.dev/access-account",
+        "schemaVersion": "1.0.0",
+        "name": "automation",
+        "uid": 1000,
+        "gid": 1000,
+        "home": "/home/automation",
+        "role": "automation",
+        "publicKeys": [
+          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB"
+        ],
+        "publicKeyDigests": [
+          "sha256:1b09c446168c967cf155dad635a1c250641ebcb6cb28d1b301c1999490f9cb9f"
+        ]
+      }
+    ],
+    "sshUsers": [
+      "automation"
+    ],
+    "sshSourcePrefixes": [
+      "192.0.2.0/24"
+    ],
+    "recoverySourcePrefixes": [
+      "192.0.2.1/32"
+    ],
+    "privilegedServiceKeys": [],
+    "interfaces": [
+      {
+        "schema": "vegastack-labs.dev/access-interface",
+        "schemaVersion": "1.0.0",
+        "name": "eth0",
+        "index": 2,
+        "addresses": [
+          "192.0.2.2"
+        ],
+        "ipv6Enabled": false
+      }
+    ],
+    "hostFlows": [],
+    "containerFlows": [],
+    "rollbackDigest": "sha256:33b519fe5289afb07a7627d63fddd966dee89e1114e6c413564b890ed2355936",
+    "rollbackSpecification": {
+      "schema": "vegastack-labs.dev/access-rollback-specification",
+      "schemaVersion": "1.0.0",
+      "hostId": "test-host",
+      "hostIdentityDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "profileLockDigest": "sha256:d9a1539dd4004eda4d1d2f7f47f62b7a229af83b07e27cad8928d69f0ddfc494",
+      "ownedState": [
+        {
+          "schema": "vegastack-labs.dev/access-owned-state",
+          "schemaVersion": "1.0.0",
+          "resourceId": "ssh-config",
+          "beforeDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "afterDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "deadlineSeconds": 600,
+      "recoverySourcePrefixes": [
+        "192.0.2.1/32"
+      ]
+    },
+    "renderedAccess": {
+      "schema": "vegastack-labs.dev/rendered-access",
+      "schemaVersion": "1.0.0",
+      "profileLockDigest": "sha256:d9a1539dd4004eda4d1d2f7f47f62b7a229af83b07e27cad8928d69f0ddfc494",
+      "rendererDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "accounts": [
+        {
+          "schema": "vegastack-labs.dev/access-account",
+          "schemaVersion": "1.0.0",
+          "name": "automation",
+          "uid": 1000,
+          "gid": 1000,
+          "home": "/home/automation",
+          "role": "automation",
+          "publicKeys": [
+            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB"
+          ],
+          "publicKeyDigests": [
+            "sha256:1b09c446168c967cf155dad635a1c250641ebcb6cb28d1b301c1999490f9cb9f"
+          ]
+        }
+      ],
+      "sshUsers": [
+        "automation"
+      ],
+      "sshSourcePrefixes": [
+        "192.0.2.0/24"
+      ],
+      "recoverySourcePrefixes": [
+        "192.0.2.1/32"
+      ],
+      "privilegedServiceKeys": [],
+      "interfaces": [
+        {
+          "schema": "vegastack-labs.dev/access-interface",
+          "schemaVersion": "1.0.0",
+          "name": "eth0",
+          "index": 2,
+          "addresses": [
+            "192.0.2.2"
+          ],
+          "ipv6Enabled": false
+        }
+      ],
+      "hostFlows": [],
+      "containerFlows": [],
+      "rollbackUnitsDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "renderedAccessDigest": "sha256:0403f8b00777929ac7dd8e48d88c3fb4b396d718395f1a11ff31dd4a1fb5c21b"
+  },
+  "profileLock": {
+    "schema": "vegastack-labs.dev/debian-profile-lock",
+    "schemaVersion": "1.0.0",
+    "imageDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "osFamily": "debian",
+    "osVersion": "13.6",
+    "architecture": "amd64",
+    "packageSourceDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "packages": [
+      {
+        "schema": "vegastack-labs.dev/access-package",
+        "schemaVersion": "1.0.0",
+        "name": "systemd",
+        "version": "1"
+      }
+    ],
+    "executableVersion": "1.0.0",
+    "ansibleVersion": "2.19.0",
+    "ansibleExecutableDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "collectionDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "roleDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "backend": "iptables-nft"
+  },
+  "actionVersion": "1.0.0",
+  "automationUid": 1000,
+  "accounts": [
+    {
+      "schema": "vegastack-labs.dev/linux-role-account",
+      "schemaVersion": "1.0.0",
+      "selector": "control",
+      "uid": 1000,
+      "gid": 1000,
+      "existing": true
+    }
+  ],
+  "directories": [
+    {
+      "schema": "vegastack-labs.dev/linux-role-directory",
+      "schemaVersion": "1.0.0",
+      "selector": "config",
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0700",
+      "expectedState": "absent"
+    },
+    {
+      "schema": "vegastack-labs.dev/linux-role-directory",
+      "schemaVersion": "1.0.0",
+      "selector": "state",
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0700",
+      "expectedState": "absent"
+    },
+    {
+      "schema": "vegastack-labs.dev/linux-role-directory",
+      "schemaVersion": "1.0.0",
+      "selector": "runtime",
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0700",
+      "expectedState": "absent"
+    }
+  ],
+  "resources": {
+    "schema": "vegastack-labs.dev/linux-role-resources",
+    "schemaVersion": "1.0.0",
+    "memoryMaxBytes": 1073741824,
+    "cpuQuotaPercent": 100,
+    "tasksMax": 100,
+    "minimumFreeBytes": 1073741824,
+    "minimumFreePercent": 10,
+    "capacityMemoryBytes": 2147483648,
+    "capacityCpuPercent": 200,
+    "capacityTasks": 200
+  },
+  "renderedPolicyDigest": "sha256:7f685cad15ca900a186b53af9584e6cdc19db59df2fef47e0790716d911db034",
+  "executableDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "configDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "expectedServiceState": "absent"
+}

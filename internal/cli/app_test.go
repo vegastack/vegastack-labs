@@ -28,7 +28,7 @@ func TestEveryGeneratedCommandHasTruthfulRuntimeBehavior(t *testing.T) {
 		t.Run(strings.Join(command.Path, "_"), func(t *testing.T) {
 			t.Parallel()
 			if command.Availability == generated.AvailabilityAvailable && strings.HasPrefix(commandName(command.Path), "node ") {
-				testNodeCommandThroughTransport(t, command.Path[1])
+				testNodeCommandThroughTransport(t, strings.Join(command.Path[1:], " "))
 				return
 			}
 			operations := &stubReleaseOperations{
@@ -46,6 +46,9 @@ func TestEveryGeneratedCommandHasTruthfulRuntimeBehavior(t *testing.T) {
 			controlOperations := successfulControlOperations(t)
 			credentialOperations := successfulCredentialOperations(t)
 			files := &stubFileReader{content: []byte("synthetic fixture")}
+			if commandName(command.Path) == generated.CommandNameServerPrepare {
+				files.content, _ = json.Marshal(syntheticRoleInput())
+			}
 			if commandName(command.Path) == generated.CommandNameGateEvidence || commandName(command.Path) == generated.CommandNameGateProfileDraft || commandName(command.Path) == generated.CommandNameBackupPolicyDraft || commandName(command.Path) == generated.CommandNameBackupRetentionLocksDraft || commandName(command.Path) == generated.CommandNameBackupRetirementDraft || commandName(command.Path) == generated.CommandNameBackupOffsiteRetirementDryRun || commandName(command.Path) == generated.CommandNameBackupOffsiteRetirementStage || commandName(command.Path) == generated.CommandNameBackupRun || commandName(command.Path) == generated.CommandNameBackupVerify || commandName(command.Path) == generated.CommandNameDatabaseBackup || commandName(command.Path) == generated.CommandNameDatabaseVerify || commandName(command.Path) == generated.CommandNameDatabaseExport {
 				files.content = syntheticGateRequest(t, commandName(command.Path))
 			}

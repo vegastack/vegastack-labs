@@ -40,3 +40,17 @@ func (client *client) GetManagedHost(ctx context.Context, profile serverconfig.P
 		return validGateData(data, generated.SchemaIDManagedHost) && data.HostID == id && data.StateRevision == r.StateRevision && data.RecoveryEpoch == r.RecoveryEpoch
 	})
 }
+
+func (client *client) SubmitHostAction(ctx context.Context, profile serverconfig.Profile, input generated.HostActionRequest) (TypedResponse[generated.HostActionSubmission], error) {
+	if !validGateData(input, generated.SchemaIDHostActionRequest) {
+		return TypedResponse[generated.HostActionSubmission]{}, failure.New(generated.ErrorCodeInputInvalid, "host-actions", false)
+	}
+	// The server seals rendered inputs before computing this digest; the subsequent exact plan exposes those bytes.
+	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodPost, "/api/v1/host-actions/draft", "api.v1.host-actions.draft", maxOperationResponseBodyBytes, operationTimeout, false}, input, func(data generated.HostActionSubmission, r generated.RunResult) bool {
+		if !validGateData(data, generated.SchemaIDHostActionSubmission) {
+			return false
+		}
+		id := "host-action-" + data.ContentDigest[7:39]
+		return data.DraftID == id && data.DeclarationID == id && data.RecoveryEpoch == input.RecoveryEpoch && data.RecoveryEpoch == r.RecoveryEpoch && data.StateRevision == r.StateRevision
+	})
+}
