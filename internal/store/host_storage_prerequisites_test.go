@@ -163,6 +163,19 @@ func TestHostStorageRequiresExactTwoCurrentReceipts(t *testing.T) {
 			if mode == "epoch" {
 				exec(`UPDATE system_meta SET recovery_epoch=1 WHERE id=1`)
 			}
+			if mode == "success" || mode == "stale" || mode == "missing-recovery" {
+				admission := HostAdmissionSnapshot{Host: generated.ManagedHost{HostID: base.HostID}, Revision: RevisionToken{RecoveryEpoch: 0}, Measurements: []HostAdmissionMeasurement{{Measurement: generated.AccessMeasurement{Volume: &generated.VolumeObservation{Binding: binding}}}}}
+				err := f.s.Read(f.ctx, func(tx ReadTx) error { return admissionVolumeDeclarations(f.ctx, tx, &admission, now) })
+				if err != nil || len(admission.Blockers) != 0 {
+					t.Fatalf("role-only storage blocked baseline: %v %+v", err, admission.Blockers)
+				}
+				if mode == "success" && len(admission.RoleBlockers) != 0 {
+					t.Fatal("current storage pair role blocked", admission.RoleBlockers)
+				}
+				if mode != "success" && len(admission.RoleBlockers) == 0 {
+					t.Fatal("missing or expired recovery lost role blocker", mode)
+				}
+			}
 			got, e := NewGateRepository(f.s).ResolveHostStoragePrerequisites(f.ctx, base.HostID, []string{"data"}, now)
 			if mode == "success" {
 				if e != nil || len(got.VolumeEvidenceDigests) != 1 || len(got.RecoveryEvidenceDigests) != 1 {

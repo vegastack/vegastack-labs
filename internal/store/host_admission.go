@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/debianbaseline"
@@ -91,8 +92,7 @@ func (r *GateRepository) resolveHostAdmission(ctx context.Context, tx ReadTx, ho
 		Lock        string
 		Declaration string
 		Revision    int64
-		Volumes     []string
-	}{out.Host, out.IdentityDigest, target, out.Profile, out.ProfileLockDigest, out.DeclarationID, out.DeclarationRevision, out.VolumeIDs})
+	}{out.Host, out.IdentityDigest, target, out.Profile, out.ProfileLockDigest, out.DeclarationID, out.DeclarationRevision})
 	if err = r.admissionEvidence(ctx, tx, &out); err != nil {
 		return
 	}
@@ -100,7 +100,17 @@ func (r *GateRepository) resolveHostAdmission(ctx context.Context, tx ReadTx, ho
 }
 
 func (r *GateRepository) admissionMeasurements(ctx context.Context, tx ReadTx, out *HostAdmissionSnapshot) error {
-	rows, e := tx.query(ctx, `SELECT c.control_bytes,c.measurement_bytes,c.result_bytes,p.canonical_bytes,e.canonical_bytes,p.readable_plan FROM host_control_results c JOIN immutable_plans p ON p.plan_id=c.plan_id AND p.plan_digest=c.plan_digest JOIN execution_receipts e ON e.receipt_id=c.receipt_id AND e.result_digest=c.result_digest AND e.status='succeeded' JOIN plan_run_steps s ON s.run_id=c.run_id AND s.step_id=c.step_id AND s.status='succeeded' AND s.effect_state='verified' WHERE c.host_id=? AND c.host_identity_digest=? AND c.recovery_epoch=? ORDER BY c.observed_at DESC,c.rowid DESC LIMIT 257`, out.Host.HostID, out.IdentityDigest, out.Revision.RecoveryEpoch)
+	ids, e := admissionCurrentControlIDs(ctx, tx, out)
+	if e != nil {
+		return e
+	}
+	marks := strings.TrimSuffix(strings.Repeat("?,", len(ids)), ",")
+	args := []any{out.Host.HostID, out.IdentityDigest, out.Revision.RecoveryEpoch}
+	for _, id := range ids {
+		args = append(args, id)
+	}
+	query := `WITH current_controls AS (SELECT c.control_bytes,c.measurement_bytes,c.result_bytes,p.canonical_bytes AS plan_bytes,e.canonical_bytes AS receipt_bytes,p.readable_plan,c.observed_at,c.rowid AS durable_row,ROW_NUMBER() OVER(PARTITION BY c.control_id ORDER BY c.observed_at DESC,c.rowid DESC) AS control_rank FROM host_control_results c JOIN immutable_plans p ON p.plan_id=c.plan_id AND p.plan_digest=c.plan_digest JOIN execution_receipts e ON e.receipt_id=c.receipt_id AND e.result_digest=c.result_digest AND e.status='succeeded' JOIN plan_run_steps s ON s.run_id=c.run_id AND s.step_id=c.step_id AND s.status='succeeded' AND s.effect_state='verified' WHERE c.host_id=? AND c.host_identity_digest=? AND c.recovery_epoch=? AND (c.control_id IN (` + marks + `) OR EXISTS(SELECT 1 FROM declaration_revisions d WHERE d.declaration_type='host.volume' AND d.declaration_id=json_extract(c.measurement_bytes,'$.volume.binding.declarationId') AND d.declaration_revision=json_extract(c.measurement_bytes,'$.volume.binding.declarationRevision') AND d.status!='superseded' AND NOT EXISTS(SELECT 1 FROM declaration_revisions n WHERE n.declaration_id=d.declaration_id AND n.declaration_revision>d.declaration_revision)))) SELECT control_bytes,measurement_bytes,result_bytes,plan_bytes,receipt_bytes,readable_plan FROM current_controls WHERE control_rank=1 ORDER BY observed_at DESC,durable_row DESC LIMIT 257`
+	rows, e := tx.query(ctx, query, args...)
 	if e != nil {
 		return e
 	}
@@ -122,6 +132,8 @@ func (r *GateRepository) admissionMeasurements(ctx context.Context, tx ReadTx, o
 		return actionError(generated.ErrorCodeInputInvalid)
 	}
 	seen := map[string]bool{}
+	anchorRevision := int64(-1)
+	anchorPlanID := ""
 	row := func(q string, a ...any) *sql.Row { return tx.queryRow(ctx, q, a...) }
 	for _, b := range pending {
 		var v HostAdmissionMeasurement
@@ -145,28 +157,35 @@ func (r *GateRepository) admissionMeasurements(ctx context.Context, tx ReadTx, o
 			continue
 		}
 		seen[v.Control.ControlID] = true
+		blockers := &out.Blockers
+		volumeAction := v.Plan.HostAction != nil && (v.Plan.HostAction.ActionID == "debian.volume.observe" || v.Plan.HostAction.ActionID == "debian.volume-recovery.verify")
+		if volumeAction {
+			blockers = &out.RoleBlockers
+		}
 		var declarationRaw []byte
 		var reason string
 		var declaration generated.DeclarationRevision
 		if row(`SELECT canonical_bytes,reason_digest FROM declaration_revisions WHERE declaration_id=? ORDER BY declaration_revision DESC LIMIT 1`, v.Plan.DeclarationID).Scan(&declarationRaw, &reason) != nil || !decodeStoredDeclaration(declarationRaw, reason, &declaration) || declaration.Revision != v.Plan.Binding.DeclarationRevision || declaration.RecoveryEpoch != out.Revision.RecoveryEpoch || declaration.Status == "superseded" {
-			out.Blockers = append(out.Blockers, "host-binding-changed")
+			*blockers = append(*blockers, "host-binding-changed")
 			continue
 		}
 
 		if validateAccessCurrentTargets(row, v.Plan, r.store.config.Clock()) != nil {
-			out.Blockers = append(out.Blockers, "host-binding-changed")
+			*blockers = append(*blockers, "host-binding-changed")
 			continue
 		}
 		if v.Plan.HostBaselineScope != nil {
 			if validateBaselineCurrent(row, v.Plan, r.store.config.Clock()) != nil {
-				out.Blockers = append(out.Blockers, "host-binding-changed")
+				*blockers = append(*blockers, "host-binding-changed")
 				continue
 			}
-			if out.ProfileLockDigest == "" && v.Plan.HostAction.ActionID != "debian.volume-recovery.verify" {
+			if !volumeAction && (v.Plan.Binding.StateRevision > anchorRevision || v.Plan.Binding.StateRevision == anchorRevision && v.Plan.PlanID > anchorPlanID) {
 				in, err := debianbaseline.DecodeInput([]byte(v.Plan.HostAction.ActionInput))
 				if err != nil {
 					return err
 				}
+				anchorRevision = v.Plan.Binding.StateRevision
+				anchorPlanID = v.Plan.PlanID
 				out.ProfileLock = in.ProfileLock
 				out.ProfileLockDigest = in.ProfileLockDigest
 				out.Profile.RoleID = in.RoleID
@@ -188,13 +207,26 @@ func (r *GateRepository) admissionMeasurements(ctx context.Context, tx ReadTx, o
 }
 
 func (r *GateRepository) admissionEvidence(ctx context.Context, tx ReadTx, out *HostAdmissionSnapshot) error {
-	rows, e := tx.query(ctx, `SELECT e.canonical_bytes,d.bundle_bytes,p.canonical_bytes,x.canonical_bytes,d.artifact_digest,p.readable_plan FROM gate_applied_evidence e JOIN gate_evidence_drafts d ON d.draft_id=e.draft_id JOIN immutable_plans p ON p.plan_id=e.plan_id AND p.plan_digest=e.plan_digest JOIN execution_receipts x ON x.run_id=e.run_id AND x.step_id=e.step_id AND x.status='succeeded' JOIN plan_run_steps s ON s.run_id=e.run_id AND s.step_id=e.step_id AND s.status='succeeded' AND s.effect_state='verified' WHERE e.subject_id=? AND e.status='applied' AND e.recovery_epoch=? AND e.state_revision<=? AND NOT EXISTS(SELECT 1 FROM gate_applied_evidence later WHERE later.recovery_epoch=e.recovery_epoch AND (later.supersedes_evidence_id=e.evidence_id OR later.revokes_evidence_id=e.evidence_id)) ORDER BY e.state_revision DESC LIMIT 65`, out.Host.HostID, out.Revision.RecoveryEpoch, out.Revision.StateRevision)
+	ids, e := admissionCurrentEvidenceIDs(ctx, tx, out)
+	if e != nil {
+		return e
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	marks := strings.TrimSuffix(strings.Repeat("?,", len(ids)), ",")
+	args := []any{}
+	for _, id := range ids {
+		args = append(args, id)
+	}
+	rows, e := tx.query(ctx, `SELECT e.canonical_bytes,d.bundle_bytes,p.canonical_bytes,x.canonical_bytes,d.artifact_digest,p.readable_plan FROM gate_applied_evidence e JOIN gate_evidence_drafts d ON d.draft_id=e.draft_id JOIN immutable_plans p ON p.plan_id=e.plan_id AND p.plan_digest=e.plan_digest JOIN execution_receipts x ON x.run_id=e.run_id AND x.step_id=e.step_id AND x.status='succeeded' JOIN plan_run_steps s ON s.run_id=e.run_id AND s.step_id=e.step_id AND s.status='succeeded' AND s.effect_state='verified' WHERE e.evidence_id IN (`+marks+`) ORDER BY e.state_revision DESC,e.evidence_id DESC`, args...)
 	if e != nil {
 		return e
 	}
 	defer rows.Close()
 	seenProof := map[string]bool{}
 	blockedProofGates := map[string]bool{}
+	invalidEvidence := map[string]bool{}
 	for rows.Next() {
 		var raw, bundleRaw, planRaw, receiptRaw []byte
 		var draftArtifact, readablePlan string
@@ -226,7 +258,7 @@ func (r *GateRepository) admissionEvidence(ctx context.Context, tx ReadTx, out *
 		}
 		exact := false
 		for _, op := range p.Operations {
-			if op.OperationID == receipt.OperationID && op.TargetID == out.Host.HostID && op.AdapterID == "core.gate" && slices.Contains([]string{"gate.evidence.apply", "gate.evidence.supersede"}, op.OperationType) && op.InputDigest == ev.BundleDigest && op.ArtifactDigest == ev.BundleDigest && receipt.ArtifactDigest == op.ArtifactDigest {
+			if op.OperationID == receipt.OperationID && op.TargetID == out.Host.HostID && op.AdapterID == "core.gate" && slices.Contains([]string{"gate.evidence.apply", "gate.evidence.supersede", "gate.evidence.revoke"}, op.OperationType) && op.InputDigest == ev.BundleDigest && op.ArtifactDigest == ev.BundleDigest && receipt.ArtifactDigest == op.ArtifactDigest {
 				exact = true
 			}
 		}
@@ -236,10 +268,20 @@ func (r *GateRepository) admissionEvidence(ctx context.Context, tx ReadTx, out *
 		if len(out.Evidence) >= 64 {
 			return actionError(generated.ErrorCodeInputInvalid)
 		}
+		if ev.RevokesEvidenceID != nil {
+			invalidEvidence[*ev.RevokesEvidenceID] = true
+		}
+		if ev.SupersedesEvidenceID != nil {
+			invalidEvidence[*ev.SupersedesEvidenceID] = true
+		}
 		out.Evidence = append(out.Evidence, ev)
 		out.Bundles[ev.EvidenceID] = b
 		out.AppliedBindings[ev.EvidenceID] = HostAppliedBinding{DeclarationID: p.DeclarationID, DeclarationRevision: declaration.Revision, ArtifactDigest: draftArtifact, BundleDigest: ev.BundleDigest, StateRevision: ev.StateRevision, RecoveryEpoch: ev.RecoveryEpoch, ReleaseBuildID: r.store.config.BuildVersion, ToolVersion: p.Binding.ToolVersion}
-		if r.hostProvenance != nil && !blockedProofGates[ev.GateID] {
+		if ev.Status == "revoked" {
+			blockedProofGates[ev.GateID] = true
+			continue
+		}
+		if r.hostProvenance != nil && !blockedProofGates[ev.GateID] && !invalidEvidence[ev.EvidenceID] {
 			proof, err := r.hostProvenance.VerifyHostEvidence(*out, ev, b)
 			if err != nil {
 				blockedProofGates[ev.GateID] = true
@@ -316,7 +358,7 @@ func admissionVolumeDeclarations(ctx context.Context, tx ReadTx, out *HostAdmiss
 			}
 		}
 		if !found {
-			out.Blockers = append(out.Blockers, "host-storage-declaration-unverified")
+			out.RoleBlockers = append(out.RoleBlockers, "host-storage-declaration-unverified")
 		}
 	}
 	out.VolumeIDs = nil
@@ -329,7 +371,7 @@ func admissionVolumeDeclarations(ctx context.Context, tx ReadTx, out *HostAdmiss
 	}
 	if len(out.VolumeIDs) > 0 {
 		if e = resolveHostStoragePrerequisites(ctx, tx, out.Host.HostID, out.VolumeIDs, at, &out.Storage); e != nil {
-			out.Blockers = append(out.Blockers, "host-storage-recovery-missing")
+			out.RoleBlockers = append(out.RoleBlockers, "host-storage-recovery-missing")
 		}
 	}
 	return nil
@@ -358,15 +400,18 @@ func (r *GateRepository) validateHostAdmissionSnapshot(ctx context.Context, tx R
 func hostAdmissionProofDigest(s HostAdmissionSnapshot) string {
 	// Global revision deliberately excluded: unrelated writes are not host drift.
 	return hostaction.Digest(struct {
-		Binding, RoleBinding string
-		Epoch                int64
-		Measurements         []HostAdmissionMeasurement
-		Evidence             []generated.GateEvidence
-		Qualifications       []HostNativeQualification
-		Prerequisites        map[string]string
-		Storage              HostStoragePrerequisites
-		Blockers             []string
-	}{s.BindingDigest, s.RoleBindingDigest, s.Revision.RecoveryEpoch, s.Measurements, s.Evidence, s.Qualifications, s.PrerequisiteDigests, s.Storage, s.Blockers})
+		Binding, RoleBinding                string
+		Epoch                               int64
+		Measurements                        []HostAdmissionMeasurement
+		Evidence                            []generated.GateEvidence
+		Qualifications                      []HostNativeQualification
+		Prerequisites                       map[string]string
+		Storage                             HostStoragePrerequisites
+		Blockers                            []string
+		RoleBlockers                        []string
+		VolumeIDs                           []string
+		NetworkingRequired, StandbyRequired bool
+	}{s.BindingDigest, s.RoleBindingDigest, s.Revision.RecoveryEpoch, s.Measurements, s.Evidence, s.Qualifications, s.PrerequisiteDigests, s.Storage, s.Blockers, s.RoleBlockers, s.VolumeIDs, s.NetworkingRequired, s.StandbyRequired})
 }
 
 // A later attempted mutation invalidates earlier measurements even if it failed
@@ -382,7 +427,7 @@ func admissionMutationInvalidation(ctx context.Context, tx ReadTx, out *HostAdmi
 			oldest = m.Plan.Binding.StateRevision
 		}
 	}
-	rows, e := tx.query(ctx, `SELECT DISTINCT p.canonical_bytes,p.readable_plan FROM immutable_plans p JOIN plan_runs r ON r.plan_id=p.plan_id AND r.plan_digest=p.plan_digest JOIN plan_run_steps s ON s.run_id=r.run_id WHERE r.recovery_epoch=? AND s.operation_type='host.action.execute' AND s.effect_state IN ('intent-recorded','receipt-recorded','effect-unknown','verified') AND s.target_id=? AND p.state_revision>? ORDER BY p.state_revision DESC LIMIT 65`, out.Revision.RecoveryEpoch, out.Host.HostID, oldest)
+	rows, e := tx.query(ctx, `SELECT DISTINCT p.canonical_bytes,p.readable_plan FROM immutable_plans p JOIN plan_runs r ON r.plan_id=p.plan_id AND r.plan_digest=p.plan_digest JOIN plan_run_steps s ON s.run_id=r.run_id WHERE r.recovery_epoch=? AND s.operation_type='host.action.execute' AND s.effect_state IN ('intent-recorded','receipt-recorded','effect-unknown','verified') AND s.target_id=? AND p.state_revision>? AND (json_extract(p.canonical_bytes,'$.hostAction.actionId') IN ('debian.access.apply','debian.baseline.apply','debian.aide.initialize','debian.aide.refresh') OR json_type(p.canonical_bytes,'$.hostAccessSequence')='object') ORDER BY p.state_revision DESC LIMIT 65`, out.Revision.RecoveryEpoch, out.Host.HostID, oldest)
 	if e != nil {
 		return e
 	}
@@ -425,4 +470,89 @@ func hostMutationInvalidates(p generated.Plan, m HostAdmissionMeasurement, hostI
 		return p.HostBaselineScope != nil && p.HostBaselineScope.SubjectHostID == hostID && slices.Contains(p.HostBaselineScope.ControlIDs, m.Control.ControlID)
 	}
 	return false
+}
+
+// Only the latest verified access policy's finite probe IDs are current. Old
+// sequence-specific IDs remain audit history, not a lifetime snapshot quota.
+func admissionCurrentControlIDs(ctx context.Context, tx ReadTx, out *HostAdmissionSnapshot) ([]string, error) {
+	ids := append([]string{}, debianbaseline.ControlIDs...)
+	ids = append(ids, "debian.accounts", "debian.ssh", "debian.host-firewall", "debian.container-firewall", "debian-access-confirm")
+	for _, r := range generated.GeneratedHostControlRequirements {
+		if r.ProducerID == "linux-role" {
+			ids = append(ids, r.ProducerControlIDs...)
+		}
+	}
+	var raw []byte
+	e := tx.queryRow(ctx, `SELECT p.canonical_bytes FROM host_control_results c JOIN immutable_plans p ON p.plan_id=c.plan_id AND p.plan_digest=c.plan_digest JOIN execution_receipts e ON e.receipt_id=c.receipt_id AND e.result_digest=c.result_digest AND e.status='succeeded' JOIN plan_run_steps s ON s.run_id=c.run_id AND s.step_id=c.step_id AND s.status='succeeded' AND s.effect_state='verified' WHERE c.host_id=? AND c.host_identity_digest=? AND c.recovery_epoch=? AND c.control_id='debian.ssh' ORDER BY c.observed_at DESC,c.rowid DESC LIMIT 1`, out.Host.HostID, out.IdentityDigest, out.Revision.RecoveryEpoch).Scan(&raw)
+	if e == sql.ErrNoRows {
+		return ids, nil
+	}
+	if e != nil {
+		return nil, e
+	}
+	var p generated.Plan
+	if json.Unmarshal(raw, &p) != nil {
+		return nil, actionError(generated.ErrorCodeIntegrityFailure)
+	}
+	if p.HostAccessSequence != nil {
+		for _, a := range p.HostAccessSequence.Actions {
+			if a.ActionID == "debian.access.probe.local" || a.ActionID == "debian.access.probe-source" {
+				var in generated.AccessProbeInput
+				if json.Unmarshal([]byte(a.ActionInput), &in) != nil {
+					return nil, actionError(generated.ErrorCodeIntegrityFailure)
+				}
+				for _, c := range in.Cases {
+					ids = append(ids, c.ProbeID)
+				}
+			}
+		}
+	}
+	slices.Sort(ids)
+	ids = slices.Compact(ids)
+	if len(ids) > 256 {
+		return nil, actionError(generated.ErrorCodeInputInvalid)
+	}
+	return ids, nil
+}
+
+// Select latest evidence independently for each finite proof duty. This bounds
+// current proof, not lifetime append-only audit history. Revocations inherit
+// their referenced proof's duty even if their own bundle has no stage check.
+func admissionCurrentEvidenceIDs(ctx context.Context, tx ReadTx, out *HostAdmissionSnapshot) ([]string, error) {
+	keys := []string{"", "native.baseline", "native.role", "native.recovery", "identity-console", "recovery-access", "physical-capacity", "physical-thermal-power", "qualified-virtual"}
+	for _, r := range generated.GeneratedHostControlRequirements {
+		keys = append(keys, r.ControlID)
+	}
+	slices.Sort(keys)
+	keys = slices.Compact(keys)
+	selected := map[string]bool{}
+	for _, gate := range []string{"platform-safety", "host.hardening-baseline", "host.role-admission", "native.baseline", "native.role", "native.recovery"} {
+		for _, key := range keys {
+			var id string
+			var revoked, superseded sql.NullString
+			e := tx.queryRow(ctx, `SELECT e.evidence_id,e.revokes_evidence_id,e.supersedes_evidence_id FROM gate_applied_evidence e JOIN gate_evidence_drafts d ON d.draft_id=e.draft_id WHERE e.subject_id=? AND e.gate_id=? AND e.recovery_epoch=? AND e.state_revision<=? AND NOT EXISTS(SELECT 1 FROM json_each(d.bundle_bytes,'$.facts') f WHERE json_extract(f.value,'$.factId') IN ('host.profile-lock','native.profile-lock') AND json_extract(f.value,'$.valueDigest')!=?) AND ((?='' AND json_array_length(d.bundle_bytes,'$.checks')=0) OR EXISTS(SELECT 1 FROM json_each(d.bundle_bytes,'$.checks') c WHERE json_extract(c.value,'$.checkId')=?) OR EXISTS(SELECT 1 FROM gate_applied_evidence prior JOIN gate_evidence_drafts pd ON pd.draft_id=prior.draft_id JOIN json_each(pd.bundle_bytes,'$.checks') c WHERE prior.evidence_id=e.revokes_evidence_id AND json_extract(c.value,'$.checkId')=? AND NOT EXISTS(SELECT 1 FROM json_each(pd.bundle_bytes,'$.facts') f WHERE json_extract(f.value,'$.factId') IN ('host.profile-lock','native.profile-lock') AND json_extract(f.value,'$.valueDigest')!=?))) ORDER BY e.state_revision DESC,e.evidence_id DESC LIMIT 1`, out.Host.HostID, gate, out.Revision.RecoveryEpoch, out.Revision.StateRevision, out.ProfileLockDigest, key, key, key, out.ProfileLockDigest).Scan(&id, &revoked, &superseded)
+			if e == sql.ErrNoRows {
+				continue
+			}
+			if e != nil {
+				return nil, e
+			}
+			selected[id] = true
+			if revoked.Valid {
+				selected[revoked.String] = true
+			}
+			if superseded.Valid {
+				selected[superseded.String] = true
+			}
+		}
+	}
+	if len(selected) > 64 {
+		return nil, actionError(generated.ErrorCodeInputInvalid)
+	}
+	ids := []string{}
+	for id := range selected {
+		ids = append(ids, id)
+	}
+	slices.Sort(ids)
+	return ids, nil
 }

@@ -62,6 +62,21 @@ func TestHostAdmissionProofComparisonExcludesUnrelatedRevision(t *testing.T) {
 		t.Fatal("opaque qualification list became authority")
 	}
 	altered = before
+	altered.RoleBlockers = []string{"host-storage-recovery-missing"}
+	if e = r.ValidateHostAdmissionSnapshot(f.ctx, altered); e == nil {
+		t.Fatal("changed role blocker accepted")
+	}
+	altered = before
+	altered.VolumeIDs = []string{"new-volume"}
+	if e = r.ValidateHostAdmissionSnapshot(f.ctx, altered); e == nil {
+		t.Fatal("changed declared volume set accepted")
+	}
+	altered = before
+	altered.NetworkingRequired = !before.NetworkingRequired
+	if e = r.ValidateHostAdmissionSnapshot(f.ctx, altered); e == nil {
+		t.Fatal("changed role applicability accepted")
+	}
+	altered = before
 	altered.Blockers = append(append([]string(nil), before.Blockers...), "host-binding-changed")
 	if e = r.ValidateHostAdmissionSnapshot(f.ctx, altered); e == nil {
 		t.Fatal("different proof snapshot accepted")

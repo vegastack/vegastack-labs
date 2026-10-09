@@ -25,6 +25,7 @@ type HostAdmissionSnapshot struct {
 	NetworkingRequired, StandbyRequired          bool
 	VolumeIDs                                    []string
 	Storage                                      HostStoragePrerequisites
+	RoleBlockers                                 []string
 	Blockers                                     []string
 }
 
