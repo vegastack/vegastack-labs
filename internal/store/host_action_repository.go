@@ -180,14 +180,8 @@ func (r *HostActionRepository) CurrentExecution(ctx context.Context, op adapter.
 			if e := validateBaselineCurrent(row, p, r.store.config.Clock()); e != nil {
 				return e
 			}
-			for _, id := range []string{p.HostBaselineScope.SubjectHostID, p.HostBaselineScope.ExecutionHostID} {
-				var n int
-				if row(`SELECT count(*) FROM effective_authorization_principals p JOIN effective_authorization_grants g ON g.principal_id=p.principal_id AND g.grant_revision=p.grant_revision WHERE p.principal_id=? AND p.status='active' AND g.status='active' AND g.action='acknowledge' AND g.capability='plan.acknowledge' AND g.resource_kind='plan-target' AND g.resource_id=? AND g.branch='human'`, human, id).Scan(&n) != nil || n == 0 {
-					return actionError(generated.ErrorCodeAuthorizationDenied)
-				}
-				if row(`SELECT count(*) FROM effective_authorization_principals p JOIN effective_authorization_grants g ON g.principal_id=p.principal_id AND g.grant_revision=p.grant_revision JOIN audit_events a ON a.principal_id=p.principal_id WHERE a.event_type='run.created' AND a.correlation_id=? AND p.status='active' AND g.status='active' AND g.action='execute' AND g.capability='host.action.execute' AND g.resource_kind='execution-target' AND g.resource_id=? AND g.branch='human'`, b.RunID, id).Scan(&n) != nil || n == 0 {
-					return actionError(generated.ErrorCodeAuthorizationDenied)
-				}
+			if e := authorizeBaselineScope(ctx, row, p, b.RunID, human); e != nil {
+				return e
 			}
 		}
 		if p.HostAccessSequence != nil {

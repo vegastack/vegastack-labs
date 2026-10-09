@@ -1,6 +1,8 @@
 package store
 
 import (
+	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"github.com/vegastack/vegastack-labs/internal/debianbaseline"
@@ -14,7 +16,7 @@ import (
 // Synthetic persisted native observations exercise the real migrated SQLite
 // joins and denial rules. They are not proof that a real volume was qualified.
 func TestHostStorageRequiresExactTwoCurrentReceipts(t *testing.T) {
-	for _, mode := range []string{"success", "missing-recovery", "wrong-prior", "wrong-header", "failed-recovery", "unverified-step", "stale", "epoch", "custodian-identity", "failed-latest"} {
+	for _, mode := range []string{"success", "missing-recovery", "wrong-prior", "wrong-header", "failed-recovery", "unverified-step", "stale", "epoch", "custodian-identity", "failed-latest", "missing-declaration", "superseded-declaration"} {
 		t.Run(mode, func(t *testing.T) {
 			f, _, base := actionDraftFixture(t)
 			exec := func(q string, a ...any) {
@@ -48,6 +50,17 @@ func TestHostStorageRequiresExactTwoCurrentReceipts(t *testing.T) {
 			}
 			in := generated.DebianBaselineInput{Schema: generated.SchemaIDDebianBaselineInput, SchemaVersion: "1.0.0", HostID: base.HostID, HostIdentityDigest: binding.HostIdentityDigest, ProfileID: "test-profile", ProfileLock: lock, ProfileLockDigest: hostaction.Digest(lock), RoleID: "host", ActionVersion: "1.0.0", AutomationUID: 1001, ControlIDs: []string{"linux.volume-encryption:data"}, RecoverySourcePrefixes: []string{"192.0.2.1/32"}, UpdateOwner: "operator", TimeOwner: "chrony", AuditPaths: []string{}, AppArmorProfiles: []generated.BaselineApparmorProfile{}, AIDE: generated.BaselineAidePolicy{Schema: generated.SchemaIDBaselineAidePolicy, SchemaVersion: "1.0.0", ScopePaths: []string{}, ScopeDigest: hostaction.Digest([]string{})}, Resources: []generated.BaselineResourceLimit{}, KernelSettings: []generated.BaselineKernelSetting{}, Volumes: []generated.HostVolumeBinding{binding}}
 			in.RenderedPolicyDigest = debianbaseline.PolicyDigest(in)
+			if mode != "missing-declaration" {
+				declaration := generated.DeclarationRevision{Schema: generated.SchemaIDDeclarationRevision, SchemaVersion: "1.0.0", DeclarationID: binding.DeclarationID, DeclarationType: "host.volume", Revision: 1, StateRevision: 1, RecoveryEpoch: 0, Status: "draft", Operations: []generated.DeclarationOperation{{Sequence: 1, OperationID: "volume", OperationType: "host.action.execute", AdapterID: "host-action", TargetID: binding.HostID, InputDigest: hostaction.Digest(binding), ArtifactDigest: hostaction.Digest(binding)}}, CreatedAt: now.Format(time.RFC3339), CreatedBy: "operator-a", AgentSessionID: "fixture", Extensions: []generated.ContractExtension{{Name: "x-host-volume-binding", ValueDigest: hostaction.Digest(binding)}}}
+				declaration.ContentDigest = declarationContentDigest(declaration, d)
+				exec(`INSERT INTO declaration_revisions VALUES(?,?,'host.volume',1,0,?,?,'draft',?,'now','operator-a','fixture')`, declaration.DeclarationID, declaration.Revision, declaration.ContentDigest, d, marshal(declaration))
+				if mode == "superseded-declaration" {
+					declaration.Revision = 2
+					declaration.ContentDigest = declarationContentDigest(declaration, d)
+					exec(`INSERT INTO declaration_revisions VALUES(?,2,'host.volume',1,0,?,?,'draft',?,'now','operator-a','fixture')`, declaration.DeclarationID, declaration.ContentDigest, d, marshal(declaration))
+				}
+			}
+
 			prior := ""
 			serial := 0
 			appendResult := func(kind string, req generated.HostActionRequest, b generated.HostVolumeBinding, status, stepState string) string {
@@ -65,6 +78,33 @@ func TestHostStorageRequiresExactTwoCurrentReceipts(t *testing.T) {
 					at = at.Add(-11 * time.Minute)
 				}
 				m := generated.AccessMeasurement{Schema: generated.SchemaIDAccessMeasurement, SchemaVersion: "1.0.0", ControlID: scope.ControlIDs[0], Kind: "volume", Status: status, SubjectHostID: binding.HostID, SubjectIdentityDigest: binding.HostIdentityDigest, ProfileLockDigest: in.ProfileLockDigest, ProducerID: "debian-baseline", ProducerVersion: "1.0.0", BundleDigest: d, ObservedAt: at.Format(time.RFC3339), ConfigurationDigest: hostaction.Digest(b), PositiveProbeDigest: d, NegativeProbeDigest: hostaction.BytesDigest(nil), Reason: "synthetic-native-observation", Volume: &generated.VolumeObservation{Schema: generated.SchemaIDVolumeObservation, SchemaVersion: "1.0.0", Binding: b, Kind: kind, FactsDigest: d, PriorVolumeReceiptDigest: prior, ObservedAt: at.Format(time.RFC3339)}}
+
+				if kind == "mapping" {
+					wrong := m
+					wrong.Volume = nil
+					wrong.Kind = "baseline"
+					wrong.ConfigurationDigest = req.ActionInputDigest
+					wrong.Baseline = &generated.BaselineObservation{FactsDigest: d, Verification: "configuration-observed"}
+					if validateBaselineMeasurement(p, wrong, 0) == nil {
+						t.Fatal("volume action accepted baseline projection")
+					}
+					wrong = m
+					copy := *m.Volume
+					copy.Binding.VolumeID = "other"
+					wrong.Volume = &copy
+					wrong.ConfigurationDigest = hostaction.Digest(copy.Binding)
+					other := in
+					other.Volumes = append(append([]generated.HostVolumeBinding(nil), in.Volumes...), copy.Binding)
+					other.RenderedPolicyDigest = debianbaseline.PolicyDigest(other)
+					otherPlan := p
+					otherReq := req
+					otherReq.ActionInput = string(marshal(other))
+					otherReq.ActionInputDigest = hostaction.BytesDigest([]byte(otherReq.ActionInput))
+					otherPlan.HostAction = &otherReq
+					if validateBaselineMeasurement(otherPlan, wrong, 0) == nil {
+						t.Fatal("selected volume accepted different declared volume")
+					}
+				}
 				m.MeasurementDigest = hostaction.MeasurementDigest(m)
 				result := generated.HostActionResult{Schema: generated.SchemaIDHostActionResult, SchemaVersion: "1.0.0", BundleDigest: d, Status: "succeeded", Reason: "measured", ControlMeasurements: []generated.AccessMeasurement{m}}
 				result.ResultDigest = hostaction.ResultDigest(result)
@@ -132,5 +172,41 @@ func TestHostStorageRequiresExactTwoCurrentReceipts(t *testing.T) {
 				t.Fatalf("unsafe %s accepted", mode)
 			}
 		})
+	}
+}
+
+func TestBaselineScopeUsesCanonicalSubjectRoleAuthorization(t *testing.T) {
+	f, _, _ := actionDraftFixture(t)
+	exec := func(q string, a ...any) {
+		t.Helper()
+		if _, e := f.s.conn.ExecContext(f.ctx, q, a...); e != nil {
+			t.Fatal(e)
+		}
+	}
+	d := hostaction.Digest("authorization-fixture")
+	_, e := f.s.executeAuditIntent(f.ctx, discoveryIntent(f.attr, "run.created", "baseline-auth-run", d, d), false, func(context.Context, *sql.Tx) error { return nil })
+	if e != nil {
+		t.Fatal(e)
+	}
+	for _, host := range []string{"synthetic-host", "custodian"} {
+		exec(`INSERT INTO effective_authorization_grants VALUES(?,'operator-a','control-plane-admin','acknowledge','plan.acknowledge','plan-target',?,'human',1,'active','now','now')`, "baseline-ack-"+host, host)
+		role := "infrastructure-admin"
+		if host == "synthetic-host" {
+			role = "maintainer"
+		}
+		exec(`INSERT INTO effective_authorization_grants VALUES(?,'operator-a',?,'execute','host.action.execute','execution-target',?,'human',1,'active','now','now')`, "baseline-exec-"+host, role, host)
+	}
+	p := generated.Plan{PlanID: "baseline-auth-plan", PlanDigest: d, Risk: "infrastructure", AuthorizationBranch: "human", Operations: []generated.PlanOperation{{Sequence: 1, OperationType: "host.action.execute", TargetID: "custodian"}}, HostBaselineScope: &generated.HostBaselineScope{SubjectHostID: "synthetic-host", ExecutionHostID: "custodian"}}
+	if e := f.s.conn.QueryRowContext(f.ctx, `SELECT state_revision,recovery_epoch FROM system_meta WHERE id=1`).Scan(&p.Binding.StateRevision, &p.Binding.RecoveryEpoch); e != nil {
+		t.Fatal(e)
+	}
+	row := func(q string, a ...any) *sql.Row { return f.s.conn.QueryRowContext(f.ctx, q, a...) }
+	if authorizeBaselineScope(f.ctx, row, p, "baseline-auth-run", "operator-a") == nil {
+		t.Fatal("subject maintainer bypassed infrastructure role")
+	}
+	exec(`UPDATE effective_authorization_grants SET status='revoked' WHERE grant_id='baseline-exec-synthetic-host'`)
+	exec(`INSERT INTO effective_authorization_grants VALUES('baseline-exec-subject-admin','operator-a','infrastructure-admin','execute','host.action.execute','execution-target','synthetic-host','human',1,'active','now','now')`)
+	if e := authorizeBaselineScope(f.ctx, row, p, "baseline-auth-run", "operator-a"); e != nil {
+		t.Fatal("valid subject and custodian admins denied", e)
 	}
 }

@@ -29,3 +29,31 @@ There is no automatic retry or repair. Failure leaves existing data and mappings
 Focused tests cover metadata bounds and selected-slot binding, plaintext/ambiguous mapping denial, private file ownership and link refusal, changed header and failed key denial, sanitized results, geometry mismatch/overflow, executable-path replacement, and actual Linux write/truncate refusal on a sealed descriptor. Temporary-root tests substitute only the cryptographic process boundary; they do not prove that a real recovery key opens a real encrypted device. #228 must run the actual pinned tool against an already encrypted disposable fixture, prove correct/wrong key and header/slot cases, and compare header/device bytes and active mappings before/after, including an inconsistent redundant-header fixture around both status calls.
 
 Mechanism sources checked on 09-10-2026: [Debian cryptsetup-open manual](https://manpages.debian.org/trixie/cryptsetup-bin/cryptsetup-open.8.en.html), [Debian luksDump manual](https://manpages.debian.org/trixie/cryptsetup-bin/cryptsetup-luksDump.8.en.html), and the upstream [LUKS2 disk metadata implementation](https://github.com/mbroz/cryptsetup/blob/master/lib/luks2/luks2_disk_metadata.c). Qualification pins the actual installed package; these references are not runtime qualification evidence.
+
+## Current desired volume declaration
+
+Before preparing volume observation/recovery, author an inert `host.volume`
+declaration through the existing declaration-revision API. Use a stable operator
+chosen declaration ID and the intended revision/epoch in `HostVolumeBinding`.
+Its `x-host-volume-binding` extension holds the canonical SHA256 digest of the
+complete generated binding; the action input supplies those exact concrete
+fields and the readable action plan shows them for approval. The declaration's
+operation is the existing `host.action.execute`/`host-action` target on the
+subject, with input/artifact digests of the binding. This declaration alone has
+no staged host action and cannot execute; it records desired state only.
+
+The generic declaration API enforces author scope and revision/audit rules.
+The subsequent volume action still requires its own normal exact plan and human
+acknowledgement. A draft is inert desired state, never applied volume evidence.
+The reader validates the stored declaration's canonical content, requires the
+latest revision to match the binding and epoch, and checks the exact extension.
+Missing, superseded, altered or newer desired declarations invalidate the old
+observation/recovery pair immediately. Actual succeeded/verified native action
+receipts remain independently mandatory; declaring a digest cannot replace them.
+
+Active encryption-sector geometry is read from the mapped kernel device's
+`queue/logical_block_size` before and after observation, not inferred from the
+header's reported value. The backing-device `BLKSSZGET` size must currently be
+512 bytes: larger backing sectors can mask the encryption-sector setting, so
+that ambiguous case remains unsupported until separately qualified. This
+software check does not claim native cryptsetup/device qualification.

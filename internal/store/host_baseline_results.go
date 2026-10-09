@@ -34,7 +34,21 @@ func validateBaselineCurrent(row discoveryRow, p generated.Plan, now time.Time) 
 		if e != nil {
 			return e
 		}
+		if e = validateCurrentVolumeDeclaration(row, in.Binding); e != nil {
+			return e
+		}
 		return validatePriorVolumeReceipt(row, in, now)
+	}
+	if p.HostAction.ActionID == "debian.volume.observe" {
+		in, e := debianbaseline.DecodeInput([]byte(p.HostAction.ActionInput))
+		if e != nil {
+			return e
+		}
+		for _, v := range in.Volumes {
+			if e = validateCurrentVolumeDeclaration(row, v); e != nil {
+				return e
+			}
+		}
 	}
 	return nil
 }
@@ -80,7 +94,18 @@ func validateBaselineMeasurement(p generated.Plan, m generated.AccessMeasurement
 	if scope == nil || ordinal >= len(scope.ControlIDs) || m.ControlID != scope.ControlIDs[ordinal] || m.ProducerID != "debian-baseline" || m.ProducerVersion != "1.0.0" || p.HostAction == nil || m.Probe != nil || len(m.DestinationOwnership) != 0 {
 		return actionError(generated.ErrorCodeIntegrityFailure)
 	}
+	volumeAction := p.HostAction.ActionID == "debian.volume.observe" || p.HostAction.ActionID == "debian.volume-recovery.verify"
+	if volumeAction != (m.Volume != nil) {
+		return actionError(generated.ErrorCodeIntegrityFailure)
+	}
 	if m.Volume != nil {
+		prefix := "linux.volume-encryption:"
+		if p.HostAction.ActionID == "debian.volume-recovery.verify" {
+			prefix = "linux.volume-recovery:"
+		}
+		if m.ControlID != prefix+m.Volume.Binding.VolumeID {
+			return actionError(generated.ErrorCodeIntegrityFailure)
+		}
 		if m.ConfigurationDigest != hostaction.Digest(m.Volume.Binding) {
 			return actionError(generated.ErrorCodeIntegrityFailure)
 		}
@@ -125,4 +150,32 @@ func (r *HostActionRepository) ValidateBaselinePreparation(ctx context.Context, 
 		}
 		return nil
 	})
+}
+
+// Desired declarations are inert, revisioned API-authored state. The subsequent
+// exact action plan supplies human execution approval; the declaration is not
+// an applied volume proof. Newer desired revisions immediately invalidate it.
+func validateCurrentVolumeDeclaration(row discoveryRow, b generated.HostVolumeBinding) error {
+	var raw []byte
+	var reason string
+	if row(`SELECT canonical_bytes,reason_digest FROM declaration_revisions WHERE declaration_id=? ORDER BY declaration_revision DESC LIMIT 1`, b.DeclarationID).Scan(&raw, &reason) != nil {
+		return actionError(generated.ErrorCodePrerequisiteBlocked)
+	}
+	var d generated.DeclarationRevision
+	if !decodeStoredDeclaration(raw, reason, &d) || d.DeclarationType != "host.volume" || d.DeclarationID != b.DeclarationID || d.Revision != b.DeclarationRevision || d.RecoveryEpoch != b.RecoveryEpoch || d.Status == "superseded" {
+		return actionError(generated.ErrorCodePlanStale)
+	}
+	count := 0
+	for _, x := range d.Extensions {
+		if x.Name == "x-host-volume-binding" {
+			if x.ValueDigest != hostaction.Digest(b) {
+				return actionError(generated.ErrorCodePlanStale)
+			}
+			count++
+		}
+	}
+	if count != 1 {
+		return actionError(generated.ErrorCodePrerequisiteBlocked)
+	}
+	return nil
 }
