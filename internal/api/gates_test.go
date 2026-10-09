@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -88,5 +89,64 @@ func TestUnboundGateProjectionKeepsSafeBlockersButNeverPasses(t *testing.T) {
 	deferred := gateUnboundProjection(generated.GateEvaluation{Outcome: "not-applicable", ReasonCode: "deferred"}, false, "deferred")
 	if deferred.Outcome != "not-applicable" || deferred.ReasonCode != "deferred" {
 		t.Fatalf("deferred result: %+v", deferred)
+	}
+}
+
+func TestGateSubjectQueryBoundedAndExact(t *testing.T) {
+	for _, item := range []struct {
+		raw, want string
+		valid     bool
+	}{
+		{"", "scope", true}, {"subjectId=host-a", "host-a", true},
+		{"subjectId=", "", false}, {"subjectId=a&subjectId=b", "", false},
+		{"subjectId=a&extra=b", "", false}, {"subjectId=host%2Fa", "", false},
+		{"subjectId=%zz", "", false}, {"subjectId=" + strings.Repeat("a", 129), "", false},
+	} {
+		got, err := gateSubjectQuery(item.raw)
+		if (err == nil) != item.valid || got != item.want {
+			t.Errorf("query %q: %q %v", item.raw, got, err)
+		}
+	}
+}
+
+func TestHostGateReadScopeDeniedBeforeSnapshot(t *testing.T) {
+	for _, path := range []string{"/api/v1/gates?subjectId=host-denied", "/api/v1/gates/host.hardening-baseline?subjectId=host-denied", "/api/v1/gates/host.hardening-baseline/check"} {
+		t.Run(path, func(t *testing.T) {
+			recorder := &authorizationRecorderStub{}
+			app := newAuthorizationTestApplication(t, authorization.NewEvaluator(apiPolicyRepository{snapshot: authorization.EffectivePolicySnapshot{
+				PrincipalKind: identity.PrincipalHuman, Status: authorization.EffectiveActive, GrantRevision: 1, StateRevision: 0, RecoveryEpoch: 0,
+				Grants: []authorization.EffectiveGrant{{Role: authorization.RoleReader, AllowedAction: authorization.ActionRead, Capability: "host.read", ResourceKind: "host", ResourceID: "host-other", Branch: authorization.BranchHuman}},
+			}}), recorder)
+			// Empty repositories deliberately cannot resolve a subject. Denial must precede any read.
+			if err := RegisterGateOperations(app, GateOperations{Gates: &store.GateRepository{}, Revisions: &store.PlanRepository{}, Declarations: &change.Service{}, Results: app.config.Results}); err != nil {
+				t.Fatal(err)
+			}
+			r := httptest.NewRequest(http.MethodGet, path, nil)
+			if strings.HasSuffix(path, "/check") {
+				def, ok := gateDefinition("host.hardening-baseline")
+				if !ok {
+					t.Fatal("host gate absent")
+				}
+				body, err := json.Marshal(generated.GateCheckRequest{Schema: generated.SchemaIDGateCheckRequest, SchemaVersion: "1.0.0", ExpectedStateRevision: 0, RecoveryEpoch: 0, TargetDigest: "sha256:" + strings.Repeat("a", 64), IdempotencyKey: "host-check", GateID: def.GateID, SubjectID: "host-denied", DefinitionVersion: def.DefinitionVersion})
+				if err != nil {
+					t.Fatal(err)
+				}
+				r = httptest.NewRequest(http.MethodPost, path, bytes.NewReader(body))
+				r.Header.Set("Content-Type", "application/json")
+			}
+			r = r.WithContext(identity.WithVerifiedPrincipal(r.Context(), identity.Principal{ID: "human-a", Kind: identity.PrincipalHuman, Method: identity.LocalOSPeerMethod}))
+			w := httptest.NewRecorder()
+			app.ServeHTTP(w, r)
+			if w.Code != http.StatusForbidden {
+				t.Fatalf("wrong host read: %d %s", w.Code, w.Body.String())
+			}
+			if len(recorder.records) != 1 {
+				t.Fatalf("expected exact host authorization, records=%d", len(recorder.records))
+			}
+			decision := recorder.records[0].Decision
+			if decision.Target.Capability != "host.read" || decision.Target.ResourceKind != "host" || decision.Target.ResourceID != "host-denied" || decision.Allowed {
+				t.Fatalf("wrong authorization target: %+v", decision)
+			}
+		})
 	}
 }
