@@ -77,20 +77,18 @@ func replacementAPIApp(t *testing.T, grants []authorization.EffectiveGrant) (*Ap
 	return app, repo, decl
 }
 func replacementAPIGrants(in generated.HostReplacementRequest) []authorization.EffectiveGrant {
-	d := hostaction.Digest(in)
 	return []authorization.EffectiveGrant{
 		{Role: authorization.RoleInfrastructureAdmin, AllowedAction: authorization.ActionAuthor, Capability: "host.replacement.prepare", ResourceKind: "host", ResourceID: in.OldHostID},
 		{Role: authorization.RoleInfrastructureAdmin, AllowedAction: authorization.ActionAuthor, Capability: "host.replacement.prepare", ResourceKind: "host", ResourceID: in.NewHostID},
-		{Role: authorization.RoleInfrastructureAdmin, AllowedAction: authorization.ActionAuthor, Capability: "declaration.author", ResourceKind: "declaration", ResourceID: "host-replacement-" + d[7:39]},
 	}
 }
-func TestReplacementAPIRequiresBothSubjectsAndExactAuthorGrant(t *testing.T) {
+func TestReplacementAPIRequiresBothSubjects(t *testing.T) {
 	for _, method := range []string{identity.LocalOSPeerMethod, identity.CloudflareAccessMethod} {
 		for _, operation := range []string{"freeze", "commit"} {
 			in := replacementAPIInput()
 			in.Operation = operation
 			raw, _ := json.Marshal(in)
-			for _, missing := range []int{-1, 0, 1, 2} {
+			for _, missing := range []int{-1, 0, 1} {
 				grants := replacementAPIGrants(in)
 				if missing >= 0 {
 					grants = append(grants[:missing], grants[missing+1:]...)
@@ -142,15 +140,24 @@ func TestDeclarationAPIAliasPayloadIsOperatorLocalOnly(t *testing.T) {
 	in := generated.DeclarationRevisionRequest{Schema: generated.SchemaIDDeclarationRevisionRequest, SchemaVersion: "1.0.0", DeclarationID: "claim-a", DeclarationType: "host.alias-claim", ExpectedRevision: 1, HostAliasClaim: &c, ReasonDigest: d, Extensions: []generated.ContractExtension{{Name: hostreplacement.AliasClaimExtension, ValueDigest: d}}, Operations: []generated.DeclarationOperation{{Sequence: 1, OperationID: "claim", OperationType: hostreplacement.AliasClaimOperation, AdapterID: hostreplacement.AdapterID, TargetID: "claim-a", InputDigest: d, ArtifactDigest: d, Idempotent: true}}}
 	raw, _ := json.Marshal(in)
 	for _, method := range []string{identity.LocalOSPeerMethod, identity.CloudflareAccessMethod} {
-		app, _, decl := replacementAPIApp(t, []authorization.EffectiveGrant{{Role: authorization.RoleInfrastructureAdmin, AllowedAction: authorization.ActionAuthor, Capability: "declaration.author", ResourceKind: "declaration", ResourceID: "claim-a"}})
-		app.routes = append(app.routes, route{id: "api.v1.declarations.revise", method: "POST", pattern: "/api/v1/declarations/{declarationId}/revisions", deferredAuthorization: true, handler: app.reviseDeclaration(DeclarationPlanConfig{Declarations: decl, Results: app.config.Results, MaxBodyBytes: 32768})})
-		w := replacementAPICall(app, "POST", "/api/v1/declarations/claim-a/revisions", string(raw), method)
-		if method == identity.LocalOSPeerMethod {
-			if w.Code != 200 || decl.request.HostAliasClaim == nil {
-				t.Fatalf("typed local claim lost status%d %s", w.Code, w.Body.String())
+		for _, missing := range []int{-1, 0, 1} {
+			grants := []authorization.EffectiveGrant{
+				{Role: authorization.RoleInfrastructureAdmin, AllowedAction: authorization.ActionAuthor, Capability: "host.replacement.prepare", ResourceKind: "host", ResourceID: c.HostID},
+				{Role: authorization.RoleInfrastructureAdmin, AllowedAction: authorization.ActionAuthor, Capability: "host.alias.claim", ResourceKind: "host-alias", ResourceID: c.AliasIDs[0]},
 			}
-		} else if w.Code != 403 || decl.calls != 0 {
-			t.Fatal("browser authored alias claim")
+			if missing >= 0 {
+				grants = append(grants[:missing], grants[missing+1:]...)
+			}
+			app, _, decl := replacementAPIApp(t, grants)
+			app.routes = append(app.routes, route{id: "api.v1.declarations.revise", method: "POST", pattern: "/api/v1/declarations/{declarationId}/revisions", deferredAuthorization: true, handler: app.reviseDeclaration(DeclarationPlanConfig{Declarations: decl, Results: app.config.Results, MaxBodyBytes: 32768})})
+			w := replacementAPICall(app, "POST", "/api/v1/declarations/claim-a/revisions", string(raw), method)
+			if method == identity.LocalOSPeerMethod && missing < 0 {
+				if w.Code != 200 || decl.request.HostAliasClaim == nil {
+					t.Fatalf("typed local claim lost status%d %s", w.Code, w.Body.String())
+				}
+			} else if w.Code != 403 || decl.calls != 0 {
+				t.Fatalf("unauthorized alias claim method%s missing%d status%d", method, missing, w.Code)
+			}
 		}
 	}
 }
