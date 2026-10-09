@@ -40,9 +40,11 @@ func nativePendingFixture(t *testing.T) (*RunRepository, credentialref.NativeRes
 		t.Fatal(err)
 	}
 	plan.PlanID, plan.PlanDigest, plan.AuthorizationBranch, plan.Risk = "native-plan", string(digestForText("native plan")), "human", "control-plane"
+	plan.Binding.DeclarationRevision = 2
+	exec(`INSERT INTO declaration_revisions SELECT declaration_id,2,declaration_type,state_revision,recovery_epoch,content_digest,reason_digest,'committed',canonical_bytes,created_at,created_by,agent_session_id FROM declaration_revisions WHERE declaration_id=? AND declaration_revision=1`, plan.DeclarationID)
 	plan.Operations = []generated.PlanOperation{{Sequence: 1, OperationID: b.OperationID, OperationType: string(b.Action), AdapterID: "core.credential", ExecutorID: "executor-central", TargetID: b.TargetID, InputDigest: fp, ArtifactDigest: fp, Idempotent: false}}
 	raw, _ = json.Marshal(plan)
-	exec(`INSERT INTO immutable_plans(plan_id,plan_digest,declaration_id,declaration_revision,state_revision,recovery_epoch,observation_fingerprint,idempotency_key_digest,request_digest,canonical_bytes,readable_plan,readable_digest,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, plan.PlanID, plan.PlanDigest, plan.DeclarationID, 1, 1, 0, plan.Binding.ObservationFingerprint, digestForText("native plan key"), digestForText("native plan request"), raw, "synthetic native activation plan", plan.ReadableDigest, now.Format(time.RFC3339), now.Add(30*time.Minute).Format(time.RFC3339))
+	exec(`INSERT INTO immutable_plans(plan_id,plan_digest,declaration_id,declaration_revision,state_revision,recovery_epoch,observation_fingerprint,idempotency_key_digest,request_digest,canonical_bytes,readable_plan,readable_digest,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, plan.PlanID, plan.PlanDigest, plan.DeclarationID, 2, 1, 0, plan.Binding.ObservationFingerprint, digestForText("native plan key"), digestForText("native plan request"), raw, "synthetic native activation plan", plan.ReadableDigest, now.Format(time.RFC3339), now.Add(30*time.Minute).Format(time.RFC3339))
 	raw, _ = json.Marshal(b)
 	exec(`INSERT INTO credential_lifecycle_bindings VALUES('native-binding',?,1,?,?,?,?,?,0,?)`, plan.DeclarationID, b.OperationID, string(b.Action), b.ReferenceID, b.Digest(), raw, now.Format(time.RFC3339))
 	exec(`INSERT INTO effective_authorization_principals VALUES('principal-run-test','human','active',1,'now','now')`)

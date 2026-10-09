@@ -344,6 +344,18 @@ func hostActionAcceptance(t *testing.T, actionMode string, options ...hostAction
 		t.Fatalf("host action has no matching production risk classification: %s %v", risk, classifyErr)
 	}
 	for _, g := range []struct{ action, cap, kind string }{{"acknowledge", "plan.acknowledge", "plan-target"}, {"execute", "host.action.execute", "execution-target"}} {
+		if hooks.Enrollment != nil && g.action == "acknowledge" {
+			var existing int
+			if err := db.QueryRow(`SELECT COUNT(*) FROM effective_authorization_grants WHERE principal_id='operator-a' AND role_id='control-plane-admin' AND action=? AND capability=? AND resource_kind=? AND resource_id='synthetic-host' AND branch='human' AND grant_revision=1 AND status='active'`, g.action, g.cap, g.kind).Scan(&existing); err != nil {
+				t.Fatal(err)
+			}
+			if existing == 1 {
+				continue
+			}
+			if existing != 0 {
+				t.Fatal("ambiguous enrollment acknowledgement grant")
+			}
+		}
 		exec(`INSERT INTO effective_authorization_grants VALUES(?,'operator-a','control-plane-admin',?,?,?,'synthetic-host','human',1,'active','now','now')`, "action-"+g.action, g.action, g.cap, g.kind)
 	}
 	acknowledger, err = acknowledgement.NewService(acknowledgement.Config{Repository: store.NewAcknowledgementRepository(authority), Plans: lifecycleAcceptancePlanReader{plans}, Authorizer: authorization.NewEvaluator(policy), Clock: time.Now})

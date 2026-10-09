@@ -113,7 +113,7 @@ func (v *NativeLifecycleVerifier) currentNativeProof(ctx context.Context, b cred
 	if err != nil || source.State != "present" || source.Fingerprint != b.CiphertextFingerprint {
 		return zero, errNativeLifecycle
 	}
-	process, err := observeProcessIdentity(ctx, unit, r)
+	process, err := v.process(ctx, unit, r)
 	if err != nil {
 		return zero, errNativeLifecycle
 	}
@@ -143,7 +143,7 @@ func (v *NativeLifecycleVerifier) restartBefore(ctx context.Context, b credentia
 	if err != nil || source.State != "present" || source.Fingerprint != b.CiphertextFingerprint {
 		return zero, errNativeLifecycle
 	}
-	process, err := observeProcessIdentity(ctx, unit, r)
+	process, err := v.process(ctx, unit, r)
 	if err != nil {
 		return zero, errNativeLifecycle
 	}

@@ -33,6 +33,7 @@ type NativeLifecycleVerifier struct {
 	CiphertextOwnerUID uint32
 	policy             func(credentialref.LifecycleBinding) error
 	observe            func(context.Context, credentialref.LifecycleBinding, credentialref.NativeConsumerBinding) (NativeInvocationProof, error)
+	process            func(context.Context, AppliedUnitSnapshot, credentialref.NativeConsumerBinding) (ProcessIdentity, error)
 	current            func(context.Context, credentialref.LifecycleBinding, credentialref.NativeConsumerBinding) (NativeInvocationProof, error)
 	recheck            func(context.Context, credentialref.LifecycleBinding, credentialref.NativeConsumerBinding, NativeInvocationProof) error
 }
@@ -50,7 +51,7 @@ func NewNativeLifecycleVerifier(authority *LocalNativeAuthority, units AppliedUn
 		return nil, errNativeLifecycle
 	}
 	v := &NativeLifecycleVerifier{Authority: authority, Units: units, CiphertextRoot: ciphertextRoot, CiphertextOwnerUID: ownerUID,
-		policy: qualifyNativePolicy}
+		policy: qualifyNativePolicy, process: observeProcessIdentity}
 	observer := invocationObserver{units: units, authority: authority, root: ciphertextRoot, ownerUID: ownerUID,
 		inspect: InspectEncrypted, process: observeProcessIdentity}
 	v.observe = observer.observe
@@ -227,7 +228,7 @@ func (v *NativeLifecycleVerifier) recheckProof(ctx context.Context, binding cred
 		snapshot.BootID != proof.BootID || snapshot.InvocationID != proof.InvocationID || snapshot.MainPID != proof.MainPID || !unitIdentityMatches(snapshot, reader) {
 		return errNativeLifecycle
 	}
-	process, err := observeProcessIdentity(ctx, snapshot, reader)
+	process, err := v.process(ctx, snapshot, reader)
 	if err != nil || process.StartTicks != proof.ProcessStartTicks {
 		return errNativeLifecycle
 	}

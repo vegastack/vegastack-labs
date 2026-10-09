@@ -19,6 +19,14 @@ func NewInstalledLoadedObserver(ctx context.Context, ciphertextRoot string, owne
 	if err != nil {
 		return nil, err
 	}
+	return NewLoadedObserver(verifier, receipts)
+}
+
+// NewLoadedObserver binds the verifier's OS observations to durable receipts.
+func NewLoadedObserver(verifier *NativeLifecycleVerifier, receipts NativeReceiptReader) (LoadedObserver, error) {
+	if verifier == nil || receipts == nil {
+		return nil, errNativeLifecycle
+	}
 	return &installedLoadedObserver{receipts: receipts, recheck: func(ctx context.Context, r credentialref.NativeLoadedReceipt, reader credentialref.NativeConsumerBinding) error {
 		if verifier.policy(r.Binding) != nil {
 			return errNativeLifecycle
