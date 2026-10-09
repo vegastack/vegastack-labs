@@ -1,0 +1,683 @@
+{
+  "$defs": {
+    "access-account": {
+      "additionalProperties": false,
+      "properties": {
+        "gid": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "home": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "publicKeyDigests": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 8,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "publicKeys": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 8,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "role": {
+          "enum": [
+            "human",
+            "automation",
+            "service"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/access-account"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "uid": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "name",
+        "uid",
+        "gid",
+        "home",
+        "role",
+        "publicKeys",
+        "publicKeyDigests"
+      ],
+      "type": "object"
+    },
+    "access-flow": {
+      "additionalProperties": false,
+      "properties": {
+        "destinationPrefix": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "interface": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "port": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "protocol": {
+          "enum": [
+            "tcp",
+            "udp"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/access-flow"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "sourcePrefix": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "protocol",
+        "sourcePrefix",
+        "destinationPrefix",
+        "port",
+        "interface"
+      ],
+      "type": "object"
+    },
+    "access-interface": {
+      "additionalProperties": false,
+      "properties": {
+        "addresses": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 16,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "index": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ipv6Enabled": {
+          "type": "boolean"
+        },
+        "name": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/access-interface"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "name",
+        "index",
+        "addresses",
+        "ipv6Enabled"
+      ],
+      "type": "object"
+    },
+    "access-owned-state": {
+      "additionalProperties": false,
+      "properties": {
+        "afterDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "beforeDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "resourceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/access-owned-state"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "resourceId",
+        "beforeDigest",
+        "afterDigest"
+      ],
+      "type": "object"
+    },
+    "access-package": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/access-package"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "name",
+        "version"
+      ],
+      "type": "object"
+    },
+    "access-rollback-specification": {
+      "additionalProperties": false,
+      "properties": {
+        "deadlineSeconds": {
+          "maximum": 600,
+          "minimum": 600,
+          "type": "integer"
+        },
+        "hostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "hostIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "ownedState": {
+          "items": {
+            "$ref": "#/$defs/access-owned-state"
+          },
+          "maxItems": 64,
+          "type": "array"
+        },
+        "profileLockDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "recoverySourcePrefixes": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/access-rollback-specification"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "hostId",
+        "hostIdentityDigest",
+        "profileLockDigest",
+        "ownedState",
+        "deadlineSeconds",
+        "recoverySourcePrefixes"
+      ],
+      "type": "object"
+    },
+    "access-service-key": {
+      "additionalProperties": false,
+      "properties": {
+        "publicKey": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "type": "string"
+        },
+        "publicKeyDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/access-service-key"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "serviceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "sourcePrefixes": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "serviceId",
+        "publicKey",
+        "publicKeyDigest",
+        "sourcePrefixes"
+      ],
+      "type": "object"
+    },
+    "debian-profile-lock": {
+      "additionalProperties": false,
+      "properties": {
+        "ansibleVersion": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "architecture": {
+          "enum": [
+            "amd64"
+          ],
+          "type": "string"
+        },
+        "backend": {
+          "enum": [
+            "iptables-nft"
+          ],
+          "type": "string"
+        },
+        "collectionDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "executableVersion": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
+          "type": "string"
+        },
+        "imageDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "osFamily": {
+          "enum": [
+            "debian"
+          ],
+          "type": "string"
+        },
+        "osVersion": {
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
+        },
+        "packageSourceDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "packages": {
+          "items": {
+            "$ref": "#/$defs/access-package"
+          },
+          "maxItems": 64,
+          "type": "array"
+        },
+        "roleDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/debian-profile-lock"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "imageDigest",
+        "osFamily",
+        "osVersion",
+        "architecture",
+        "packageSourceDigest",
+        "packages",
+        "executableVersion",
+        "ansibleVersion",
+        "collectionDigest",
+        "roleDigest",
+        "backend"
+      ],
+      "type": "object"
+    },
+    "rendered-access": {
+      "additionalProperties": false,
+      "properties": {
+        "accounts": {
+          "items": {
+            "$ref": "#/$defs/access-account"
+          },
+          "maxItems": 32,
+          "type": "array"
+        },
+        "containerFlows": {
+          "items": {
+            "$ref": "#/$defs/access-flow"
+          },
+          "maxItems": 64,
+          "type": "array"
+        },
+        "hostFlows": {
+          "items": {
+            "$ref": "#/$defs/access-flow"
+          },
+          "maxItems": 64,
+          "type": "array"
+        },
+        "interfaces": {
+          "items": {
+            "$ref": "#/$defs/access-interface"
+          },
+          "maxItems": 16,
+          "type": "array"
+        },
+        "privilegedServiceKeys": {
+          "items": {
+            "$ref": "#/$defs/access-service-key"
+          },
+          "maxItems": 8,
+          "type": "array"
+        },
+        "profileLockDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "recoverySourcePrefixes": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "rendererDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "rollbackUnitsDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/rendered-access"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "sshSourcePrefixes": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "sshUsers": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "profileLockDigest",
+        "rendererDigest",
+        "accounts",
+        "sshUsers",
+        "sshSourcePrefixes",
+        "recoverySourcePrefixes",
+        "privilegedServiceKeys",
+        "interfaces",
+        "hostFlows",
+        "containerFlows",
+        "rollbackUnitsDigest"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/debian-access-input",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "accounts": {
+      "items": {
+        "$ref": "#/$defs/access-account"
+      },
+      "maxItems": 32,
+      "type": "array"
+    },
+    "actionVersion": {
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
+      "type": "string"
+    },
+    "automationUid": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "containerFlows": {
+      "items": {
+        "$ref": "#/$defs/access-flow"
+      },
+      "maxItems": 64,
+      "type": "array"
+    },
+    "hostFlows": {
+      "items": {
+        "$ref": "#/$defs/access-flow"
+      },
+      "maxItems": 64,
+      "type": "array"
+    },
+    "hostId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "hostIdentityDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "interfaces": {
+      "items": {
+        "$ref": "#/$defs/access-interface"
+      },
+      "maxItems": 16,
+      "type": "array"
+    },
+    "privilegedServiceKeys": {
+      "items": {
+        "$ref": "#/$defs/access-service-key"
+      },
+      "maxItems": 8,
+      "type": "array"
+    },
+    "profileId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "profileLock": {
+      "$ref": "#/$defs/debian-profile-lock"
+    },
+    "profileLockDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "recoverySourcePrefixes": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 64,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "renderedAccess": {
+      "$ref": "#/$defs/rendered-access"
+    },
+    "renderedAccessDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "rollbackDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "rollbackSpecification": {
+      "$ref": "#/$defs/access-rollback-specification"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/debian-access-input"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "sshSourcePrefixes": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 64,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "sshUsers": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 32,
+      "type": "array",
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "hostId",
+    "hostIdentityDigest",
+    "profileId",
+    "profileLockDigest",
+    "profileLock",
+    "actionVersion",
+    "automationUid",
+    "accounts",
+    "sshUsers",
+    "sshSourcePrefixes",
+    "recoverySourcePrefixes",
+    "privilegedServiceKeys",
+    "interfaces",
+    "hostFlows",
+    "containerFlows",
+    "rollbackDigest",
+    "rollbackSpecification",
+    "renderedAccess",
+    "renderedAccessDigest"
+  ],
+  "title": "VegaStack Labs debian access input",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

@@ -1,0 +1,157 @@
+{
+  "$id": "vegastack-labs.dev/host-control-result",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "actionReceiptDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "architecture": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "baselineVersion": {
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
+      "type": "string"
+    },
+    "controlId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "declarationId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "declarationRevision": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "hostId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "identityClass": {
+      "enum": [
+        "physical",
+        "qualified-virtual"
+      ],
+      "type": "string"
+    },
+    "identityDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "measurementDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "negativeProbeDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "observedAt": {
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": "string"
+    },
+    "osBuild": {
+      "maxLength": 128,
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "osFamily": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "osVersion": {
+      "maxLength": 64,
+      "minLength": 1,
+      "type": "string"
+    },
+    "positiveProbeDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "producerId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "producerVersion": {
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
+      "type": "string"
+    },
+    "profileId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "qualificationDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "roleId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/host-control-result"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "passed",
+        "failed",
+        "partial",
+        "unsupported",
+        "error"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "hostId",
+    "identityDigest",
+    "identityClass",
+    "profileId",
+    "osFamily",
+    "osVersion",
+    "osBuild",
+    "architecture",
+    "roleId",
+    "baselineVersion",
+    "controlId",
+    "producerId",
+    "producerVersion",
+    "actionReceiptDigest",
+    "declarationId",
+    "declarationRevision",
+    "recoveryEpoch",
+    "observedAt",
+    "status",
+    "measurementDigest",
+    "positiveProbeDigest",
+    "negativeProbeDigest",
+    "qualificationDigest"
+  ],
+  "title": "VegaStack Labs host control result",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

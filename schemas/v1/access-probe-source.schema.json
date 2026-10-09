@@ -1,0 +1,84 @@
+{
+  "$id": "vegastack-labs.dev/access-probe-source",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "address": {
+      "maxLength": 64,
+      "minLength": 1,
+      "type": "string"
+    },
+    "contextDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "contextId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "family": {
+      "enum": [
+        "ipv4",
+        "ipv6"
+      ],
+      "type": "string"
+    },
+    "hostId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "identityDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "interface": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "interfaceIndex": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "kind": {
+      "enum": [
+        "host-network",
+        "network-namespace",
+        "container"
+      ],
+      "type": "string"
+    },
+    "routeDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/access-probe-source"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "hostId",
+    "identityDigest",
+    "kind",
+    "contextId",
+    "contextDigest",
+    "interface",
+    "interfaceIndex",
+    "address",
+    "family",
+    "routeDigest"
+  ],
+  "title": "VegaStack Labs access probe source",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

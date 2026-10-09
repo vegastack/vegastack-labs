@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/command-registry",
-  "schemaVersion": "1.22.0",
+  "schemaVersion": "1.23.0",
   "commands": [
     {
       "path": [
@@ -4290,6 +4290,81 @@
   ],
   "schemas": [
     {
+      "id": "vegastack-labs.dev/access-account",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/access-account.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/access-confirm-input",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/access-confirm-input.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/access-flow",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/access-flow.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/access-interface",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/access-interface.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/access-measurement",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/access-measurement.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/access-owned-state",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/access-owned-state.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/access-package",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/access-package.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/access-probe-case",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/access-probe-case.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/access-probe-input",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/access-probe-input.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/access-probe-observation",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/access-probe-observation.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/access-probe-source",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/access-probe-source.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/access-probe-tuple",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/access-probe-tuple.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/access-rollback-specification",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/access-rollback-specification.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/access-service-key",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/access-service-key.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/access-verification-evidence",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/access-verification-evidence.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/acknowledgement",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/acknowledgement.schema.json"
@@ -4740,6 +4815,16 @@
       "artifactPath": "schemas/v1/database-status-data.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/debian-access-input",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/debian-access-input.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/debian-profile-lock",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/debian-profile-lock.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/declaration-operation",
       "version": "1.0.0"
     },
@@ -4849,6 +4934,26 @@
       "artifactPath": "schemas/v1/gate-view.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/host-access-draft-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-access-draft-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/host-access-probe-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-access-probe-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/host-access-probe-step",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-access-probe-step.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/host-access-sequence",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-access-sequence.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/host-action-authorization",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/host-action-authorization.schema.json"
@@ -4902,6 +5007,11 @@
       "id": "vegastack-labs.dev/host-adoption-submission",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/host-adoption-submission.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/host-control-result",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-control-result.schema.json"
     },
     {
       "id": "vegastack-labs.dev/host-discovery-console-confirmation",
@@ -5210,6 +5320,11 @@
     {
       "id": "vegastack-labs.dev/remote-read-profile",
       "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/rendered-access",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/rendered-access.schema.json"
     },
     {
       "id": "vegastack-labs.dev/restore-audit-decision",

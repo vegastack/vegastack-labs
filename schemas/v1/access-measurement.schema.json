@@ -1,0 +1,209 @@
+{
+  "$defs": {
+    "access-probe-observation": {
+      "additionalProperties": false,
+      "properties": {
+        "actual": {
+          "enum": [
+            "allowed",
+            "denied",
+            "error"
+          ],
+          "type": "string"
+        },
+        "actualSourceAddress": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "destinationDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "expected": {
+          "enum": [
+            "allowed",
+            "denied"
+          ],
+          "type": "string"
+        },
+        "probeId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/access-probe-observation"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "sourceContextDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "sourceHostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "sourceIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "sourceNamespaceDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "witnessDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "probeId",
+        "sourceHostId",
+        "sourceIdentityDigest",
+        "sourceContextDigest",
+        "actualSourceAddress",
+        "sourceNamespaceDigest",
+        "destinationDigest",
+        "witnessDigest",
+        "expected",
+        "actual"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/access-measurement",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "bundleDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "configurationDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "controlId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "identity",
+        "account",
+        "ssh",
+        "host-flow",
+        "container-flow"
+      ],
+      "type": "string"
+    },
+    "measurementDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "negativeProbeDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "observedAt": {
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": "string"
+    },
+    "positiveProbeDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "probe": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/access-probe-observation"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "producerId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "producerVersion": {
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
+      "type": "string"
+    },
+    "profileLockDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "reason": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "rollbackRecordDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/access-measurement"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "passed",
+        "failed",
+        "partial",
+        "unsupported",
+        "error"
+      ],
+      "type": "string"
+    },
+    "subjectHostId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "subjectIdentityDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "controlId",
+    "kind",
+    "status",
+    "subjectHostId",
+    "subjectIdentityDigest",
+    "profileLockDigest",
+    "producerId",
+    "producerVersion",
+    "bundleDigest",
+    "observedAt",
+    "configurationDigest",
+    "measurementDigest",
+    "positiveProbeDigest",
+    "negativeProbeDigest",
+    "reason"
+  ],
+  "title": "VegaStack Labs access measurement",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

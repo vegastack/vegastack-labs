@@ -6,7 +6,7 @@ import "encoding/json"
 
 const (
 	SchemaMajor                                    = 1
-	RegistrySchemaVersion                          = "1.22.0"
+	RegistrySchemaVersion                          = "1.23.0"
 	AvailabilityAvailable                          = "available"
 	AvailabilityPlanned                            = "planned"
 	FlagKindValue                                  = "value"
@@ -14,6 +14,21 @@ const (
 	PlanValiditySeconds                            = 1800
 	ExecutorLeaseSeconds                           = 60
 	ExecutorCheckInSeconds                         = 20
+	SchemaIDAccessAccount                          = "vegastack-labs.dev/access-account"
+	SchemaIDAccessConfirmInput                     = "vegastack-labs.dev/access-confirm-input"
+	SchemaIDAccessFlow                             = "vegastack-labs.dev/access-flow"
+	SchemaIDAccessInterface                        = "vegastack-labs.dev/access-interface"
+	SchemaIDAccessMeasurement                      = "vegastack-labs.dev/access-measurement"
+	SchemaIDAccessOwnedState                       = "vegastack-labs.dev/access-owned-state"
+	SchemaIDAccessPackage                          = "vegastack-labs.dev/access-package"
+	SchemaIDAccessProbeCase                        = "vegastack-labs.dev/access-probe-case"
+	SchemaIDAccessProbeInput                       = "vegastack-labs.dev/access-probe-input"
+	SchemaIDAccessProbeObservation                 = "vegastack-labs.dev/access-probe-observation"
+	SchemaIDAccessProbeSource                      = "vegastack-labs.dev/access-probe-source"
+	SchemaIDAccessProbeTuple                       = "vegastack-labs.dev/access-probe-tuple"
+	SchemaIDAccessRollbackSpecification            = "vegastack-labs.dev/access-rollback-specification"
+	SchemaIDAccessServiceKey                       = "vegastack-labs.dev/access-service-key"
+	SchemaIDAccessVerificationEvidence             = "vegastack-labs.dev/access-verification-evidence"
 	SchemaIDAcknowledgement                        = "vegastack-labs.dev/acknowledgement"
 	SchemaIDAcknowledgementRequest                 = "vegastack-labs.dev/acknowledgement-request"
 	SchemaIDApiAuditEventData                      = "vegastack-labs.dev/api-audit-event-data"
@@ -105,6 +120,8 @@ const (
 	SchemaIDDatabaseExportDraftSubmission          = "vegastack-labs.dev/database-export-draft-submission"
 	SchemaIDDatabaseExportRequest                  = "vegastack-labs.dev/database-export-request"
 	SchemaIDDatabaseStatusData                     = "vegastack-labs.dev/database-status-data"
+	SchemaIDDebianAccessInput                      = "vegastack-labs.dev/debian-access-input"
+	SchemaIDDebianProfileLock                      = "vegastack-labs.dev/debian-profile-lock"
 	SchemaIDDeclarationOperation                   = "vegastack-labs.dev/declaration-operation"
 	SchemaIDDeclarationRevision                    = "vegastack-labs.dev/declaration-revision"
 	SchemaIDDeclarationRevisionRequest             = "vegastack-labs.dev/declaration-revision-request"
@@ -127,6 +144,10 @@ const (
 	SchemaIDGateProfileDraftRequest                = "vegastack-labs.dev/gate-profile-draft-request"
 	SchemaIDGateProfileDraftSubmission             = "vegastack-labs.dev/gate-profile-draft-submission"
 	SchemaIDGateView                               = "vegastack-labs.dev/gate-view"
+	SchemaIDHostAccessDraftRequest                 = "vegastack-labs.dev/host-access-draft-request"
+	SchemaIDHostAccessProbeRequest                 = "vegastack-labs.dev/host-access-probe-request"
+	SchemaIDHostAccessProbeStep                    = "vegastack-labs.dev/host-access-probe-step"
+	SchemaIDHostAccessSequence                     = "vegastack-labs.dev/host-access-sequence"
 	SchemaIDHostActionAuthorization                = "vegastack-labs.dev/host-action-authorization"
 	SchemaIDHostActionBundle                       = "vegastack-labs.dev/host-action-bundle"
 	SchemaIDHostActionChallenge                    = "vegastack-labs.dev/host-action-challenge"
@@ -138,6 +159,7 @@ const (
 	SchemaIDHostActionSubmission                   = "vegastack-labs.dev/host-action-submission"
 	SchemaIDHostAdoptionRequest                    = "vegastack-labs.dev/host-adoption-request"
 	SchemaIDHostAdoptionSubmission                 = "vegastack-labs.dev/host-adoption-submission"
+	SchemaIDHostControlResult                      = "vegastack-labs.dev/host-control-result"
 	SchemaIDHostDiscoveryConsoleConfirmation       = "vegastack-labs.dev/host-discovery-console-confirmation"
 	SchemaIDHostDiscoveryFact                      = "vegastack-labs.dev/host-discovery-fact"
 	SchemaIDHostDiscoveryRequest                   = "vegastack-labs.dev/host-discovery-request"
@@ -204,6 +226,7 @@ const (
 	SchemaIDReleaseTrustPolicy                     = "vegastack-labs.dev/release-trust-policy"
 	SchemaIDReleaseVerifyData                      = "vegastack-labs.dev/release-verify-data"
 	SchemaIDRemoteReadProfile                      = "vegastack-labs.dev/remote-read-profile"
+	SchemaIDRenderedAccess                         = "vegastack-labs.dev/rendered-access"
 	SchemaIDRestoreAuditDecision                   = "vegastack-labs.dev/restore-audit-decision"
 	SchemaIDRestoreBinding                         = "vegastack-labs.dev/restore-binding"
 	SchemaIDRestoreCanaryResult                    = "vegastack-labs.dev/restore-canary-result"
@@ -360,6 +383,183 @@ const (
 	ErrorCodeUnsupportedPlatform                   = "UNSUPPORTED_PLATFORM"
 	ErrorCodeVersionIncompatible                   = "VERSION_INCOMPATIBLE"
 )
+
+type AccessAccount struct {
+	Schema           string   `json:"schema"`
+	SchemaVersion    string   `json:"schemaVersion"`
+	Name             string   `json:"name"`
+	UID              int64    `json:"uid"`
+	GID              int64    `json:"gid"`
+	Home             string   `json:"home"`
+	Role             string   `json:"role"`
+	PublicKeys       []string `json:"publicKeys"`
+	PublicKeyDigests []string `json:"publicKeyDigests"`
+}
+
+type AccessConfirmInput struct {
+	Schema                   string `json:"schema"`
+	SchemaVersion            string `json:"schemaVersion"`
+	HostID                   string `json:"hostId"`
+	HostIdentityDigest       string `json:"hostIdentityDigest"`
+	ProfileLockDigest        string `json:"profileLockDigest"`
+	RollbackDigest           string `json:"rollbackDigest"`
+	ApplyOperationID         string `json:"applyOperationId"`
+	ApplyDraftDigest         string `json:"applyDraftDigest"`
+	ApplyInputDigest         string `json:"applyInputDigest"`
+	ProbeSpecificationDigest string `json:"probeSpecificationDigest"`
+}
+
+type AccessFlow struct {
+	Schema            string `json:"schema"`
+	SchemaVersion     string `json:"schemaVersion"`
+	Protocol          string `json:"protocol"`
+	SourcePrefix      string `json:"sourcePrefix"`
+	DestinationPrefix string `json:"destinationPrefix"`
+	Port              int64  `json:"port"`
+	Interface         string `json:"interface"`
+}
+
+type AccessInterface struct {
+	Schema        string   `json:"schema"`
+	SchemaVersion string   `json:"schemaVersion"`
+	Name          string   `json:"name"`
+	Index         int64    `json:"index"`
+	Addresses     []string `json:"addresses"`
+	IPv6Enabled   bool     `json:"ipv6Enabled"`
+}
+
+type AccessMeasurement struct {
+	Schema                string                  `json:"schema"`
+	SchemaVersion         string                  `json:"schemaVersion"`
+	ControlID             string                  `json:"controlId"`
+	Kind                  string                  `json:"kind"`
+	Status                string                  `json:"status"`
+	SubjectHostID         string                  `json:"subjectHostId"`
+	SubjectIdentityDigest string                  `json:"subjectIdentityDigest"`
+	ProfileLockDigest     string                  `json:"profileLockDigest"`
+	ProducerID            string                  `json:"producerId"`
+	ProducerVersion       string                  `json:"producerVersion"`
+	BundleDigest          string                  `json:"bundleDigest"`
+	ObservedAt            string                  `json:"observedAt"`
+	ConfigurationDigest   string                  `json:"configurationDigest"`
+	MeasurementDigest     string                  `json:"measurementDigest"`
+	PositiveProbeDigest   string                  `json:"positiveProbeDigest"`
+	NegativeProbeDigest   string                  `json:"negativeProbeDigest"`
+	Reason                string                  `json:"reason"`
+	Probe                 *AccessProbeObservation `json:"probe,omitempty"`
+	RollbackRecordDigest  string                  `json:"rollbackRecordDigest,omitempty"`
+}
+
+type AccessOwnedState struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	ResourceID    string `json:"resourceId"`
+	BeforeDigest  string `json:"beforeDigest"`
+	AfterDigest   string `json:"afterDigest"`
+}
+
+type AccessPackage struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	Name          string `json:"name"`
+	Version       string `json:"version"`
+}
+
+type AccessProbeCase struct {
+	Schema        string           `json:"schema"`
+	SchemaVersion string           `json:"schemaVersion"`
+	ProbeID       string           `json:"probeId"`
+	Kind          string           `json:"kind"`
+	Expected      string           `json:"expected"`
+	Destination   AccessProbeTuple `json:"destination"`
+	Witness       AccessProbeTuple `json:"witness"`
+}
+
+type AccessProbeInput struct {
+	Schema                string            `json:"schema"`
+	SchemaVersion         string            `json:"schemaVersion"`
+	SubjectHostID         string            `json:"subjectHostId"`
+	SubjectIdentityDigest string            `json:"subjectIdentityDigest"`
+	SubjectHostKey        string            `json:"subjectHostKey"`
+	ProfileLockDigest     string            `json:"profileLockDigest"`
+	ApplyInputDigest      string            `json:"applyInputDigest"`
+	RollbackDigest        string            `json:"rollbackDigest"`
+	AdministratorUser     string            `json:"administratorUser"`
+	Source                AccessProbeSource `json:"source"`
+	Cases                 []AccessProbeCase `json:"cases"`
+	TimeoutMillis         int64             `json:"timeoutMillis"`
+	Attempts              int64             `json:"attempts"`
+}
+
+type AccessProbeObservation struct {
+	Schema                string `json:"schema"`
+	SchemaVersion         string `json:"schemaVersion"`
+	ProbeID               string `json:"probeId"`
+	SourceHostID          string `json:"sourceHostId"`
+	SourceIdentityDigest  string `json:"sourceIdentityDigest"`
+	SourceContextDigest   string `json:"sourceContextDigest"`
+	ActualSourceAddress   string `json:"actualSourceAddress"`
+	SourceNamespaceDigest string `json:"sourceNamespaceDigest"`
+	DestinationDigest     string `json:"destinationDigest"`
+	WitnessDigest         string `json:"witnessDigest"`
+	Expected              string `json:"expected"`
+	Actual                string `json:"actual"`
+}
+
+type AccessProbeSource struct {
+	Schema         string `json:"schema"`
+	SchemaVersion  string `json:"schemaVersion"`
+	HostID         string `json:"hostId"`
+	IdentityDigest string `json:"identityDigest"`
+	Kind           string `json:"kind"`
+	ContextID      string `json:"contextId"`
+	ContextDigest  string `json:"contextDigest"`
+	Interface      string `json:"interface"`
+	InterfaceIndex int64  `json:"interfaceIndex"`
+	Address        string `json:"address"`
+	Family         string `json:"family"`
+	RouteDigest    string `json:"routeDigest"`
+}
+
+type AccessProbeTuple struct {
+	Schema         string `json:"schema"`
+	SchemaVersion  string `json:"schemaVersion"`
+	HostID         string `json:"hostId"`
+	IdentityDigest string `json:"identityDigest"`
+	Address        string `json:"address"`
+	Port           int64  `json:"port"`
+	Protocol       string `json:"protocol"`
+}
+
+type AccessRollbackSpecification struct {
+	Schema                 string             `json:"schema"`
+	SchemaVersion          string             `json:"schemaVersion"`
+	HostID                 string             `json:"hostId"`
+	HostIdentityDigest     string             `json:"hostIdentityDigest"`
+	ProfileLockDigest      string             `json:"profileLockDigest"`
+	OwnedState             []AccessOwnedState `json:"ownedState"`
+	DeadlineSeconds        int64              `json:"deadlineSeconds"`
+	RecoverySourcePrefixes []string           `json:"recoverySourcePrefixes"`
+}
+
+type AccessServiceKey struct {
+	Schema          string   `json:"schema"`
+	SchemaVersion   string   `json:"schemaVersion"`
+	ServiceID       string   `json:"serviceId"`
+	PublicKey       string   `json:"publicKey"`
+	PublicKeyDigest string   `json:"publicKeyDigest"`
+	SourcePrefixes  []string `json:"sourcePrefixes"`
+}
+
+type AccessVerificationEvidence struct {
+	Schema               string `json:"schema"`
+	SchemaVersion        string `json:"schemaVersion"`
+	ApplyReceiptDigest   string `json:"applyReceiptDigest"`
+	RollbackRecordDigest string `json:"rollbackRecordDigest"`
+	ProbeResultsDigest   string `json:"probeResultsDigest"`
+	SequenceDigest       string `json:"sequenceDigest"`
+	ExpiresAt            string `json:"expiresAt"`
+}
 
 type Acknowledgement struct {
 	Schema            string              `json:"schema"`
@@ -1489,6 +1689,46 @@ type DatabaseStatusData struct {
 	SafeModeReason       string  `json:"safeModeReason"`
 }
 
+type DebianAccessInput struct {
+	Schema                 string                      `json:"schema"`
+	SchemaVersion          string                      `json:"schemaVersion"`
+	HostID                 string                      `json:"hostId"`
+	HostIdentityDigest     string                      `json:"hostIdentityDigest"`
+	ProfileID              string                      `json:"profileId"`
+	ProfileLockDigest      string                      `json:"profileLockDigest"`
+	ProfileLock            DebianProfileLock           `json:"profileLock"`
+	ActionVersion          string                      `json:"actionVersion"`
+	AutomationUID          int64                       `json:"automationUid"`
+	Accounts               []AccessAccount             `json:"accounts"`
+	SSHUsers               []string                    `json:"sshUsers"`
+	SSHSourcePrefixes      []string                    `json:"sshSourcePrefixes"`
+	RecoverySourcePrefixes []string                    `json:"recoverySourcePrefixes"`
+	PrivilegedServiceKeys  []AccessServiceKey          `json:"privilegedServiceKeys"`
+	Interfaces             []AccessInterface           `json:"interfaces"`
+	HostFlows              []AccessFlow                `json:"hostFlows"`
+	ContainerFlows         []AccessFlow                `json:"containerFlows"`
+	RollbackDigest         string                      `json:"rollbackDigest"`
+	RollbackSpecification  AccessRollbackSpecification `json:"rollbackSpecification"`
+	RenderedAccess         RenderedAccess              `json:"renderedAccess"`
+	RenderedAccessDigest   string                      `json:"renderedAccessDigest"`
+}
+
+type DebianProfileLock struct {
+	Schema              string          `json:"schema"`
+	SchemaVersion       string          `json:"schemaVersion"`
+	ImageDigest         string          `json:"imageDigest"`
+	OSFamily            string          `json:"osFamily"`
+	OSVersion           string          `json:"osVersion"`
+	Architecture        string          `json:"architecture"`
+	PackageSourceDigest string          `json:"packageSourceDigest"`
+	Packages            []AccessPackage `json:"packages"`
+	ExecutableVersion   string          `json:"executableVersion"`
+	AnsibleVersion      string          `json:"ansibleVersion"`
+	CollectionDigest    string          `json:"collectionDigest"`
+	RoleDigest          string          `json:"roleDigest"`
+	Backend             string          `json:"backend"`
+}
+
 type DeclarationOperation struct {
 	Sequence       int64           `json:"sequence"`
 	OperationID    string          `json:"operationId"`
@@ -1791,6 +2031,47 @@ type GateView struct {
 	ApplicabilityReasonCode string         `json:"applicabilityReasonCode"`
 }
 
+type HostAccessDraftRequest struct {
+	Schema        string                   `json:"schema"`
+	SchemaVersion string                   `json:"schemaVersion"`
+	Subject       HostActionRequest        `json:"subject"`
+	Input         DebianAccessInput        `json:"input"`
+	Probes        []HostAccessProbeRequest `json:"probes"`
+}
+
+type HostAccessProbeRequest struct {
+	Schema        string            `json:"schema"`
+	SchemaVersion string            `json:"schemaVersion"`
+	Kind          string            `json:"kind"`
+	Request       HostActionRequest `json:"request"`
+}
+
+type HostAccessProbeStep struct {
+	Schema               string `json:"schema"`
+	SchemaVersion        string `json:"schemaVersion"`
+	OperationID          string `json:"operationId"`
+	Kind                 string `json:"kind"`
+	SourceHostID         string `json:"sourceHostId"`
+	SourceIdentityDigest string `json:"sourceIdentityDigest"`
+	SourceContextDigest  string `json:"sourceContextDigest"`
+	DraftDigest          string `json:"draftDigest"`
+	SpecificationDigest  string `json:"specificationDigest"`
+}
+
+type HostAccessSequence struct {
+	Schema                string                `json:"schema"`
+	SchemaVersion         string                `json:"schemaVersion"`
+	SubjectHostID         string                `json:"subjectHostId"`
+	SubjectIdentityDigest string                `json:"subjectIdentityDigest"`
+	ProfileLockDigest     string                `json:"profileLockDigest"`
+	ApplyOperationID      string                `json:"applyOperationId"`
+	ApplyDraftDigest      string                `json:"applyDraftDigest"`
+	ProbeSteps            []HostAccessProbeStep `json:"probeSteps"`
+	ConfirmOperationID    string                `json:"confirmOperationId"`
+	ConfirmDraftDigest    string                `json:"confirmDraftDigest"`
+	SpecificationDigest   string                `json:"specificationDigest"`
+}
+
 type HostActionAuthorization struct {
 	Schema          string `json:"schema"`
 	SchemaVersion   string `json:"schemaVersion"`
@@ -1805,31 +2086,33 @@ type HostActionAuthorization struct {
 }
 
 type HostActionBundle struct {
-	Schema                    string `json:"schema"`
-	SchemaVersion             string `json:"schemaVersion"`
-	ActionID                  string `json:"actionId"`
-	ActionVersion             string `json:"actionVersion"`
-	ActionInputDigest         string `json:"actionInputDigest"`
-	ActionInput               string `json:"actionInput"`
-	BundleID                  string `json:"bundleId"`
-	PlanID                    string `json:"planId"`
-	RunID                     string `json:"runId"`
-	StepID                    string `json:"stepId"`
-	LeaseID                   string `json:"leaseId"`
-	HostID                    string `json:"hostId"`
-	DeclarationID             string `json:"declarationId"`
-	AutomationPrincipalID     string `json:"automationPrincipalId"`
-	CredentialReferenceID     string `json:"credentialReferenceId"`
-	CredentialMaterialVersion string `json:"credentialMaterialVersion"`
-	PlanDigest                string `json:"planDigest"`
-	HostIdentityDigest        string `json:"hostIdentityDigest"`
-	ConsoleConfirmationDigest string `json:"consoleConfirmationDigest"`
-	DeclarationRevision       int64  `json:"declarationRevision"`
-	StateRevision             int64  `json:"stateRevision"`
-	RecoveryEpoch             int64  `json:"recoveryEpoch"`
-	CallerUID                 int64  `json:"callerUid"`
-	IssuedAt                  string `json:"issuedAt"`
-	ExpiresAt                 string `json:"expiresAt"`
+	Schema                     string                      `json:"schema"`
+	SchemaVersion              string                      `json:"schemaVersion"`
+	ActionID                   string                      `json:"actionId"`
+	ActionVersion              string                      `json:"actionVersion"`
+	ActionInputDigest          string                      `json:"actionInputDigest"`
+	ActionInput                string                      `json:"actionInput"`
+	BundleID                   string                      `json:"bundleId"`
+	PlanID                     string                      `json:"planId"`
+	RunID                      string                      `json:"runId"`
+	StepID                     string                      `json:"stepId"`
+	LeaseID                    string                      `json:"leaseId"`
+	HostID                     string                      `json:"hostId"`
+	DeclarationID              string                      `json:"declarationId"`
+	AutomationPrincipalID      string                      `json:"automationPrincipalId"`
+	CredentialReferenceID      string                      `json:"credentialReferenceId"`
+	CredentialMaterialVersion  string                      `json:"credentialMaterialVersion"`
+	PlanDigest                 string                      `json:"planDigest"`
+	HostIdentityDigest         string                      `json:"hostIdentityDigest"`
+	ConsoleConfirmationDigest  string                      `json:"consoleConfirmationDigest"`
+	DeclarationRevision        int64                       `json:"declarationRevision"`
+	StateRevision              int64                       `json:"stateRevision"`
+	RecoveryEpoch              int64                       `json:"recoveryEpoch"`
+	CallerUID                  int64                       `json:"callerUid"`
+	IssuedAt                   string                      `json:"issuedAt"`
+	ExpiresAt                  string                      `json:"expiresAt"`
+	VerificationEvidenceDigest string                      `json:"verificationEvidenceDigest,omitempty"`
+	VerificationEvidence       *AccessVerificationEvidence `json:"verificationEvidence,omitempty"`
 }
 
 type HostActionChallenge struct {
@@ -1888,14 +2171,15 @@ type HostActionRequest struct {
 }
 
 type HostActionResult struct {
-	Schema         string `json:"schema"`
-	SchemaVersion  string `json:"schemaVersion"`
-	BundleDigest   string `json:"bundleDigest"`
-	ResultDigest   string `json:"resultDigest"`
-	Status         string `json:"status"`
-	Changed        bool   `json:"changed"`
-	EffectObserved bool   `json:"effectObserved"`
-	Reason         string `json:"reason"`
+	Schema              string              `json:"schema"`
+	SchemaVersion       string              `json:"schemaVersion"`
+	BundleDigest        string              `json:"bundleDigest"`
+	ResultDigest        string              `json:"resultDigest"`
+	Status              string              `json:"status"`
+	Changed             bool                `json:"changed"`
+	EffectObserved      bool                `json:"effectObserved"`
+	Reason              string              `json:"reason"`
+	ControlMeasurements []AccessMeasurement `json:"controlMeasurements,omitempty"`
 }
 
 type HostActionSubmission struct {
@@ -1928,6 +2212,34 @@ type HostAdoptionSubmission struct {
 	ContentDigest string `json:"contentDigest"`
 	StateRevision int64  `json:"stateRevision"`
 	RecoveryEpoch int64  `json:"recoveryEpoch"`
+}
+
+type HostControlResult struct {
+	Schema              string  `json:"schema"`
+	SchemaVersion       string  `json:"schemaVersion"`
+	HostID              string  `json:"hostId"`
+	IdentityDigest      string  `json:"identityDigest"`
+	IdentityClass       string  `json:"identityClass"`
+	ProfileID           string  `json:"profileId"`
+	OSFamily            string  `json:"osFamily"`
+	OSVersion           string  `json:"osVersion"`
+	OSBuild             *string `json:"osBuild"`
+	Architecture        string  `json:"architecture"`
+	RoleID              string  `json:"roleId"`
+	BaselineVersion     string  `json:"baselineVersion"`
+	ControlID           string  `json:"controlId"`
+	ProducerID          string  `json:"producerId"`
+	ProducerVersion     string  `json:"producerVersion"`
+	ActionReceiptDigest string  `json:"actionReceiptDigest"`
+	DeclarationID       string  `json:"declarationId"`
+	DeclarationRevision int64   `json:"declarationRevision"`
+	RecoveryEpoch       int64   `json:"recoveryEpoch"`
+	ObservedAt          string  `json:"observedAt"`
+	Status              string  `json:"status"`
+	MeasurementDigest   string  `json:"measurementDigest"`
+	PositiveProbeDigest string  `json:"positiveProbeDigest"`
+	NegativeProbeDigest string  `json:"negativeProbeDigest"`
+	QualificationDigest *string `json:"qualificationDigest"`
 }
 
 type HostDiscoveryConsoleConfirmation struct {
@@ -2477,6 +2789,7 @@ type Plan struct {
 	NativeRestart        *NativeRestartPresentation        `json:"nativeRestart,omitempty"`
 	HostActionNativeUnit string                            `json:"hostActionNativeUnit,omitempty"`
 	HostActionConsole    *HostActionCredentialConfirmation `json:"hostActionConsole,omitempty"`
+	HostAccessSequence   *HostAccessSequence               `json:"hostAccessSequence,omitempty"`
 	HostAction           *HostActionRequest                `json:"hostAction,omitempty"`
 	HostAdoption         *HostAdoptionRequest              `json:"hostAdoption,omitempty"`
 	HostDiscoveryTarget  *HostDiscoveryTargetDraftRequest  `json:"hostDiscoveryTarget,omitempty"`
@@ -2644,6 +2957,22 @@ type RemoteReadProfile struct {
 	TLSPrivateKeyPath  *string `json:"tlsPrivateKeyPath"`
 	IdentityAdapter    *string `json:"identityAdapter"`
 	IdentityConfigPath *string `json:"identityConfigPath"`
+}
+
+type RenderedAccess struct {
+	Schema                 string             `json:"schema"`
+	SchemaVersion          string             `json:"schemaVersion"`
+	ProfileLockDigest      string             `json:"profileLockDigest"`
+	RendererDigest         string             `json:"rendererDigest"`
+	Accounts               []AccessAccount    `json:"accounts"`
+	SSHUsers               []string           `json:"sshUsers"`
+	SSHSourcePrefixes      []string           `json:"sshSourcePrefixes"`
+	RecoverySourcePrefixes []string           `json:"recoverySourcePrefixes"`
+	PrivilegedServiceKeys  []AccessServiceKey `json:"privilegedServiceKeys"`
+	Interfaces             []AccessInterface  `json:"interfaces"`
+	HostFlows              []AccessFlow       `json:"hostFlows"`
+	ContainerFlows         []AccessFlow       `json:"containerFlows"`
+	RollbackUnitsDigest    string             `json:"rollbackUnitsDigest"`
 }
 
 type RestoreAuditDecision struct {
@@ -3371,6 +3700,7 @@ var Endpoints = []Endpoint{
 	{ID: "api.v1.gates.get", Method: "GET", Path: "/api/v1/gates/{gateId}", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/gate-view", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.gates.list", Method: "GET", Path: "/api/v1/gates", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/gate-list-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.health.get", Method: "GET", Path: "/api/v1/health", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/server-status-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.host-access.draft", Method: "POST", Path: "/api/v1/host-access/draft", Availability: "available", OwnerPhase: "6", QuerySchema: "", RequestSchema: "vegastack-labs.dev/host-access-draft-request", DataSchema: "vegastack-labs.dev/host-action-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.host-actions.draft", Method: "POST", Path: "/api/v1/host-actions/draft", Availability: "available", OwnerPhase: "6", QuerySchema: "", RequestSchema: "vegastack-labs.dev/host-action-request", DataSchema: "vegastack-labs.dev/host-action-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.host-adoptions.draft", Method: "POST", Path: "/api/v1/host-adoptions/draft", Availability: "available", OwnerPhase: "6", QuerySchema: "", RequestSchema: "vegastack-labs.dev/host-adoption-request", DataSchema: "vegastack-labs.dev/host-adoption-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.host-discovery-targets.draft", Method: "POST", Path: "/api/v1/host-discovery-targets/draft", Availability: "available", OwnerPhase: "6", QuerySchema: "", RequestSchema: "vegastack-labs.dev/host-discovery-target-draft-request", DataSchema: "vegastack-labs.dev/host-discovery-target-draft-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},

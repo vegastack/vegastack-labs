@@ -18,6 +18,137 @@
       ],
       "type": "object"
     },
+    "host-access-probe-step": {
+      "additionalProperties": false,
+      "properties": {
+        "draftDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "local-probe",
+            "source-probe",
+            "collect"
+          ],
+          "type": "string"
+        },
+        "operationId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-access-probe-step"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "sourceContextDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "sourceHostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "sourceIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "specificationDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "operationId",
+        "kind",
+        "sourceHostId",
+        "sourceIdentityDigest",
+        "sourceContextDigest",
+        "draftDigest",
+        "specificationDigest"
+      ],
+      "type": "object"
+    },
+    "host-access-sequence": {
+      "additionalProperties": false,
+      "properties": {
+        "applyDraftDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "applyOperationId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "confirmDraftDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "confirmOperationId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "probeSteps": {
+          "items": {
+            "$ref": "#/$defs/host-access-probe-step"
+          },
+          "maxItems": 16,
+          "type": "array"
+        },
+        "profileLockDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-access-sequence"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "specificationDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "subjectHostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "subjectIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "subjectHostId",
+        "subjectIdentityDigest",
+        "profileLockDigest",
+        "applyOperationId",
+        "applyDraftDigest",
+        "probeSteps",
+        "confirmOperationId",
+        "confirmDraftDigest",
+        "specificationDigest"
+      ],
+      "type": "object"
+    },
     "host-action-console-confirmation": {
       "additionalProperties": false,
       "properties": {
@@ -741,6 +872,16 @@
       },
       "maxItems": 64,
       "type": "array"
+    },
+    "hostAccessSequence": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/host-access-sequence"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "hostAction": {
       "anyOf": [

@@ -1,0 +1,49 @@
+{
+  "$id": "vegastack-labs.dev/access-interface",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "addresses": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 16,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "index": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "ipv6Enabled": {
+      "type": "boolean"
+    },
+    "name": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/access-interface"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "name",
+    "index",
+    "addresses",
+    "ipv6Enabled"
+  ],
+  "title": "VegaStack Labs access interface",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

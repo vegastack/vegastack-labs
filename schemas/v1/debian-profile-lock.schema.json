@@ -1,0 +1,127 @@
+{
+  "$defs": {
+    "access-package": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/access-package"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "name",
+        "version"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/debian-profile-lock",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "ansibleVersion": {
+      "maxLength": 64,
+      "minLength": 1,
+      "type": "string"
+    },
+    "architecture": {
+      "enum": [
+        "amd64"
+      ],
+      "type": "string"
+    },
+    "backend": {
+      "enum": [
+        "iptables-nft"
+      ],
+      "type": "string"
+    },
+    "collectionDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "executableVersion": {
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
+      "type": "string"
+    },
+    "imageDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "osFamily": {
+      "enum": [
+        "debian"
+      ],
+      "type": "string"
+    },
+    "osVersion": {
+      "maxLength": 32,
+      "minLength": 1,
+      "type": "string"
+    },
+    "packageSourceDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "packages": {
+      "items": {
+        "$ref": "#/$defs/access-package"
+      },
+      "maxItems": 64,
+      "type": "array"
+    },
+    "roleDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/debian-profile-lock"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "imageDigest",
+    "osFamily",
+    "osVersion",
+    "architecture",
+    "packageSourceDigest",
+    "packages",
+    "executableVersion",
+    "ansibleVersion",
+    "collectionDigest",
+    "roleDigest",
+    "backend"
+  ],
+  "title": "VegaStack Labs debian profile lock",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}
