@@ -361,6 +361,11 @@ func (service *Service) validCurrentHumanPlan(ctx context.Context, human identit
 
 func uniqueTargets(plan generated.Plan) []string {
 	seen := map[string]bool{}
+	if plan.HostAccessSequence != nil {
+		for _, target := range plan.HostAccessSequence.AuxiliaryTargets {
+			seen[target.HostID] = true
+		}
+	}
 	for _, operation := range plan.Operations {
 		seen[operation.TargetID] = true
 	}

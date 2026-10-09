@@ -1,0 +1,56 @@
+{
+  "$id": "vegastack-labs.dev/access-flow",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "destinationPrefix": {
+      "maxLength": 64,
+      "minLength": 1,
+      "type": "string"
+    },
+    "interface": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "port": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "protocol": {
+      "enum": [
+        "tcp",
+        "udp"
+      ],
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/access-flow"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "sourcePrefix": {
+      "maxLength": 64,
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "protocol",
+    "sourcePrefix",
+    "destinationPrefix",
+    "port",
+    "interface"
+  ],
+  "title": "VegaStack Labs access flow",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

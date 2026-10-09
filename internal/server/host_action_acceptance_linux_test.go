@@ -51,6 +51,7 @@ func TestHostActionAcceptance(t *testing.T) {
 }
 
 type hostActionAcceptanceHooks struct {
+	Peer           func(*testing.T, ssh.Signer, ActionSigner, *atomic.Int32, string) int
 	DenialCode     string
 	EnrollmentOnly bool
 	Challenge      func(*testing.T, *sql.DB, *time.Time, *HostActionAuthority, generated.HostActionEnvelope, generated.HostActionChallenge) (generated.HostActionAuthorization, error)
@@ -68,6 +69,9 @@ type hostActionEnrollmentFixture struct {
 	Key                 []byte
 	DestinationIdentity string
 	TargetDigest        string
+	Target              generated.HostDiscoveryTarget
+	Signer              ActionSigner
+	Directory           string
 }
 
 func hostActionAcceptance(t *testing.T, actionMode string, options ...hostActionAcceptanceHooks) {
@@ -152,7 +156,11 @@ func hostActionAcceptance(t *testing.T, actionMode string, options ...hostAction
 
 	actionSigner := &actionTestSigner{key: private}
 	wrote := new(atomic.Int32)
-	port := hostActionAcceptancePeer(t, key, actionSigner, wrote, directory)
+	peer := hostActionAcceptancePeer
+	if hooks.Peer != nil {
+		peer = hooks.Peer
+	}
+	port := peer(t, key, actionSigner, wrote, directory)
 	target := generated.HostDiscoveryTarget{Schema: generated.SchemaIDHostDiscoveryTarget, SchemaVersion: "1.0.0", TargetID: "candidate-a", Revision: 1, Address: "127.0.0.1", Port: int64(port), User: "inspect", HostKey: strings.TrimSpace(string(ssh.MarshalAuthorizedKey(key.PublicKey()))), ProfileID: "debian-13-amd64", CredentialReferenceID: "fixture-credential", MaterialVersion: "fixture-version", ExpectedOS: "debian", ExpectedVersion: "13", ExpectedArchitecture: "amd64"}
 	target.ProfileID = "debian-13-amd64"
 	dr := generated.HostDiscoveryTargetDraftRequest{Schema: generated.SchemaIDHostDiscoveryTargetDraftRequest, SchemaVersion: "1.0.0", Target: target, Action: "activate", IdempotencyKey: "fixture-target"}
@@ -287,7 +295,7 @@ func hostActionAcceptance(t *testing.T, actionMode string, options ...hostAction
 	}
 	var credentialResolver adapter.CredentialResolver = hostActionAcceptanceCredential{key: pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: pk})}
 	if hooks.Enrollment != nil {
-		credentialResolver = hooks.Enrollment(t, hostActionEnrollmentFixture{Context: ctx, Authority: authority, DB: db, Clock: clock, AdvanceClock: func(d time.Duration) { fixtureNow = fixtureNow.Add(d) }, Declarations: declarations, App: app, Results: factory, Key: pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: pk}), DestinationIdentity: hostadoption.IdentityDigest("product-serial", "synthetic-serial"), TargetDigest: digest})
+		credentialResolver = hooks.Enrollment(t, hostActionEnrollmentFixture{Context: ctx, Authority: authority, DB: db, Clock: clock, AdvanceClock: func(d time.Duration) { fixtureNow = fixtureNow.Add(d) }, Declarations: declarations, App: app, Results: factory, Key: pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: pk}), DestinationIdentity: hostadoption.IdentityDigest("product-serial", "synthetic-serial"), TargetDigest: digest, Target: target, Signer: actionSigner, Directory: directory})
 
 		if hooks.EnrollmentOnly {
 			return

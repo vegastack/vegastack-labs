@@ -12,6 +12,7 @@ import (
 	transport "github.com/vegastack/vegastack-labs/internal/adapter/hostaction"
 	"github.com/vegastack/vegastack-labs/internal/adapter/nativecredential"
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
+	"github.com/vegastack/vegastack-labs/internal/debianaccess"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"github.com/vegastack/vegastack-labs/internal/serverconfig"
 	"github.com/vegastack/vegastack-labs/internal/store"
@@ -31,7 +32,8 @@ func composeHostActions(ctx context.Context, p serverconfig.Profile, databasePat
 	if err != nil {
 		return noop, err
 	}
-	impl, err := transport.New(hostActionTargets{repository: repository, allowed: slices.Clone(p.HostActionIdentityDigests)}, &HostActionBundleIssuer{Repository: repository, Signer: signer, Clock: time.Now}, authority)
+	composition := hostAccessComposition{store: s, hosts: repository, allowed: slices.Clone(p.HostActionIdentityDigests)}
+	impl, err := transport.NewWithAccess(hostActionTargets{repository: repository, allowed: slices.Clone(p.HostActionIdentityDigests)}, &HostActionBundleIssuer{Repository: repository, Signer: signer, Clock: time.Now}, authority, composition, debianaccess.NewLocalProbe(debianaccess.LocalProbeRuntime{Sources: debianaccess.NewNativeSourceResolver()}), composition)
 	if err != nil {
 		return noop, err
 	}

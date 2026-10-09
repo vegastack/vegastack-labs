@@ -1,0 +1,74 @@
+{
+  "$id": "vegastack-labs.dev/access-account",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "gid": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "home": {
+      "maxLength": 256,
+      "minLength": 1,
+      "type": "string"
+    },
+    "name": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "publicKeyDigests": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 8,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "publicKeys": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 8,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "role": {
+      "enum": [
+        "human",
+        "automation",
+        "service"
+      ],
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/access-account"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "uid": {
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "name",
+    "uid",
+    "gid",
+    "home",
+    "role",
+    "publicKeys",
+    "publicKeyDigests"
+  ],
+  "title": "VegaStack Labs access account",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

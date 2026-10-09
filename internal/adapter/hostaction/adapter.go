@@ -39,7 +39,10 @@ type Adapter struct {
 	bundles   BundleSource
 	authority Authority
 	mu        sync.Mutex
-	completed map[string]adapter.Effect
+	completed map[string]completedAccess
+	sequences AccessSequenceSource
+	probe     AccessLocalProbe
+	recorder  ControlResultRecorder
 }
 
 var _ adapter.Adapter = (*Adapter)(nil)
@@ -52,7 +55,7 @@ func New(targets TargetSource, bundles BundleSource, authority Authority) (*Adap
 	if targets == nil || bundles == nil || authority == nil {
 		return nil, denied()
 	}
-	return &Adapter{targets: targets, bundles: bundles, authority: authority, completed: map[string]adapter.Effect{}}, nil
+	return &Adapter{targets: targets, bundles: bundles, authority: authority, completed: map[string]completedAccess{}}, nil
 }
 func (*Adapter) Execute(context.Context, adapter.Operation) (adapter.Effect, error) {
 	return adapter.Effect{}, denied()
@@ -68,8 +71,13 @@ func (a *Adapter) Verify(ctx context.Context, op adapter.Operation, e adapter.Ef
 	defer a.mu.Unlock()
 	key := verificationKey(op, e.ResultDigest)
 	got, ok := a.completed[key]
-	if !ok || got != e {
+	if !ok || got.Effect != e {
 		return adapter.Verification{}, denied()
+	}
+	if len(got.Result.ControlMeasurements) > 0 {
+		if a.recorder == nil || a.recorder.RecordVerifiedControlResults(ctx, op, got.Binding, e, got.Result) != nil {
+			return adapter.Verification{}, denied()
+		}
 	}
 	delete(a.completed, key)
 	return adapter.Verification{Verified: true, Digest: e.ResultDigest}, nil
@@ -86,7 +94,7 @@ func validTarget(t Target, b generated.HostActionBundle) bool {
 	return t.HostID == b.HostID && t.HostIdentityDigest == b.HostIdentityDigest && t.AutomationPrincipalID == b.AutomationPrincipalID && int64(t.CallerUID) == b.CallerUID && t.CallerUID > 0 && t.Revision > 0 && net.ParseIP(t.Address) != nil && t.Port > 0 && t.User != "" && t.User != "root" && !strings.ContainsAny(t.User, " \t\r\n\x00") && len(t.User) <= 64
 }
 func (a *Adapter) ExecuteBoundWithCredentials(ctx context.Context, op adapter.Operation, binding adapter.ExactExecutionBinding, values []*credentialref.Value) (adapter.Effect, error) {
-	if a == nil || a.targets == nil || a.bundles == nil || a.authority == nil || ctx == nil || ctx.Err() != nil || adapter.ValidateOperation(op) != nil || op.AdapterID != "host-action" || op.OperationType != "host.action.execute" || len(op.SecretReferences) != 1 || len(values) != 1 || values[0] == nil || len(values[0].Bytes()) == 0 {
+	if a == nil || a.targets == nil || a.bundles == nil || a.authority == nil || ctx == nil || ctx.Err() != nil || adapter.ValidateOperation(op) != nil || op.AdapterID != "host-action" || (op.OperationType != "host.action.execute" && op.OperationType != "host.access.probe.local") || len(op.SecretReferences) != 1 || len(values) != 1 || values[0] == nil || len(values[0].Bytes()) == 0 {
 		return adapter.Effect{}, denied()
 	}
 	deadline, err := time.Parse(time.RFC3339, binding.MaximumExpiresAt)
@@ -95,6 +103,9 @@ func (a *Adapter) ExecuteBoundWithCredentials(ctx context.Context, op adapter.Op
 	}
 	ctx, cancel := context.WithDeadline(ctx, deadline)
 	defer cancel()
+	if op.OperationType == "host.access.probe.local" {
+		return a.executeLocalProbe(ctx, op, binding, values)
+	}
 	envelope, err := a.bundles.Issue(ctx, op, binding)
 	if err != nil {
 		return adapter.Effect{}, denied()
@@ -118,13 +129,11 @@ func (a *Adapter) ExecuteBoundWithCredentials(ctx context.Context, op adapter.Op
 	if adapter.ValidateEffect(e) != nil || e.Status != "succeeded" {
 		return adapter.Effect{EffectObserved: true}, denied()
 	}
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	// Verification is immediate in the engine. Bound memory if a caller abandons
-	// verification; never accept another effect by evicting an existing receipt.
-	if len(a.completed) >= 1024 {
+	if strings.HasPrefix(b.ActionID, "debian.access.") && (len(result.ControlMeasurements) == 0 || a.recorder == nil) {
 		return adapter.Effect{EffectObserved: true}, denied()
 	}
-	a.completed[verificationKey(op, e.ResultDigest)] = e
+	if err := a.remember(op, binding, e, result); err != nil {
+		return adapter.Effect{EffectObserved: true}, err
+	}
 	return e, nil
 }

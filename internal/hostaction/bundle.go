@@ -17,6 +17,9 @@ import (
 
 const MaximumEnvelope = 65536
 const MaximumFrame = 8192
+
+// MaximumResultFrame bounds only the final measured result; authentication stays 8 KiB.
+const MaximumResultFrame = 262144
 const AuthorizationWindow = 5 * time.Second
 const envelopeDomain = "vsk-host-action-envelope-v1\x00"
 const authorizationDomain = "vsk-host-action-authorization-v1\x00"
@@ -52,6 +55,13 @@ func decode(raw []byte, schema string, max int, out any) error {
 	return nil
 }
 func BundleDigest(bundle generated.HostActionBundle) (string, error) {
+	if bundle.ActionID == "debian.access.confirm" {
+		if bundle.VerificationEvidence == nil || bundle.VerificationEvidenceDigest != Digest(bundle.VerificationEvidence) {
+			return "", blocked()
+		}
+	} else if bundle.VerificationEvidence != nil || bundle.VerificationEvidenceDigest != "" {
+		return "", blocked()
+	}
 	raw, err := json.Marshal(bundle)
 	if err != nil || len(raw) > MaximumEnvelope || generated.ValidateContractJSON(generated.SchemaIDHostActionBundle, raw, generated.ContractExact) != nil || bundle.CallerUID > int64(^uint32(0)) || bundle.ActionInputDigest != BytesDigest([]byte(bundle.ActionInput)) || strictjson.Scan(context.Background(), []byte(bundle.ActionInput), strictjson.Limits{MaxDepth: 16}) != nil {
 		return "", blocked()

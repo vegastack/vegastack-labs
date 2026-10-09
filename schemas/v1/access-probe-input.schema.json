@@ -1,0 +1,281 @@
+{
+  "$defs": {
+    "access-probe-case": {
+      "additionalProperties": false,
+      "properties": {
+        "destination": {
+          "$ref": "#/$defs/access-probe-tuple"
+        },
+        "expected": {
+          "enum": [
+            "allowed",
+            "denied"
+          ],
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "ssh-admin",
+            "ssh-wrong-user",
+            "ssh-password",
+            "ssh-root",
+            "ssh-source",
+            "host-flow",
+            "container-published",
+            "container-unpublished",
+            "container-east-west"
+          ],
+          "type": "string"
+        },
+        "probeId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/access-probe-case"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "witness": {
+          "$ref": "#/$defs/access-probe-tuple"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "probeId",
+        "kind",
+        "expected",
+        "destination",
+        "witness"
+      ],
+      "type": "object"
+    },
+    "access-probe-source": {
+      "additionalProperties": false,
+      "properties": {
+        "address": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "contextDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "contextId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "family": {
+          "enum": [
+            "ipv4",
+            "ipv6"
+          ],
+          "type": "string"
+        },
+        "hostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "identityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "interface": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "interfaceIndex": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "kind": {
+          "enum": [
+            "host-network",
+            "network-namespace",
+            "container"
+          ],
+          "type": "string"
+        },
+        "routeDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/access-probe-source"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "hostId",
+        "identityDigest",
+        "kind",
+        "contextId",
+        "contextDigest",
+        "interface",
+        "interfaceIndex",
+        "address",
+        "family",
+        "routeDigest"
+      ],
+      "type": "object"
+    },
+    "access-probe-tuple": {
+      "additionalProperties": false,
+      "properties": {
+        "address": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "hostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "identityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "ownershipDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "port": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "protocol": {
+          "enum": [
+            "tcp",
+            "udp"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/access-probe-tuple"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "hostId",
+        "identityDigest",
+        "address",
+        "port",
+        "protocol"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/access-probe-input",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "administratorUser": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "applyInputDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "attempts": {
+      "maximum": 2,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "cases": {
+      "items": {
+        "$ref": "#/$defs/access-probe-case"
+      },
+      "maxItems": 8,
+      "type": "array"
+    },
+    "profileLockDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "rollbackDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/access-probe-input"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "source": {
+      "$ref": "#/$defs/access-probe-source"
+    },
+    "subjectHostId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "subjectHostKey": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "type": "string"
+    },
+    "subjectIdentityDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "timeoutMillis": {
+      "maximum": 2000,
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "subjectHostId",
+    "subjectIdentityDigest",
+    "subjectHostKey",
+    "profileLockDigest",
+    "applyInputDigest",
+    "rollbackDigest",
+    "administratorUser",
+    "source",
+    "cases",
+    "timeoutMillis",
+    "attempts"
+  ],
+  "title": "VegaStack Labs access probe input",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

@@ -1,0 +1,10 @@
+---
+# Configuration ownership stays central. This role renders only, never target become.
+- name: Require controller-local rendering
+  ansible.builtin.assert:
+    that:
+      - inventory_hostname == 'localhost'
+      - ansible_connection == 'local'
+- name: Render the fixed typed access intent
+  ansible.builtin.include_role:
+    name: debian_access_render

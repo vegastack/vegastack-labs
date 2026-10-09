@@ -242,9 +242,9 @@ func Current() Registry {
 	}
 
 	return Registry{
-		SchemaVersion:   "1.22.0",
+		SchemaVersion:   "1.23.0",
 		Commands:        commands,
-		Endpoints:       append(append(append(readEndpoints(), phase4Endpoints()...), phase5Endpoints()...), append(append(hostDiscoveryEndpoints(), hostAdoptionEndpoints()...), hostActionEndpoints()...)...),
+		Endpoints:       append(append(append(readEndpoints(), phase4Endpoints()...), phase5Endpoints()...), append(append(hostDiscoveryEndpoints(), hostAdoptionEndpoints()...), append(hostActionEndpoints(), accessEndpoints()...)...)...),
 		GateDefinitions: CurrentGateDefinitions(),
 		Errors:          append([]ErrorDefinition(nil), requiredErrors...),
 		Exits:           append([]ExitDefinition(nil), requiredExits...),
@@ -975,6 +975,8 @@ func currentSchemas() []SchemaDefinition {
 	schemas = append(schemas, hostDiscoverySchemas()...)
 	schemas = append(schemas, hostAdoptionSchemas()...)
 	schemas = append(schemas, hostActionSchemas()...)
+	schemas = append(schemas, accessSchemas()...)
+	schemas = append(schemas, accessProbeSchemas()...)
 	schemas = append(schemas, localSetupSchemas()...)
 	return append(schemas, apiSshSchemas()...)
 }

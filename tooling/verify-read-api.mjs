@@ -69,6 +69,10 @@ const REVIEWED_ADOPTION_ENDPOINTS = [
 const REVIEWED_HOST_ACTION_ENDPOINTS = [
   {id: "api.v1.host-actions.draft", method: "POST", path: "/api/v1/host-actions/draft", availability: "available", ownerPhase: "6", requestSchema: "vegastack-labs.dev/host-action-request", dataSchema: "vegastack-labs.dev/host-action-submission", stream: "finite", audiences: ["operator"]},
 ];
+// #225 adds only the finite Debian access-sequence draft; it cannot apply directly.
+const REVIEWED_HOST_ACCESS_ENDPOINTS = [
+  {id: "api.v1.host-access.draft", method: "POST", path: "/api/v1/host-access/draft", availability: "available", ownerPhase: "6", requestSchema: "vegastack-labs.dev/host-access-draft-request", dataSchema: "vegastack-labs.dev/host-action-submission", stream: "finite", audiences: ["operator"]},
+];
 const REVIEWED_DISCOVERY_ENDPOINTS = ["api.v1.host-discovery-targets.draft", "api.v1.host-observations.create", "api.v1.host-observations.get"];
 const REVIEWED_OPERATOR_ENDPOINTS = [
   "api.v1.database-backups.create", "api.v1.database-exports.create", "api.v1.database-restores.create", "api.v1.database-verifications.create",
@@ -127,8 +131,14 @@ export async function verifyReadAPI(root = ROOT) {
         return actual && Object.keys(actual).length === Object.keys(expected).length && Object.entries(expected).every(([key, value]) => JSON.stringify(actual[key]) === JSON.stringify(value));
       });
       const hostActionIDs = hostActionEndpoints.map(({id}) => id);
-      const historicalIDs = ids.filter((id) => !gateIDs.includes(id) && !credentialImportIDs.includes(id) && !auditIDs.includes(id) && !lifecycleIDs.includes(id) && !backupIDs.includes(id) && !operatorIDs.includes(id) && !discoveryIDs.includes(id) && !adoptionIDs.includes(id) && !hostActionIDs.includes(id));
-      if (!hostActionExact || !adoptionExact || JSON.stringify(discoveryIDs) !== JSON.stringify(REVIEWED_DISCOVERY_ENDPOINTS) || JSON.stringify(historicalIDs) !== JSON.stringify(EXPECTED_ENDPOINTS) ||
+      const hostAccessEndpoints = registry.endpoints.filter(({id}) => id.startsWith("api.v1.host-access."));
+      const hostAccessExact = hostAccessEndpoints.length === REVIEWED_HOST_ACCESS_ENDPOINTS.length && REVIEWED_HOST_ACCESS_ENDPOINTS.every((expected) => {
+        const actual = hostAccessEndpoints.find(({id}) => id === expected.id);
+        return actual && Object.keys(actual).length === Object.keys(expected).length && Object.entries(expected).every(([key, value]) => JSON.stringify(actual[key]) === JSON.stringify(value));
+      });
+      const hostAccessIDs = hostAccessEndpoints.map(({id}) => id);
+      const historicalIDs = ids.filter((id) => !gateIDs.includes(id) && !credentialImportIDs.includes(id) && !auditIDs.includes(id) && !lifecycleIDs.includes(id) && !backupIDs.includes(id) && !operatorIDs.includes(id) && !discoveryIDs.includes(id) && !adoptionIDs.includes(id) && !hostActionIDs.includes(id) && !hostAccessIDs.includes(id));
+      if (!hostAccessExact || !hostActionExact || !adoptionExact || JSON.stringify(discoveryIDs) !== JSON.stringify(REVIEWED_DISCOVERY_ENDPOINTS) || JSON.stringify(historicalIDs) !== JSON.stringify(EXPECTED_ENDPOINTS) ||
           JSON.stringify(gateIDs) !== JSON.stringify(REVIEWED_GATE_ENDPOINTS) ||
           JSON.stringify(credentialImportIDs) !== JSON.stringify(REVIEWED_CREDENTIAL_IMPORT_ENDPOINTS) ||
           JSON.stringify(auditIDs) !== JSON.stringify(REVIEWED_AUDIT_ENDPOINTS) || JSON.stringify(lifecycleIDs) !== JSON.stringify(REVIEWED_CREDENTIAL_LIFECYCLE_ENDPOINTS) || JSON.stringify(operatorIDs) !== JSON.stringify(REVIEWED_OPERATOR_ENDPOINTS) ||

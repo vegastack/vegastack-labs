@@ -1,0 +1,223 @@
+---
+# Administrator-only initial preparation. The ordinary signed path never runs this role.
+- name: Require independently reviewed initial preparation
+  ansible.builtin.assert:
+    that:
+      - vsk_initial_administrator_authorized | bool
+      - vsk_independent_console_verified | bool
+      - vsk_action_account is match('^[a-z_][a-z0-9_-]{0,31}$')
+      - vsk_action_uid | int > 0
+      - vsk_action_gid | int > 0
+      - vsk_action_account not in ['root', 'sudo', 'admin', 'wheel', 'docker', 'lxd', 'disk', 'shadow']
+      - >-
+        vsk_prepared_content['etc/sudoers.d/vsk-host-action'] == vsk_action_account + " ALL=(root) NOPASSWD: /usr/local/bin/vsk-labs host-action-once\n"
+      - (vsk_prepared_content['etc/vsk-labs/host-action.json'] | from_json).callerUid | int == vsk_action_uid | int
+      - vsk_release_sha256 is match('^[a-f0-9]{64}$')
+      - vsk_prepared_content.keys() | sort == (['etc/ssh/sshd_config.d/70-vsk-access.conf', 'etc/sudoers.d/vsk-host-action', 'etc/systemd/system/vsk-access-rollback-boot.service', 'etc/systemd/system/vsk-access-rollback.service', 'etc/vsk-labs/authorized_keys/' + vsk_action_account, 'etc/vsk-labs/debian-profile.json', 'etc/vsk-labs/host-action.json'] | sort)
+- name: Observe existing local identities without changing them
+  ansible.builtin.getent:
+    database: '{{ item }}'
+  loop: [passwd, group]
+- name: Refuse any existing account identity conflict
+  ansible.builtin.assert:
+    that:
+      - item.key != vsk_action_account or (item.value[1] | int == vsk_action_uid | int and item.value[2] | int == vsk_action_gid | int and item.value[4] == '/home/' + vsk_action_account)
+      - item.value[1] | int != vsk_action_uid | int or item.key == vsk_action_account
+  loop: '{{ ansible_facts.getent_passwd | dict2items }}'
+- name: Refuse existing group identity or privileged membership conflicts
+  ansible.builtin.assert:
+    that:
+      - item.key != vsk_action_account or item.value[1] | int == vsk_action_gid | int
+      - item.value[1] | int != vsk_action_gid | int or item.key == vsk_action_account
+      - item.key not in ['root', 'sudo', 'admin', 'wheel', 'docker', 'lxd', 'disk', 'shadow'] or vsk_action_account not in item.value[2].split(',')
+  loop: '{{ ansible_facts.getent_group | dict2items }}'
+- name: Inspect the verified executable asset
+  ansible.builtin.stat:
+    path: '{{ vsk_verified_release_asset }}'
+    checksum_algorithm: sha256
+  register: vsk_release_asset
+- name: Require reviewed executable bytes
+  ansible.builtin.assert:
+    that:
+      - vsk_release_asset.stat.isreg
+      - not vsk_release_asset.stat.islnk
+      - vsk_release_asset.stat.checksum == vsk_release_sha256
+- name: Inspect every existing installation ancestor
+  ansible.builtin.stat:
+    path: '{{ item }}'
+  loop:
+    - /etc
+    - /etc/ssh
+    - /etc/ssh/sshd_config.d
+    - /etc/sudoers.d
+    - /etc/systemd
+    - /etc/systemd/system
+    - /usr
+    - /usr/local
+    - /usr/local/bin
+    - /var
+    - /var/lib
+  register: vsk_install_ancestors
+- name: Refuse unprotected installation ancestors
+  ansible.builtin.assert:
+    that:
+      - item.stat.exists and item.stat.isdir and not item.stat.islnk and item.stat.uid == 0
+      - item.stat.mode in ['0700', '0750', '0755']
+  loop: '{{ vsk_install_ancestors.results }}'
+- name: Inspect state parent
+  ansible.builtin.stat:
+    path: /var/lib/vsk-labs
+  register: vsk_state_parent
+- name: Refuse an unprotected existing state parent
+  ansible.builtin.assert:
+    that:
+      - not vsk_state_parent.stat.exists or (vsk_state_parent.stat.isdir and not vsk_state_parent.stat.islnk and vsk_state_parent.stat.uid == 0 and vsk_state_parent.stat.mode in ['0700', '0750', '0755'])
+- name: Inspect protected existing destinations before any write
+  ansible.builtin.stat:
+    path: '/{{ item }}'
+    checksum_algorithm: sha256
+  loop: '{{ vsk_prepared_content.keys() | sort }}'
+  register: vsk_existing_assets
+- name: Refuse existing asset conflicts
+  ansible.builtin.assert:
+    that:
+      - not item.stat.exists or (item.stat.isreg and not item.stat.islnk and item.stat.uid == 0 and item.stat.mode in ['0600', '0640', '0644', '0440'] and item.stat.checksum == (vsk_prepared_content[item.item] | hash('sha256')))
+  loop: '{{ vsk_existing_assets.results }}'
+- name: Inspect the existing executable
+  ansible.builtin.stat:
+    path: /usr/local/bin/vsk-labs
+    checksum_algorithm: sha256
+  register: vsk_existing_executable
+- name: Refuse an executable conflict
+  ansible.builtin.assert:
+    that:
+      - not vsk_existing_executable.stat.exists or (vsk_existing_executable.stat.isreg and not vsk_existing_executable.stat.islnk and vsk_existing_executable.stat.uid == 0 and vsk_existing_executable.stat.mode == '0755' and vsk_existing_executable.stat.checksum == vsk_release_sha256)
+- name: Inspect exact protected directories
+  ansible.builtin.stat:
+    path: '{{ item }}'
+  loop:
+    - /etc/vsk-labs
+    - /etc/vsk-labs/authorized_keys
+    - /etc/vsk-labs/service_authorized_keys
+    - /var/lib/vsk-labs/host-action
+    - /var/lib/vsk-labs/access-rollback
+  register: vsk_existing_directories
+- name: Refuse changing an unknown existing directory
+  ansible.builtin.assert:
+    that:
+      - not item.stat.exists or (item.stat.isdir and not item.stat.islnk and item.stat.uid == 0 and item.stat.mode == ('0755' if item.item in ['/etc/vsk-labs', '/etc/vsk-labs/authorized_keys'] else '0700'))
+  loop: '{{ vsk_existing_directories.results }}'
+- name: Create only missing state parent
+  ansible.builtin.file:
+    path: /var/lib/vsk-labs
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  when: not vsk_state_parent.stat.exists
+- name: Create only missing protected directories
+  ansible.builtin.file:
+    path: '{{ item.item }}'
+    state: directory
+    owner: root
+    group: root
+    mode: "{{ '0755' if item.item in ['/etc/vsk-labs', '/etc/vsk-labs/authorized_keys'] else '0700' }}"
+  when: not item.stat.exists
+  loop: '{{ vsk_existing_directories.results }}'
+- name: Refuse a preexisting home for a new account
+  ansible.builtin.stat:
+    path: '/home/{{ vsk_action_account }}'
+  register: vsk_existing_home
+- name: Require an unused new account home
+  ansible.builtin.assert:
+    that:
+      - vsk_action_account in ansible_facts.getent_passwd or not vsk_existing_home.stat.exists
+- name: Create only a missing dedicated group
+  ansible.builtin.group:
+    name: '{{ vsk_action_account }}'
+    gid: '{{ vsk_action_gid }}'
+    state: present
+  when: vsk_action_account not in ansible_facts.getent_group
+- name: Create only the missing dedicated automation account
+  ansible.builtin.user:
+    name: '{{ vsk_action_account }}'
+    uid: '{{ vsk_action_uid }}'
+    group: '{{ vsk_action_account }}'
+    home: '/home/{{ vsk_action_account }}'
+    shell: /bin/bash
+    create_home: true
+    umask: '077'
+    password_lock: true
+    state: present
+  when: vsk_action_account not in ansible_facts.getent_passwd
+- name: Install exact verified executable
+  ansible.builtin.copy:
+    src: '{{ vsk_verified_release_asset }}'
+    dest: /usr/local/bin/vsk-labs
+    remote_src: true
+    owner: root
+    group: root
+    mode: '0755'
+    force: false
+- name: Install public policy and profile lock
+  ansible.builtin.copy:
+    content: '{{ vsk_prepared_content[item] }}'
+    dest: '/{{ item }}'
+    owner: root
+    group: root
+    mode: '0600'
+    force: false
+  loop:
+    - etc/vsk-labs/host-action.json
+    - etc/vsk-labs/debian-profile.json
+- name: Install exact helper sudo grant after syntax validation
+  ansible.builtin.copy:
+    content: '{{ vsk_prepared_content["etc/sudoers.d/vsk-host-action"] }}'
+    dest: /etc/sudoers.d/vsk-host-action
+    owner: root
+    group: root
+    mode: '0440'
+    force: false
+    validate: /usr/sbin/visudo -cf %s
+- name: Install finite rollback service and boot reconciliation
+  ansible.builtin.copy:
+    content: '{{ vsk_prepared_content[item] }}'
+    dest: '/{{ item }}'
+    owner: root
+    group: root
+    mode: '0644'
+    force: false
+  loop:
+    - etc/systemd/system/vsk-access-rollback.service
+    - etc/systemd/system/vsk-access-rollback-boot.service
+- name: Enable boot reconciliation without starting an access change
+  ansible.builtin.systemd_service:
+    name: vsk-access-rollback-boot.service
+    enabled: true
+    daemon_reload: true
+
+- name: Install only the declared automation public key
+  ansible.builtin.copy:
+    content: '{{ vsk_prepared_content["etc/vsk-labs/authorized_keys/" + vsk_action_account] }}'
+    dest: '/etc/vsk-labs/authorized_keys/{{ vsk_action_account }}'
+    owner: root
+    group: root
+    mode: '0644'
+    force: false
+- name: Install the initial automation-only SSH match
+  ansible.builtin.copy:
+    content: '{{ vsk_prepared_content["etc/ssh/sshd_config.d/70-vsk-access.conf"] }}'
+    dest: /etc/ssh/sshd_config.d/70-vsk-access.conf
+    owner: root
+    group: root
+    mode: '0644'
+    force: false
+    validate: /usr/sbin/sshd -t -f %s
+- name: Validate the complete SSH configuration before reload
+  ansible.builtin.command:
+    argv: [/usr/sbin/sshd, '-t']
+  changed_when: false
+- name: Reload existing SSH without restarting it
+  ansible.builtin.systemd_service:
+    name: ssh.service
+    state: reloaded

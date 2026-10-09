@@ -1,0 +1,84 @@
+{
+  "$id": "vegastack-labs.dev/access-probe-observation",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "actual": {
+      "enum": [
+        "allowed",
+        "denied",
+        "error"
+      ],
+      "type": "string"
+    },
+    "actualSourceAddress": {
+      "maxLength": 64,
+      "minLength": 1,
+      "type": "string"
+    },
+    "destinationDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "expected": {
+      "enum": [
+        "allowed",
+        "denied"
+      ],
+      "type": "string"
+    },
+    "probeId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/access-probe-observation"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "sourceContextDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "sourceHostId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "sourceIdentityDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "sourceNamespaceDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "witnessDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "probeId",
+    "sourceHostId",
+    "sourceIdentityDigest",
+    "sourceContextDigest",
+    "actualSourceAddress",
+    "sourceNamespaceDigest",
+    "destinationDigest",
+    "witnessDigest",
+    "expected",
+    "actual"
+  ],
+  "title": "VegaStack Labs access probe observation",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

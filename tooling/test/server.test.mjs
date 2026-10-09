@@ -232,3 +232,16 @@ test("the server verifier confines #223 Unix syscalls to three reviewed helper f
     assert.deepEqual((await verifyServer(rejected)).codes, ["SERVER_XSYS_SCOPE"], file);
   }
 });
+
+// Keep the new syscall scope finite, including its platform suffixes.
+test("the server verifier confines #225 Unix syscalls to exact access files", async (t) => {
+  const source = 'package debianaccess\nimport _ "golang.org/x/sys/unix"\n';
+  const accepted = await fixtureRepo(t, Object.fromEntries(
+    ["rollback_unix.go", "observations_unix.go", "source_probe_linux.go"].map((name) => [`internal/debianaccess/${name}`, source]),
+  ));
+  assert.deepEqual(await verifyServer(accepted), {status: "pass", codes: []});
+  for (const file of ["internal/debianaccess/escape_linux.go", "internal/debianaccess/source_probe_unix.go", "internal/other/rollback_unix.go"]) {
+    const rejected = await fixtureRepo(t, {[file]: source});
+    assert.deepEqual((await verifyServer(rejected)).codes, ["SERVER_XSYS_SCOPE"], file);
+  }
+});

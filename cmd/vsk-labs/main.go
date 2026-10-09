@@ -23,6 +23,9 @@ var (
 )
 
 func main() {
+	if handled, code := runAccessRollback(context.Background(), os.Args[1:]); handled {
+		os.Exit(code)
+	}
 	if handled, code := runHostActionOnce(context.Background(), os.Args[1:]); handled {
 		os.Exit(code)
 	}

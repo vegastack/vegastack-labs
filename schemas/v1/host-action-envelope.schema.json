@@ -1,5 +1,52 @@
 {
   "$defs": {
+    "access-verification-evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "applyReceiptDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "expiresAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "probeResultsDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "rollbackRecordDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/access-verification-evidence"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "sequenceDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "applyReceiptDigest",
+        "rollbackRecordDigest",
+        "probeResultsDigest",
+        "sequenceDigest",
+        "expiresAt"
+      ],
+      "type": "object"
+    },
     "host-action-bundle": {
       "additionalProperties": false,
       "properties": {
@@ -106,6 +153,20 @@
         },
         "stepId": {
           "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "verificationEvidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/access-verification-evidence"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "verificationEvidenceDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
           "type": "string"
         }
       },

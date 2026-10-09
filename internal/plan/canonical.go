@@ -3,6 +3,7 @@ package plan
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -13,6 +14,9 @@ import (
 
 func canonicalPlan(plan generated.Plan) ([]byte, error) {
 	body, _, err := stateexport.CanonicalJSON(plan)
+	if plan.HostAccessSequence != nil && len(body) > 1048576 {
+		return nil, planError(generated.ErrorCodeInputInvalid)
+	}
 	return body, err
 }
 
@@ -41,6 +45,31 @@ func readablePlan(plan generated.Plan) string {
 	if plan.HostActionConsole != nil {
 		raw, _, _ := stateexport.CanonicalJSON(plan.HostActionConsole)
 		fmt.Fprintf(&body, "Credential consumer console confirmation: %s\nAdministrator confirms independent console access for BOTH the exact destination host/pinned key and the named native consumer/controller machine. Controller unit %s may restart during activation or rotation; native credential loading and denied-reader probes remain required.\n", raw, plan.HostActionNativeUnit)
+	}
+	if plan.HostAccessSequence != nil {
+		raw, _, _ := stateexport.CanonicalJSON(plan.HostAccessSequence)
+		if len(plan.HostAccessSequence.Actions) > 0 {
+			var access generated.DebianAccessInput
+			if json.Unmarshal([]byte(plan.HostAccessSequence.Actions[0].ActionInput), &access) == nil {
+				fmt.Fprintf(&body, "Debian access on %s; profile %s. Local rollback deadline:600 seconds.\n", access.HostID, access.ProfileID)
+				for _, account := range access.Accounts {
+					fmt.Fprintf(&body, "Account %s role=%s uid=%d gid=%d home=%s public-key digests=%v\n", account.Name, account.Role, account.UID, account.GID, account.Home, account.PublicKeyDigests)
+				}
+				fmt.Fprintf(&body, "SSH permitted users=%v; sources=%v; independent recovery sources=%v. Password and ordinary root login disabled.\n", access.SSHUsers, access.SSHSourcePrefixes, access.RecoverySourcePrefixes)
+				for _, key := range access.PrivilegedServiceKeys {
+					fmt.Fprintf(&body, "Restricted root service key %s fingerprint=%s sources=%v; no ordinary human root access.\n", key.ServiceID, key.PublicKeyDigest, key.SourcePrefixes)
+				}
+				for _, group := range []struct {
+					name  string
+					flows []generated.AccessFlow
+				}{{"host", access.HostFlows}, {"container", access.ContainerFlows}} {
+					for _, flow := range group.flows {
+						fmt.Fprintf(&body, "%s firewall permit %s %s -> %s:%d interface=%s\n", group.name, flow.Protocol, flow.SourcePrefix, flow.DestinationPrefix, flow.Port, flow.Interface)
+					}
+				}
+			}
+		}
+		fmt.Fprintf(&body, "Finite Debian access sequence and all contacted targets: %s\nApply keeps a 600-second local rollback armed until fresh independent probes and exact confirm succeed. All named subject/source/witness identities are included in this acknowledgement.\n", raw)
 	}
 	if plan.HostAction != nil {
 		raw, _, _ := stateexport.CanonicalJSON(plan.HostAction)

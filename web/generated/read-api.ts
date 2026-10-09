@@ -51,6 +51,13 @@ export const BACKUP_JOB_TRANSITIONS = [{"from":"pending","to":"failed"},{"from":
 export const RESTORE_TRANSITIONS = [{"from":"fenced","to":"failed"},{"from":"fenced","to":"restoring"},{"from":"planned","to":"failed"},{"from":"planned","to":"fenced"},{"from":"restoring","to":"failed"},{"from":"restoring","to":"uncertain"},{"from":"restoring","to":"verification-required"},{"from":"verification-required","to":"failed"},{"from":"verification-required","to":"uncertain"},{"from":"verification-required","to":"verified"}] as const;
 export const SCHEDULED_JOB_TRANSITIONS = [{"from":"queued","to":"blocked"},{"from":"queued","to":"cancelled"},{"from":"queued","to":"failed"},{"from":"queued","to":"running"},{"from":"queued","to":"skipped"},{"from":"retry-wait","to":"cancelled"},{"from":"retry-wait","to":"failed"},{"from":"retry-wait","to":"running"},{"from":"running","to":"failed"},{"from":"running","to":"retry-wait"},{"from":"running","to":"succeeded"},{"from":"running","to":"uncertain"}] as const;
 
+export interface AccessTargetIdentity {
+  readonly "schema": "vegastack-labs.dev/access-target-identity";
+  readonly "schemaVersion": "1.0.0";
+  readonly "hostId": string;
+  readonly "identityDigest": string;
+}
+
 export interface ApiAuditEventData {
   readonly "event": BrowserAuditEvent;
 }
@@ -627,6 +634,34 @@ export interface GateView {
   readonly "applicabilityReasonCode": string;
 }
 
+export interface HostAccessProbeStep {
+  readonly "schema": "vegastack-labs.dev/host-access-probe-step";
+  readonly "schemaVersion": "1.0.0";
+  readonly "operationId": string;
+  readonly "kind": "local-probe" | "source-probe" | "collect";
+  readonly "sourceHostId": string;
+  readonly "sourceIdentityDigest": string;
+  readonly "sourceContextDigest": string;
+  readonly "draftDigest": string;
+  readonly "specificationDigest": string;
+}
+
+export interface HostAccessSequence {
+  readonly "schema": "vegastack-labs.dev/host-access-sequence";
+  readonly "schemaVersion": "1.0.0";
+  readonly "actions": ReadonlyArray<HostActionRequest>;
+  readonly "auxiliaryTargets": ReadonlyArray<AccessTargetIdentity>;
+  readonly "subjectHostId": string;
+  readonly "subjectIdentityDigest": string;
+  readonly "profileLockDigest": string;
+  readonly "applyOperationId": string;
+  readonly "applyDraftDigest": string;
+  readonly "probeSteps": ReadonlyArray<HostAccessProbeStep>;
+  readonly "confirmOperationId": string;
+  readonly "confirmDraftDigest": string;
+  readonly "specificationDigest": string;
+}
+
 export interface HostActionConsoleConfirmation {
   readonly "schema": "vegastack-labs.dev/host-action-console-confirmation";
   readonly "schemaVersion": "1.0.0";
@@ -788,6 +823,7 @@ export interface Plan {
   readonly "nativeRestart"?: NativeRestartPresentation | null;
   readonly "hostActionNativeUnit"?: string;
   readonly "hostActionConsole"?: HostActionCredentialConfirmation | null;
+  readonly "hostAccessSequence"?: HostAccessSequence | null;
   readonly "hostAction"?: HostActionRequest | null;
   readonly "hostAdoption"?: HostAdoptionRequest | null;
   readonly "hostDiscoveryTarget"?: HostDiscoveryTargetDraftRequest | null;
@@ -931,6 +967,43 @@ type FieldRule = {
 };
 
 const SCHEMAS: ReadonlyArray<SchemaRule> = [
+  {
+    "id": "vegastack-labs.dev/access-target-identity",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/access-target-identity"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "hostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "identityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
   {
     "id": "vegastack-labs.dev/api-audit-event-data",
     "fields": [
@@ -4493,6 +4566,185 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/host-access-probe-step",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/host-access-probe-step"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "operationId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "kind",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "local-probe",
+          "source-probe",
+          "collect"
+        ]
+      },
+      {
+        "name": "sourceHostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "sourceIdentityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "sourceContextDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "draftDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "specificationDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/host-access-sequence",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/host-access-sequence"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "actions",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/host-action-request",
+        "maxItems": 18
+      },
+      {
+        "name": "auxiliaryTargets",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/access-target-identity",
+        "maxItems": 64
+      },
+      {
+        "name": "subjectHostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "subjectIdentityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "profileLockDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "applyOperationId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "applyDraftDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "probeSteps",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/host-access-probe-step",
+        "maxItems": 16
+      },
+      {
+        "name": "confirmOperationId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "confirmDraftDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "specificationDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/host-action-console-confirmation",
     "fields": [
       {
@@ -5528,6 +5780,13 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "ref": "vegastack-labs.dev/host-action-credential-confirmation"
       },
       {
+        "name": "hostAccessSequence",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "ref": "vegastack-labs.dev/host-access-sequence"
+      },
+      {
         "name": "hostAction",
         "kind": "object",
         "required": false,
@@ -6271,6 +6530,10 @@ export function validatePlanTiming(value: unknown): void {
   if (!Number.isFinite(created) || expires - created !== PLAN_VALIDITY_SECONDS * 1000) return mismatch("plan.expiresAt", "plan expiry must be exactly 30 minutes");
 }
 
+function decodeAccessTargetIdentity(value: unknown): AccessTargetIdentity {
+  return decodeSchema("vegastack-labs.dev/access-target-identity", value) as unknown as AccessTargetIdentity;
+}
+
 function decodeApiAuditEventData(value: unknown): ApiAuditEventData {
   return decodeSchema("vegastack-labs.dev/api-audit-event-data", value) as unknown as ApiAuditEventData;
 }
@@ -6485,6 +6748,14 @@ function decodeGateListData(value: unknown): GateListData {
 
 function decodeGateView(value: unknown): GateView {
   return decodeSchema("vegastack-labs.dev/gate-view", value) as unknown as GateView;
+}
+
+function decodeHostAccessProbeStep(value: unknown): HostAccessProbeStep {
+  return decodeSchema("vegastack-labs.dev/host-access-probe-step", value) as unknown as HostAccessProbeStep;
+}
+
+function decodeHostAccessSequence(value: unknown): HostAccessSequence {
+  return decodeSchema("vegastack-labs.dev/host-access-sequence", value) as unknown as HostAccessSequence;
 }
 
 function decodeHostActionConsoleConfirmation(value: unknown): HostActionConsoleConfirmation {

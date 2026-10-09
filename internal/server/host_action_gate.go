@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
+	"github.com/vegastack/vegastack-labs/internal/debianaccess"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"github.com/vegastack/vegastack-labs/internal/run"
@@ -27,7 +28,7 @@ type hostActionGate struct {
 }
 
 func (g hostActionGate) VerifySecretStep(ctx context.Context, p generated.Plan, op generated.PlanOperation) error {
-	action := op.AdapterID == hostaction.AdapterID && op.OperationType == hostaction.OperationType
+	action := op.AdapterID == hostaction.AdapterID && (op.OperationType == hostaction.OperationType || op.OperationType == debianaccess.LocalProbeOperation)
 	lifecycle := p.HostActionConsole != nil && (op.OperationType == string(credentialref.ActionActivate) || op.OperationType == string(credentialref.ActionRotate))
 	if !action && !lifecycle {
 		if g.fallback == nil {
@@ -35,12 +36,37 @@ func (g hostActionGate) VerifySecretStep(ctx context.Context, p generated.Plan, 
 		}
 		return g.fallback.VerifySecretStep(ctx, p, op)
 	}
-	if g.targets == nil || p.AuthorizationBranch != "human" || p.ExecutorMode != "central" || len(p.Operations) != 1 || p.Operations[0] != op {
+	if g.targets == nil || p.AuthorizationBranch != "human" || p.ExecutorMode != "central" || (p.HostAccessSequence == nil && (len(p.Operations) != 1 || p.Operations[0] != op)) {
 		return actionFailure()
 	}
 	var c generated.HostActionCredentialConfirmation
 	if action {
 		r := p.HostAction
+		if p.HostAccessSequence != nil {
+			source, ok := g.targets.(interface {
+				ResolveAccessSequenceStep(context.Context, generated.Plan, string) (generated.HostActionRequest, error)
+				ResolveAccessLocalProbe(context.Context, generated.Plan, string) (generated.HostActionRequest, generated.AccessProbeInput, error)
+			})
+			if !ok || p.HostAction != nil {
+				return actionFailure()
+			}
+			var selected generated.HostActionRequest
+			var err error
+			if op.OperationType == debianaccess.LocalProbeOperation {
+				selected, _, err = source.ResolveAccessLocalProbe(ctx, p, op.OperationID)
+			} else {
+				selected, err = source.ResolveAccessSequenceStep(ctx, p, op.OperationID)
+			}
+			if err != nil {
+				return err
+			}
+			r = &selected
+			for _, target := range p.HostAccessSequence.AuxiliaryTargets {
+				if !slices.Contains(g.allowed, target.IdentityDigest) {
+					return actionFailure()
+				}
+			}
+		}
 		if r == nil || hostaction.ValidateRequest(*r) != nil || r.HostID != op.TargetID || hostaction.Digest(*r) != op.ArtifactDigest || r.RecoveryEpoch != p.Binding.RecoveryEpoch {
 			return actionFailure()
 		}

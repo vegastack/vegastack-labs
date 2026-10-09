@@ -1,0 +1,103 @@
+{
+  "$defs": {
+    "access-owned-state": {
+      "additionalProperties": false,
+      "properties": {
+        "afterDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "beforeDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "resourceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/access-owned-state"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "resourceId",
+        "beforeDigest",
+        "afterDigest"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/access-rollback-specification",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "deadlineSeconds": {
+      "maximum": 600,
+      "minimum": 600,
+      "type": "integer"
+    },
+    "hostId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "hostIdentityDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "ownedState": {
+      "items": {
+        "$ref": "#/$defs/access-owned-state"
+      },
+      "maxItems": 64,
+      "type": "array"
+    },
+    "profileLockDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "recoverySourcePrefixes": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 64,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/access-rollback-specification"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "hostId",
+    "hostIdentityDigest",
+    "profileLockDigest",
+    "ownedState",
+    "deadlineSeconds",
+    "recoverySourcePrefixes"
+  ],
+  "title": "VegaStack Labs access rollback specification",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

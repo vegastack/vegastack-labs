@@ -1,0 +1,119 @@
+{
+  "$defs": {
+    "access-probe-tuple": {
+      "additionalProperties": false,
+      "properties": {
+        "address": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "hostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "identityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "ownershipDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "port": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "protocol": {
+          "enum": [
+            "tcp",
+            "udp"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/access-probe-tuple"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "hostId",
+        "identityDigest",
+        "address",
+        "port",
+        "protocol"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/access-probe-case",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "destination": {
+      "$ref": "#/$defs/access-probe-tuple"
+    },
+    "expected": {
+      "enum": [
+        "allowed",
+        "denied"
+      ],
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "ssh-admin",
+        "ssh-wrong-user",
+        "ssh-password",
+        "ssh-root",
+        "ssh-source",
+        "host-flow",
+        "container-published",
+        "container-unpublished",
+        "container-east-west"
+      ],
+      "type": "string"
+    },
+    "probeId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/access-probe-case"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "witness": {
+      "$ref": "#/$defs/access-probe-tuple"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "probeId",
+    "kind",
+    "expected",
+    "destination",
+    "witness"
+  ],
+  "title": "VegaStack Labs access probe case",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

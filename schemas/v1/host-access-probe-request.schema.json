@@ -1,0 +1,177 @@
+{
+  "$defs": {
+    "host-action-console-confirmation": {
+      "additionalProperties": false,
+      "properties": {
+        "hostIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "method": {
+          "enum": [
+            "administrator-verified-console"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-action-console-confirmation"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "targetDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "method",
+        "targetDigest",
+        "hostIdentityDigest"
+      ],
+      "type": "object"
+    },
+    "host-action-request": {
+      "additionalProperties": false,
+      "properties": {
+        "actionId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "actionInput": {
+          "maxLength": 32768,
+          "minLength": 1,
+          "type": "string"
+        },
+        "actionInputDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "actionVersion": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
+          "type": "string"
+        },
+        "automationPrincipalId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "callerUid": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "consoleConfirmation": {
+          "$ref": "#/$defs/host-action-console-confirmation"
+        },
+        "credentialMaterialVersion": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "credentialReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "expectedStateRevision": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "hostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "idempotencyKey": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-action-request"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "targetDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "targetRevision": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "actionId",
+        "actionVersion",
+        "actionInputDigest",
+        "actionInput",
+        "hostId",
+        "targetRevision",
+        "targetDigest",
+        "automationPrincipalId",
+        "callerUid",
+        "credentialReferenceId",
+        "credentialMaterialVersion",
+        "consoleConfirmation",
+        "expectedStateRevision",
+        "recoveryEpoch",
+        "idempotencyKey"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/host-access-probe-request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "enum": [
+        "local-probe",
+        "source-probe",
+        "collect"
+      ],
+      "type": "string"
+    },
+    "request": {
+      "$ref": "#/$defs/host-action-request"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/host-access-probe-request"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "kind",
+    "request"
+  ],
+  "title": "VegaStack Labs host access probe request",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

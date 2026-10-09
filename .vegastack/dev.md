@@ -60,6 +60,8 @@ Standing operator instruction on 08-10-2026 authorizes PR creation, merge and co
 
 ## Verify — how to see it working before merge
 
+Operator instruction on 09-10-2026: ship faster by skipping unnecessary tests and reviews. Use focused checks for changed behavior and retain independent review where privileged execution, authorization, recovery or data preservation makes it critical. Skip separate standards-only reviews and repeat whole-issue reviews for non-runtime tooling/generated corrections; the coordinator inspects those exact changes and records the assessment honestly. Keep the required final exact-head proof and resolve concrete failures; do not add optional suites or review rounds after sufficient verification. This changes development verification effort, not infrastructure authority.
+
 - Install public dependencies: `pnpm install --frozen-lockfile` under Node.js 24.20.0 and pnpm 11.24.0.
 - During implementation and review fixes, run only the narrow affected Go, tooling, web, security, failure, recovery, or integration checks.
 - Run the pinned local `pnpm check:affected` command once against the exact current remote `main` commit and exact clean, pushed branch head immediately before pull request creation. Changed Go files test and vet only their package directories while repository-wide compilation and selected boundary verifiers remain. Accepted Phase 3, Phase 4, and Phase 5 phase-wide suites are outside the routine plan; run them only when an owning issue explicitly requires its acceptance command.
