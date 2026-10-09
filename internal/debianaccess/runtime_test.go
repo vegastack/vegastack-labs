@@ -438,3 +438,24 @@ func TestPreDockerBaselineDoesNotClaimContainerQualification(t *testing.T) {
 		}
 	}
 }
+
+func TestOwnedFirewallJumpMustPrecedeParentRules(t *testing.T) {
+	for _, pair := range [][2]string{{"INPUT", "VSK-ACCESS-IN"}, {"DOCKER-USER", "VSK-ACCESS-DKR"}} {
+		for _, first := range []bool{true, false} {
+			t.Run(fmt.Sprintf("%s-first-%t", pair[0], first), func(t *testing.T) {
+				jump := "-A " + pair[0] + " -j " + pair[1] + "\n"
+				bypass := "-A " + pair[0] + " -j ACCEPT\n"
+				rules := jump + bypass
+				if !first {
+					rules = bypass + jump
+				}
+				raw := "-N " + pair[0] + "\n-N " + pair[1] + "\n" + rules
+				n := nativeRuntime{run: func(context.Context, string, []string, []byte) ([]byte, error) { return []byte(raw), nil }}
+				_, err := n.inspectChain(context.Background(), "ipv4", pair[1])
+				if (err == nil) != first {
+					t.Fatalf("first=%t error=%v", first, err)
+				}
+			})
+		}
+	}
+}

@@ -349,6 +349,7 @@ func (n *nativeRuntime) inspectChain(ctx context.Context, family, chain string) 
 		return state, e
 	}
 	jumps := 0
+	parentRules := 0
 	for _, line := range strings.Split(strings.TrimSpace(string(raw)), "\n") {
 		f := strings.Fields(line)
 		if len(f) < 2 {
@@ -368,9 +369,12 @@ func (n *nativeRuntime) inspectChain(ctx context.Context, family, chain string) 
 			}
 			state.Rules = append(state.Rules, rule)
 		}
+		if f[0] == "-A" && f[1] == parent {
+			parentRules++
+		}
 		for i := 2; i < len(f)-1; i++ {
 			if (f[i] == "-j" || f[i] == "-g") && f[i+1] == chain {
-				if len(f) != 4 || f[0] != "-A" || f[1] != parent || f[2] != "-j" {
+				if len(f) != 4 || f[0] != "-A" || f[1] != parent || f[2] != "-j" || parentRules != 1 {
 					return state, errAccess
 				}
 				jumps++
