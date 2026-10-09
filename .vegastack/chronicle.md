@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 09-10-2026 — Admission explains which machine checks are missing ([#229](https://github.com/vegastack/vegastack-labs/issues/229))
+
+- **What:** The two host gates use the registered machine's current action receipts and observations. A blocked decision identifies the missing or failed control. Reading a decision does not contact a machine or stop its services.
+- **Why:** The Linux onboarding path needs to distinguish a registered machine, a verified baseline and an installed role before allowing new workloads.
+- **How it went:** Evidence loading, evaluation and API integration were built in parallel. Real SQLite integration caught missing fixture parents while keeping foreign-key checks enabled. Focused review found that the access collector hashes observed resources rather than the desired rendering, and that newer failed qualification must suppress older successes. These are consumer compatibility and current-evidence checks; synthetic tests do not qualify native behavior.
+- **Changed:** Host-specific gate reads · finite required controls · exact receipt joins · current evidence and mutation invalidation · precise denial reasons · baseline-before-role ordering.
+- **Decisions:** No new service or database table. Native qualification and installed-role producers remain separately owned work; the default missing-proof path blocks admission. Mac stays deferred within v1, nodes04/05 remain excluded, and no rollout or full-phase acceptance is claimed.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/6.8-host-admission
+
 ## 09-10-2026 — Debian baseline checks share the existing action and receipt path ([#226](https://github.com/vegastack/vegastack-labs/issues/226))
 
 - **What:** The remaining selected Linux controls gained finite configuration and observation actions. Existing encrypted volumes can be checked against actual mapping/header bindings, and an independent custodian can test its recovery key without activating a volume.
