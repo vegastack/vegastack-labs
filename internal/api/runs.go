@@ -294,7 +294,11 @@ func (app *Application) authorizeRunPlan(request *http.Request, plan generated.P
 	}
 	var result generated.AuthorizationDecision
 	seen := map[string]bool{}
-	for _, operation := range plan.Operations {
+	operations := append([]generated.PlanOperation(nil), plan.Operations...)
+	if plan.HostBaselineScope != nil {
+		operations = append(operations, generated.PlanOperation{OperationType: "host.action.execute", TargetID: plan.HostBaselineScope.SubjectHostID})
+	}
+	for _, operation := range operations {
 		key := operation.OperationType + "\x00" + operation.TargetID
 		if seen[key] {
 			continue

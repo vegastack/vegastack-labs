@@ -1,0 +1,139 @@
+{
+  "$id": "vegastack-labs.dev/host-volume-binding",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "controlHostId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "controlHostIdentityDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "declarationId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "declarationRevision": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "deviceMajor": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "deviceMinor": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "headerBytes": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "headerDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "hostId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "hostIdentityDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "keySlot": {
+      "maximum": 31,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "luksUuid": {
+      "maxLength": 64,
+      "minLength": 1,
+      "type": "string"
+    },
+    "mapperName": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "mappingDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "mountBindingDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "mountPath": {
+      "maxLength": 256,
+      "minLength": 1,
+      "type": "string"
+    },
+    "recoveryCustodianId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "recoveryCustodianIdentityDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "recoveryReferenceDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "recoveryTargetDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/host-volume-binding"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "volumeId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "hostId",
+    "hostIdentityDigest",
+    "volumeId",
+    "controlHostId",
+    "controlHostIdentityDigest",
+    "headerBytes",
+    "luksUuid",
+    "headerDigest",
+    "mappingDigest",
+    "mountBindingDigest",
+    "mapperName",
+    "mountPath",
+    "deviceMajor",
+    "deviceMinor",
+    "keySlot",
+    "recoveryCustodianId",
+    "recoveryCustodianIdentityDigest",
+    "recoveryTargetDigest",
+    "recoveryReferenceDigest",
+    "declarationId",
+    "declarationRevision",
+    "recoveryEpoch"
+  ],
+  "title": "VegaStack Labs host volume binding",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

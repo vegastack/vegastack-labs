@@ -2,10 +2,12 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/change"
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
+	"github.com/vegastack/vegastack-labs/internal/debianbaseline"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"github.com/vegastack/vegastack-labs/internal/hostdiscovery"
@@ -15,11 +17,15 @@ import (
 	"net/http"
 )
 
+type BaselineRenderer interface {
+	RenderPolicy(context.Context, generated.DebianBaselineInput) (string, error)
+}
 type HostActionOperations struct {
-	Hosts        *store.HostActionRepository
-	Declarations *change.Service
-	Credentials  *store.CredentialRepository
-	Results      *result.Factory
+	BaselineRenderer BaselineRenderer
+	Hosts            *store.HostActionRepository
+	Declarations     *change.Service
+	Credentials      *store.CredentialRepository
+	Results          *result.Factory
 }
 
 func RegisterHostActionOperations(app *Application, c HostActionOperations) error {
@@ -37,9 +43,39 @@ func (app *Application) hostActionDraft(c HostActionOperations) func(http.Respon
 	return func(w http.ResponseWriter, r *http.Request, _ authorization.ReadScope, _ map[string]string) {
 		const operation = "api.v1.host-actions.draft"
 		var input generated.HostActionRequest
-		if err := discoveryInput(r, generated.SchemaIDHostActionRequest, []string{"schema", "schemaVersion", "actionId", "actionVersion", "actionInputDigest", "actionInput", "hostId", "targetRevision", "targetDigest", "automationPrincipalId", "callerUid", "credentialReferenceId", "credentialMaterialVersion", "consoleConfirmation", "expectedStateRevision", "recoveryEpoch", "idempotencyKey"}, &input); err != nil {
+		if err := decodeOperationRequest(r, 131072, []string{"schema", "schemaVersion", "actionId", "actionVersion", "actionInputDigest", "actionInput", "hostId", "targetRevision", "targetDigest", "automationPrincipalId", "callerUid", "credentialReferenceId", "credentialMaterialVersion", "consoleConfirmation", "expectedStateRevision", "recoveryEpoch", "idempotencyKey"}, &input); err != nil {
 			app.failure(w, operation, err)
 			return
+		}
+		raw, _ := json.Marshal(input)
+		if generated.ValidateContractJSON(generated.SchemaIDHostActionRequest, raw, generated.ContractExact) != nil {
+			app.failure(w, operation, apiFailure(generated.ErrorCodeInputInvalid, "host-action"))
+			return
+		}
+		if debianbaseline.IsAction(input.ActionID) {
+			if _, err := app.authorizeAction(r, authorization.ActionAuthor, authorization.Target{Capability: "host.action.prepare", ResourceKind: "host", ResourceID: input.HostID}); err != nil {
+				app.failure(w, operation, err)
+				return
+			}
+			if input.ActionID != "debian.volume-recovery.verify" {
+				in, err := debianbaseline.DecodeDesiredInput([]byte(input.ActionInput))
+				if err != nil || c.BaselineRenderer == nil {
+					app.failure(w, operation, apiFailure(generated.ErrorCodePrerequisiteBlocked, "baseline-renderer"))
+					return
+				}
+				in.RenderedPolicyDigest, err = c.BaselineRenderer.RenderPolicy(r.Context(), in)
+				if err != nil || debianbaseline.ValidateInput(in) != nil {
+					app.failure(w, operation, apiFailure(generated.ErrorCodeInputInvalid, "baseline-render"))
+					return
+				}
+				raw, _ = json.Marshal(in)
+				input.ActionInput = string(raw)
+				input.ActionInputDigest = hostaction.BytesDigest(raw)
+			}
+			if err := c.Hosts.ValidateBaselinePreparation(r.Context(), input); err != nil {
+				app.failure(w, operation, err)
+				return
+			}
 		}
 		id := hostaction.DraftID(input)
 		if _, err := app.authorizeAction(r, authorization.ActionAuthor, authorization.Target{Capability: "declaration.author", ResourceKind: "declaration", ResourceID: id}); err != nil {

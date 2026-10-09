@@ -1,0 +1,6 @@
+---
+- name: Render the fixed baseline file map for native exact comparison
+  ansible.builtin.copy:
+    dest: "{{ render_destination }}"
+    content: "{{ baseline_files | to_json }}"
+    mode: '0600'

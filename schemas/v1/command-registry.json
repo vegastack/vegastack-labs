@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/command-registry",
-  "schemaVersion": "1.23.0",
+  "schemaVersion": "1.24.0",
   "commands": [
     {
       "path": [
@@ -4658,6 +4658,31 @@
       "artifactPath": "schemas/v1/backup-verify-request.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/baseline-aide-policy",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/baseline-aide-policy.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/baseline-apparmor-profile",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/baseline-apparmor-profile.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/baseline-kernel-setting",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/baseline-kernel-setting.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/baseline-observation",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/baseline-observation.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/baseline-resource-limit",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/baseline-resource-limit.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/browser-audit-checkpoint",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/browser-audit-checkpoint.schema.json"
@@ -4828,6 +4853,11 @@
       "id": "vegastack-labs.dev/debian-access-input",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/debian-access-input.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/debian-baseline-input",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/debian-baseline-input.schema.json"
     },
     {
       "id": "vegastack-labs.dev/debian-profile-lock",
@@ -5019,6 +5049,11 @@
       "artifactPath": "schemas/v1/host-adoption-submission.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/host-baseline-scope",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-baseline-scope.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/host-control-result",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/host-control-result.schema.json"
@@ -5092,6 +5127,11 @@
       "id": "vegastack-labs.dev/host-role-alias",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/host-role-alias.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/host-volume-binding",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-volume-binding.schema.json"
     },
     {
       "id": "vegastack-labs.dev/inventory-diff-counts",
@@ -5483,6 +5523,16 @@
     {
       "id": "vegastack-labs.dev/state-export-source",
       "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/volume-observation",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/volume-observation.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/volume-recovery-input",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/volume-recovery-input.schema.json"
     }
   ],
   "lifecycle": {

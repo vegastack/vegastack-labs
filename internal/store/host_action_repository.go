@@ -8,6 +8,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
 	"github.com/vegastack/vegastack-labs/internal/debianaccess"
+	"github.com/vegastack/vegastack-labs/internal/debianbaseline"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"github.com/vegastack/vegastack-labs/internal/hostdiscovery"
@@ -56,6 +57,11 @@ func (r *HostActionRepository) StageDraft(ctx context.Context, req generated.Hos
 	defer r.actionPreparationFailure(ctx, req, &outcome)
 	if r == nil || r.store == nil || hostaction.ValidateRequest(req) != nil {
 		return HostActionDraft{}, actionError(generated.ErrorCodeInputInvalid)
+	}
+	if debianbaseline.IsAction(req.ActionID) {
+		if e := r.ValidateBaselinePreparation(ctx, req); e != nil {
+			return HostActionDraft{}, e
+		}
 	}
 	validate := func(row discoveryRow) error {
 		if _, err := actionTarget(row, req); err != nil {
@@ -133,6 +139,9 @@ func (r *HostActionRepository) CurrentExecution(ctx context.Context, op adapter.
 			return actionError(generated.ErrorCodePlanStale)
 		}
 		d := out.Draft
+		if debianbaseline.IsAction(d.Request.ActionID) != (p.HostBaselineScope != nil) {
+			return actionError(generated.ErrorCodeIntegrityFailure)
+		}
 		if p.HostAccessSequence == nil && (d.Request.ActionID == "debian.access.apply" || d.Request.ActionID == "debian.access.confirm" || d.Request.ActionID == "debian.access.probe-source" || d.Request.ActionID == "debian.access.probe.local") {
 			return actionError(generated.ErrorCodeAuthorizationDenied)
 		}
@@ -167,6 +176,14 @@ func (r *HostActionRepository) CurrentExecution(ctx context.Context, op adapter.
 			return actionError(generated.ErrorCodeApprovalRequired)
 		}
 
+		if p.HostBaselineScope != nil {
+			if e := validateBaselineCurrent(row, p, r.store.config.Clock()); e != nil {
+				return e
+			}
+			if e := authorizeBaselineScope(ctx, row, p, b.RunID, human); e != nil {
+				return e
+			}
+		}
 		if p.HostAccessSequence != nil {
 			if e := validateAccessCurrentTargets(row, p, r.store.config.Clock()); e != nil {
 				return e

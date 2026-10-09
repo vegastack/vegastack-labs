@@ -41,6 +41,9 @@ func (g hostActionGate) VerifySecretStep(ctx context.Context, p generated.Plan, 
 	}
 	var c generated.HostActionCredentialConfirmation
 	if action {
+		if scope := p.HostBaselineScope; scope != nil && (!slices.Contains(g.allowed, scope.SubjectIdentityDigest) || !slices.Contains(g.allowed, scope.ExecutionIdentityDigest)) {
+			return actionFailure()
+		}
 		r := p.HostAction
 		if p.HostAccessSequence != nil {
 			source, ok := g.targets.(interface {

@@ -407,6 +407,15 @@
           "github.com/vegastack/vegastack-labs/internal/debianaccess"
         ],
         "mutationBoundaryDigest": "sha256:249edd7b52560d6aa3adde148a574628816a39f3853b4f0b489d07753010c90d"
+      },
+      {
+        "id": "phase6-issue226-v1",
+        "issue": 226,
+        "commands": [],
+        "imports": [
+          "github.com/vegastack/vegastack-labs/internal/debianbaseline"
+        ],
+        "mutationBoundaryDigest": "sha256:6d55250f6c92eb292cd5400e7bb80d03ddde1ff3950f3ed727da16837c980a4a"
       }
     ]
   },

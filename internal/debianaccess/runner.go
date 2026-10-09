@@ -19,7 +19,7 @@ func (b *boundedOutput) Write(p []byte) (int, error) {
 }
 func nativeCommand(ctx context.Context, bin string, args []string, stdin []byte) ([]byte, error) {
 	switch bin {
-	case "/usr/sbin/sshd", "/usr/sbin/useradd", "/usr/sbin/groupadd", "/usr/sbin/iptables-nft", "/usr/sbin/ip6tables-nft", "/usr/sbin/iptables-nft-restore", "/usr/sbin/ip6tables-nft-restore", "/usr/bin/systemctl", "/usr/bin/dpkg-query", "/usr/bin/cvtsudoers":
+	case "/usr/sbin/aa-status", "/usr/sbin/apparmor_parser", "/usr/sbin/auditctl", "/usr/sbin/augenrules", "/usr/sbin/sshd", "/usr/sbin/useradd", "/usr/sbin/groupadd", "/usr/sbin/iptables-nft", "/usr/sbin/ip6tables-nft", "/usr/sbin/iptables-nft-restore", "/usr/sbin/ip6tables-nft-restore", "/usr/bin/systemctl", "/usr/bin/dpkg-query", "/usr/bin/cvtsudoers":
 	default:
 		return nil, errAccess
 	}

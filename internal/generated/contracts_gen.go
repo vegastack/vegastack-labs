@@ -6,7 +6,7 @@ import "encoding/json"
 
 const (
 	SchemaMajor                                    = 1
-	RegistrySchemaVersion                          = "1.23.0"
+	RegistrySchemaVersion                          = "1.24.0"
 	AvailabilityAvailable                          = "available"
 	AvailabilityPlanned                            = "planned"
 	FlagKindValue                                  = "value"
@@ -88,6 +88,11 @@ const (
 	SchemaIDBackupTrustSourceDraftRequest          = "vegastack-labs.dev/backup-trust-source-draft-request"
 	SchemaIDBackupVerificationAttempt              = "vegastack-labs.dev/backup-verification-attempt"
 	SchemaIDBackupVerifyRequest                    = "vegastack-labs.dev/backup-verify-request"
+	SchemaIDBaselineAidePolicy                     = "vegastack-labs.dev/baseline-aide-policy"
+	SchemaIDBaselineApparmorProfile                = "vegastack-labs.dev/baseline-apparmor-profile"
+	SchemaIDBaselineKernelSetting                  = "vegastack-labs.dev/baseline-kernel-setting"
+	SchemaIDBaselineObservation                    = "vegastack-labs.dev/baseline-observation"
+	SchemaIDBaselineResourceLimit                  = "vegastack-labs.dev/baseline-resource-limit"
 	SchemaIDBrowserAuditCheckpoint                 = "vegastack-labs.dev/browser-audit-checkpoint"
 	SchemaIDBrowserAuditCheckpointListData         = "vegastack-labs.dev/browser-audit-checkpoint-list-data"
 	SchemaIDBrowserAuditEvent                      = "vegastack-labs.dev/browser-audit-event"
@@ -123,6 +128,7 @@ const (
 	SchemaIDDatabaseExportRequest                  = "vegastack-labs.dev/database-export-request"
 	SchemaIDDatabaseStatusData                     = "vegastack-labs.dev/database-status-data"
 	SchemaIDDebianAccessInput                      = "vegastack-labs.dev/debian-access-input"
+	SchemaIDDebianBaselineInput                    = "vegastack-labs.dev/debian-baseline-input"
 	SchemaIDDebianProfileLock                      = "vegastack-labs.dev/debian-profile-lock"
 	SchemaIDDeclarationOperation                   = "vegastack-labs.dev/declaration-operation"
 	SchemaIDDeclarationRevision                    = "vegastack-labs.dev/declaration-revision"
@@ -161,6 +167,7 @@ const (
 	SchemaIDHostActionSubmission                   = "vegastack-labs.dev/host-action-submission"
 	SchemaIDHostAdoptionRequest                    = "vegastack-labs.dev/host-adoption-request"
 	SchemaIDHostAdoptionSubmission                 = "vegastack-labs.dev/host-adoption-submission"
+	SchemaIDHostBaselineScope                      = "vegastack-labs.dev/host-baseline-scope"
 	SchemaIDHostControlResult                      = "vegastack-labs.dev/host-control-result"
 	SchemaIDHostDiscoveryConsoleConfirmation       = "vegastack-labs.dev/host-discovery-console-confirmation"
 	SchemaIDHostDiscoveryFact                      = "vegastack-labs.dev/host-discovery-fact"
@@ -176,6 +183,7 @@ const (
 	SchemaIDHostProfile                            = "vegastack-labs.dev/host-profile"
 	SchemaIDHostRole                               = "vegastack-labs.dev/host-role"
 	SchemaIDHostRoleAlias                          = "vegastack-labs.dev/host-role-alias"
+	SchemaIDHostVolumeBinding                      = "vegastack-labs.dev/host-volume-binding"
 	SchemaIDInventoryDiffCounts                    = "vegastack-labs.dev/inventory-diff-counts"
 	SchemaIDInventoryDiffData                      = "vegastack-labs.dev/inventory-diff-data"
 	SchemaIDInventoryDiffRecord                    = "vegastack-labs.dev/inventory-diff-record"
@@ -266,6 +274,8 @@ const (
 	SchemaIDStateExportDraftRef                    = "vegastack-labs.dev/state-export-draft-ref"
 	SchemaIDStateExportKindCount                   = "vegastack-labs.dev/state-export-kind-count"
 	SchemaIDStateExportSource                      = "vegastack-labs.dev/state-export-source"
+	SchemaIDVolumeObservation                      = "vegastack-labs.dev/volume-observation"
+	SchemaIDVolumeRecoveryInput                    = "vegastack-labs.dev/volume-recovery-input"
 	CommandNameApply                               = "apply"
 	FlagConfig                                     = "--config"
 	FlagOutput                                     = "--output"
@@ -449,6 +459,8 @@ type AccessInterface struct {
 type AccessMeasurement struct {
 	Schema                string                         `json:"schema"`
 	SchemaVersion         string                         `json:"schemaVersion"`
+	Baseline              *BaselineObservation           `json:"baseline,omitempty"`
+	Volume                *VolumeObservation             `json:"volume,omitempty"`
 	DestinationOwnership  []AccessDestinationObservation `json:"destinationOwnership,omitempty"`
 	ControlID             string                         `json:"controlId"`
 	Kind                  string                         `json:"kind"`
@@ -1273,6 +1285,54 @@ type BackupVerifyRequest struct {
 	HumanAcknowledgementID string `json:"humanAcknowledgementId"`
 }
 
+type BaselineAidePolicy struct {
+	Schema               string   `json:"schema"`
+	SchemaVersion        string   `json:"schemaVersion"`
+	ScopePaths           []string `json:"scopePaths"`
+	ScopeDigest          string   `json:"scopeDigest"`
+	PreviousDigest       string   `json:"previousDigest,omitempty"`
+	ApprovedChangeDigest string   `json:"approvedChangeDigest,omitempty"`
+	ReferenceDigest      string   `json:"referenceDigest,omitempty"`
+}
+
+type BaselineApparmorProfile struct {
+	Schema               string `json:"schema"`
+	SchemaVersion        string `json:"schemaVersion"`
+	ProfileID            string `json:"profileId"`
+	PackageName          string `json:"packageName"`
+	ProfileDigest        string `json:"profileDigest"`
+	AllowedProbeSelector string `json:"allowedProbeSelector"`
+	DeniedProbeSelector  string `json:"deniedProbeSelector"`
+}
+
+type BaselineKernelSetting struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	Name          string `json:"name"`
+	Value         string `json:"value"`
+}
+
+type BaselineObservation struct {
+	Schema                    string `json:"schema"`
+	SchemaVersion             string `json:"schemaVersion"`
+	FactsDigest               string `json:"factsDigest"`
+	Verification              string `json:"verification"`
+	NativeQualificationDigest string `json:"nativeQualificationDigest,omitempty"`
+	AIDEReferenceDigest       string `json:"aideReferenceDigest,omitempty"`
+}
+
+type BaselineResourceLimit struct {
+	Schema             string `json:"schema"`
+	SchemaVersion      string `json:"schemaVersion"`
+	Unit               string `json:"unit"`
+	MountPath          string `json:"mountPath"`
+	MemoryMaxBytes     int64  `json:"memoryMaxBytes"`
+	TasksMax           int64  `json:"tasksMax"`
+	CPUQuotaPercent    int64  `json:"cpuQuotaPercent"`
+	MinimumFreeBytes   int64  `json:"minimumFreeBytes"`
+	MinimumFreePercent int64  `json:"minimumFreePercent"`
+}
+
 type BrowserAuditCheckpoint struct {
 	Schema             string  `json:"schema"`
 	SchemaVersion      string  `json:"schemaVersion"`
@@ -1738,6 +1798,30 @@ type DebianAccessInput struct {
 	RollbackSpecification  AccessRollbackSpecification `json:"rollbackSpecification"`
 	RenderedAccess         RenderedAccess              `json:"renderedAccess"`
 	RenderedAccessDigest   string                      `json:"renderedAccessDigest"`
+}
+
+type DebianBaselineInput struct {
+	Schema                 string                    `json:"schema"`
+	SchemaVersion          string                    `json:"schemaVersion"`
+	HostID                 string                    `json:"hostId"`
+	HostIdentityDigest     string                    `json:"hostIdentityDigest"`
+	ProfileID              string                    `json:"profileId"`
+	ProfileLockDigest      string                    `json:"profileLockDigest"`
+	ProfileLock            DebianProfileLock         `json:"profileLock"`
+	RoleID                 string                    `json:"roleId"`
+	ActionVersion          string                    `json:"actionVersion"`
+	AutomationUID          int64                     `json:"automationUid"`
+	RenderedPolicyDigest   string                    `json:"renderedPolicyDigest"`
+	ControlIDs             []string                  `json:"controlIds"`
+	RecoverySourcePrefixes []string                  `json:"recoverySourcePrefixes"`
+	UpdateOwner            string                    `json:"updateOwner"`
+	TimeOwner              string                    `json:"timeOwner"`
+	AuditPaths             []string                  `json:"auditPaths"`
+	AppArmorProfiles       []BaselineApparmorProfile `json:"appArmorProfiles"`
+	AIDE                   BaselineAidePolicy        `json:"aide"`
+	Resources              []BaselineResourceLimit   `json:"resources"`
+	KernelSettings         []BaselineKernelSetting   `json:"kernelSettings"`
+	Volumes                []HostVolumeBinding       `json:"volumes"`
 }
 
 type DebianProfileLock struct {
@@ -2244,6 +2328,20 @@ type HostAdoptionSubmission struct {
 	RecoveryEpoch int64  `json:"recoveryEpoch"`
 }
 
+type HostBaselineScope struct {
+	Schema                   string   `json:"schema"`
+	SchemaVersion            string   `json:"schemaVersion"`
+	SubjectHostID            string   `json:"subjectHostId"`
+	SubjectIdentityDigest    string   `json:"subjectIdentityDigest"`
+	ExecutionHostID          string   `json:"executionHostId"`
+	ExecutionIdentityDigest  string   `json:"executionIdentityDigest"`
+	ProfileID                string   `json:"profileId"`
+	ProfileLockDigest        string   `json:"profileLockDigest"`
+	RoleID                   string   `json:"roleId"`
+	ControlIDs               []string `json:"controlIds"`
+	PriorVolumeReceiptDigest string   `json:"priorVolumeReceiptDigest,omitempty"`
+}
+
 type HostControlResult struct {
 	Schema              string  `json:"schema"`
 	SchemaVersion       string  `json:"schemaVersion"`
@@ -2432,6 +2530,33 @@ type HostRoleAlias struct {
 	AliasID       string `json:"aliasId"`
 	RoleID        string `json:"roleId"`
 	Value         string `json:"value"`
+}
+
+type HostVolumeBinding struct {
+	Schema                          string `json:"schema"`
+	SchemaVersion                   string `json:"schemaVersion"`
+	HostID                          string `json:"hostId"`
+	HostIdentityDigest              string `json:"hostIdentityDigest"`
+	VolumeID                        string `json:"volumeId"`
+	ControlHostID                   string `json:"controlHostId"`
+	ControlHostIdentityDigest       string `json:"controlHostIdentityDigest"`
+	HeaderBytes                     int64  `json:"headerBytes"`
+	LUKSUUID                        string `json:"luksUuid"`
+	HeaderDigest                    string `json:"headerDigest"`
+	MappingDigest                   string `json:"mappingDigest"`
+	MountBindingDigest              string `json:"mountBindingDigest"`
+	MapperName                      string `json:"mapperName"`
+	MountPath                       string `json:"mountPath"`
+	DeviceMajor                     int64  `json:"deviceMajor"`
+	DeviceMinor                     int64  `json:"deviceMinor"`
+	KeySlot                         int64  `json:"keySlot"`
+	RecoveryCustodianID             string `json:"recoveryCustodianId"`
+	RecoveryCustodianIdentityDigest string `json:"recoveryCustodianIdentityDigest"`
+	RecoveryTargetDigest            string `json:"recoveryTargetDigest"`
+	RecoveryReferenceDigest         string `json:"recoveryReferenceDigest"`
+	DeclarationID                   string `json:"declarationId"`
+	DeclarationRevision             int64  `json:"declarationRevision"`
+	RecoveryEpoch                   int64  `json:"recoveryEpoch"`
 }
 
 type InventoryDiffCounts struct {
@@ -2819,6 +2944,7 @@ type Plan struct {
 	NativeRestart        *NativeRestartPresentation        `json:"nativeRestart,omitempty"`
 	HostActionNativeUnit string                            `json:"hostActionNativeUnit,omitempty"`
 	HostActionConsole    *HostActionCredentialConfirmation `json:"hostActionConsole,omitempty"`
+	HostBaselineScope    *HostBaselineScope                `json:"hostBaselineScope,omitempty"`
 	HostAccessSequence   *HostAccessSequence               `json:"hostAccessSequence,omitempty"`
 	HostAction           *HostActionRequest                `json:"hostAction,omitempty"`
 	HostAdoption         *HostAdoptionRequest              `json:"hostAdoption,omitempty"`
@@ -3512,6 +3638,33 @@ type StateExportSource struct {
 	SourceRevision string `json:"sourceRevision"`
 	Digest         string `json:"digest"`
 	CapturedAt     string `json:"capturedAt"`
+}
+
+type VolumeObservation struct {
+	Schema                   string            `json:"schema"`
+	SchemaVersion            string            `json:"schemaVersion"`
+	Binding                  HostVolumeBinding `json:"binding"`
+	Kind                     string            `json:"kind"`
+	FactsDigest              string            `json:"factsDigest"`
+	PriorVolumeReceiptDigest string            `json:"priorVolumeReceiptDigest,omitempty"`
+	ObservedAt               string            `json:"observedAt"`
+}
+
+type VolumeRecoveryInput struct {
+	Schema                   string            `json:"schema"`
+	SchemaVersion            string            `json:"schemaVersion"`
+	HostID                   string            `json:"hostId"`
+	HostIdentityDigest       string            `json:"hostIdentityDigest"`
+	ProfileID                string            `json:"profileId"`
+	ProfileLockDigest        string            `json:"profileLockDigest"`
+	ProfileLock              DebianProfileLock `json:"profileLock"`
+	RoleID                   string            `json:"roleId"`
+	ActionVersion            string            `json:"actionVersion"`
+	AutomationUID            int64             `json:"automationUid"`
+	Binding                  HostVolumeBinding `json:"binding"`
+	PriorVolumeReceiptDigest string            `json:"priorVolumeReceiptDigest"`
+	RecoveryReferenceID      string            `json:"recoveryReferenceId"`
+	RecoveryMaterialVersion  string            `json:"recoveryMaterialVersion"`
 }
 
 type Command struct {

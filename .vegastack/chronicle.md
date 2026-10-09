@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 09-10-2026 — Debian baseline checks share the existing action and receipt path ([#226](https://github.com/vegastack/vegastack-labs/issues/226))
+
+- **What:** The remaining selected Linux controls gained finite configuration and observation actions. Existing encrypted volumes can be checked against actual mapping/header bindings, and an independent custodian can test its recovery key without activating a volume.
+- **Why:** Admission needs current measured controls, including truthful missing or failed results, before role/workload qualification can proceed.
+- **How it went:** Core/result integration and native handlers were developed in parallel. The implementation reused the existing action, rollback and SQLite paths. A sealed in-memory header copy prevents cryptsetup's automatic metadata repair from touching the real disk or custodian header. Linux tests proved the copy remains unwritable even after reopening. Temporary-root and simulated-peer tests remain separate from native profile qualification.
+- **Changed:** Baseline controls · protected AIDE reference actions · exact subject/custodian scope · current receipt joins · read-only volume verification · finite rollback integration.
+- **Decisions:** No new service or authority. Mac remains deferred; nodes04/05 remain excluded. Native qualification, admission and full-phase acceptance remain separate required work.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/6.5.2-debian-baseline
+
 ## 09-10-2026 — Access changes can recover when verification fails ([#225](https://github.com/vegastack/vegastack-labs/issues/225))
 
 - **What:** The Debian access path prepares exact account, SSH and firewall changes through the existing executable and approval flow. A local ten-minute rollback remains armed until the approved access checks succeed. Administrator preparation remains a separate prerequisite.

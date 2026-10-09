@@ -160,12 +160,249 @@
         "actual"
       ],
       "type": "object"
+    },
+    "baseline-observation": {
+      "additionalProperties": false,
+      "properties": {
+        "aideReferenceDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "factsDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "nativeQualificationDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/baseline-observation"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "verification": {
+          "enum": [
+            "configuration-observed",
+            "effective-probe",
+            "unavailable"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "factsDigest",
+        "verification"
+      ],
+      "type": "object"
+    },
+    "host-volume-binding": {
+      "additionalProperties": false,
+      "properties": {
+        "controlHostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "controlHostIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "declarationId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "declarationRevision": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "deviceMajor": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "deviceMinor": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "headerBytes": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "headerDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "hostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "hostIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "keySlot": {
+          "maximum": 31,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "luksUuid": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "mapperName": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "mappingDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "mountBindingDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "mountPath": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "recoveryCustodianId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryCustodianIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "recoveryReferenceDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "recoveryTargetDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-volume-binding"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "volumeId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "hostId",
+        "hostIdentityDigest",
+        "volumeId",
+        "controlHostId",
+        "controlHostIdentityDigest",
+        "headerBytes",
+        "luksUuid",
+        "headerDigest",
+        "mappingDigest",
+        "mountBindingDigest",
+        "mapperName",
+        "mountPath",
+        "deviceMajor",
+        "deviceMinor",
+        "keySlot",
+        "recoveryCustodianId",
+        "recoveryCustodianIdentityDigest",
+        "recoveryTargetDigest",
+        "recoveryReferenceDigest",
+        "declarationId",
+        "declarationRevision",
+        "recoveryEpoch"
+      ],
+      "type": "object"
+    },
+    "volume-observation": {
+      "additionalProperties": false,
+      "properties": {
+        "binding": {
+          "$ref": "#/$defs/host-volume-binding"
+        },
+        "factsDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "mapping",
+            "recovery"
+          ],
+          "type": "string"
+        },
+        "observedAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "priorVolumeReceiptDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/volume-observation"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "binding",
+        "kind",
+        "factsDigest",
+        "observedAt"
+      ],
+      "type": "object"
     }
   },
   "$id": "vegastack-labs.dev/access-measurement",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
+    "baseline": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/baseline-observation"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "bundleDigest": {
       "pattern": "^sha256:[a-f0-9]{64}$",
       "type": "string"
@@ -191,7 +428,9 @@
         "account",
         "ssh",
         "host-flow",
-        "container-flow"
+        "container-flow",
+        "baseline",
+        "volume"
       ],
       "type": "string"
     },
@@ -270,6 +509,16 @@
     "subjectIdentityDigest": {
       "pattern": "^sha256:[a-f0-9]{64}$",
       "type": "string"
+    },
+    "volume": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/volume-observation"
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   },
   "required": [

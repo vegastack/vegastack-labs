@@ -99,7 +99,7 @@ func (h handler) Execute(ctx context.Context, b generated.HostActionBundle) (gen
 	}
 	result.Status = "succeeded"
 	result.Changed = observed.Changed
-	result.EffectObserved = observed.Changed
+	result.EffectObserved = true
 	result.Reason = "access-observed"
 	result.ControlMeasurements = observed.Measurements
 	for i := range result.ControlMeasurements {

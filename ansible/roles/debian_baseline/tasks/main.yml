@@ -1,0 +1,10 @@
+---
+# Central render only; target writes use the finite signed native helper.
+- name: Require controller-local baseline rendering
+  ansible.builtin.assert:
+    that:
+      - inventory_hostname == 'localhost'
+      - ansible_connection == 'local'
+- name: Render the fixed typed baseline intent
+  ansible.builtin.include_role:
+    name: debian_baseline_render

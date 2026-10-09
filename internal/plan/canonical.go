@@ -46,6 +46,32 @@ func readablePlan(plan generated.Plan) string {
 		raw, _, _ := stateexport.CanonicalJSON(plan.HostActionConsole)
 		fmt.Fprintf(&body, "Credential consumer console confirmation: %s\nAdministrator confirms independent console access for BOTH the exact destination host/pinned key and the named native consumer/controller machine. Controller unit %s may restart during activation or rotation; native credential loading and denied-reader probes remain required.\n", raw, plan.HostActionNativeUnit)
 	}
+	if scope := plan.HostBaselineScope; scope != nil {
+		raw, _, _ := stateexport.CanonicalJSON(scope)
+		fmt.Fprintf(&body, "\nDebian baseline: subject %s; executor %s; role %s; selected controls %s.\nExact baseline scope: %s\n", scope.SubjectHostID, scope.ExecutionHostID, scope.RoleID, strings.Join(scope.ControlIDs, ", "), raw)
+		if plan.HostAction != nil {
+			var in generated.DebianBaselineInput
+			if json.Unmarshal([]byte(plan.HostAction.ActionInput), &in) == nil && in.HostID != "" {
+				fmt.Fprintf(&body, "Action %s; time owner %s; update owner %s; audit paths=%v; recovery sources=%v.\n", plan.HostAction.ActionID, in.TimeOwner, in.UpdateOwner, in.AuditPaths, in.RecoverySourcePrefixes)
+				for _, profile := range in.AppArmorProfiles {
+					fmt.Fprintf(&body, "AppArmor package %s profile %s digest %s.\n", profile.PackageName, profile.ProfileID, profile.ProfileDigest)
+				}
+				for _, resource := range in.Resources {
+					fmt.Fprintf(&body, "Resource limits for %s: memory %d bytes, tasks %d, CPU %d percent; mount %s minimum free %d bytes / %d percent.\n", resource.Unit, resource.MemoryMaxBytes, resource.TasksMax, resource.CPUQuotaPercent, resource.MountPath, resource.MinimumFreeBytes, resource.MinimumFreePercent)
+				}
+				for _, kernel := range in.KernelSettings {
+					fmt.Fprintf(&body, "Kernel setting %s=%s.\n", kernel.Name, kernel.Value)
+				}
+				if len(in.AIDE.ScopePaths) > 0 {
+					fmt.Fprintf(&body, "AIDE paths=%v; prior database digest %s; approved change %s.\n", in.AIDE.ScopePaths, in.AIDE.PreviousDigest, in.AIDE.ApprovedChangeDigest)
+				}
+				for _, volume := range in.Volumes {
+					fmt.Fprintf(&body, "Observe existing encrypted volume %s mapper %s mount %s; independent recovery custodian %s; header %s and keyslot %d. No format or new volume creation.\n", volume.VolumeID, volume.MapperName, volume.MountPath, volume.RecoveryCustodianID, volume.HeaderDigest, volume.KeySlot)
+				}
+			}
+		}
+
+	}
 	if plan.HostAccessSequence != nil {
 		raw, _, _ := stateexport.CanonicalJSON(plan.HostAccessSequence)
 		if len(plan.HostAccessSequence.Actions) > 0 {

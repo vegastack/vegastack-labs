@@ -43,3 +43,7 @@ func (c hostAccessComposition) RecordVerifiedControlResults(ctx context.Context,
 
 var _ transport.AccessSequenceSource = hostAccessComposition{}
 var _ transport.ControlResultRecorder = hostAccessComposition{}
+
+func (c hostAccessComposition) RenderPolicy(ctx context.Context, input generated.DebianBaselineInput) (string, error) {
+	return transport.RenderBaselineRole(ctx, input)
+}

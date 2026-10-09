@@ -9,8 +9,8 @@ import (
 
 func TestHostActionSourceSealRejectsChangedAddedOrImportedAuthority(t *testing.T) {
 	const module = "github.com/vegastack/vegastack-labs"
-	// Exercise current source closures. Historical #223 seals remain immutable,
-	// but files evolved by #225 must be checked against their additive wave.
+	// Exercise current source closures. Historical #223/#225 seals remain
+	// immutable; files evolved by #226 use their additive current wave.
 	currentSeals := map[string]hostActionSourceSeal{}
 	for key, seal := range hostActionSourceSeals {
 		relative := strings.SplitN(key, "|", 2)[0]
@@ -18,7 +18,7 @@ func TestHostActionSourceSealRejectsChangedAddedOrImportedAuthority(t *testing.T
 			currentSeals[key] = seal
 		}
 	}
-	for key, seal := range debianAccessSourceSeals {
+	for key, seal := range debianBaselineSourceSeals {
 		currentSeals[key] = seal
 	}
 	for key, seal := range currentSeals {

@@ -224,6 +224,11 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/backup-trust-source-draft-request.schema.json",
 		"schemas/v1/backup-verification-attempt.schema.json",
 		"schemas/v1/backup-verify-request.schema.json",
+		"schemas/v1/baseline-aide-policy.schema.json",
+		"schemas/v1/baseline-apparmor-profile.schema.json",
+		"schemas/v1/baseline-kernel-setting.schema.json",
+		"schemas/v1/baseline-observation.schema.json",
+		"schemas/v1/baseline-resource-limit.schema.json",
 		"schemas/v1/browser-audit-checkpoint-list-data.schema.json",
 		"schemas/v1/browser-audit-checkpoint.schema.json",
 		"schemas/v1/browser-audit-event.schema.json",
@@ -256,6 +261,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/database-export-request.schema.json",
 		"schemas/v1/database-status-data.schema.json",
 		"schemas/v1/debian-access-input.schema.json",
+		"schemas/v1/debian-baseline-input.schema.json",
 		"schemas/v1/debian-profile-lock.schema.json",
 		"schemas/v1/declaration-revision-request.schema.json",
 		"schemas/v1/declaration-revision.schema.json",
@@ -293,6 +299,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/host-action-submission.schema.json",
 		"schemas/v1/host-adoption-request.schema.json",
 		"schemas/v1/host-adoption-submission.schema.json",
+		"schemas/v1/host-baseline-scope.schema.json",
 		"schemas/v1/host-control-result.schema.json",
 		"schemas/v1/host-discovery-console-confirmation.schema.json",
 		"schemas/v1/host-discovery-fact.schema.json",
@@ -308,6 +315,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/host-profile.schema.json",
 		"schemas/v1/host-role-alias.schema.json",
 		"schemas/v1/host-role.schema.json",
+		"schemas/v1/host-volume-binding.schema.json",
 		"schemas/v1/inventory-diff-data.schema.json",
 		"schemas/v1/inventory-diff-request.schema.json",
 		"schemas/v1/inventory-draft-export-pointer.schema.json",
@@ -363,6 +371,8 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/server-profile.schema.json",
 		"schemas/v1/server-status-data.schema.json",
 		"schemas/v1/signed-inventory-draft-export.schema.json",
+		"schemas/v1/volume-observation.schema.json",
+		"schemas/v1/volume-recovery-input.schema.json",
 	}
 	gotPaths := make([]string, len(first))
 	for index, artifact := range first {
@@ -827,7 +837,7 @@ func TestGeneratedGoIsRuntimeSerializable(t *testing.T) {
 	}
 	for _, want := range []string{
 		`RegistrySchemaVersion`,
-		`= "1.23.0"`,
+		`= "1.24.0"`,
 		`type Endpoint struct`,
 		`var Endpoints = []Endpoint`,
 		`type DatabaseStatusData struct`,

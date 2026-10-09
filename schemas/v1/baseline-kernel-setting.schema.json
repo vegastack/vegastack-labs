@@ -1,0 +1,45 @@
+{
+  "$id": "vegastack-labs.dev/baseline-kernel-setting",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "enum": [
+        "kernel.dmesg_restrict",
+        "kernel.kptr_restrict",
+        "kernel.yama.ptrace_scope",
+        "fs.protected_hardlinks",
+        "fs.protected_symlinks"
+      ],
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/baseline-kernel-setting"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "value": {
+      "enum": [
+        "1",
+        "2"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "name",
+    "value"
+  ],
+  "title": "VegaStack Labs baseline kernel setting",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}
