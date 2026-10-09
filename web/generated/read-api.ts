@@ -13,6 +13,15 @@
 // api.v1.gates.get
 // api.v1.gates.list
 // api.v1.health.get
+// api.v1.host-access.draft
+// api.v1.host-actions.draft
+// api.v1.host-adoptions.draft
+// api.v1.host-discovery-targets.draft
+// api.v1.host-observations.create
+// api.v1.host-observations.get
+// api.v1.host-replacements.create
+// api.v1.host-replacements.get
+// api.v1.hosts.get
 // api.v1.inventory-draft-aliases.get
 // api.v1.inventory-draft-aliases.list
 // api.v1.inventory-draft-assets.get
@@ -50,6 +59,124 @@ export const GATE_EVIDENCE_TRANSITIONS = [{"from":"applied","to":"revoked"},{"fr
 export const BACKUP_JOB_TRANSITIONS = [{"from":"pending","to":"failed"},{"from":"pending","to":"verified"},{"from":"queued","to":"failed"},{"from":"queued","to":"running"},{"from":"running","to":"failed"},{"from":"running","to":"pending"},{"from":"running","to":"uncertain"}] as const;
 export const RESTORE_TRANSITIONS = [{"from":"fenced","to":"failed"},{"from":"fenced","to":"restoring"},{"from":"planned","to":"failed"},{"from":"planned","to":"fenced"},{"from":"restoring","to":"failed"},{"from":"restoring","to":"uncertain"},{"from":"restoring","to":"verification-required"},{"from":"verification-required","to":"failed"},{"from":"verification-required","to":"uncertain"},{"from":"verification-required","to":"verified"}] as const;
 export const SCHEDULED_JOB_TRANSITIONS = [{"from":"queued","to":"blocked"},{"from":"queued","to":"cancelled"},{"from":"queued","to":"failed"},{"from":"queued","to":"running"},{"from":"queued","to":"skipped"},{"from":"retry-wait","to":"cancelled"},{"from":"retry-wait","to":"failed"},{"from":"retry-wait","to":"running"},{"from":"running","to":"failed"},{"from":"running","to":"retry-wait"},{"from":"running","to":"succeeded"},{"from":"running","to":"uncertain"}] as const;
+
+export interface AccessAccount {
+  readonly "schema": "vegastack-labs.dev/access-account";
+  readonly "schemaVersion": "1.0.0";
+  readonly "name": string;
+  readonly "uid": number;
+  readonly "gid": number;
+  readonly "home": string;
+  readonly "role": "human" | "automation" | "service";
+  readonly "publicKeys": ReadonlyArray<string>;
+  readonly "publicKeyDigests": ReadonlyArray<string>;
+}
+
+export interface AccessFlow {
+  readonly "schema": "vegastack-labs.dev/access-flow";
+  readonly "schemaVersion": "1.0.0";
+  readonly "protocol": "tcp" | "udp";
+  readonly "sourcePrefix": string;
+  readonly "destinationPrefix": string;
+  readonly "port": number;
+  readonly "interface": string;
+}
+
+export interface AccessInterface {
+  readonly "schema": "vegastack-labs.dev/access-interface";
+  readonly "schemaVersion": "1.0.0";
+  readonly "name": string;
+  readonly "index": number;
+  readonly "addresses": ReadonlyArray<string>;
+  readonly "ipv6Enabled": boolean;
+}
+
+export interface AccessOwnedState {
+  readonly "schema": "vegastack-labs.dev/access-owned-state";
+  readonly "schemaVersion": "1.0.0";
+  readonly "resourceId": string;
+  readonly "beforeDigest": string;
+  readonly "afterDigest": string;
+}
+
+export interface AccessPackage {
+  readonly "schema": "vegastack-labs.dev/access-package";
+  readonly "schemaVersion": "1.0.0";
+  readonly "name": string;
+  readonly "version": string;
+}
+
+export interface AccessProbeCase {
+  readonly "schema": "vegastack-labs.dev/access-probe-case";
+  readonly "schemaVersion": "1.0.0";
+  readonly "probeId": string;
+  readonly "kind": "ssh-admin" | "ssh-wrong-user" | "ssh-password" | "ssh-root" | "ssh-source" | "host-flow" | "container-published" | "container-unpublished" | "container-east-west";
+  readonly "expected": "allowed" | "denied";
+  readonly "destination": AccessProbeTuple;
+  readonly "witness": AccessProbeTuple;
+}
+
+export interface AccessProbeInput {
+  readonly "schema": "vegastack-labs.dev/access-probe-input";
+  readonly "schemaVersion": "1.0.0";
+  readonly "subjectHostId": string;
+  readonly "subjectIdentityDigest": string;
+  readonly "subjectHostKey": string;
+  readonly "profileLockDigest": string;
+  readonly "applyInputDigest": string;
+  readonly "rollbackDigest": string;
+  readonly "administratorUser": string;
+  readonly "source": AccessProbeSource;
+  readonly "cases": ReadonlyArray<AccessProbeCase>;
+  readonly "timeoutMillis": number;
+  readonly "attempts": number;
+}
+
+export interface AccessProbeSource {
+  readonly "schema": "vegastack-labs.dev/access-probe-source";
+  readonly "schemaVersion": "1.0.0";
+  readonly "hostId": string;
+  readonly "identityDigest": string;
+  readonly "kind": "host-network" | "network-namespace" | "container";
+  readonly "contextId": string;
+  readonly "contextDigest": string;
+  readonly "interface": string;
+  readonly "interfaceIndex": number;
+  readonly "address": string;
+  readonly "family": "ipv4" | "ipv6";
+  readonly "routeDigest": string;
+}
+
+export interface AccessProbeTuple {
+  readonly "schema": "vegastack-labs.dev/access-probe-tuple";
+  readonly "schemaVersion": "1.0.0";
+  readonly "ownershipDigest"?: string;
+  readonly "hostId": string;
+  readonly "identityDigest": string;
+  readonly "address": string;
+  readonly "port": number;
+  readonly "protocol": "tcp" | "udp";
+}
+
+export interface AccessRollbackSpecification {
+  readonly "schema": "vegastack-labs.dev/access-rollback-specification";
+  readonly "schemaVersion": "1.0.0";
+  readonly "hostId": string;
+  readonly "hostIdentityDigest": string;
+  readonly "profileLockDigest": string;
+  readonly "ownedState": ReadonlyArray<AccessOwnedState>;
+  readonly "deadlineSeconds": number;
+  readonly "recoverySourcePrefixes": ReadonlyArray<string>;
+}
+
+export interface AccessServiceKey {
+  readonly "schema": "vegastack-labs.dev/access-service-key";
+  readonly "schemaVersion": "1.0.0";
+  readonly "serviceId": string;
+  readonly "publicKey": string;
+  readonly "publicKeyDigest": string;
+  readonly "sourcePrefixes": ReadonlyArray<string>;
+}
 
 export interface AccessTargetIdentity {
   readonly "schema": "vegastack-labs.dev/access-target-identity";
@@ -215,6 +342,45 @@ export interface ApprovalStatus {
 export interface AuditTarget {
   readonly "kind": string;
   readonly "id": string;
+}
+
+export interface BaselineAidePolicy {
+  readonly "schema": "vegastack-labs.dev/baseline-aide-policy";
+  readonly "schemaVersion": "1.0.0";
+  readonly "scopePaths": ReadonlyArray<string>;
+  readonly "scopeDigest": string;
+  readonly "previousDigest"?: string;
+  readonly "approvedChangeDigest"?: string;
+  readonly "referenceDigest"?: string;
+}
+
+export interface BaselineApparmorProfile {
+  readonly "schema": "vegastack-labs.dev/baseline-apparmor-profile";
+  readonly "schemaVersion": "1.0.0";
+  readonly "profileId": string;
+  readonly "packageName": string;
+  readonly "profileDigest": string;
+  readonly "allowedProbeSelector": string;
+  readonly "deniedProbeSelector": string;
+}
+
+export interface BaselineKernelSetting {
+  readonly "schema": "vegastack-labs.dev/baseline-kernel-setting";
+  readonly "schemaVersion": "1.0.0";
+  readonly "name": "kernel.dmesg_restrict" | "kernel.kptr_restrict" | "kernel.yama.ptrace_scope" | "fs.protected_hardlinks" | "fs.protected_symlinks";
+  readonly "value": "1" | "2";
+}
+
+export interface BaselineResourceLimit {
+  readonly "schema": "vegastack-labs.dev/baseline-resource-limit";
+  readonly "schemaVersion": "1.0.0";
+  readonly "unit": string;
+  readonly "mountPath": string;
+  readonly "memoryMaxBytes": number;
+  readonly "tasksMax": number;
+  readonly "cpuQuotaPercent": number;
+  readonly "minimumFreeBytes": number;
+  readonly "minimumFreePercent": number;
 }
 
 export interface BrowserAuditCheckpoint {
@@ -473,6 +639,23 @@ export interface ContractExtension {
   readonly "valueDigest": string;
 }
 
+export interface ControlHandoffInput {
+  readonly "schema": "vegastack-labs.dev/control-handoff-input";
+  readonly "schemaVersion": "1.0.0";
+  readonly "foregroundPid": number;
+  readonly "foregroundStartIdentity": string;
+  readonly "serviceUid": number;
+  readonly "databaseInstanceId": string;
+  readonly "recoveryEpoch": number;
+  readonly "writerLockDigest": string;
+  readonly "unitDigest": string;
+  readonly "configDigest": string;
+  readonly "executableDigest": string;
+  readonly "socketIdentityDigest": string;
+  readonly "expiresAt": string;
+  readonly "rollbackDeadline": string;
+}
+
 export interface DatabaseStatusData {
   readonly "mode": "ready" | "safe-mode";
   readonly "schemaVersion": number;
@@ -482,6 +665,71 @@ export interface DatabaseStatusData {
   readonly "integrityStatus": "unknown" | "verified" | "failed";
   readonly "lastIntegrityCheckAt": string | null;
   readonly "safeModeReason": string;
+}
+
+export interface DebianAccessInput {
+  readonly "schema": "vegastack-labs.dev/debian-access-input";
+  readonly "schemaVersion": "1.0.0";
+  readonly "hostId": string;
+  readonly "hostIdentityDigest": string;
+  readonly "profileId": string;
+  readonly "profileLockDigest": string;
+  readonly "profileLock": DebianProfileLock;
+  readonly "actionVersion": string;
+  readonly "automationUid": number;
+  readonly "accounts": ReadonlyArray<AccessAccount>;
+  readonly "sshUsers": ReadonlyArray<string>;
+  readonly "sshSourcePrefixes": ReadonlyArray<string>;
+  readonly "recoverySourcePrefixes": ReadonlyArray<string>;
+  readonly "privilegedServiceKeys": ReadonlyArray<AccessServiceKey>;
+  readonly "interfaces": ReadonlyArray<AccessInterface>;
+  readonly "hostFlows": ReadonlyArray<AccessFlow>;
+  readonly "containerFlows": ReadonlyArray<AccessFlow>;
+  readonly "rollbackDigest": string;
+  readonly "rollbackSpecification": AccessRollbackSpecification;
+  readonly "renderedAccess": RenderedAccess;
+  readonly "renderedAccessDigest": string;
+}
+
+export interface DebianBaselineInput {
+  readonly "schema": "vegastack-labs.dev/debian-baseline-input";
+  readonly "schemaVersion": "1.0.0";
+  readonly "hostId": string;
+  readonly "hostIdentityDigest": string;
+  readonly "profileId": string;
+  readonly "profileLockDigest": string;
+  readonly "profileLock": DebianProfileLock;
+  readonly "roleId": "control" | "application" | "ci" | "host" | "recovery-spare" | "reserve";
+  readonly "actionVersion": string;
+  readonly "automationUid": number;
+  readonly "renderedPolicyDigest": string;
+  readonly "controlIds": ReadonlyArray<string>;
+  readonly "recoverySourcePrefixes": ReadonlyArray<string>;
+  readonly "updateOwner": "unattended-upgrades" | "apt-periodic" | "operator";
+  readonly "timeOwner": "systemd-timesyncd" | "chrony";
+  readonly "auditPaths": ReadonlyArray<string>;
+  readonly "appArmorProfiles": ReadonlyArray<BaselineApparmorProfile>;
+  readonly "aide": BaselineAidePolicy;
+  readonly "resources": ReadonlyArray<BaselineResourceLimit>;
+  readonly "kernelSettings": ReadonlyArray<BaselineKernelSetting>;
+  readonly "volumes": ReadonlyArray<HostVolumeBinding>;
+}
+
+export interface DebianProfileLock {
+  readonly "schema": "vegastack-labs.dev/debian-profile-lock";
+  readonly "schemaVersion": "1.0.0";
+  readonly "imageDigest": string;
+  readonly "osFamily": "debian";
+  readonly "osVersion": string;
+  readonly "architecture": "amd64";
+  readonly "packageSourceDigest": string;
+  readonly "packages": ReadonlyArray<AccessPackage>;
+  readonly "executableVersion": string;
+  readonly "ansibleVersion": string;
+  readonly "ansibleExecutableDigest": string;
+  readonly "collectionDigest": string;
+  readonly "roleDigest": string;
+  readonly "backend": "iptables-nft";
 }
 
 export interface DeclarationOperation {
@@ -635,6 +883,21 @@ export interface GateView {
   readonly "applicabilityReasonCode": string;
 }
 
+export interface HostAccessDraftRequest {
+  readonly "schema": "vegastack-labs.dev/host-access-draft-request";
+  readonly "schemaVersion": "1.0.0";
+  readonly "subject": HostActionRequest;
+  readonly "input": DebianAccessInput;
+  readonly "probes": ReadonlyArray<HostAccessProbeRequest>;
+}
+
+export interface HostAccessProbeRequest {
+  readonly "schema": "vegastack-labs.dev/host-access-probe-request";
+  readonly "schemaVersion": "1.0.0";
+  readonly "kind": "local-probe" | "source-probe" | "collect";
+  readonly "request": HostActionRequest;
+}
+
 export interface HostAccessProbeStep {
   readonly "schema": "vegastack-labs.dev/host-access-probe-step";
   readonly "schemaVersion": "1.0.0";
@@ -701,6 +964,17 @@ export interface HostActionRequest {
   readonly "idempotencyKey": string;
 }
 
+export interface HostActionSubmission {
+  readonly "schema": "vegastack-labs.dev/host-action-submission";
+  readonly "schemaVersion": "1.0.0";
+  readonly "originalRequestDigest": string;
+  readonly "draftId": string;
+  readonly "declarationId": string;
+  readonly "contentDigest": string;
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
+}
+
 export interface HostAdoptionRequest {
   readonly "schema": "vegastack-labs.dev/host-adoption-request";
   readonly "schemaVersion": "1.0.0";
@@ -711,6 +985,16 @@ export interface HostAdoptionRequest {
   readonly "expectedStateRevision": number;
   readonly "recoveryEpoch": number;
   readonly "confirmation": HostIdentityConfirmation;
+}
+
+export interface HostAdoptionSubmission {
+  readonly "schema": "vegastack-labs.dev/host-adoption-submission";
+  readonly "schemaVersion": "1.0.0";
+  readonly "draftId": string;
+  readonly "declarationId": string;
+  readonly "contentDigest": string;
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
 }
 
 export interface HostAliasClaimRequest {
@@ -743,6 +1027,33 @@ export interface HostDiscoveryConsoleConfirmation {
   readonly "schemaVersion": "1.0.0";
   readonly "targetDigest": string;
   readonly "method": "administrator-verified-console";
+}
+
+export interface HostDiscoveryFact {
+  readonly "schema": "vegastack-labs.dev/host-discovery-fact";
+  readonly "schemaVersion": "1.0.0";
+  readonly "name": string;
+  readonly "value": string;
+  readonly "operation": string;
+  readonly "capturedAt": string;
+}
+
+export interface HostDiscoveryRequest {
+  readonly "schema": "vegastack-labs.dev/host-discovery-request";
+  readonly "schemaVersion": "1.0.0";
+  readonly "targetId": string;
+  readonly "targetRevision": number;
+  readonly "expectedStateRevision": number;
+  readonly "recoveryEpoch": number;
+  readonly "idempotencyKey": string;
+}
+
+export interface HostDiscoverySubmission {
+  readonly "schema": "vegastack-labs.dev/host-discovery-submission";
+  readonly "schemaVersion": "1.0.0";
+  readonly "originalRequestDigest": string;
+  readonly "observation": HostObservation;
+  readonly "created": boolean;
 }
 
 export interface HostDiscoveryTarget {
@@ -779,6 +1090,16 @@ export interface HostDiscoveryTargetDraftRequest {
   readonly "consoleConfirmation"?: HostDiscoveryConsoleConfirmation | null;
 }
 
+export interface HostDiscoveryTargetDraftSubmission {
+  readonly "schema": "vegastack-labs.dev/host-discovery-target-draft-submission";
+  readonly "schemaVersion": "1.0.0";
+  readonly "draftId": string;
+  readonly "declarationId": string;
+  readonly "contentDigest": string;
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
+}
+
 export interface HostGateQuery {
   readonly "subjectId"?: string;
 }
@@ -792,6 +1113,25 @@ export interface HostIdentityConfirmation {
   readonly "identityClass": "physical" | "qualified-virtual";
   readonly "identityKind": "product-serial" | "product-uuid";
   readonly "confirmedAt": string;
+}
+
+export interface HostObservation {
+  readonly "schema": "vegastack-labs.dev/host-observation";
+  readonly "schemaVersion": "1.0.0";
+  readonly "observationId": string;
+  readonly "targetId": string;
+  readonly "targetRevision": number;
+  readonly "targetDigest": string;
+  readonly "collector": string;
+  readonly "collectorVersion": string;
+  readonly "observedAt": string;
+  readonly "expiresAt": string;
+  readonly "status": "untrusted" | "incomplete";
+  readonly "facts": ReadonlyArray<HostDiscoveryFact>;
+  readonly "blockers": ReadonlyArray<string>;
+  readonly "contentDigest": string;
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
 }
 
 export interface HostReplacementAliasBinding {
@@ -872,6 +1212,58 @@ export interface HostReplacementSourceReference {
   readonly "custodyBindingDigest": string;
 }
 
+export interface HostReplacementState {
+  readonly "schema": "vegastack-labs.dev/host-replacement-state";
+  readonly "schemaVersion": "1.0.0";
+  readonly "replacementId": string;
+  readonly "declarationId": string;
+  readonly "oldHostId": string;
+  readonly "newHostId": string;
+  readonly "bindingDigest": string;
+  readonly "oldIdentityDigest": string;
+  readonly "newIdentityDigest": string;
+  readonly "roleBindingDigest": string;
+  readonly "declarationRevision": number;
+  readonly "priorOwnershipGeneration": number;
+  readonly "proposedOwnershipGeneration": number;
+  readonly "roleIntentRevision": number;
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
+  readonly "status": "staged" | "frozen" | "restore-pending" | "verification-required" | "qualification-required" | "committed";
+  readonly "restorationClass": "control-database" | "stateless-role";
+  readonly "aliasBindings": ReadonlyArray<HostReplacementAliasBinding>;
+  readonly "nextAction": "approve-freeze" | "resolve-fences" | "stage-restore" | "restart-candidate" | "verify-restore" | "qualify-replacement" | "prepare-commit" | "none";
+  readonly "blockers": ReadonlyArray<string>;
+  readonly "planId": string | null;
+  readonly "runId": string | null;
+  readonly "restorePlanId": string | null;
+  readonly "freezeEventDigest"?: string;
+  readonly "restorationReceiptDigest"?: string;
+  readonly "admissionSnapshotDigest"?: string;
+  readonly "continuityDigest"?: string;
+}
+
+export interface HostReplacementSubmission {
+  readonly "schema": "vegastack-labs.dev/host-replacement-submission";
+  readonly "schemaVersion": "1.0.0";
+  readonly "replacementId": string;
+  readonly "draftId": string;
+  readonly "declarationId": string;
+  readonly "contentDigest": string;
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
+}
+
+export interface HostRoleFoundation {
+  readonly "schema": "vegastack-labs.dev/host-role-foundation";
+  readonly "schemaVersion": "1.0.0";
+  readonly "roleId": string;
+  readonly "roleBindingDigest"?: string;
+  readonly "status": "unconfigured" | "pending" | "installed" | "partial" | "recovery-required";
+  readonly "serviceState": "not-applicable" | "pending-handoff" | "unverified" | "active";
+  readonly "blockers": ReadonlyArray<string>;
+}
+
 export interface HostRoleScope {
   readonly "schema": "vegastack-labs.dev/host-role-scope";
   readonly "schemaVersion": "1.0.0";
@@ -891,6 +1283,33 @@ export interface HostRoleScope {
   readonly "standbyRequired": boolean;
 }
 
+export interface HostVolumeBinding {
+  readonly "schema": "vegastack-labs.dev/host-volume-binding";
+  readonly "schemaVersion": "1.0.0";
+  readonly "hostId": string;
+  readonly "hostIdentityDigest": string;
+  readonly "volumeId": string;
+  readonly "controlHostId": string;
+  readonly "controlHostIdentityDigest": string;
+  readonly "headerBytes": number;
+  readonly "luksUuid": string;
+  readonly "headerDigest": string;
+  readonly "mappingDigest": string;
+  readonly "mountBindingDigest": string;
+  readonly "mapperName": string;
+  readonly "mountPath": string;
+  readonly "deviceMajor": number;
+  readonly "deviceMinor": number;
+  readonly "keySlot": number;
+  readonly "recoveryCustodianId": string;
+  readonly "recoveryCustodianIdentityDigest": string;
+  readonly "recoveryTargetDigest": string;
+  readonly "recoveryReferenceDigest": string;
+  readonly "declarationId": string;
+  readonly "declarationRevision": number;
+  readonly "recoveryEpoch": number;
+}
+
 export interface InventoryDraftCounts {
   readonly "assets": number;
   readonly "nodes": number;
@@ -900,6 +1319,84 @@ export interface InventoryDraftCounts {
   readonly "hardwareFacts": number;
   readonly "provenance": number;
   readonly "findings": number;
+}
+
+export interface LinuxRoleAccount {
+  readonly "schema": "vegastack-labs.dev/linux-role-account";
+  readonly "schemaVersion": "1.0.0";
+  readonly "selector": "control" | "application" | "ci" | "standby";
+  readonly "uid": number;
+  readonly "gid": number;
+  readonly "existing": boolean;
+}
+
+export interface LinuxRoleDirectory {
+  readonly "schema": "vegastack-labs.dev/linux-role-directory";
+  readonly "schemaVersion": "1.0.0";
+  readonly "selector": "config" | "state" | "runtime" | "work";
+  readonly "uid": number;
+  readonly "gid": number;
+  readonly "mode": "0700" | "0750";
+  readonly "expectedState": "absent" | "owned";
+  readonly "expectedDigest"?: string;
+}
+
+export interface LinuxRoleInput {
+  readonly "schema": "vegastack-labs.dev/linux-role-input";
+  readonly "schemaVersion": "1.0.0";
+  readonly "hostId": string;
+  readonly "hostIdentityDigest": string;
+  readonly "profileId": string;
+  readonly "profileLockDigest": string;
+  readonly "roleId": "control" | "application" | "ci" | "recovery-spare" | "reserve";
+  readonly "controlIds": ReadonlyArray<string>;
+  readonly "affectedBaselineControlIds": ReadonlyArray<string>;
+  readonly "baselineSnapshotDigest"?: string;
+  readonly "currentRoleBindingDigest"?: string;
+  readonly "roleBindingDigest": string;
+  readonly "networkingRequired": boolean;
+  readonly "standbyRequired": boolean;
+  readonly "networkAccess"?: DebianAccessInput | null;
+  readonly "profileLock": DebianProfileLock;
+  readonly "actionVersion": string;
+  readonly "automationUid": number;
+  readonly "accounts": ReadonlyArray<LinuxRoleAccount>;
+  readonly "directories": ReadonlyArray<LinuxRoleDirectory>;
+  readonly "resources": LinuxRoleResources;
+  readonly "renderedPolicyDigest": string;
+  readonly "executableDigest": string;
+  readonly "configDigest": string;
+  readonly "expectedServiceState": "absent" | "inactive" | "active";
+  readonly "expectedUnitDigest"?: string;
+  readonly "expectedTmpfilesDigest"?: string;
+  readonly "handoff"?: ControlHandoffInput | null;
+}
+
+export interface LinuxRoleResources {
+  readonly "schema": "vegastack-labs.dev/linux-role-resources";
+  readonly "schemaVersion": "1.0.0";
+  readonly "memoryMaxBytes": number;
+  readonly "cpuQuotaPercent": number;
+  readonly "tasksMax": number;
+  readonly "minimumFreeBytes": number;
+  readonly "minimumFreePercent": number;
+  readonly "capacityMemoryBytes": number;
+  readonly "capacityCpuPercent": number;
+  readonly "capacityTasks": number;
+}
+
+export interface ManagedHost {
+  readonly "schema": "vegastack-labs.dev/managed-host";
+  readonly "schemaVersion": "1.0.0";
+  readonly "roleFoundation"?: HostRoleFoundation | null;
+  readonly "hostId": string;
+  readonly "targetId": string;
+  readonly "observationId": string;
+  readonly "profileId": string;
+  readonly "identityClass": "physical" | "qualified-virtual";
+  readonly "status": "adopted-unadmitted";
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
 }
 
 export interface NativeRestartPresentation {
@@ -1025,6 +1522,22 @@ export interface PlanReferenceRequest {
   readonly "extensions": ReadonlyArray<ContractExtension>;
 }
 
+export interface RenderedAccess {
+  readonly "schema": "vegastack-labs.dev/rendered-access";
+  readonly "schemaVersion": "1.0.0";
+  readonly "profileLockDigest": string;
+  readonly "rendererDigest": string;
+  readonly "accounts": ReadonlyArray<AccessAccount>;
+  readonly "sshUsers": ReadonlyArray<string>;
+  readonly "sshSourcePrefixes": ReadonlyArray<string>;
+  readonly "recoverySourcePrefixes": ReadonlyArray<string>;
+  readonly "privilegedServiceKeys": ReadonlyArray<AccessServiceKey>;
+  readonly "interfaces": ReadonlyArray<AccessInterface>;
+  readonly "hostFlows": ReadonlyArray<AccessFlow>;
+  readonly "containerFlows": ReadonlyArray<AccessFlow>;
+  readonly "rollbackUnitsDigest": string;
+}
+
 export interface ResultError {
   readonly "code": "APPROVAL_REQUIRED" | "AUTHENTICATION_REQUIRED" | "AUTHORIZATION_DENIED" | "DEPENDENCY_UNAVAILABLE" | "EVIDENCE_EXPIRED" | "EVIDENCE_INVALID" | "EXECUTION_FAILED" | "EXECUTION_PARTIAL" | "GATE_BLOCKED" | "INPUT_INVALID" | "INTEGRITY_FAILURE" | "INTERRUPTED" | "MIGRATION_BLOCKED" | "PLAN_STALE" | "PREREQUISITE_BLOCKED" | "RATE_LIMITED" | "RECOVERY_EPOCH_MISMATCH" | "RECOVERY_REQUIRED" | "RESOURCE_NOT_FOUND" | "SCHEMA_UNSUPPORTED" | "SESSION_EXPIRED" | "STATE_CONFLICT" | "TARGET_UNREACHABLE" | "UNSUPPORTED_PLATFORM" | "VERSION_INCOMPATIBLE";
   readonly "target": string;
@@ -1058,6 +1571,23 @@ export interface ServerStatusData {
   readonly "remoteReadReason": "none" | "preflight-unavailable" | "authentication-unavailable" | "listener-unavailable" | "serve-failed";
 }
 
+export interface VolumeRecoveryInput {
+  readonly "schema": "vegastack-labs.dev/volume-recovery-input";
+  readonly "schemaVersion": "1.0.0";
+  readonly "hostId": string;
+  readonly "hostIdentityDigest": string;
+  readonly "profileId": string;
+  readonly "profileLockDigest": string;
+  readonly "profileLock": DebianProfileLock;
+  readonly "roleId": "control" | "application" | "ci" | "host" | "recovery-spare" | "reserve";
+  readonly "actionVersion": string;
+  readonly "automationUid": number;
+  readonly "binding": HostVolumeBinding;
+  readonly "priorVolumeReceiptDigest": string;
+  readonly "recoveryReferenceId": string;
+  readonly "recoveryMaterialVersion": string;
+}
+
 export const STABLE_ERROR_CODES = ["APPROVAL_REQUIRED","AUTHENTICATION_REQUIRED","AUTHORIZATION_DENIED","DEPENDENCY_UNAVAILABLE","EVIDENCE_EXPIRED","EVIDENCE_INVALID","EXECUTION_FAILED","EXECUTION_PARTIAL","GATE_BLOCKED","INPUT_INVALID","INTEGRITY_FAILURE","INTERRUPTED","MIGRATION_BLOCKED","PLAN_STALE","PREREQUISITE_BLOCKED","RATE_LIMITED","RECOVERY_EPOCH_MISMATCH","RECOVERY_REQUIRED","RESOURCE_NOT_FOUND","SCHEMA_UNSUPPORTED","SESSION_EXPIRED","STATE_CONFLICT","TARGET_UNREACHABLE","UNSUPPORTED_PLATFORM","VERSION_INCOMPATIBLE"] as const;
 export type StableErrorCode = (typeof STABLE_ERROR_CODES)[number];
 export type ApiFailureKind = "api" | "network" | "malformed-json" | "schema-mismatch" | "unsupported-version" | "cancelled";
@@ -1084,6 +1614,7 @@ type FieldRule = {
   readonly kind: "string" | "boolean" | "integer" | "object" | "array";
   readonly required: boolean;
   readonly nullable: boolean;
+  readonly omitEmpty?: boolean;
   readonly ref?: string;
   readonly itemRef?: string;
   readonly itemKind?: "string" | "boolean" | "integer" | "object" | "array";
@@ -1100,6 +1631,753 @@ type FieldRule = {
 };
 
 const SCHEMAS: ReadonlyArray<SchemaRule> = [
+  {
+    "id": "vegastack-labs.dev/access-account",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/access-account"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "name",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "uid",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "gid",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "home",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 256
+      },
+      {
+        "name": "role",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "human",
+          "automation",
+          "service"
+        ]
+      },
+      {
+        "name": "publicKeys",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "maxItems": 8,
+        "uniqueItems": true
+      },
+      {
+        "name": "publicKeyDigests",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "maxItems": 8,
+        "uniqueItems": true
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/access-flow",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/access-flow"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "protocol",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "tcp",
+          "udp"
+        ]
+      },
+      {
+        "name": "sourcePrefix",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 64
+      },
+      {
+        "name": "destinationPrefix",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 64
+      },
+      {
+        "name": "port",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "interface",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/access-interface",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/access-interface"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "name",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "index",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "addresses",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "maxItems": 16,
+        "uniqueItems": true
+      },
+      {
+        "name": "ipv6Enabled",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/access-owned-state",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/access-owned-state"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "resourceId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "beforeDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "afterDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/access-package",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/access-package"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "name",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "version",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 128
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/access-probe-case",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/access-probe-case"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "probeId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "kind",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "ssh-admin",
+          "ssh-wrong-user",
+          "ssh-password",
+          "ssh-root",
+          "ssh-source",
+          "host-flow",
+          "container-published",
+          "container-unpublished",
+          "container-east-west"
+        ]
+      },
+      {
+        "name": "expected",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "allowed",
+          "denied"
+        ]
+      },
+      {
+        "name": "destination",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/access-probe-tuple"
+      },
+      {
+        "name": "witness",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/access-probe-tuple"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/access-probe-input",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/access-probe-input"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "subjectHostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "subjectIdentityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "subjectHostKey",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 2048
+      },
+      {
+        "name": "profileLockDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "applyInputDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "rollbackDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "administratorUser",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "source",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/access-probe-source"
+      },
+      {
+        "name": "cases",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/access-probe-case",
+        "maxItems": 8
+      },
+      {
+        "name": "timeoutMillis",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1,
+        "maximum": 2000
+      },
+      {
+        "name": "attempts",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1,
+        "maximum": 2
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/access-probe-source",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/access-probe-source"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "hostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "identityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "kind",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "host-network",
+          "network-namespace",
+          "container"
+        ]
+      },
+      {
+        "name": "contextId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "contextDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "interface",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "interfaceIndex",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "address",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 64
+      },
+      {
+        "name": "family",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "ipv4",
+          "ipv6"
+        ]
+      },
+      {
+        "name": "routeDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/access-probe-tuple",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/access-probe-tuple"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "ownershipDigest",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "hostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "identityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "address",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 64
+      },
+      {
+        "name": "port",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "protocol",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "tcp",
+          "udp"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/access-rollback-specification",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/access-rollback-specification"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "hostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "hostIdentityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "profileLockDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "ownedState",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/access-owned-state",
+        "maxItems": 64
+      },
+      {
+        "name": "deadlineSeconds",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 600,
+        "maximum": 600
+      },
+      {
+        "name": "recoverySourcePrefixes",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "maxItems": 64,
+        "uniqueItems": true
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/access-service-key",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/access-service-key"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "serviceId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "publicKey",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 2048
+      },
+      {
+        "name": "publicKeyDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "sourcePrefixes",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "maxItems": 64,
+        "uniqueItems": true
+      }
+    ]
+  },
   {
     "id": "vegastack-labs.dev/access-target-identity",
     "fields": [
@@ -2047,6 +3325,246 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "nullable": false,
         "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
         "maxLength": 128
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/baseline-aide-policy",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/baseline-aide-policy"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "scopePaths",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "maxItems": 32,
+        "uniqueItems": true
+      },
+      {
+        "name": "scopeDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "previousDigest",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "approvedChangeDigest",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "referenceDigest",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/baseline-apparmor-profile",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/baseline-apparmor-profile"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "profileId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "packageName",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "profileDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "allowedProbeSelector",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "deniedProbeSelector",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/baseline-kernel-setting",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/baseline-kernel-setting"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "name",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "kernel.dmesg_restrict",
+          "kernel.kptr_restrict",
+          "kernel.yama.ptrace_scope",
+          "fs.protected_hardlinks",
+          "fs.protected_symlinks"
+        ]
+      },
+      {
+        "name": "value",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1",
+          "2"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/baseline-resource-limit",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/baseline-resource-limit"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "unit",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "mountPath",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 256
+      },
+      {
+        "name": "memoryMaxBytes",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "tasksMax",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "cpuQuotaPercent",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "minimumFreeBytes",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "minimumFreePercent",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
       }
     ]
   },
@@ -3708,6 +5226,113 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/control-handoff-input",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/control-handoff-input"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "foregroundPid",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "foregroundStartIdentity",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "serviceUid",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "databaseInstanceId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "writerLockDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "unitDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "configDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "executableDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "socketIdentityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "expiresAt",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      {
+        "name": "rollbackDeadline",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/database-status-data",
     "fields": [
       {
@@ -3767,6 +5392,469 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": true,
         "nullable": false
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/debian-access-input",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/debian-access-input"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "hostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "hostIdentityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "profileId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "profileLockDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "profileLock",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/debian-profile-lock"
+      },
+      {
+        "name": "actionVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"
+      },
+      {
+        "name": "automationUid",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "accounts",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/access-account",
+        "maxItems": 32
+      },
+      {
+        "name": "sshUsers",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "maxItems": 32,
+        "uniqueItems": true
+      },
+      {
+        "name": "sshSourcePrefixes",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "maxItems": 64,
+        "uniqueItems": true
+      },
+      {
+        "name": "recoverySourcePrefixes",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "maxItems": 64,
+        "uniqueItems": true
+      },
+      {
+        "name": "privilegedServiceKeys",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/access-service-key",
+        "maxItems": 8
+      },
+      {
+        "name": "interfaces",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/access-interface",
+        "maxItems": 16
+      },
+      {
+        "name": "hostFlows",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/access-flow",
+        "maxItems": 64
+      },
+      {
+        "name": "containerFlows",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/access-flow",
+        "maxItems": 64
+      },
+      {
+        "name": "rollbackDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "rollbackSpecification",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/access-rollback-specification"
+      },
+      {
+        "name": "renderedAccess",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/rendered-access"
+      },
+      {
+        "name": "renderedAccessDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/debian-baseline-input",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/debian-baseline-input"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "hostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "hostIdentityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "profileId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "profileLockDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "profileLock",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/debian-profile-lock"
+      },
+      {
+        "name": "roleId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "control",
+          "application",
+          "ci",
+          "host",
+          "recovery-spare",
+          "reserve"
+        ]
+      },
+      {
+        "name": "actionVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"
+      },
+      {
+        "name": "automationUid",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "renderedPolicyDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "controlIds",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "maxItems": 8,
+        "uniqueItems": true
+      },
+      {
+        "name": "recoverySourcePrefixes",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "maxItems": 32,
+        "uniqueItems": true
+      },
+      {
+        "name": "updateOwner",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "unattended-upgrades",
+          "apt-periodic",
+          "operator"
+        ]
+      },
+      {
+        "name": "timeOwner",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "systemd-timesyncd",
+          "chrony"
+        ]
+      },
+      {
+        "name": "auditPaths",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "maxItems": 32,
+        "uniqueItems": true
+      },
+      {
+        "name": "appArmorProfiles",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/baseline-apparmor-profile",
+        "maxItems": 16
+      },
+      {
+        "name": "aide",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/baseline-aide-policy"
+      },
+      {
+        "name": "resources",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/baseline-resource-limit",
+        "maxItems": 16
+      },
+      {
+        "name": "kernelSettings",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/baseline-kernel-setting",
+        "maxItems": 16
+      },
+      {
+        "name": "volumes",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/host-volume-binding",
+        "maxItems": 16
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/debian-profile-lock",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/debian-profile-lock"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "imageDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "osFamily",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "debian"
+        ]
+      },
+      {
+        "name": "osVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 32
+      },
+      {
+        "name": "architecture",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "amd64"
+        ]
+      },
+      {
+        "name": "packageSourceDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "packages",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/access-package",
+        "maxItems": 64
+      },
+      {
+        "name": "executableVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"
+      },
+      {
+        "name": "ansibleVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 64
+      },
+      {
+        "name": "ansibleExecutableDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "collectionDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "roleDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "backend",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "iptables-nft"
+        ]
       }
     ]
   },
@@ -3863,6 +5951,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "object",
         "required": false,
         "nullable": true,
+        "omitEmpty": true,
         "ref": "vegastack-labs.dev/host-alias-claim-request"
       },
       {
@@ -4706,6 +6795,92 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/host-access-draft-request",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/host-access-draft-request"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "subject",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/host-action-request"
+      },
+      {
+        "name": "input",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/debian-access-input"
+      },
+      {
+        "name": "probes",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/host-access-probe-request",
+        "maxItems": 16
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/host-access-probe-request",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/host-access-probe-request"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "kind",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "local-probe",
+          "source-probe",
+          "collect"
+        ]
+      },
+      {
+        "name": "request",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/host-action-request"
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/host-access-probe-step",
     "fields": [
       {
@@ -5120,6 +7295,71 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/host-action-submission",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/host-action-submission"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "originalRequestDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "draftId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "declarationId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "contentDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/host-adoption-request",
     "fields": [
       {
@@ -5188,6 +7428,64 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "ref": "vegastack-labs.dev/host-identity-confirmation"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/host-adoption-submission",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/host-adoption-submission"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "draftId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "declarationId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "contentDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
       }
     ]
   },
@@ -5343,6 +7641,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": false,
         "nullable": false,
+        "omitEmpty": true,
         "pattern": "^sha256:[a-f0-9]{64}$"
       }
     ]
@@ -5383,6 +7682,159 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "enum": [
           "administrator-verified-console"
         ]
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/host-discovery-fact",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/host-discovery-fact"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "name",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "value",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 256
+      },
+      {
+        "name": "operation",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "capturedAt",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/host-discovery-request",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/host-discovery-request"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "targetId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "targetRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "expectedStateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "idempotencyKey",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/host-discovery-submission",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/host-discovery-submission"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "originalRequestDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "observation",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/host-observation"
+      },
+      {
+        "name": "created",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
       }
     ]
   },
@@ -5530,6 +7982,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": false,
         "nullable": true,
+        "omitEmpty": true,
         "enum": [
           "preloaded-discovery"
         ]
@@ -5539,6 +7992,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": false,
         "nullable": true,
+        "omitEmpty": true,
         "pattern": "^sha256:[a-f0-9]{64}$"
       }
     ]
@@ -5607,7 +8061,66 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "object",
         "required": false,
         "nullable": true,
+        "omitEmpty": true,
         "ref": "vegastack-labs.dev/host-discovery-console-confirmation"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/host-discovery-target-draft-submission",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/host-discovery-target-draft-submission"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "draftId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "declarationId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "contentDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
       }
     ]
   },
@@ -5691,6 +8204,132 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/host-observation",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/host-observation"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "observationId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "targetId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "targetRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "targetDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "collector",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "collectorVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"
+      },
+      {
+        "name": "observedAt",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      {
+        "name": "expiresAt",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      {
+        "name": "status",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "untrusted",
+          "incomplete"
+        ]
+      },
+      {
+        "name": "facts",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/host-discovery-fact",
+        "maxItems": 768
+      },
+      {
+        "name": "blockers",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "maxItems": 64
+      },
+      {
+        "name": "contentDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
       }
     ]
   },
@@ -6130,6 +8769,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "object",
         "required": false,
         "nullable": true,
+        "omitEmpty": true,
         "ref": "vegastack-labs.dev/host-replacement-source-reference"
       },
       {
@@ -6196,6 +8836,375 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/host-replacement-state",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/host-replacement-state"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "replacementId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "declarationId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "oldHostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "newHostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "bindingDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "oldIdentityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "newIdentityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "roleBindingDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "declarationRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "priorOwnershipGeneration",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "proposedOwnershipGeneration",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "roleIntentRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "status",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "staged",
+          "frozen",
+          "restore-pending",
+          "verification-required",
+          "qualification-required",
+          "committed"
+        ]
+      },
+      {
+        "name": "restorationClass",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "control-database",
+          "stateless-role"
+        ]
+      },
+      {
+        "name": "aliasBindings",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/host-replacement-alias-binding",
+        "minItems": 1,
+        "maxItems": 32
+      },
+      {
+        "name": "nextAction",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "approve-freeze",
+          "resolve-fences",
+          "stage-restore",
+          "restart-candidate",
+          "verify-restore",
+          "qualify-replacement",
+          "prepare-commit",
+          "none"
+        ]
+      },
+      {
+        "name": "blockers",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "maxItems": 32,
+        "uniqueItems": true
+      },
+      {
+        "name": "planId",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "runId",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "restorePlanId",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "freezeEventDigest",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "restorationReceiptDigest",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "admissionSnapshotDigest",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "continuityDigest",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/host-replacement-submission",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/host-replacement-submission"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "replacementId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "draftId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "declarationId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "contentDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/host-role-foundation",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/host-role-foundation"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "roleId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "roleBindingDigest",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "status",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "unconfigured",
+          "pending",
+          "installed",
+          "partial",
+          "recovery-required"
+        ]
+      },
+      {
+        "name": "serviceState",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "not-applicable",
+          "pending-handoff",
+          "unverified",
+          "active"
+        ]
+      },
+      {
+        "name": "blockers",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "maxItems": 32,
+        "uniqueItems": true
       }
     ]
   },
@@ -6305,6 +9314,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": false,
         "nullable": false,
+        "omitEmpty": true,
         "pattern": "^sha256:[a-f0-9]{64}$"
       },
       {
@@ -6325,6 +9335,186 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "boolean",
         "required": true,
         "nullable": false
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/host-volume-binding",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/host-volume-binding"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "hostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "hostIdentityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "volumeId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "controlHostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "controlHostIdentityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "headerBytes",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "luksUuid",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 64
+      },
+      {
+        "name": "headerDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "mappingDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "mountBindingDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "mapperName",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "mountPath",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 256
+      },
+      {
+        "name": "deviceMajor",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "deviceMinor",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "keySlot",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0,
+        "maximum": 31
+      },
+      {
+        "name": "recoveryCustodianId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "recoveryCustodianIdentityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "recoveryTargetDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "recoveryReferenceDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "declarationId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "declarationRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
       }
     ]
   },
@@ -6382,6 +9572,534 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
       },
       {
         "name": "findings",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/linux-role-account",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/linux-role-account"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "selector",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "control",
+          "application",
+          "ci",
+          "standby"
+        ]
+      },
+      {
+        "name": "uid",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "gid",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "existing",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/linux-role-directory",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/linux-role-directory"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "selector",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "config",
+          "state",
+          "runtime",
+          "work"
+        ]
+      },
+      {
+        "name": "uid",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "gid",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "mode",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "0700",
+          "0750"
+        ]
+      },
+      {
+        "name": "expectedState",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "absent",
+          "owned"
+        ]
+      },
+      {
+        "name": "expectedDigest",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/linux-role-input",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/linux-role-input"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "hostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "hostIdentityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "profileId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "profileLockDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "roleId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "control",
+          "application",
+          "ci",
+          "recovery-spare",
+          "reserve"
+        ]
+      },
+      {
+        "name": "controlIds",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "maxItems": 6,
+        "uniqueItems": true
+      },
+      {
+        "name": "affectedBaselineControlIds",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "maxItems": 16,
+        "uniqueItems": true
+      },
+      {
+        "name": "baselineSnapshotDigest",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "currentRoleBindingDigest",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "roleBindingDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "networkingRequired",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "standbyRequired",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "networkAccess",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "omitEmpty": true,
+        "ref": "vegastack-labs.dev/debian-access-input"
+      },
+      {
+        "name": "profileLock",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/debian-profile-lock"
+      },
+      {
+        "name": "actionVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"
+      },
+      {
+        "name": "automationUid",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "accounts",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/linux-role-account",
+        "maxItems": 2
+      },
+      {
+        "name": "directories",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/linux-role-directory",
+        "maxItems": 4
+      },
+      {
+        "name": "resources",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/linux-role-resources"
+      },
+      {
+        "name": "renderedPolicyDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "executableDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "configDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "expectedServiceState",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "absent",
+          "inactive",
+          "active"
+        ]
+      },
+      {
+        "name": "expectedUnitDigest",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "expectedTmpfilesDigest",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "handoff",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "omitEmpty": true,
+        "ref": "vegastack-labs.dev/control-handoff-input"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/linux-role-resources",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/linux-role-resources"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "memoryMaxBytes",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "cpuQuotaPercent",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "tasksMax",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "minimumFreeBytes",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "minimumFreePercent",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "capacityMemoryBytes",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "capacityCpuPercent",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "capacityTasks",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/managed-host",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/managed-host"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "roleFoundation",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "omitEmpty": true,
+        "ref": "vegastack-labs.dev/host-role-foundation"
+      },
+      {
+        "name": "hostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "targetId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "observationId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "profileId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "identityClass",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "physical",
+          "qualified-virtual"
+        ]
+      },
+      {
+        "name": "status",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "adopted-unadmitted"
+        ]
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
         "kind": "integer",
         "required": true,
         "nullable": false,
@@ -6705,6 +10423,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "object",
         "required": false,
         "nullable": true,
+        "omitEmpty": true,
         "ref": "vegastack-labs.dev/native-restart-presentation"
       },
       {
@@ -6712,6 +10431,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": false,
         "nullable": false,
+        "omitEmpty": true,
         "maxLength": 256
       },
       {
@@ -6719,6 +10439,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "object",
         "required": false,
         "nullable": true,
+        "omitEmpty": true,
         "ref": "vegastack-labs.dev/host-action-credential-confirmation"
       },
       {
@@ -6726,6 +10447,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "object",
         "required": false,
         "nullable": true,
+        "omitEmpty": true,
         "ref": "vegastack-labs.dev/host-replacement-request"
       },
       {
@@ -6733,6 +10455,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "object",
         "required": false,
         "nullable": true,
+        "omitEmpty": true,
         "ref": "vegastack-labs.dev/host-alias-claim-request"
       },
       {
@@ -6740,6 +10463,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "object",
         "required": false,
         "nullable": true,
+        "omitEmpty": true,
         "ref": "vegastack-labs.dev/host-replacement-continuity-reference"
       },
       {
@@ -6747,6 +10471,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "object",
         "required": false,
         "nullable": true,
+        "omitEmpty": true,
         "ref": "vegastack-labs.dev/host-role-scope"
       },
       {
@@ -6754,6 +10479,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "object",
         "required": false,
         "nullable": true,
+        "omitEmpty": true,
         "ref": "vegastack-labs.dev/host-baseline-scope"
       },
       {
@@ -6761,6 +10487,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "object",
         "required": false,
         "nullable": true,
+        "omitEmpty": true,
         "ref": "vegastack-labs.dev/host-access-sequence"
       },
       {
@@ -6768,6 +10495,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "object",
         "required": false,
         "nullable": true,
+        "omitEmpty": true,
         "ref": "vegastack-labs.dev/host-action-request"
       },
       {
@@ -6775,6 +10503,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "object",
         "required": false,
         "nullable": true,
+        "omitEmpty": true,
         "ref": "vegastack-labs.dev/host-adoption-request"
       },
       {
@@ -6782,6 +10511,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "object",
         "required": false,
         "nullable": true,
+        "omitEmpty": true,
         "ref": "vegastack-labs.dev/host-discovery-target-draft-request"
       },
       {
@@ -7156,6 +10886,117 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/rendered-access",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/rendered-access"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "profileLockDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "rendererDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "accounts",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/access-account",
+        "maxItems": 32
+      },
+      {
+        "name": "sshUsers",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "maxItems": 32,
+        "uniqueItems": true
+      },
+      {
+        "name": "sshSourcePrefixes",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "maxItems": 64,
+        "uniqueItems": true
+      },
+      {
+        "name": "recoverySourcePrefixes",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "maxItems": 64,
+        "uniqueItems": true
+      },
+      {
+        "name": "privilegedServiceKeys",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/access-service-key",
+        "maxItems": 8
+      },
+      {
+        "name": "interfaces",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/access-interface",
+        "maxItems": 16
+      },
+      {
+        "name": "hostFlows",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/access-flow",
+        "maxItems": 64
+      },
+      {
+        "name": "containerFlows",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/access-flow",
+        "maxItems": 64
+      },
+      {
+        "name": "rollbackUnitsDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/result-error",
     "fields": [
       {
@@ -7307,6 +11148,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": false,
         "nullable": false,
+        "omitEmpty": true,
         "maxLength": 128
       },
       {
@@ -7370,6 +11212,120 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
           "listener-unavailable",
           "serve-failed"
         ]
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/volume-recovery-input",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/volume-recovery-input"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "hostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "hostIdentityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "profileId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "profileLockDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "profileLock",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/debian-profile-lock"
+      },
+      {
+        "name": "roleId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "control",
+          "application",
+          "ci",
+          "host",
+          "recovery-spare",
+          "reserve"
+        ]
+      },
+      {
+        "name": "actionVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"
+      },
+      {
+        "name": "automationUid",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "binding",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/host-volume-binding"
+      },
+      {
+        "name": "priorVolumeReceiptDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "recoveryReferenceId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "recoveryMaterialVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
       }
     ]
   }
@@ -7514,6 +11470,50 @@ export function validatePlanTiming(value: unknown): void {
   if (!Number.isFinite(created) || expires - created !== PLAN_VALIDITY_SECONDS * 1000) return mismatch("plan.expiresAt", "plan expiry must be exactly 30 minutes");
 }
 
+function decodeAccessAccount(value: unknown): AccessAccount {
+  return decodeSchema("vegastack-labs.dev/access-account", value) as unknown as AccessAccount;
+}
+
+function decodeAccessFlow(value: unknown): AccessFlow {
+  return decodeSchema("vegastack-labs.dev/access-flow", value) as unknown as AccessFlow;
+}
+
+function decodeAccessInterface(value: unknown): AccessInterface {
+  return decodeSchema("vegastack-labs.dev/access-interface", value) as unknown as AccessInterface;
+}
+
+function decodeAccessOwnedState(value: unknown): AccessOwnedState {
+  return decodeSchema("vegastack-labs.dev/access-owned-state", value) as unknown as AccessOwnedState;
+}
+
+function decodeAccessPackage(value: unknown): AccessPackage {
+  return decodeSchema("vegastack-labs.dev/access-package", value) as unknown as AccessPackage;
+}
+
+function decodeAccessProbeCase(value: unknown): AccessProbeCase {
+  return decodeSchema("vegastack-labs.dev/access-probe-case", value) as unknown as AccessProbeCase;
+}
+
+function decodeAccessProbeInput(value: unknown): AccessProbeInput {
+  return decodeSchema("vegastack-labs.dev/access-probe-input", value) as unknown as AccessProbeInput;
+}
+
+function decodeAccessProbeSource(value: unknown): AccessProbeSource {
+  return decodeSchema("vegastack-labs.dev/access-probe-source", value) as unknown as AccessProbeSource;
+}
+
+function decodeAccessProbeTuple(value: unknown): AccessProbeTuple {
+  return decodeSchema("vegastack-labs.dev/access-probe-tuple", value) as unknown as AccessProbeTuple;
+}
+
+function decodeAccessRollbackSpecification(value: unknown): AccessRollbackSpecification {
+  return decodeSchema("vegastack-labs.dev/access-rollback-specification", value) as unknown as AccessRollbackSpecification;
+}
+
+function decodeAccessServiceKey(value: unknown): AccessServiceKey {
+  return decodeSchema("vegastack-labs.dev/access-service-key", value) as unknown as AccessServiceKey;
+}
+
 function decodeAccessTargetIdentity(value: unknown): AccessTargetIdentity {
   return decodeSchema("vegastack-labs.dev/access-target-identity", value) as unknown as AccessTargetIdentity;
 }
@@ -7592,6 +11592,22 @@ function decodeApprovalStatus(value: unknown): ApprovalStatus {
 
 function decodeAuditTarget(value: unknown): AuditTarget {
   return decodeSchema("vegastack-labs.dev/audit-target", value) as unknown as AuditTarget;
+}
+
+function decodeBaselineAidePolicy(value: unknown): BaselineAidePolicy {
+  return decodeSchema("vegastack-labs.dev/baseline-aide-policy", value) as unknown as BaselineAidePolicy;
+}
+
+function decodeBaselineApparmorProfile(value: unknown): BaselineApparmorProfile {
+  return decodeSchema("vegastack-labs.dev/baseline-apparmor-profile", value) as unknown as BaselineApparmorProfile;
+}
+
+function decodeBaselineKernelSetting(value: unknown): BaselineKernelSetting {
+  return decodeSchema("vegastack-labs.dev/baseline-kernel-setting", value) as unknown as BaselineKernelSetting;
+}
+
+function decodeBaselineResourceLimit(value: unknown): BaselineResourceLimit {
+  return decodeSchema("vegastack-labs.dev/baseline-resource-limit", value) as unknown as BaselineResourceLimit;
 }
 
 function decodeBrowserAuditCheckpoint(value: unknown): BrowserAuditCheckpoint {
@@ -7678,8 +11694,24 @@ function decodeContractExtension(value: unknown): ContractExtension {
   return decodeSchema("vegastack-labs.dev/contract-extension", value) as unknown as ContractExtension;
 }
 
+function decodeControlHandoffInput(value: unknown): ControlHandoffInput {
+  return decodeSchema("vegastack-labs.dev/control-handoff-input", value) as unknown as ControlHandoffInput;
+}
+
 function decodeDatabaseStatusData(value: unknown): DatabaseStatusData {
   return decodeSchema("vegastack-labs.dev/database-status-data", value) as unknown as DatabaseStatusData;
+}
+
+function decodeDebianAccessInput(value: unknown): DebianAccessInput {
+  return decodeSchema("vegastack-labs.dev/debian-access-input", value) as unknown as DebianAccessInput;
+}
+
+function decodeDebianBaselineInput(value: unknown): DebianBaselineInput {
+  return decodeSchema("vegastack-labs.dev/debian-baseline-input", value) as unknown as DebianBaselineInput;
+}
+
+function decodeDebianProfileLock(value: unknown): DebianProfileLock {
+  return decodeSchema("vegastack-labs.dev/debian-profile-lock", value) as unknown as DebianProfileLock;
 }
 
 function decodeDeclarationOperation(value: unknown): DeclarationOperation {
@@ -7734,6 +11766,14 @@ function decodeGateView(value: unknown): GateView {
   return decodeSchema("vegastack-labs.dev/gate-view", value) as unknown as GateView;
 }
 
+function decodeHostAccessDraftRequest(value: unknown): HostAccessDraftRequest {
+  return decodeSchema("vegastack-labs.dev/host-access-draft-request", value) as unknown as HostAccessDraftRequest;
+}
+
+function decodeHostAccessProbeRequest(value: unknown): HostAccessProbeRequest {
+  return decodeSchema("vegastack-labs.dev/host-access-probe-request", value) as unknown as HostAccessProbeRequest;
+}
+
 function decodeHostAccessProbeStep(value: unknown): HostAccessProbeStep {
   return decodeSchema("vegastack-labs.dev/host-access-probe-step", value) as unknown as HostAccessProbeStep;
 }
@@ -7754,8 +11794,16 @@ function decodeHostActionRequest(value: unknown): HostActionRequest {
   return decodeSchema("vegastack-labs.dev/host-action-request", value) as unknown as HostActionRequest;
 }
 
+function decodeHostActionSubmission(value: unknown): HostActionSubmission {
+  return decodeSchema("vegastack-labs.dev/host-action-submission", value) as unknown as HostActionSubmission;
+}
+
 function decodeHostAdoptionRequest(value: unknown): HostAdoptionRequest {
   return decodeSchema("vegastack-labs.dev/host-adoption-request", value) as unknown as HostAdoptionRequest;
+}
+
+function decodeHostAdoptionSubmission(value: unknown): HostAdoptionSubmission {
+  return decodeSchema("vegastack-labs.dev/host-adoption-submission", value) as unknown as HostAdoptionSubmission;
 }
 
 function decodeHostAliasClaimRequest(value: unknown): HostAliasClaimRequest {
@@ -7770,6 +11818,18 @@ function decodeHostDiscoveryConsoleConfirmation(value: unknown): HostDiscoveryCo
   return decodeSchema("vegastack-labs.dev/host-discovery-console-confirmation", value) as unknown as HostDiscoveryConsoleConfirmation;
 }
 
+function decodeHostDiscoveryFact(value: unknown): HostDiscoveryFact {
+  return decodeSchema("vegastack-labs.dev/host-discovery-fact", value) as unknown as HostDiscoveryFact;
+}
+
+function decodeHostDiscoveryRequest(value: unknown): HostDiscoveryRequest {
+  return decodeSchema("vegastack-labs.dev/host-discovery-request", value) as unknown as HostDiscoveryRequest;
+}
+
+function decodeHostDiscoverySubmission(value: unknown): HostDiscoverySubmission {
+  return decodeSchema("vegastack-labs.dev/host-discovery-submission", value) as unknown as HostDiscoverySubmission;
+}
+
 function decodeHostDiscoveryTarget(value: unknown): HostDiscoveryTarget {
   return decodeSchema("vegastack-labs.dev/host-discovery-target", value) as unknown as HostDiscoveryTarget;
 }
@@ -7778,12 +11838,20 @@ function decodeHostDiscoveryTargetDraftRequest(value: unknown): HostDiscoveryTar
   return decodeSchema("vegastack-labs.dev/host-discovery-target-draft-request", value) as unknown as HostDiscoveryTargetDraftRequest;
 }
 
+function decodeHostDiscoveryTargetDraftSubmission(value: unknown): HostDiscoveryTargetDraftSubmission {
+  return decodeSchema("vegastack-labs.dev/host-discovery-target-draft-submission", value) as unknown as HostDiscoveryTargetDraftSubmission;
+}
+
 function decodeHostGateQuery(value: unknown): HostGateQuery {
   return decodeSchema("vegastack-labs.dev/host-gate-query", value) as unknown as HostGateQuery;
 }
 
 function decodeHostIdentityConfirmation(value: unknown): HostIdentityConfirmation {
   return decodeSchema("vegastack-labs.dev/host-identity-confirmation", value) as unknown as HostIdentityConfirmation;
+}
+
+function decodeHostObservation(value: unknown): HostObservation {
+  return decodeSchema("vegastack-labs.dev/host-observation", value) as unknown as HostObservation;
 }
 
 function decodeHostReplacementAliasBinding(value: unknown): HostReplacementAliasBinding {
@@ -7806,12 +11874,48 @@ function decodeHostReplacementSourceReference(value: unknown): HostReplacementSo
   return decodeSchema("vegastack-labs.dev/host-replacement-source-reference", value) as unknown as HostReplacementSourceReference;
 }
 
+function decodeHostReplacementState(value: unknown): HostReplacementState {
+  return decodeSchema("vegastack-labs.dev/host-replacement-state", value) as unknown as HostReplacementState;
+}
+
+function decodeHostReplacementSubmission(value: unknown): HostReplacementSubmission {
+  return decodeSchema("vegastack-labs.dev/host-replacement-submission", value) as unknown as HostReplacementSubmission;
+}
+
+function decodeHostRoleFoundation(value: unknown): HostRoleFoundation {
+  return decodeSchema("vegastack-labs.dev/host-role-foundation", value) as unknown as HostRoleFoundation;
+}
+
 function decodeHostRoleScope(value: unknown): HostRoleScope {
   return decodeSchema("vegastack-labs.dev/host-role-scope", value) as unknown as HostRoleScope;
 }
 
+function decodeHostVolumeBinding(value: unknown): HostVolumeBinding {
+  return decodeSchema("vegastack-labs.dev/host-volume-binding", value) as unknown as HostVolumeBinding;
+}
+
 function decodeInventoryDraftCounts(value: unknown): InventoryDraftCounts {
   return decodeSchema("vegastack-labs.dev/inventory-draft-counts", value) as unknown as InventoryDraftCounts;
+}
+
+function decodeLinuxRoleAccount(value: unknown): LinuxRoleAccount {
+  return decodeSchema("vegastack-labs.dev/linux-role-account", value) as unknown as LinuxRoleAccount;
+}
+
+function decodeLinuxRoleDirectory(value: unknown): LinuxRoleDirectory {
+  return decodeSchema("vegastack-labs.dev/linux-role-directory", value) as unknown as LinuxRoleDirectory;
+}
+
+function decodeLinuxRoleInput(value: unknown): LinuxRoleInput {
+  return decodeSchema("vegastack-labs.dev/linux-role-input", value) as unknown as LinuxRoleInput;
+}
+
+function decodeLinuxRoleResources(value: unknown): LinuxRoleResources {
+  return decodeSchema("vegastack-labs.dev/linux-role-resources", value) as unknown as LinuxRoleResources;
+}
+
+function decodeManagedHost(value: unknown): ManagedHost {
+  return decodeSchema("vegastack-labs.dev/managed-host", value) as unknown as ManagedHost;
 }
 
 function decodeNativeRestartPresentation(value: unknown): NativeRestartPresentation {
@@ -7850,6 +11954,10 @@ function decodePlanReferenceRequest(value: unknown): PlanReferenceRequest {
   return decodeSchema("vegastack-labs.dev/plan-reference-request", value) as unknown as PlanReferenceRequest;
 }
 
+function decodeRenderedAccess(value: unknown): RenderedAccess {
+  return decodeSchema("vegastack-labs.dev/rendered-access", value) as unknown as RenderedAccess;
+}
+
 function decodeResultError(value: unknown): ResultError {
   return decodeSchema("vegastack-labs.dev/result-error", value) as unknown as ResultError;
 }
@@ -7864,6 +11972,10 @@ function decodeRunReferenceRequest(value: unknown): RunReferenceRequest {
 
 function decodeServerStatusData(value: unknown): ServerStatusData {
   return decodeSchema("vegastack-labs.dev/server-status-data", value) as unknown as ServerStatusData;
+}
+
+function decodeVolumeRecoveryInput(value: unknown): VolumeRecoveryInput {
+  return decodeSchema("vegastack-labs.dev/volume-recovery-input", value) as unknown as VolumeRecoveryInput;
 }
 
 export type FetchTransport = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
@@ -8138,6 +12250,9 @@ export type ReadClient = {
   readonly getGate: (path: { readonly gateId: string }, query?: HostGateQuery, options?: RequestOptions) => Promise<ReadResult<GateView>>;
   readonly listGates: (query?: HostGateQuery, options?: RequestOptions) => Promise<ReadResult<GateListData>>;
   readonly getHealth: (options?: RequestOptions) => Promise<ReadResult<ServerStatusData>>;
+  readonly getHostObservation: (path: { readonly observationID: string }, options?: RequestOptions) => Promise<ReadResult<HostObservation>>;
+  readonly getHostReplacement: (path: { readonly replacementId: string }, options?: RequestOptions) => Promise<ReadResult<HostReplacementState>>;
+  readonly getHosts: (path: { readonly hostID: string }, options?: RequestOptions) => Promise<ReadResult<ManagedHost>>;
   readonly getInventoryDraftAlias: (path: { readonly draftId: string; readonly revision: number; readonly recordId: string }, options?: RequestOptions) => Promise<ReadResult<ApiInventoryAliasData>>;
   readonly listInventoryDraftAliases: (path: { readonly draftId: string; readonly revision: number }, query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<ApiInventoryAliasListData>>;
   readonly getInventoryDraftAsset: (path: { readonly draftId: string; readonly revision: number; readonly recordId: string }, options?: RequestOptions) => Promise<ReadResult<ApiInventoryAssetData>>;
@@ -8201,6 +12316,27 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
     async getHealth(options = {}) {
       const operation = "api.v1.health.get";
       return performRead(fetchTransport, "/api/v1/health", options, operation, decodeServerStatusData);
+    },
+    async getHostObservation(path, options = {}) {
+      const operation = "api.v1.host-observations.get";
+      const result = await performRead(fetchTransport, "/api/v1/host-observations/" + encodePathString(path.observationID, "observationID") + "", options, operation, decodeHostObservation);
+      const data = result.data;
+      requireHostBinding(data.observationId === path.observationID && data.stateRevision === result.stateRevision && data.recoveryEpoch === result.recoveryEpoch, operation);
+      return result;
+    },
+    async getHostReplacement(path, options = {}) {
+      const operation = "api.v1.host-replacements.get";
+      const result = await performRead(fetchTransport, "/api/v1/host-replacements/" + encodePathString(path.replacementId, "replacementId") + "", options, operation, decodeHostReplacementState);
+      const data = result.data;
+      requireHostBinding(data.replacementId === path.replacementId && data.stateRevision === result.stateRevision && data.recoveryEpoch === result.recoveryEpoch, operation);
+      return result;
+    },
+    async getHosts(path, options = {}) {
+      const operation = "api.v1.hosts.get";
+      const result = await performRead(fetchTransport, "/api/v1/hosts/" + encodePathString(path.hostID, "hostID") + "", options, operation, decodeManagedHost);
+      const data = result.data;
+      requireHostBinding(data.hostId === path.hostID && data.stateRevision <= result.stateRevision && data.recoveryEpoch === result.recoveryEpoch, operation);
+      return result;
     },
     async getInventoryDraftAlias(path, options = {}) {
       const operation = "api.v1.inventory-draft-aliases.get";
@@ -8436,6 +12572,128 @@ export function createPhase5Client(fetchTransport: FetchTransport): Phase5Client
     async listScheduledJobs(query = {}, options = {}) {
       const operation = "api.v1.scheduled-jobs.list";
       return performRead(fetchTransport, "/api/v1/scheduled-jobs" + pageQuery(query), options, operation, decodeBrowserScheduledJobListData);
+    },
+  };
+}
+
+// Match generated Go struct order, omitempty semantics and encoding/json escaping.
+export async function hostRequestDigest(schema: string, value: unknown): Promise<string> {
+  const decoded = decodeSchema(schema, value);
+  function ordered(id: string, input: Record<string, unknown>): Record<string, unknown> {
+    const rule = SCHEMAS.find(candidate => candidate.id === id);
+    if (!rule) return mismatch(id, "schema is unavailable");
+    const out: Record<string, unknown> = {};
+    for (const field of rule.fields) {
+      let v = input[field.name];
+      if (v === undefined) {
+        if (field.omitEmpty) continue;
+        v = field.nullable || field.kind === "array" || field.kind === "object" ? null : field.kind === "string" ? "" : field.kind === "boolean" ? false : 0;
+      }
+      if (field.omitEmpty && (v === null || (!field.nullable && (v === "" || v === false || v === 0 || (Array.isArray(v) && v.length === 0))))) continue;
+      if (v !== null && field.ref) v = ordered(field.ref, v as Record<string, unknown>);
+      else if (Array.isArray(v) && field.itemRef) v = v.map(item => ordered(field.itemRef!, item as Record<string, unknown>));
+      out[field.name] = v;
+    }
+    return out;
+  }
+  const text = JSON.stringify(ordered(schema, decoded)).replace(/[<>&\u2028\u2029]/gu, c => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"));
+  const sum = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return "sha256:" + Array.from(new Uint8Array(sum), b => b.toString(16).padStart(2, "0")).join("");
+}
+
+function requireHostBinding(ok: boolean, operation: string): void {
+  if (!ok) mismatch(operation, "host response does not match the exact request");
+}
+
+// Browser-authorized host lifecycle operations.
+export type HostClient = {
+  readonly prepareHostAccess: (request: HostAccessDraftRequest, options?: RequestOptions) => Promise<ReadResult<HostActionSubmission>>;
+  readonly prepareHostAction: (request: HostActionRequest, options?: RequestOptions) => Promise<ReadResult<HostActionSubmission>>;
+  readonly prepareHostAdoption: (request: HostAdoptionRequest, options?: RequestOptions) => Promise<ReadResult<HostAdoptionSubmission>>;
+  readonly prepareHostTarget: (request: HostDiscoveryTargetDraftRequest, options?: RequestOptions) => Promise<ReadResult<HostDiscoveryTargetDraftSubmission>>;
+  readonly discoverHost: (request: HostDiscoveryRequest, options?: RequestOptions) => Promise<ReadResult<HostDiscoverySubmission>>;
+  readonly getHostObservation: (path: { readonly observationID: string }, options?: RequestOptions) => Promise<ReadResult<HostObservation>>;
+  readonly prepareHostReplacement: (request: HostReplacementRequest, options?: RequestOptions) => Promise<ReadResult<HostReplacementSubmission>>;
+  readonly getHostReplacement: (path: { readonly replacementId: string }, options?: RequestOptions) => Promise<ReadResult<HostReplacementState>>;
+  readonly getHosts: (path: { readonly hostID: string }, options?: RequestOptions) => Promise<ReadResult<ManagedHost>>;
+};
+
+export function createHostClient(fetchTransport: FetchTransport): HostClient {
+  return {
+    async prepareHostAccess(request, options = {}) {
+      const operation = "api.v1.host-access.draft";
+      const body = decodeHostAccessDraftRequest(request);
+      const digest = await hostRequestDigest("vegastack-labs.dev/host-access-draft-request", body);
+      const result = await performChange(fetchTransport, "/api/v1/host-access/draft", body, options, operation, decodeHostActionSubmission, false);
+      const data = result.data;
+      requireHostBinding(data.originalRequestDigest === digest && data.draftId === "host-access-" + data.contentDigest.slice(7, 39) && data.declarationId === data.draftId && data.recoveryEpoch === body.subject.recoveryEpoch && data.recoveryEpoch === result.recoveryEpoch && data.stateRevision === result.stateRevision && data.stateRevision >= body.subject.expectedStateRevision, operation);
+      return result;
+    },
+    async prepareHostAction(request, options = {}) {
+      const operation = "api.v1.host-actions.draft";
+      const body = decodeHostActionRequest(request);
+      const digest = await hostRequestDigest("vegastack-labs.dev/host-action-request", body);
+      const result = await performChange(fetchTransport, "/api/v1/host-actions/draft", body, options, operation, decodeHostActionSubmission, false);
+      const data = result.data;
+      requireHostBinding(data.originalRequestDigest === digest && data.draftId === "host-action-" + data.contentDigest.slice(7, 39) && data.declarationId === data.draftId && data.recoveryEpoch === body.recoveryEpoch && data.recoveryEpoch === result.recoveryEpoch && data.stateRevision === result.stateRevision && data.stateRevision >= body.expectedStateRevision, operation);
+      return result;
+    },
+    async prepareHostAdoption(request, options = {}) {
+      const operation = "api.v1.host-adoptions.draft";
+      const body = decodeHostAdoptionRequest(request);
+      const digest = await hostRequestDigest("vegastack-labs.dev/host-adoption-request", body);
+      const result = await performChange(fetchTransport, "/api/v1/host-adoptions/draft", body, options, operation, decodeHostAdoptionSubmission, false);
+      const data = result.data;
+      requireHostBinding(data.contentDigest === digest && data.draftId === "host-adoption-" + data.contentDigest.slice(7, 39) && data.declarationId === data.draftId && data.recoveryEpoch === body.recoveryEpoch && data.recoveryEpoch === result.recoveryEpoch && data.stateRevision === result.stateRevision && data.stateRevision >= body.expectedStateRevision, operation);
+      return result;
+    },
+    async prepareHostTarget(request, options = {}) {
+      const operation = "api.v1.host-discovery-targets.draft";
+      const body = decodeHostDiscoveryTargetDraftRequest(request);
+      const digest = await hostRequestDigest("vegastack-labs.dev/host-discovery-target-draft-request", body);
+      const result = await performChange(fetchTransport, "/api/v1/host-discovery-targets/draft", body, options, operation, decodeHostDiscoveryTargetDraftSubmission, false);
+      const data = result.data;
+      requireHostBinding(data.contentDigest === digest && data.draftId === "discovery-draft-" + data.contentDigest.slice(7, 39) && data.declarationId === data.draftId && data.recoveryEpoch === body.target.recoveryEpoch && data.recoveryEpoch === result.recoveryEpoch && data.stateRevision === result.stateRevision && data.stateRevision >= body.expectedStateRevision, operation);
+      return result;
+    },
+    async discoverHost(request, options = {}) {
+      const operation = "api.v1.host-observations.create";
+      const body = decodeHostDiscoveryRequest(request);
+      const digest = await hostRequestDigest("vegastack-labs.dev/host-discovery-request", body);
+      const result = await performChange(fetchTransport, "/api/v1/host-observations", body, options, operation, decodeHostDiscoverySubmission, false);
+      const data = result.data.observation;
+      requireHostBinding(result.data.originalRequestDigest === digest && data.targetId === body.targetId && data.targetRevision === body.targetRevision && data.recoveryEpoch === body.recoveryEpoch && data.recoveryEpoch === result.recoveryEpoch && data.stateRevision === result.stateRevision && data.stateRevision >= body.expectedStateRevision, operation);
+      return result;
+    },
+    async getHostObservation(path, options = {}) {
+      const operation = "api.v1.host-observations.get";
+      const result = await performRead(fetchTransport, "/api/v1/host-observations/" + encodePathString(path.observationID, "observationID") + "", options, operation, decodeHostObservation);
+      const data = result.data;
+      requireHostBinding(data.observationId === path.observationID && data.stateRevision === result.stateRevision && data.recoveryEpoch === result.recoveryEpoch, operation);
+      return result;
+    },
+    async prepareHostReplacement(request, options = {}) {
+      const operation = "api.v1.host-replacements.create";
+      const body = decodeHostReplacementRequest(request);
+      const digest = await hostRequestDigest("vegastack-labs.dev/host-replacement-request", body);
+      const result = await performChange(fetchTransport, "/api/v1/host-replacements", body, options, operation, decodeHostReplacementSubmission, false);
+      const data = result.data;
+      requireHostBinding(data.replacementId === body.replacementId && data.contentDigest === digest && data.draftId === "host-replacement-" + data.contentDigest.slice(7, 39) && data.declarationId === data.draftId && data.recoveryEpoch === body.recoveryEpoch && data.recoveryEpoch === result.recoveryEpoch && data.stateRevision === result.stateRevision && data.stateRevision >= body.expectedStateRevision, operation);
+      return result;
+    },
+    async getHostReplacement(path, options = {}) {
+      const operation = "api.v1.host-replacements.get";
+      const result = await performRead(fetchTransport, "/api/v1/host-replacements/" + encodePathString(path.replacementId, "replacementId") + "", options, operation, decodeHostReplacementState);
+      const data = result.data;
+      requireHostBinding(data.replacementId === path.replacementId && data.stateRevision === result.stateRevision && data.recoveryEpoch === result.recoveryEpoch, operation);
+      return result;
+    },
+    async getHosts(path, options = {}) {
+      const operation = "api.v1.hosts.get";
+      const result = await performRead(fetchTransport, "/api/v1/hosts/" + encodePathString(path.hostID, "hostID") + "", options, operation, decodeManagedHost);
+      const data = result.data;
+      requireHostBinding(data.hostId === path.hostID && data.stateRevision <= result.stateRevision && data.recoveryEpoch === result.recoveryEpoch, operation);
+      return result;
     },
   };
 }

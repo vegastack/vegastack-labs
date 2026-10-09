@@ -58,30 +58,80 @@ func hostTransportFixture(t *testing.T, action string) ([]string, []byte, []byte
 	args := append([]string{"node"}, strings.Fields(action)...)
 	args = append(args, "--config", config)
 	var request []byte
+	var responseState int64
 	var data any
 	var schema, route, operation, method string
 	digest := "sha256:" + strings.Repeat("a", 64)
 	switch action {
+	case "target prepare", "action prepare", "access prepare":
+		responseState = 3
+		kind := strings.Fields(action)[0]
+		raw, err := os.ReadFile("../localapi/testdata/host-" + kind + ".json")
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Canonical CLI serialization is intentionally compared byte-for-byte.
+		var v any
+		switch kind {
+		case "target":
+			v = &generated.HostDiscoveryTargetDraftRequest{}
+		case "action":
+			v = &generated.HostActionRequest{}
+		case "access":
+			v = &generated.HostAccessDraftRequest{}
+		}
+		if err = json.Unmarshal(raw, v); err != nil {
+			t.Fatal(err)
+		}
+		request, _ = json.Marshal(v)
+		sum := sha256.Sum256(request)
+		content := "sha256:" + hex.EncodeToString(sum[:])
+		prefix := "host-" + kind + "-"
+		route = "/api/v1/host-" + kind + "s/draft"
+		operation = "api.v1.host-" + kind + "s.draft"
+		schema = generated.SchemaIDHostActionSubmission
+		if kind == "target" {
+			prefix = "discovery-draft-"
+			route = "/api/v1/host-discovery-targets/draft"
+			operation = "api.v1.host-discovery-targets.draft"
+			schema = generated.SchemaIDHostDiscoveryTargetDraftSubmission
+		}
+		if kind == "access" {
+			route = "/api/v1/host-access/draft"
+			operation = "api.v1.host-access.draft"
+		}
+		id := prefix + content[7:39]
+		if kind == "target" {
+			data = generated.HostDiscoveryTargetDraftSubmission{Schema: schema, SchemaVersion: "1.0.0", DraftID: id, DeclarationID: id, ContentDigest: content, StateRevision: responseState}
+		} else {
+			data = generated.HostActionSubmission{OriginalRequestDigest: hostTransportOriginalDigest(request), Schema: schema, SchemaVersion: "1.0.0", DraftID: id, DeclarationID: id, ContentDigest: content, StateRevision: responseState}
+		}
+		method = "POST"
+	case "observation inspect":
+		data = generated.HostObservation{Schema: generated.SchemaIDHostObservation, SchemaVersion: "1.0.0", ObservationID: "observation-a", TargetID: "target-a", TargetRevision: 1, TargetDigest: digest, Collector: "collector-a", CollectorVersion: "1.0.0", ObservedAt: "2026-10-08T00:00:00Z", ExpiresAt: "2026-10-08T00:15:00Z", Status: "incomplete", Facts: []generated.HostDiscoveryFact{}, Blockers: []string{"hardening-unverified"}, ContentDigest: digest}
+		schema, route, operation, method = generated.SchemaIDHostObservation, "/api/v1/host-observations/observation-a", "api.v1.host-observations.get", "GET"
+		args = append(args, "--observation-id", "observation-a")
 	case "discover":
 		request = syntheticHostRequest(t, generated.CommandNameNodeDiscover)
 		observation := generated.HostObservation{Schema: generated.SchemaIDHostObservation, SchemaVersion: "1.0.0", ObservationID: "observation-a", TargetID: "target-a", TargetRevision: 1, TargetDigest: digest, Collector: "collector-a", CollectorVersion: "1.0.0", ObservedAt: "2026-10-08T00:00:00Z", ExpiresAt: "2026-10-08T00:15:00Z", Status: "incomplete", Facts: []generated.HostDiscoveryFact{}, Blockers: []string{"hardening-unverified"}, ContentDigest: digest}
-		data = generated.HostDiscoverySubmission{Schema: generated.SchemaIDHostDiscoverySubmission, SchemaVersion: "1.0.0", Observation: observation, Created: true}
+		data = generated.HostDiscoverySubmission{OriginalRequestDigest: hostTransportOriginalDigest(request), Schema: generated.SchemaIDHostDiscoverySubmission, SchemaVersion: "1.0.0", Observation: observation, Created: true}
 		schema, route, operation, method = generated.SchemaIDHostDiscoverySubmission, "/api/v1/host-observations", "api.v1.host-observations.create", "POST"
 	case "add":
 		request = syntheticHostRequest(t, generated.CommandNameNodeAdd)
 		sum := sha256.Sum256(request)
 		content := "sha256:" + hex.EncodeToString(sum[:])
 		id := "host-adoption-" + content[7:39]
-		data = generated.HostAdoptionSubmission{Schema: generated.SchemaIDHostAdoptionSubmission, SchemaVersion: "1.0.0", DraftID: id, DeclarationID: id, ContentDigest: content}
+		data = generated.HostAdoptionSubmission{Schema: generated.SchemaIDHostAdoptionSubmission, SchemaVersion: "1.0.0", DraftID: id, DeclarationID: id, ContentDigest: content, StateRevision: responseState}
 		schema, route, operation, method = generated.SchemaIDHostAdoptionSubmission, "/api/v1/host-adoptions/draft", "api.v1.host-adoptions.draft", "POST"
 	case "role prepare":
+		responseState = 2
 		input := syntheticRoleRequest(t)
 		request, _ = json.Marshal(input)
 		// Server-owned rendering may change the request digest; the exact plan
 		// remains the later approval boundary.
 		content := "sha256:" + strings.Repeat("b", 64)
 		id := "host-action-" + content[7:39]
-		data = generated.HostActionSubmission{Schema: generated.SchemaIDHostActionSubmission, SchemaVersion: "1.0.0", DraftID: id, DeclarationID: id, ContentDigest: content, StateRevision: 2}
+		data = generated.HostActionSubmission{OriginalRequestDigest: hostTransportOriginalDigest(request), Schema: generated.SchemaIDHostActionSubmission, SchemaVersion: "1.0.0", DraftID: id, DeclarationID: id, ContentDigest: content, StateRevision: 2}
 		schema, route, operation, method = generated.SchemaIDHostActionSubmission, "/api/v1/host-actions/draft", "api.v1.host-actions.draft", "POST"
 	case "inspect":
 		data = generated.ManagedHost{Schema: generated.SchemaIDManagedHost, SchemaVersion: "1.0.0", HostID: "host-a", TargetID: "target-a", ObservationID: "observation-a", ProfileID: "profile-a", IdentityClass: "physical", Status: "adopted-unadmitted"}
@@ -103,12 +153,7 @@ func hostTransportFixture(t *testing.T, action string) ([]string, []byte, []byte
 	}
 	build := result.BuildInfo{ToolVersion: "test", ReleaseBuildID: "test"}
 	factory := result.NewFactory(build, func() (string, error) { return "request-host-transport", nil })
-	envelope, err := factory.SuccessWithRequestID(operation, "request-host-transport", false, 0, func() int64 {
-		if action == "role prepare" {
-			return 2
-		}
-		return 0
-	}(), data)
+	envelope, err := factory.SuccessWithRequestID(operation, "request-host-transport", false, 0, responseState, data)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +195,7 @@ func testNodeCommandThroughTransport(t *testing.T, action string) {
 	}
 }
 func TestNodeOutputParityUsesSameServerFacts(t *testing.T) {
-	for _, action := range []string{"discover", "add", "inspect"} {
+	for _, action := range []string{"discover", "add", "inspect", "target prepare", "action prepare", "access prepare", "observation inspect"} {
 		t.Run(action, func(t *testing.T) {
 			args, request, response, _, option := hostTransportFixture(t, action)
 			code, human, stderr := runTestAppWithOptions(t, context.Background(), args, nil, option)
@@ -169,6 +214,18 @@ func TestNodeOutputParityUsesSameServerFacts(t *testing.T) {
 				if !strings.Contains(human, "only prepares") || strings.Contains(human, "No machine has") {
 					t.Fatal("inaccurate draft claim", human)
 				}
+			}
+			if strings.HasSuffix(action, "prepare") {
+				var envelope generated.RunResult
+				if json.Unmarshal(response, &envelope) != nil {
+					t.Fatal("response")
+				}
+				var submission generated.HostActionSubmission
+				raw, _ := json.Marshal(envelope.Data)
+				if json.Unmarshal(raw, &submission) != nil {
+					t.Fatal("submission")
+				}
+				facts = []string{submission.DeclarationID, submission.ContentDigest}
 			}
 			for _, fact := range facts {
 				if !strings.Contains(human, fact) || !strings.Contains(raw, fact) {
@@ -222,4 +279,9 @@ func TestNodeCommandRejectsInputBeforeTransport(t *testing.T) {
 		default:
 		}
 	})
+}
+
+func hostTransportOriginalDigest(raw []byte) string {
+	sum := sha256.Sum256(raw)
+	return "sha256:" + hex.EncodeToString(sum[:])
 }

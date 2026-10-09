@@ -36,12 +36,12 @@ func hostActionSchemas() []SchemaDefinition {
 		phase5Schema(hostActionResultID, phase5Digest("bundleDigest", "BundleDigest"), phase5Digest("resultDigest", "ResultDigest"), phase5Enum("status", "Status", "succeeded", "failed", "partial"), FieldDefinition{JSONName: "changed", GoName: "Changed", Kind: ValueBoolean, Required: true}, FieldDefinition{JSONName: "effectObserved", GoName: "EffectObserved", Kind: ValueBoolean, Required: true}, phase5ID("reason", "Reason"), FieldDefinition{JSONName: "controlMeasurements", GoName: "ControlMeasurements", Kind: ValueArray, OmitEmpty: true, ItemRef: accessMeasurementID, MaxItems: intPointer(8)}),
 		phase5Schema(hostActionConsoleID, phase5Enum("method", "Method", "administrator-verified-console"), phase5Digest("targetDigest", "TargetDigest"), phase5Digest("hostIdentityDigest", "HostIdentityDigest")),
 		phase5Schema(hostActionRequestID, request...),
-		phase5Schema(hostActionSubmissionID, phase5ID("draftId", "DraftID"), phase5ID("declarationId", "DeclarationID"), phase5Digest("contentDigest", "ContentDigest"), phase5Positive("stateRevision", "StateRevision"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch")),
+		phase5Schema(hostActionSubmissionID, phase5Digest("originalRequestDigest", "OriginalRequestDigest"), phase5ID("draftId", "DraftID"), phase5ID("declarationId", "DeclarationID"), phase5Digest("contentDigest", "ContentDigest"), phase5Positive("stateRevision", "StateRevision"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch")),
 	}
 }
 
 func hostActionEndpoints() []EndpointDefinition {
-	e := phase5Endpoint("api.v1.host-actions.draft", "POST", "/api/v1/host-actions/draft", hostActionRequestID, hostActionSubmissionID, false)
+	e := phase5Endpoint("api.v1.host-actions.draft", "POST", "/api/v1/host-actions/draft", hostActionRequestID, hostActionSubmissionID, true)
 	e.OwnerPhase = "6"
 	e.Availability = AvailabilityAvailable
 	return []EndpointDefinition{e}

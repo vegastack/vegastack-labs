@@ -60,22 +60,15 @@ const REVIEWED_BACKUP_ENDPOINTS = [
   "api.v1.backup-verifications.create", "api.v1.backups.status",
 ];
 // #222 adds one inert draft and one unadmitted-host read, never admission.
-const REVIEWED_ADOPTION_ENDPOINTS = [
-  {id: "api.v1.host-adoptions.draft", method: "POST", path: "/api/v1/host-adoptions/draft", availability: "available", ownerPhase: "6", requestSchema: "vegastack-labs.dev/host-adoption-request", dataSchema: "vegastack-labs.dev/host-adoption-submission", stream: "finite", audiences: ["operator"]},
-  {id: "api.v1.hosts.get", method: "GET", path: "/api/v1/hosts/{hostID}", availability: "available", ownerPhase: "6", dataSchema: "vegastack-labs.dev/managed-host", stream: "finite", audiences: ["operator"]},
-];
+const REVIEWED_ADOPTION_ENDPOINTS = [{"id":"api.v1.host-adoptions.draft","method":"POST","path":"/api/v1/host-adoptions/draft","availability":"available","ownerPhase":"6","requestSchema":"vegastack-labs.dev/host-adoption-request","dataSchema":"vegastack-labs.dev/host-adoption-submission","stream":"finite","audiences":["browser","operator"]},{"id":"api.v1.hosts.get","method":"GET","path":"/api/v1/hosts/{hostID}","availability":"available","ownerPhase":"6","dataSchema":"vegastack-labs.dev/managed-host","stream":"finite","audiences":["browser","operator"]}];
 // #223 adds only an inert exact-action draft. Execution stays on the existing
 // acknowledged plan route; this wave cannot admit a direct host mutation API.
-const REVIEWED_HOST_ACTION_ENDPOINTS = [
-  {id: "api.v1.host-actions.draft", method: "POST", path: "/api/v1/host-actions/draft", availability: "available", ownerPhase: "6", requestSchema: "vegastack-labs.dev/host-action-request", dataSchema: "vegastack-labs.dev/host-action-submission", stream: "finite", audiences: ["operator"]},
-];
+const REVIEWED_HOST_ACTION_ENDPOINTS = [{"id":"api.v1.host-actions.draft","method":"POST","path":"/api/v1/host-actions/draft","availability":"available","ownerPhase":"6","requestSchema":"vegastack-labs.dev/host-action-request","dataSchema":"vegastack-labs.dev/host-action-submission","stream":"finite","audiences":["browser","operator"]}];
 // #225 adds only the finite Debian access-sequence draft; it cannot apply directly.
-const REVIEWED_HOST_ACCESS_ENDPOINTS = [
-  {id: "api.v1.host-access.draft", method: "POST", path: "/api/v1/host-access/draft", availability: "available", ownerPhase: "6", requestSchema: "vegastack-labs.dev/host-access-draft-request", dataSchema: "vegastack-labs.dev/host-action-submission", stream: "finite", audiences: ["operator"]},
-];
+const REVIEWED_HOST_ACCESS_ENDPOINTS = [{"id":"api.v1.host-access.draft","method":"POST","path":"/api/v1/host-access/draft","availability":"available","ownerPhase":"6","requestSchema":"vegastack-labs.dev/host-access-draft-request","dataSchema":"vegastack-labs.dev/host-action-submission","stream":"finite","audiences":["browser","operator"]}];
 // #233 adds only inert replacement drafts and scoped state reads.
 // Alias claim reuses declarations; execution remains on acknowledged plans.
-const REVIEWED_HOST_REPLACEMENT_ENDPOINTS = [{"id":"api.v1.host-replacements.create","method":"POST","path":"/api/v1/host-replacements","availability":"available","ownerPhase":"6","requestSchema":"vegastack-labs.dev/host-replacement-request","dataSchema":"vegastack-labs.dev/host-replacement-submission","stream":"finite","audiences":["operator"]},{"id":"api.v1.host-replacements.get","method":"GET","path":"/api/v1/host-replacements/{replacementId}","availability":"available","ownerPhase":"6","dataSchema":"vegastack-labs.dev/host-replacement-state","stream":"finite","audiences":["operator"]}];
+const REVIEWED_HOST_REPLACEMENT_ENDPOINTS = [{"id":"api.v1.host-replacements.create","method":"POST","path":"/api/v1/host-replacements","availability":"available","ownerPhase":"6","requestSchema":"vegastack-labs.dev/host-replacement-request","dataSchema":"vegastack-labs.dev/host-replacement-submission","stream":"finite","audiences":["browser","operator"]},{"id":"api.v1.host-replacements.get","method":"GET","path":"/api/v1/host-replacements/{replacementId}","availability":"available","ownerPhase":"6","dataSchema":"vegastack-labs.dev/host-replacement-state","stream":"finite","audiences":["browser","operator"]}];
 const REVIEWED_DISCOVERY_ENDPOINTS = ["api.v1.host-discovery-targets.draft", "api.v1.host-observations.create", "api.v1.host-observations.get"];
 const REVIEWED_OPERATOR_ENDPOINTS = [
   "api.v1.database-backups.create", "api.v1.database-exports.create", "api.v1.database-restores.create", "api.v1.database-verifications.create",

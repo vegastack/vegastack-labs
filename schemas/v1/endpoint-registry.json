@@ -449,6 +449,7 @@
       "dataSchema": "vegastack-labs.dev/host-action-submission",
       "stream": "finite",
       "audiences": [
+        "browser",
         "operator"
       ]
     },
@@ -462,6 +463,7 @@
       "dataSchema": "vegastack-labs.dev/host-action-submission",
       "stream": "finite",
       "audiences": [
+        "browser",
         "operator"
       ]
     },
@@ -475,6 +477,7 @@
       "dataSchema": "vegastack-labs.dev/host-adoption-submission",
       "stream": "finite",
       "audiences": [
+        "browser",
         "operator"
       ]
     },
@@ -488,6 +491,7 @@
       "dataSchema": "vegastack-labs.dev/host-discovery-target-draft-submission",
       "stream": "finite",
       "audiences": [
+        "browser",
         "operator"
       ]
     },
@@ -501,6 +505,7 @@
       "dataSchema": "vegastack-labs.dev/host-discovery-submission",
       "stream": "finite",
       "audiences": [
+        "browser",
         "operator"
       ]
     },
@@ -513,6 +518,7 @@
       "dataSchema": "vegastack-labs.dev/host-observation",
       "stream": "finite",
       "audiences": [
+        "browser",
         "operator"
       ]
     },
@@ -526,6 +532,7 @@
       "dataSchema": "vegastack-labs.dev/host-replacement-submission",
       "stream": "finite",
       "audiences": [
+        "browser",
         "operator"
       ]
     },
@@ -538,6 +545,7 @@
       "dataSchema": "vegastack-labs.dev/host-replacement-state",
       "stream": "finite",
       "audiences": [
+        "browser",
         "operator"
       ]
     },
@@ -550,6 +558,7 @@
       "dataSchema": "vegastack-labs.dev/managed-host",
       "stream": "finite",
       "audiences": [
+        "browser",
         "operator"
       ]
     },

@@ -39,7 +39,7 @@ func accessSchemas() []SchemaDefinition {
 	}
 }
 func accessEndpoints() []EndpointDefinition {
-	e := phase5Endpoint("api.v1.host-access.draft", "POST", "/api/v1/host-access/draft", "vegastack-labs.dev/host-access-draft-request", hostActionSubmissionID, false)
+	e := phase5Endpoint("api.v1.host-access.draft", "POST", "/api/v1/host-access/draft", "vegastack-labs.dev/host-access-draft-request", hostActionSubmissionID, true)
 	e.OwnerPhase = "6"
 	e.Availability = AvailabilityAvailable
 	return []EndpointDefinition{e}

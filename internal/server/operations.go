@@ -388,7 +388,7 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 		return err
 	}
 	discoveryRepository := store.NewHostDiscoveryRepository(authority)
-	discoveryEffect := &runengine.HostDiscoveryTargetEffect{Repository: discoveryRepository, Approvals: store.NewAcknowledgementRepository(authority), RecoveryPrecheck: discoveryConsoleGate{targets: discoveryRepository, fallback: runengine.UnavailableGateVerifier{}}}
+	discoveryEffect := &runengine.HostDiscoveryTargetEffect{Repository: discoveryRepository, Approvals: store.NewAcknowledgementRepository(authority), RecoveryPrecheck: NewDiscoveryConsoleGate(discoveryRepository, runengine.UnavailableGateVerifier{})}
 	replacementRepository := store.NewHostReplacementRepository(authority)
 	if err := replacementRepository.ConfigureAdmission(gateRepository); err != nil {
 		return err

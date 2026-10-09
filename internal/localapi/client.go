@@ -65,7 +65,12 @@ type TypedResponse[T any] struct {
 }
 
 type Client interface {
+	PrepareHostTarget(context.Context, serverconfig.Profile, generated.HostDiscoveryTargetDraftRequest) (TypedResponse[generated.HostDiscoveryTargetDraftSubmission], error)
 	SubmitHostAction(context.Context, serverconfig.Profile, generated.HostActionRequest) (TypedResponse[generated.HostActionSubmission], error)
+	SubmitHostAccess(context.Context, serverconfig.Profile, generated.HostAccessDraftRequest) (TypedResponse[generated.HostActionSubmission], error)
+	PrepareHostReplacement(context.Context, serverconfig.Profile, generated.HostReplacementRequest) (TypedResponse[generated.HostReplacementSubmission], error)
+	GetHostReplacement(context.Context, serverconfig.Profile, string) (TypedResponse[generated.HostReplacementState], error)
+	GetHostObservation(context.Context, serverconfig.Profile, string) (TypedResponse[generated.HostObservation], error)
 	DiscoverHost(context.Context, serverconfig.Profile, generated.HostDiscoveryRequest) (TypedResponse[generated.HostDiscoverySubmission], error)
 	SubmitHostAdoption(context.Context, serverconfig.Profile, generated.HostAdoptionRequest) (TypedResponse[generated.HostAdoptionSubmission], error)
 	GetManagedHost(context.Context, serverconfig.Profile, string) (TypedResponse[generated.ManagedHost], error)

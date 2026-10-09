@@ -155,10 +155,10 @@ func seedHostAdmissionFixture(t *testing.T, clock *time.Time, expected store.Hos
 		receipt.PlanID, receipt.PlanDigest = p.PlanID, p.PlanDigest
 		receipt.RunID, receipt.StepID, receipt.LeaseID, receipt.ReceiptID = "run-recollect", "step-recollect", "lease-recollect", "receipt-recollect"
 		if !initialize {
-			receipt.RunID += "-" + input.HostID
-			receipt.StepID += "-" + input.HostID
-			receipt.LeaseID += "-" + input.HostID
-			receipt.ReceiptID += "-" + input.HostID
+			receipt.RunID += "-" + input.HostID + "-" + p.PlanID
+			receipt.StepID += "-" + input.HostID + "-" + p.PlanID
+			receipt.LeaseID += "-" + input.HostID + "-" + p.PlanID
+			receipt.ReceiptID += "-" + input.HostID + "-" + p.PlanID
 		}
 		receipt.ResultDigest = result.ResultDigest
 		f.receipt(p, receipt)

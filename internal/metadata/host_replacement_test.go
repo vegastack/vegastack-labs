@@ -2,13 +2,13 @@ package metadata
 
 import "testing"
 
-func TestReplacementContractsHaveOnlyExactOperatorEndpoints(t *testing.T) {
+func TestReplacementContractsHaveOnlyExactLifecycleEndpoints(t *testing.T) {
 	endpoints := hostReplacementEndpoints()
 	if len(endpoints) != 2 {
 		t.Fatal("replacement endpoint surface expanded")
 	}
 	for _, e := range endpoints {
-		if len(e.Audiences) != 1 || e.Audiences[0] != AudienceOperator || e.Availability != AvailabilityAvailable || e.OwnerPhase != "6" {
+		if len(e.Audiences) != 2 || e.Audiences[0] != AudienceOperator || e.Audiences[1] != AudienceBrowser || e.Availability != AvailabilityAvailable || e.OwnerPhase != "6" {
 			t.Fatalf("replacement endpoint widened: %+v", e)
 		}
 	}

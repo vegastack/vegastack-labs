@@ -15,6 +15,7 @@ import { useReadFailure } from "@/components/query-provider";
 import { ReadViewState } from "@/components/read-view-state";
 import { formatConsoleTime, SourceStatus } from "@/components/source-status";
 import { readClient } from "@/lib/read-client";
+import { HostLifecycle } from "@/components/host-lifecycle";
 import { useNodeRecords } from "@/lib/node-queries";
 import { classifyReadFailure, mayRetainStaleData } from "@/lib/read-queries";
 
@@ -64,7 +65,7 @@ export function NodesView() {
   if (failure) return <NodesShell><NodeFailure error={failure} retained={false} onRetry={() => void recoverFailure()} /></NodesShell>;
   if (records.draft.isPending) return <NodesShell busy><ReadViewState kind="loading" title="Loading Nodes" description="Finding the newest authorized inventory draft." /></NodesShell>;
   if (records.draft.error) return <NodesShell><NodeFailure error={records.draft.error} retained={Boolean(records.draft.data)} onRetry={() => void records.draft.refetch()} /></NodesShell>;
-  if (!records.reference) return <NodesShell><ReadViewState kind="empty" title="No inventory draft" description="Import and qualification actions are not available in this read-only Console." /></NodesShell>;
+  if (!records.reference) return <NodesShell><ReadViewState kind="empty" title="No inventory draft" description="No inventory draft is available. Registered hosts can still be inspected separately above." /></NodesShell>;
 
   const related = [records.source, records.collections.nodes, records.collections.aliases, records.collections.observations, ...(selection ? [detail] : [])];
   const hardFailure = related.find((query) => query.error && !mayRetainStaleData(query.error));
@@ -146,7 +147,7 @@ function NodesShell({ children, busy = false, refresh }: { children: React.React
   return (
     <>
       <Header view={refresh ? { busy, refresh } : undefined} />
-      <div className="min-w-0 space-y-6">{children}</div>
+      <div className="min-w-0 space-y-6"><HostLifecycle hostId={null} />{children}</div>
     </>
   );
 }

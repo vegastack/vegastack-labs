@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostadoption"
@@ -143,6 +144,9 @@ func (r *HostAdoptionRepository) GetDraft(ctx context.Context, id string) (HostA
 func readManagedHost(row discoveryRow, id string) (generated.ManagedHost, error) {
 	h := generated.ManagedHost{Schema: generated.SchemaIDManagedHost, SchemaVersion: "1.0.0", Status: "adopted-unadmitted"}
 	err := row(`SELECT host_id,target_id,observation_id,profile_id,identity_class,state_revision,recovery_epoch FROM managed_hosts WHERE host_id=?`, id).Scan(&h.HostID, &h.TargetID, &h.ObservationID, &h.ProfileID, &h.IdentityClass, &h.StateRevision, &h.RecoveryEpoch)
+	if errors.Is(err, sql.ErrNoRows) {
+		return h, adoptionError(generated.ErrorCodeResourceNotFound)
+	}
 	return h, err
 }
 func (r *HostAdoptionRepository) Get(ctx context.Context, id string) (generated.ManagedHost, error) {

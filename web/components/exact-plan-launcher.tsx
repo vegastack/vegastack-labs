@@ -8,9 +8,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { classifyReadFailure } from "@/lib/read-queries";
 import { planFromView, usePlan } from "@/lib/change-queries";
 
-export type ExactPlanKind = "backup" | "backup-verify" | "restore";
+export type ExactPlanKind = "backup" | "backup-verify" | "restore" | "host-target" | "host-adoption" | "host-action" | "host-access" | "host-role" | "host-replacement";
 
 const labels: Record<ExactPlanKind, string> = {
+  "host-target": "Discovery target plan",
+  "host-adoption": "Host registration plan",
+  "host-action": "Host action plan",
+  "host-access": "Host access plan",
+  "host-role": "Host role plan",
+  "host-replacement": "Host replacement plan",
   backup: "Backup plan",
   "backup-verify": "Backup verification plan",
   restore: "Restore plan",

@@ -23,7 +23,8 @@ func browserReadEndpoints(registry metadata.Registry) ([]metadata.EndpointDefini
 		}
 		contractedPhase4Or5 := endpoint.OwnerPhase == "4" || endpoint.OwnerPhase == "5"
 		availableRead := endpoint.Availability == metadata.AvailabilityAvailable && endpoint.Method == "GET"
-		if !browser || (!contractedPhase4Or5 && !availableRead) {
+		hostWorkflow := endpoint.Availability == metadata.AvailabilityAvailable && hostBrowserMutation(endpoint.ID)
+		if !browser || (!contractedPhase4Or5 && !availableRead && !hostWorkflow) {
 			continue
 		}
 		if !strings.HasPrefix(endpoint.Path, "/api/v1/") || strings.Contains(endpoint.Path, "://") || (endpoint.Method != "GET" && endpoint.Method != "POST") {
@@ -33,6 +34,14 @@ func browserReadEndpoints(registry metadata.Registry) ([]metadata.EndpointDefini
 	}
 	sort.Slice(endpoints, func(left, right int) bool { return endpoints[left].ID < endpoints[right].ID })
 	return endpoints, nil
+}
+
+func hostBrowserMutation(id string) bool {
+	switch id {
+	case "api.v1.host-discovery-targets.draft", "api.v1.host-observations.create", "api.v1.host-adoptions.draft", "api.v1.host-actions.draft", "api.v1.host-access.draft", "api.v1.host-replacements.create":
+		return true
+	}
+	return false
 }
 
 func browserSchemaGraph(registry metadata.Registry, endpoints []metadata.EndpointDefinition) ([]metadata.SchemaDefinition, error) {
@@ -59,6 +68,12 @@ func browserSchemaGraph(registry metadata.Registry, endpoints []metadata.Endpoin
 		wanted[identifier] = true
 	}
 	for _, endpoint := range endpoints {
+		if endpoint.ID == "api.v1.host-actions.draft" {
+			wanted["vegastack-labs.dev/debian-baseline-input"] = true
+			wanted["vegastack-labs.dev/linux-role-input"] = true
+			wanted["vegastack-labs.dev/access-probe-input"] = true
+			wanted["vegastack-labs.dev/volume-recovery-input"] = true
+		}
 		wanted[endpoint.DataSchema] = true
 		if endpoint.QuerySchema != "" {
 			wanted[endpoint.QuerySchema] = true
@@ -152,6 +167,7 @@ type browserFieldRule struct {
 	Kind                 metadata.ValueKind `json:"kind"`
 	Required             bool               `json:"required"`
 	Nullable             bool               `json:"nullable"`
+	OmitEmpty            bool               `json:"omitEmpty,omitempty"`
 	Ref                  string             `json:"ref,omitempty"`
 	ItemRef              string             `json:"itemRef,omitempty"`
 	ItemKind             metadata.ValueKind `json:"itemKind,omitempty"`
@@ -234,6 +250,7 @@ type FieldRule = {
   readonly kind: "string" | "boolean" | "integer" | "object" | "array";
   readonly required: boolean;
   readonly nullable: boolean;
+  readonly omitEmpty?: boolean;
   readonly ref?: string;
   readonly itemRef?: string;
   readonly itemKind?: "string" | "boolean" | "integer" | "object" | "array";
@@ -255,7 +272,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = `)
 		rule := browserSchemaRule{ID: schema.ID, Fields: make([]browserFieldRule, 0, len(schema.Fields))}
 		for _, field := range schema.Fields {
 			rule.Fields = append(rule.Fields, browserFieldRule{
-				Name: field.JSONName, Kind: field.Kind, Required: field.Required, Nullable: field.Nullable,
+				Name: field.JSONName, Kind: field.Kind, Required: field.Required, Nullable: field.Nullable, OmitEmpty: field.OmitEmpty && !field.Required,
 				Ref: field.Ref, ItemRef: field.ItemRef, ItemKind: field.ItemKind, Enum: field.Enum,
 				AdditionalProperties: field.AdditionalProperties, Pattern: field.Pattern,
 				MinLength: field.MinLength, MaxLength: field.MaxLength, Minimum: field.Minimum, Maximum: field.Maximum,
@@ -677,6 +694,7 @@ async function* streamSSE<T>(fetchTransport: FetchTransport, url: string, option
 	renderFiniteReadClient(&output, endpoints)
 	renderChangeClient(&output, endpoints)
 	renderPhase5Client(&output, endpoints)
+	renderHostClient(&output, endpoints)
 	return output.Bytes()
 }
 
@@ -733,6 +751,54 @@ func renderPhase5Client(output *bytes.Buffer, endpoints []metadata.EndpointDefin
 	output.WriteString("};\n\nexport function createPhase5Client(fetchTransport: FetchTransport): Phase5Client {\n  return {\n")
 	for _, endpoint := range endpoints {
 		if endpoint.OwnerPhase == "5" && endpoint.Availability == metadata.AvailabilityAvailable {
+			renderFiniteMethod(output, endpoint)
+		}
+	}
+	output.WriteString("  };\n}\n")
+}
+
+func renderHostClient(output *bytes.Buffer, endpoints []metadata.EndpointDefinition) {
+	output.WriteString(`
+// Match generated Go struct order, omitempty semantics and encoding/json escaping.
+export async function hostRequestDigest(schema: string, value: unknown): Promise<string> {
+  const decoded = decodeSchema(schema, value);
+  function ordered(id: string, input: Record<string, unknown>): Record<string, unknown> {
+    const rule = SCHEMAS.find(candidate => candidate.id === id);
+    if (!rule) return mismatch(id, "schema is unavailable");
+    const out: Record<string, unknown> = {};
+    for (const field of rule.fields) {
+      let v = input[field.name];
+      if (v === undefined) {
+        if (field.omitEmpty) continue;
+        v = field.nullable || field.kind === "array" || field.kind === "object" ? null : field.kind === "string" ? "" : field.kind === "boolean" ? false : 0;
+      }
+      if (field.omitEmpty && (v === null || (!field.nullable && (v === "" || v === false || v === 0 || (Array.isArray(v) && v.length === 0))))) continue;
+      if (v !== null && field.ref) v = ordered(field.ref, v as Record<string, unknown>);
+      else if (Array.isArray(v) && field.itemRef) v = v.map(item => ordered(field.itemRef!, item as Record<string, unknown>));
+      out[field.name] = v;
+    }
+    return out;
+  }
+  const text = JSON.stringify(ordered(schema, decoded)).replace(/[<>&\u2028\u2029]/gu, c => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"));
+  const sum = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return "sha256:" + Array.from(new Uint8Array(sum), b => b.toString(16).padStart(2, "0")).join("");
+}
+
+function requireHostBinding(ok: boolean, operation: string): void {
+  if (!ok) mismatch(operation, "host response does not match the exact request");
+}
+`)
+
+	output.WriteString("\n// Browser-authorized host lifecycle operations.\n")
+	output.WriteString("export type HostClient = {\n")
+	for _, endpoint := range endpoints {
+		if endpoint.OwnerPhase == "6" && endpoint.Availability == metadata.AvailabilityAvailable {
+			fmt.Fprintf(output, "  readonly %s: %s;\n", browserMethodName(endpoint), browserMethodType(endpoint))
+		}
+	}
+	output.WriteString("};\n\nexport function createHostClient(fetchTransport: FetchTransport): HostClient {\n  return {\n")
+	for _, endpoint := range endpoints {
+		if endpoint.OwnerPhase == "6" && endpoint.Availability == metadata.AvailabilityAvailable {
 			renderFiniteMethod(output, endpoint)
 		}
 	}
@@ -806,6 +872,10 @@ func renderFiniteMethod(output *bytes.Buffer, endpoint metadata.EndpointDefiniti
 		}
 		pathExpression += " + " + queryFunction + "(query)"
 	}
+	if renderHostBoundMethod(output, endpoint, pathExpression) {
+		output.WriteString("    },\n")
+		return
+	}
 	if endpoint.Method == "POST" {
 		fmt.Fprintf(output, "      const body = decode%s(request);\n", schemaGoName(endpoint.RequestSchema))
 		durable := endpoint.DataSchema == "vegastack-labs.dev/run-presentation"
@@ -834,6 +904,21 @@ func browserPathParameters(path string) []string {
 
 func browserMethodName(endpoint metadata.EndpointDefinition) string {
 	switch endpoint.ID {
+	case "api.v1.host-replacements.create":
+		return "prepareHostReplacement"
+	case "api.v1.host-replacements.get":
+		return "getHostReplacement"
+	case "api.v1.host-discovery-targets.draft":
+		return "prepareHostTarget"
+	case "api.v1.host-observations.create":
+		return "discoverHost"
+	case "api.v1.host-adoptions.draft":
+		return "prepareHostAdoption"
+	case "api.v1.host-actions.draft":
+		return "prepareHostAction"
+	case "api.v1.host-access.draft":
+		return "prepareHostAccess"
+
 	case "api.v1.audit-checkpoints.list":
 		return "listAuditCheckpoints"
 	case "api.v1.audit-history.verification":
@@ -973,4 +1058,56 @@ func discoveryPublicPlanField(schemaID, name string) bool {
 		return false
 	}
 	return name == "credentialReferenceId" || name == "credentialMode" || name == "credentialPublicKeyDigest"
+}
+
+func renderHostBoundMethod(output *bytes.Buffer, e metadata.EndpointDefinition, path string) bool {
+	var check, prefix, epoch, revision string
+	switch e.ID {
+	case "api.v1.hosts.get":
+		check = "data.hostId === path.hostID"
+	case "api.v1.host-observations.get":
+		check = "data.observationId === path.observationID"
+	case "api.v1.host-replacements.get":
+		check = "data.replacementId === path.replacementId"
+	case "api.v1.host-discovery-targets.draft":
+		prefix = "discovery-draft-"
+		epoch = "body.target.recoveryEpoch"
+		revision = "body.expectedStateRevision"
+	case "api.v1.host-adoptions.draft":
+		prefix = "host-adoption-"
+		epoch = "body.recoveryEpoch"
+		revision = "body.expectedStateRevision"
+	case "api.v1.host-replacements.create":
+		prefix = "host-replacement-"
+		epoch = "body.recoveryEpoch"
+		revision = "body.expectedStateRevision"
+		check = "data.replacementId === body.replacementId && "
+	case "api.v1.host-actions.draft":
+		prefix = "host-action-"
+		epoch = "body.recoveryEpoch"
+		revision = "body.expectedStateRevision"
+	case "api.v1.host-access.draft":
+		prefix = "host-access-"
+		epoch = "body.subject.recoveryEpoch"
+		revision = "body.subject.expectedStateRevision"
+	case "api.v1.host-observations.create":
+		fmt.Fprintf(output, "      const body = decode%s(request);\n      const digest = await hostRequestDigest(%q, body);\n      const result = await performChange(fetchTransport, %s, body, options, operation, decode%s, false);\n      const data = result.data.observation;\n      requireHostBinding(result.data.originalRequestDigest === digest && data.targetId === body.targetId && data.targetRevision === body.targetRevision && data.recoveryEpoch === body.recoveryEpoch && data.recoveryEpoch === result.recoveryEpoch && data.stateRevision === result.stateRevision && data.stateRevision >= body.expectedStateRevision, operation);\n      return result;\n", schemaGoName(e.RequestSchema), e.RequestSchema, path, schemaGoName(e.DataSchema))
+		return true
+	default:
+		return false
+	}
+	if e.Method == "GET" {
+		revisionMatch := "data.stateRevision === result.stateRevision"
+		if e.ID == "api.v1.hosts.get" {
+			revisionMatch = "data.stateRevision <= result.stateRevision"
+		}
+		fmt.Fprintf(output, "      const result = await performRead(fetchTransport, %s, options, operation, decode%s);\n      const data = result.data;\n      requireHostBinding(%s && %s && data.recoveryEpoch === result.recoveryEpoch, operation);\n      return result;\n", path, schemaGoName(e.DataSchema), check, revisionMatch)
+		return true
+	}
+	original := "data.contentDigest === digest"
+	if e.DataSchema == "vegastack-labs.dev/host-action-submission" {
+		original = "data.originalRequestDigest === digest"
+	}
+	fmt.Fprintf(output, "      const body = decode%s(request);\n      const digest = await hostRequestDigest(%q, body);\n      const result = await performChange(fetchTransport, %s, body, options, operation, decode%s, false);\n      const data = result.data;\n      requireHostBinding(%s%s && data.draftId === %q + data.contentDigest.slice(7, 39) && data.declarationId === data.draftId && data.recoveryEpoch === %s && data.recoveryEpoch === result.recoveryEpoch && data.stateRevision === result.stateRevision && data.stateRevision >= %s, operation);\n      return result;\n", schemaGoName(e.RequestSchema), e.RequestSchema, path, schemaGoName(e.DataSchema), check, original, prefix, epoch, revision)
+	return true
 }

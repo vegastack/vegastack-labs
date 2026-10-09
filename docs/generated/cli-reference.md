@@ -422,6 +422,32 @@ Owner phase: `2` · risk: `read-only` · availability: `available`
 
 - Validate and store one inventory candidate as an inert draft.: `vsk-labs inventory import --config fixture/server-profile.json --file fixture/inventory.json --format typed-json --source-revision source-1 --captured-at 2026-09-08T06:00:00Z --idempotency-key opaque-1 --output json`
 
+### `vsk-labs node access prepare`
+
+Prepare an inert access policy and probe sequence.
+
+Owner phase: `6` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected server profile.
+- `--file <path>` — Read one bounded typed request JSON file.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Prepare an inert access policy and probe sequence.: `vsk-labs node access prepare --config fixture/server-profile.json --file fixture/host-request.json --output json`
+
+### `vsk-labs node action prepare`
+
+Prepare an inert typed host action draft.
+
+Owner phase: `6` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected server profile.
+- `--file <path>` — Read one bounded typed request JSON file.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Prepare an inert typed host action draft.: `vsk-labs node action prepare --config fixture/server-profile.json --file fixture/host-request.json --output json`
+
 ### `vsk-labs node add`
 
 Prepare inert host registration; approval and apply remain separate.
@@ -461,6 +487,45 @@ Owner phase: `6` · risk: `read-only` · availability: `available`
 
 - Read a registered host without contacting it.: `vsk-labs node inspect --config fixture/server-profile.json --host-id host-a --output json`
 
+### `vsk-labs node observation inspect`
+
+Read an existing discovery observation without contacting the host.
+
+Owner phase: `6` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read one protected server profile.
+- `--observation-id <id>` — Select one saved lifecycle record.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Read an existing discovery observation without contacting the host.: `vsk-labs node observation inspect --config fixture/server-profile.json --observation-id observation-a --output json`
+
+### `vsk-labs node replacement inspect`
+
+Read the durable replacement stage and safe next action.
+
+Owner phase: `6` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read one protected server profile.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--replacement-id <id>` — Select one saved lifecycle record.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Read the durable replacement stage and safe next action.: `vsk-labs node replacement inspect --config fixture/server-profile.json --replacement-id replacement-a --output json`
+
+### `vsk-labs node replacement prepare`
+
+Prepare an inert exact host replacement continuation.
+
+Owner phase: `6` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected server profile.
+- `--file <path>` — Read one bounded typed request JSON file.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Prepare an inert exact host replacement continuation.: `vsk-labs node replacement prepare --config fixture/server-profile.json --file fixture/host-request.json --output json`
+
 ### `vsk-labs node role prepare`
 
 Prepare an inert role action draft; exact approval and apply remain separate.
@@ -473,6 +538,19 @@ Owner phase: `6` · risk: `mutation` · availability: `available`
 - `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
 
 - Prepare an inert role action draft; exact approval and apply remain separate.: `vsk-labs node role prepare --config fixture/server-profile.json --file fixture/role-action.json --output json`
+
+### `vsk-labs node target prepare`
+
+Prepare an inert discovery target draft.
+
+Owner phase: `6` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected server profile.
+- `--file <path>` — Read one bounded typed request JSON file.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Prepare an inert discovery target draft.: `vsk-labs node target prepare --config fixture/server-profile.json --file fixture/host-request.json --output json`
 
 ### `vsk-labs plan`
 

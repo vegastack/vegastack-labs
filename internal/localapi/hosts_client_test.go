@@ -27,10 +27,12 @@ func TestHostClientRejectsInvalidHostBeforeTransport(t *testing.T) {
 }
 
 func TestHostClientInspectBinding(t *testing.T) {
-	for _, variant := range []string{"valid", "host", "revision", "epoch"} {
+	for _, variant := range []string{"valid", "historical", "host", "revision", "epoch"} {
 		t.Run(variant, func(t *testing.T) {
 			h := generated.ManagedHost{Schema: generated.SchemaIDManagedHost, SchemaVersion: "1.0.0", HostID: "host-a", TargetID: "target-a", ObservationID: "observation-a", ProfileID: "profile-a", IdentityClass: "physical", Status: "adopted-unadmitted", StateRevision: 7, RecoveryEpoch: 2}
 			switch variant {
+			case "historical":
+				h.StateRevision--
 			case "host":
 				h.HostID = "host-b"
 			case "revision":
@@ -44,7 +46,7 @@ func TestHostClientInspectBinding(t *testing.T) {
 			if req.method != "GET" || req.path != "/api/v1/hosts/host-a" {
 				t.Fatalf("wrong route: %+v", req)
 			}
-			if variant == "valid" {
+			if variant == "valid" || variant == "historical" {
 				if err != nil || response.Data.Status != "adopted-unadmitted" {
 					t.Fatal(err)
 				}
@@ -70,7 +72,7 @@ func TestHostClientDiscoveryBindings(t *testing.T) {
 			case "epoch":
 				o.RecoveryEpoch++
 			}
-			_, profile, captured := serveFixedResponse(t, 200, operationEnvelope(t, "api.v1.host-observations.create", false, 2, 7, generated.HostDiscoverySubmission{Schema: generated.SchemaIDHostDiscoverySubmission, SchemaVersion: "1.0.0", Observation: o, Created: true}))
+			_, profile, captured := serveFixedResponse(t, 200, operationEnvelope(t, "api.v1.host-observations.create", false, 2, 7, generated.HostDiscoverySubmission{OriginalRequestDigest: hostRequestDigest(input), Schema: generated.SchemaIDHostDiscoverySubmission, SchemaVersion: "1.0.0", Observation: o, Created: true}))
 			_, err := NewClient(clientTestFactory()).DiscoverHost(context.Background(), profile, input)
 			req := <-captured
 			if req.path != "/api/v1/host-observations" || req.method != "POST" {

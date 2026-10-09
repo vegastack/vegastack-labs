@@ -115,8 +115,8 @@ func hostReplacementSchemas() []SchemaDefinition {
 }
 func hostReplacementEndpoints() []EndpointDefinition {
 	result := []EndpointDefinition{
-		phase5Endpoint("api.v1.host-replacements.create", "POST", "/api/v1/host-replacements", hostReplacementRequestID, "vegastack-labs.dev/host-replacement-submission", false),
-		phase5Endpoint("api.v1.host-replacements.get", "GET", "/api/v1/host-replacements/{replacementId}", "", "vegastack-labs.dev/host-replacement-state", false),
+		phase5Endpoint("api.v1.host-replacements.create", "POST", "/api/v1/host-replacements", hostReplacementRequestID, "vegastack-labs.dev/host-replacement-submission", true),
+		phase5Endpoint("api.v1.host-replacements.get", "GET", "/api/v1/host-replacements/{replacementId}", "", "vegastack-labs.dev/host-replacement-state", true),
 	}
 	for i := range result {
 		result[i].OwnerPhase = "6"

@@ -35,7 +35,7 @@ func (s *Service) Discover(ctx context.Context, request generated.HostDiscoveryR
 		if err != nil {
 			return empty, sanitize(err)
 		}
-		return submission(observation, false), nil
+		return submission(observation, false, Digest(request)), nil
 	}
 	collectionCtx, cancel := context.WithDeadline(ctx, attempt.Deadline)
 	defer cancel()
@@ -55,7 +55,7 @@ func (s *Service) Discover(ctx context.Context, request generated.HostDiscoveryR
 	if err != nil {
 		return empty, sanitize(err)
 	}
-	return submission(observation, true), nil
+	return submission(observation, true, Digest(request)), nil
 }
 func (s *Service) Get(ctx context.Context, id string) (generated.HostObservation, error) {
 	if s == nil || s.Repository == nil {
@@ -67,8 +67,8 @@ func (s *Service) Get(ctx context.Context, id string) (generated.HostObservation
 	}
 	return result, nil
 }
-func submission(o generated.HostObservation, created bool) generated.HostDiscoverySubmission {
-	return generated.HostDiscoverySubmission{Schema: generated.SchemaIDHostDiscoverySubmission, SchemaVersion: "1.0.0", Observation: o, Created: created}
+func submission(o generated.HostObservation, created bool, originalRequestDigest string) generated.HostDiscoverySubmission {
+	return generated.HostDiscoverySubmission{Schema: generated.SchemaIDHostDiscoverySubmission, SchemaVersion: "1.0.0", Observation: o, Created: created, OriginalRequestDigest: originalRequestDigest}
 }
 func sanitize(err error) error {
 	if stable, ok := failure.As(err); ok {

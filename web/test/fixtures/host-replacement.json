@@ -1,0 +1,53 @@
+{
+  "schema": "vegastack-labs.dev/host-replacement-request",
+  "schemaVersion": "1.0.0",
+  "replacementId": "replacement-a",
+  "operation": "freeze",
+  "restorationClass": "stateless-role",
+  "oldHostId": "old-host",
+  "newHostId": "new-host",
+  "oldIdentityDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "newIdentityDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "oldTargetDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "newTargetDigest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "oldSshHostKeyDigest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "newSshHostKeyDigest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "oldTargetRevision": 1,
+  "newTargetRevision": 1,
+  "profileId": "profile-a",
+  "profileLockDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "oldRoleBindingDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "roleDeclarationId": "old-role",
+  "roleDeclarationRevision": 1,
+  "proposedRoleDeclarationId": "new-role",
+  "proposedRoleDeclarationRevision": 1,
+  "proposedRoleBindingDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "preservedPreimageDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "aliasBindings": [
+    {
+      "schema": "vegastack-labs.dev/host-replacement-alias-binding",
+      "schemaVersion": "1.0.0",
+      "aliasId": "alias-a",
+      "ownerHostId": "old-host",
+      "ownerIdentityDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ownerRevision": 1,
+      "ownershipGeneration": 1
+    }
+  ],
+  "payloadIds": [],
+  "volumeIds": [],
+  "resourceIds": [],
+  "osPreparation": {
+    "schema": "vegastack-labs.dev/host-replacement-os-preparation",
+    "schemaVersion": "1.0.0",
+    "method": "administrator-prepared",
+    "observationId": "observation-a",
+    "observationDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "hostIdentityDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "confirmedAt": "2026-10-09T12:00:00Z"
+  },
+  "expectedDeclarationRevision": 0,
+  "expectedStateRevision": 3,
+  "recoveryEpoch": 0,
+  "idempotencyKey": "freeze-a"
+}

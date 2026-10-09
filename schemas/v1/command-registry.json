@@ -2463,6 +2463,152 @@
     {
       "path": [
         "node",
+        "access",
+        "prepare"
+      ],
+      "summary": "Prepare an inert access policy and probe sequence.",
+      "availability": "available",
+      "ownerPhase": "6",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one bounded typed request JSON file.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/host-access-draft-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/host-action-submission",
+      "examples": [
+        {
+          "summary": "Prepare an inert access policy and probe sequence.",
+          "arguments": [
+            "node",
+            "access",
+            "prepare",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/host-request.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "node",
+        "action",
+        "prepare"
+      ],
+      "summary": "Prepare an inert typed host action draft.",
+      "availability": "available",
+      "ownerPhase": "6",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one bounded typed request JSON file.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/host-action-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/host-action-submission",
+      "examples": [
+        {
+          "summary": "Prepare an inert typed host action draft.",
+          "arguments": [
+            "node",
+            "action",
+            "prepare",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/host-request.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "node",
         "add"
       ],
       "summary": "Prepare inert host registration; approval and apply remain separate.",
@@ -2685,6 +2831,78 @@
     {
       "path": [
         "node",
+        "observation",
+        "inspect"
+      ],
+      "summary": "Read an existing discovery observation without contacting the host.",
+      "availability": "available",
+      "ownerPhase": "6",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--observation-id",
+          "kind": "value",
+          "valueName": "id",
+          "required": true,
+          "repeatable": false,
+          "summary": "Select one saved lifecycle record.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/host-observation",
+      "examples": [
+        {
+          "summary": "Read an existing discovery observation without contacting the host.",
+          "arguments": [
+            "node",
+            "observation",
+            "inspect",
+            "--config",
+            "fixture/server-profile.json",
+            "--observation-id",
+            "observation-a",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "node",
         "quarantine"
       ],
       "summary": "Create an inert node-quarantine change.",
@@ -2701,6 +2919,151 @@
       "availability": "planned",
       "ownerPhase": "6",
       "risk": "unassigned"
+    },
+    {
+      "path": [
+        "node",
+        "replacement",
+        "inspect"
+      ],
+      "summary": "Read the durable replacement stage and safe next action.",
+      "availability": "available",
+      "ownerPhase": "6",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--replacement-id",
+          "kind": "value",
+          "valueName": "id",
+          "required": true,
+          "repeatable": false,
+          "summary": "Select one saved lifecycle record.",
+          "enum": null
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/host-replacement-state",
+      "examples": [
+        {
+          "summary": "Read the durable replacement stage and safe next action.",
+          "arguments": [
+            "node",
+            "replacement",
+            "inspect",
+            "--config",
+            "fixture/server-profile.json",
+            "--replacement-id",
+            "replacement-a",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "node",
+        "replacement",
+        "prepare"
+      ],
+      "summary": "Prepare an inert exact host replacement continuation.",
+      "availability": "available",
+      "ownerPhase": "6",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one bounded typed request JSON file.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/host-replacement-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/host-replacement-submission",
+      "examples": [
+        {
+          "summary": "Prepare an inert exact host replacement continuation.",
+          "arguments": [
+            "node",
+            "replacement",
+            "prepare",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/host-request.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
@@ -2769,6 +3132,79 @@
             "fixture/server-profile.json",
             "--file",
             "fixture/role-action.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "node",
+        "target",
+        "prepare"
+      ],
+      "summary": "Prepare an inert discovery target draft.",
+      "availability": "available",
+      "ownerPhase": "6",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one bounded typed request JSON file.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/host-discovery-target-draft-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/host-discovery-target-draft-submission",
+      "examples": [
+        {
+          "summary": "Prepare an inert discovery target draft.",
+          "arguments": [
+            "node",
+            "target",
+            "prepare",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/host-request.json",
             "--output",
             "json"
           ]

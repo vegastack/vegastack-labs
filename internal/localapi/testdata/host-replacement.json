@@ -1,0 +1,53 @@
+{
+  "schema": "vegastack-labs.dev/host-replacement-request",
+  "schemaVersion": "1.0.0",
+  "replacementId": "replacement-a",
+  "operation": "freeze",
+  "restorationClass": "stateless-role",
+  "oldHostId": "old-host",
+  "newHostId": "new-host",
+  "oldTargetRevision": 1,
+  "newTargetRevision": 1,
+  "profileId": "profile",
+  "roleDeclarationId": "old-role",
+  "roleDeclarationRevision": 1,
+  "proposedRoleDeclarationId": "new-role",
+  "proposedRoleDeclarationRevision": 1,
+  "payloadIds": [],
+  "volumeIds": [],
+  "resourceIds": [],
+  "expectedDeclarationRevision": 0,
+  "expectedStateRevision": 1,
+  "recoveryEpoch": 0,
+  "idempotencyKey": "freeze-a",
+  "oldIdentityDigest": "sha256:3dab98e31e3726287c524116c9899cc61573fe7ca3bd80f377154335992668f1",
+  "newIdentityDigest": "sha256:eb5d209a557d6faca4e80cde5e0148b0f3c31c9bb291129f63cee3dd99ee60cb",
+  "oldTargetDigest": "sha256:e227666dd6b02033b8c81b4efc456ae9427f3d2d6e1e1393961e10ef7f10dcc0",
+  "newTargetDigest": "sha256:62076b742341fbde2950b2935b86a8691d9e2ce81c1410108f1ecab7cac88b85",
+  "oldSshHostKeyDigest": "sha256:c0ed495fd6026a9e314796e317c5b7730ca9af3a7203a11f9a85583065e053b8",
+  "newSshHostKeyDigest": "sha256:8b3e57ea1a79c2ed3af5c866f64a971c31c4fd0ce031083dd786159f55015e93",
+  "profileLockDigest": "sha256:d89a868ff3fc631a15cab7b3d887462c0bdf374a93211dae802a87e2d4afe194",
+  "oldRoleBindingDigest": "sha256:b50303003613a75069ead3629acd5399c16a2e99eba28db8c53ecfa6026281f6",
+  "proposedRoleBindingDigest": "sha256:c5e8b186034a70dfff51cad311eb60e4f15dd596cedb34d278d93c5b19311f05",
+  "preservedPreimageDigest": "sha256:42ce8c3d3e2e1ec16c4e509096199ad7646c045ea17f690100c81517650dfad1",
+  "aliasBindings": [
+    {
+      "schema": "vegastack-labs.dev/host-replacement-alias-binding",
+      "schemaVersion": "1.0.0",
+      "aliasId": "alias-a",
+      "ownerHostId": "old-host",
+      "ownerIdentityDigest": "sha256:3dab98e31e3726287c524116c9899cc61573fe7ca3bd80f377154335992668f1",
+      "ownerRevision": 1,
+      "ownershipGeneration": 1
+    }
+  ],
+  "osPreparation": {
+    "schema": "vegastack-labs.dev/host-replacement-os-preparation",
+    "schemaVersion": "1.0.0",
+    "method": "administrator-prepared",
+    "observationId": "observation-a",
+    "observationDigest": "sha256:772c6953848bf5b19aedf9a34ccb066f31eacca29bdbfcb1b9821765f1060149",
+    "hostIdentityDigest": "sha256:eb5d209a557d6faca4e80cde5e0148b0f3c31c9bb291129f63cee3dd99ee60cb",
+    "confirmedAt": "2026-10-09T12:00:00Z"
+  }
+}
