@@ -445,13 +445,15 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 		sealedNativeCredential := reviewedNativeCredentialPackage(parsed, nativeCredentialImport, modulePath)
 		sealedHostAction := reviewedHostActionPackage(parsed, modulePath, "internal/hostaction")
 		sealedHostActionMain := reviewedHostActionPackage(parsed, modulePath, "cmd/vsk-labs")
+		sealedDebianAccess := reviewedDebianAccessPackage(parsed, modulePath, "internal/debianaccess")
+		sealedAccessAdapter := reviewedDebianAccessPackage(parsed, modulePath, "internal/adapter/hostaction")
 		sealedRecoveryCustodian := candidate.ImportPath == recoveryImport && reviewedRecoveryCustodianPackage(parsed)
-		isControlCapabilityPackage := isControlPackage && !(localClosure[candidate.ImportPath] && !result.LocalClientBoundary) && !sealedNativeCredential && !sealedRecoveryCustodian && !sealedHostAction
+		isControlCapabilityPackage := isControlPackage && !(localClosure[candidate.ImportPath] && !result.LocalClientBoundary) && !sealedNativeCredential && !sealedRecoveryCustodian && !sealedHostAction && !sealedDebianAccess
 		// The custodian command imports recovery's fixed protected pin/receipt
 		// source. Only this exact reviewed source closure may carry those paths.
-		inspectControlPaths := isControlPackage && candidate.ImportPath != generatedImport && candidate.ImportPath != serverConfigImport && !sealedNativeCredential && !sealedRecoveryCustodian && !sealedHostAction && !sealedHostActionMain
+		inspectControlPaths := isControlPackage && candidate.ImportPath != generatedImport && candidate.ImportPath != serverConfigImport && !sealedNativeCredential && !sealedRecoveryCustodian && !sealedHostAction && !sealedHostActionMain && !sealedDebianAccess
 		for _, imported := range candidate.Imports {
-			if imported == "os/exec" && !isReleasePackage && !(candidate.ImportPath == sshTransportImport && reviewedSSHTransportPackage(parsed, localTransportImport)) && !reviewedNativeCredentialPackage(parsed, nativeCredentialImport, modulePath) && !reviewedBackupProcessPackage(parsed, backupImport) {
+			if imported == "os/exec" && !isReleasePackage && !(candidate.ImportPath == sshTransportImport && reviewedSSHTransportPackage(parsed, localTransportImport)) && !reviewedNativeCredentialPackage(parsed, nativeCredentialImport, modulePath) && !reviewedBackupProcessPackage(parsed, backupImport) && !sealedDebianAccess && !sealedAccessAdapter {
 				result.ShellDispatch = true
 			}
 			switch imported {
@@ -464,7 +466,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 				if !(candidate.ImportPath == auditImport && reviewedAuditVerificationPackage(parsed)) &&
 					!(candidate.ImportPath == recoveryImport && (reviewedRecoveryVerificationPackage(parsed) || reviewedRecoveryCustodianPackage(parsed))) &&
 					!reviewedRecoveryDenialVerificationPackage(parsed, modulePath) &&
-					!reviewedRecoveryCanaryVerificationFile(parsed, serverImport) && !sealedHostAction && !reviewedHostActionServerSigner(parsed, serverImport) {
+					!reviewedRecoveryCanaryVerificationFile(parsed, serverImport) && !sealedHostAction && !sealedDebianAccess && !reviewedHostActionServerSigner(parsed, serverImport) {
 					result.StateExportTrust = true
 				}
 			case "crypto/rsa":
@@ -515,7 +517,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 			}
 		}
 		if !sealedNativeCredential {
-			registryGeneratedOrReviewed := sealedHostAction || sealedHostActionMain || candidate.ImportPath == apiImport || candidate.ImportPath == localAPIImport || (candidate.ImportPath == recoveryImport && reviewedRecoveryCustodianPackage(parsed)) ||
+			registryGeneratedOrReviewed := sealedHostAction || sealedHostActionMain || sealedDebianAccess || sealedAccessAdapter || candidate.ImportPath == apiImport || candidate.ImportPath == localAPIImport || (candidate.ImportPath == recoveryImport && reviewedRecoveryCustodianPackage(parsed)) ||
 				(candidate.ImportPath == modulePath+"/internal/adapter/hostdiscovery" && reviewedHostDiscoveryCollectorPackage(parsed))
 			inspectPackage(parsed, generatedImport, stateExportImport, isReleasePackage, registryGeneratedOrReviewed, inspectControlPaths, &result)
 		}

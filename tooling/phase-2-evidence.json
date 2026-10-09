@@ -397,6 +397,16 @@
           "github.com/vegastack/vegastack-labs/internal/hostaction"
         ],
         "mutationBoundaryDigest": "sha256:95ee78c6cd02d0210b4dc3b0f0544a260ea90d2e8be3d6af1157d3f8e09c7a15"
+      },
+      {
+        "id": "phase6-issue225-v1",
+        "issue": 225,
+        "commands": [],
+        "imports": [
+          "github.com/vegastack/vegastack-labs/ansible",
+          "github.com/vegastack/vegastack-labs/internal/debianaccess"
+        ],
+        "mutationBoundaryDigest": "sha256:249edd7b52560d6aa3adde148a574628816a39f3853b4f0b489d07753010c90d"
       }
     ]
   },
