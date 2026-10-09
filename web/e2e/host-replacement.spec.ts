@@ -18,7 +18,7 @@ test("replacement preview preserves both identities and needs separate impact co
  await expect(page.getByRole("button",{name:"Execute exact plan",exact:true})).toHaveCount(0);
 });
 
-test("replacement source and partial verification never imply committed ownership",async({page})=>{
+test("replacement source and partial verification never imply committed ownership",async({page},info)=>{
  await installReadFixture(page);
  const request={...fixture,restorationClass:"control-database",source:{schema:"vegastack-labs.dev/host-replacement-source-reference",schemaVersion:"1.0.0",pointId:"point-a",custodyReferenceId:"custody-a",manifestDigest:fixture.oldIdentityDigest,sourceBindingDigest:fixture.newIdentityDigest,custodyBindingDigest:fixture.oldTargetDigest}};
  const state={schema:"vegastack-labs.dev/host-replacement-state",schemaVersion:"1.0.0",replacementId:"replacement-a",declarationId:"replacement-draft",oldHostId:fixture.oldHostId,newHostId:fixture.newHostId,bindingDigest:fixture.oldIdentityDigest,oldIdentityDigest:fixture.oldIdentityDigest,newIdentityDigest:fixture.newIdentityDigest,roleBindingDigest:fixture.proposedRoleBindingDigest,declarationRevision:1,priorOwnershipGeneration:1,proposedOwnershipGeneration:2,roleIntentRevision:0,stateRevision:3,recoveryEpoch:0,status:"verification-required",restorationClass:"control-database",aliasBindings:fixture.aliasBindings,nextAction:"verify-restore",blockers:["destination-native-admission-required"],planId:null,runId:null,restorePlanId:"restore-a"};
@@ -27,6 +27,7 @@ test("replacement source and partial verification never imply committed ownershi
  await expect(page.getByRole("region",{name:"Replacement impact"})).toContainText("Recovery point: point-a; custody reference: custody-a");
  await page.getByLabel("Replacement ID",{exact:true}).fill("replacement-a");await page.getByRole("button",{name:"Inspect replacement",exact:true}).click();
  const current=page.getByRole("region",{name:"Current replacement state"});await expect(current).toContainText("Replacement status: verification-required");await expect(current).toContainText("Safe next action: verify-restore");await expect(current).toContainText("destination-native-admission-required");await expect(current).toContainText("Ownership transfer is incomplete");
+ await current.scrollIntoViewIfNeeded();await page.screenshot({path:info.outputPath("host-replacement-verification-required.png"),fullPage:true});
  await expect(page.getByRole("button",{name:"Execute exact plan",exact:true})).toHaveCount(0);
 });
 
