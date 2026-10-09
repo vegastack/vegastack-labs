@@ -42,23 +42,27 @@ func authorizeBaselineScope(ctx context.Context, row discoveryRow, p generated.P
 		return actionError(generated.ErrorCodeAuthorizationDenied)
 	}
 	for _, id := range []string{p.HostBaselineScope.SubjectHostID, p.HostBaselineScope.ExecutionHostID} {
-		for _, q := range []struct {
-			id        string
-			action    authorization.Action
-			cap, kind string
-		}{{human, authorization.ActionAcknowledge, "plan.acknowledge", "plan-target"}, {executor, authorization.ActionExecute, "host.action.execute", "execution-target"}} {
-			var kind identity.PrincipalKind
-			if row(`SELECT principal_kind FROM effective_authorization_principals WHERE principal_id=?`, q.id).Scan(&kind) != nil {
-				return actionError(generated.ErrorCodeAuthorizationDenied)
-			}
-			if q.action == authorization.ActionAcknowledge && kind != identity.PrincipalHuman {
-				return actionError(generated.ErrorCodeAuthorizationDenied)
-			}
-			decision, e := authorization.NewEvaluator(baselinePolicySnapshot{row, q.action}).Authorize(ctx, identity.Principal{ID: q.id, Method: identity.LocalOSPeerMethod, Kind: kind}, authorization.Request{Action: q.action, Target: authorization.Target{Capability: q.cap, ResourceKind: q.kind, ResourceID: id}, Plan: &p, Branches: []authorization.Branch{authorization.BranchHuman}})
-			if e != nil || !decision.Allowed {
-				return actionError(generated.ErrorCodeAuthorizationDenied)
-			}
+		if e := authorizeBaselinePrincipal(ctx, row, p, human, id, authorization.ActionAcknowledge, "plan.acknowledge", "plan-target"); e != nil {
+			return e
 		}
+		if e := authorizeBaselinePrincipal(ctx, row, p, executor, id, authorization.ActionExecute, "host.action.execute", "execution-target"); e != nil {
+			return e
+		}
+	}
+	return nil
+}
+
+func authorizeBaselinePrincipal(ctx context.Context, row discoveryRow, p generated.Plan, principalID, targetID string, action authorization.Action, capability, resourceKind string) error {
+	var kind identity.PrincipalKind
+	if row(`SELECT principal_kind FROM effective_authorization_principals WHERE principal_id=?`, principalID).Scan(&kind) != nil {
+		return actionError(generated.ErrorCodeAuthorizationDenied)
+	}
+	if action == authorization.ActionAcknowledge && kind != identity.PrincipalHuman {
+		return actionError(generated.ErrorCodeAuthorizationDenied)
+	}
+	decision, err := authorization.NewEvaluator(baselinePolicySnapshot{row, action}).Authorize(ctx, identity.Principal{ID: principalID, Method: identity.LocalOSPeerMethod, Kind: kind}, authorization.Request{Action: action, Target: authorization.Target{Capability: capability, ResourceKind: resourceKind, ResourceID: targetID}, Plan: &p, Branches: []authorization.Branch{authorization.BranchHuman}})
+	if err != nil || !decision.Allowed {
+		return actionError(generated.ErrorCodeAuthorizationDenied)
 	}
 	return nil
 }
