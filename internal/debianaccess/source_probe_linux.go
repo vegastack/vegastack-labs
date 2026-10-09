@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/netip"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
+	"github.com/vegastack/vegastack-labs/internal/strictjson"
 	"golang.org/x/sys/unix"
 )
 
@@ -30,19 +32,9 @@ func (nativeSourceResolver) WithSource(ctx context.Context, source generated.Acc
 	if ctx == nil || ctx.Err() != nil || fn == nil {
 		return errProbe
 	}
-	raw, err := readProtectedProbeFile("/etc/vsk-labs/access-probe-contexts.json", 65536)
+	records, err := ReadPreparedProbeContexts()
 	if err != nil {
-		return errProbe
-	}
-	var records []PreparedProbeContext
-	d := json.NewDecoder(strings.NewReader(string(raw)))
-	d.DisallowUnknownFields()
-	if d.Decode(&records) != nil || len(records) > 32 {
-		return errProbe
-	}
-	var extra any
-	if d.Decode(&extra) != io.EOF {
-		return errProbe
+		return err
 	}
 	var selected *PreparedProbeContext
 	for i := range records {
@@ -63,7 +55,7 @@ func (nativeSourceResolver) WithSource(ctx context.Context, source generated.Acc
 	for _, tuple := range tuples {
 		found := false
 		for _, allowed := range record.ApprovedDestinations {
-			if hostaction.Digest(tuple) == hostaction.Digest(allowed) {
+			if samePreparedDestination(tuple, allowed) {
 				found = true
 				break
 			}
@@ -349,4 +341,123 @@ func sameProbeContainer(ctx context.Context, r PreparedProbeContext) bool {
 		Pid     int
 	}
 	return json.Unmarshal(out.Bytes(), &state) == nil && state.Running && state.Pid == r.ProcessID
+}
+
+// ReadPreparedProbeContexts reads only the fixed protected administrator mapping.
+func ReadPreparedProbeContexts() ([]PreparedProbeContext, error) {
+	raw, err := readProtectedProbeFile("/etc/vsk-labs/access-probe-contexts.json", 65536)
+	if err != nil {
+		return nil, errProbe
+	}
+	if strictjson.Scan(context.Background(), raw, strictjson.Limits{MaxDepth: 16}) != nil {
+		return nil, errProbe
+	}
+	var records []PreparedProbeContext
+	d := json.NewDecoder(bytes.NewReader(raw))
+	d.DisallowUnknownFields()
+	if d.Decode(&records) != nil || len(records) > 32 {
+		return nil, errProbe
+	}
+	var extra any
+	if d.Decode(&extra) != io.EOF {
+		return nil, errProbe
+	}
+	seen := map[string]bool{}
+	for _, record := range records {
+		if record.ContextID == "" || seen[record.ContextID] || ProtectedName(record.HostID) || record.HostID == "" || record.IdentityDigest == "" {
+			return nil, errProbe
+		}
+		seen[record.ContextID] = true
+	}
+	return records, nil
+}
+
+// ObservePreparedContainer measures only an exact administrator-prepared
+// container. It neither lists containers nor changes their network/lifecycle.
+func ObservePreparedContainer(ctx context.Context, record PreparedProbeContext) ([]generated.AccessDestinationObservation, error) {
+	if ctx == nil || ctx.Err() != nil || record.Kind != "container" || record.ProcessID <= 1 || record.NamespacePath != fmt.Sprintf("/proc/%d/ns/net", record.ProcessID) || len(record.ContainerID) != 64 || strings.Trim(record.ContainerID, "0123456789abcdef") != "" || !sameProbeProcess(record) {
+		return nil, errProbe
+	}
+	records, err := ReadPreparedProbeContexts()
+	if err != nil {
+		return nil, err
+	}
+	found := false
+	for _, candidate := range records {
+		if hostaction.Digest(candidate) == hostaction.Digest(record) {
+			found = true
+		}
+	}
+	if !found {
+		return nil, errProbe
+	}
+	before, err := os.Open(record.NamespacePath)
+	if err != nil {
+		return nil, errProbe
+	}
+	namespace, err := namespaceDigest(before)
+	before.Close()
+	if err != nil || namespace != record.NamespaceDigest {
+		return nil, errProbe
+	}
+	bounded, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	const projection = `{"Id":{{json .Id}},"State":{{json .State}},"Networks":{{json .NetworkSettings.Networks}}}`
+	cmd := exec.CommandContext(bounded, "/usr/bin/docker", "inspect", "--type", "container", "--format", projection, record.ContainerID)
+	cmd.Env = []string{"PATH=/usr/bin:/bin", "LANG=C", "DOCKER_HOST=unix:///var/run/docker.sock"}
+	var output probeBoundedBuffer
+	output.maximum = 16384
+	cmd.Stdout = &output
+	cmd.Stderr = io.Discard
+	if cmd.Run() != nil {
+		return nil, errProbe
+	}
+	var inspected struct {
+		ID    string `json:"Id"`
+		State struct {
+			Running bool
+			Pid     int
+		}
+		Networks map[string]struct{ NetworkID, IPAddress, GlobalIPv6Address string }
+	}
+	if json.Unmarshal(output.Bytes(), &inspected) != nil || inspected.ID != record.ContainerID || !inspected.State.Running || inspected.State.Pid != record.ProcessID || len(inspected.Networks) > 8 {
+		return nil, errProbe
+	}
+	var names []string
+	for name := range inspected.Networks {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	var observations []generated.AccessDestinationObservation
+	for _, name := range names {
+		network := inspected.Networks[name]
+		for _, address := range []string{network.IPAddress, network.GlobalIPv6Address} {
+			if address == "" {
+				continue
+			}
+			ip, err := netip.ParseAddr(address)
+			if err != nil || ip.IsUnspecified() || ip.IsMulticast() {
+				return nil, errProbe
+			}
+			observation := generated.AccessDestinationObservation{Schema: generated.SchemaIDAccessDestinationObservation, SchemaVersion: "1.0.0", HostID: record.HostID, IdentityDigest: record.IdentityDigest, ContextID: record.ContextID, ContextDigest: hostaction.Digest(record), ContainerID: record.ContainerID, NetworkID: network.NetworkID, Address: ip.String(), NamespaceDigest: namespace, ProcessID: int64(record.ProcessID), ProcessStart: record.ProcessStart, ObservedAt: time.Now().UTC().Format(time.RFC3339)}
+			raw, _ := json.Marshal(observation)
+			if generated.ValidateContractJSON(generated.SchemaIDAccessDestinationObservation, raw, generated.ContractExact) != nil {
+				return nil, errProbe
+			}
+			observations = append(observations, observation)
+		}
+	}
+	if len(observations) == 0 || len(observations) > 8 || !sameProbeProcess(record) {
+		return nil, errProbe
+	}
+	after, err := os.Open(record.NamespacePath)
+	if err != nil {
+		return nil, errProbe
+	}
+	final, err := namespaceDigest(after)
+	after.Close()
+	if err != nil || final != namespace {
+		return nil, errProbe
+	}
+	return observations, nil
 }

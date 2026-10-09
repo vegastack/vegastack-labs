@@ -13,3 +13,8 @@ func NewNativeSourceResolver() SourceContextResolver { return unavailableSourceR
 func (unavailableSourceResolver) WithSource(context.Context, generated.AccessProbeSource, []generated.AccessProbeTuple, func(SourceIdentity) error) error {
 	return errProbe
 }
+
+func ReadPreparedProbeContexts() ([]PreparedProbeContext, error) { return nil, errProbe }
+func ObservePreparedContainer(context.Context, PreparedProbeContext) ([]generated.AccessDestinationObservation, error) {
+	return nil, errProbe
+}
