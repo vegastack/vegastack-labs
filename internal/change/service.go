@@ -89,18 +89,22 @@ func (service *Service) Revise(ctx context.Context, author AuthorScope, request 
 		alias = &cloned
 	}
 	semantic := struct {
-		HostAliasClaim  *generated.HostAliasClaimRequest `json:"hostAliasClaim,omitempty"`
-		DeclarationID   string                           `json:"declarationId"`
-		DeclarationType string                           `json:"declarationType"`
-		Operations      []generated.DeclarationOperation `json:"operations"`
-		ReasonDigest    string                           `json:"reasonDigest"`
-		Extensions      []generated.ContractExtension    `json:"extensions"`
-	}{alias, request.DeclarationID, request.DeclarationType, operations, request.ReasonDigest, extensions}
+		HostAliasClaim          *generated.HostAliasClaimRequest          `json:"hostAliasClaim,omitempty"`
+		AuthorizationGrantBatch *generated.AuthorizationGrantBatchRequest `json:"grantBatch,omitempty"`
+		DeclarationID           string                                    `json:"declarationId"`
+		DeclarationType         string                                    `json:"declarationType"`
+		Operations              []generated.DeclarationOperation          `json:"operations"`
+		ReasonDigest            string                                    `json:"reasonDigest"`
+		Extensions              []generated.ContractExtension             `json:"extensions"`
+	}{alias, request.AuthorizationGrantBatch, request.DeclarationID, request.DeclarationType, operations, request.ReasonDigest, extensions}
 	_, contentSum, err := stateexport.CanonicalJSON(semantic)
 	if err != nil {
 		return Result{}, inputError()
 	}
-	document := generated.DeclarationRevision{HostAliasClaim: alias, Schema: generated.SchemaIDDeclarationRevision, SchemaVersion: "1.0.0", DeclarationID: request.DeclarationID, DeclarationType: request.DeclarationType, Revision: request.ExpectedRevision, StateRevision: request.ExpectedStateRevision + 1, RecoveryEpoch: request.RecoveryEpoch, ContentDigest: digest(contentSum), Status: "draft", Operations: operations, CreatedAt: service.clock().UTC().Truncate(time.Second).Format(time.RFC3339), CreatedBy: author.PrincipalID, AgentSessionID: author.AgentSessionID, Extensions: extensions}
+	document := generated.DeclarationRevision{AuthorizationGrantBatch: request.AuthorizationGrantBatch, HostAliasClaim: alias, Schema: generated.SchemaIDDeclarationRevision, SchemaVersion: "1.0.0", DeclarationID: request.DeclarationID, DeclarationType: request.DeclarationType, Revision: request.ExpectedRevision, StateRevision: request.ExpectedStateRevision + 1, RecoveryEpoch: request.RecoveryEpoch, ContentDigest: digest(contentSum), Status: "draft", Operations: operations, CreatedAt: service.clock().UTC().Truncate(time.Second).Format(time.RFC3339), CreatedBy: author.PrincipalID, AgentSessionID: author.AgentSessionID, Extensions: extensions}
+	if !store.ValidateGrantBatchDeclaration(document) {
+		return Result{}, inputError()
+	}
 	normalizedRequest := request
 	normalizedRequest.Operations = operations
 	normalizedRequest.Extensions = extensions

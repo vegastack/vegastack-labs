@@ -1008,6 +1008,32 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 - `decidedAt`
 - `extensions`
 
+### `vegastack-labs.dev/authorization-grant-batch-request`
+
+- `schema`: `vegastack-labs.dev/authorization-grant-batch-request`
+- `schemaVersion`: `1.0.0`
+- `principalId`
+- `expectedGrantRevision`
+- `expectedDeclarationRevision`
+- `expectedStateRevision`
+- `recoveryEpoch`
+- `idempotencyKey`
+- `reasonDigest`
+- `changes`
+
+### `vegastack-labs.dev/authorization-grant-change`
+
+- `schema`: `vegastack-labs.dev/authorization-grant-change`
+- `schemaVersion`: `1.0.0`
+- `grantId`
+- `change`: `add`, `revoke`
+- `roleId`: `reader`, `author`, `maintainer`, `infrastructure-admin`, `control-plane-admin`
+- `action`: `read`, `author`, `acknowledge`, `execute`
+- `capability`
+- `resourceKind`
+- `resourceId`
+- `branch`: ``, `human`
+
 ### `vegastack-labs.dev/backup-offsite-retirement-dry-run-data`
 
 - `schema`: `vegastack-labs.dev/backup-offsite-retirement-dry-run-data`
@@ -1130,6 +1156,7 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 
 - `schema`: `vegastack-labs.dev/declaration-revision`
 - `schemaVersion`: `1.0.0`
+- `grantBatch`
 - `hostAliasClaim`
 - `declarationId`
 - `declarationType`
@@ -1148,6 +1175,7 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 
 - `schema`: `vegastack-labs.dev/declaration-revision-request`
 - `schemaVersion`: `1.0.0`
+- `grantBatch`
 - `hostAliasClaim`
 - `declarationId`
 - `declarationType`
@@ -1252,6 +1280,7 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 
 - `schema`: `vegastack-labs.dev/plan`
 - `schemaVersion`: `1.0.0`
+- `grantBatch`
 - `planId`
 - `planDigest`
 - `declarationId`

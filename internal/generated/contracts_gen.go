@@ -63,6 +63,8 @@ const (
 	SchemaIDAuditTarget                            = "vegastack-labs.dev/audit-target"
 	SchemaIDAuditVerificationData                  = "vegastack-labs.dev/audit-verification-data"
 	SchemaIDAuthorizationDecision                  = "vegastack-labs.dev/authorization-decision"
+	SchemaIDAuthorizationGrantBatchRequest         = "vegastack-labs.dev/authorization-grant-batch-request"
+	SchemaIDAuthorizationGrantChange               = "vegastack-labs.dev/authorization-grant-change"
 	SchemaIDBackupDependency                       = "vegastack-labs.dev/backup-dependency"
 	SchemaIDBackupJob                              = "vegastack-labs.dev/backup-job"
 	SchemaIDBackupLastGood                         = "vegastack-labs.dev/backup-last-good"
@@ -960,6 +962,32 @@ type AuthorizationDecision struct {
 	PlanDigest    string              `json:"planDigest"`
 	DecidedAt     string              `json:"decidedAt"`
 	Extensions    []ContractExtension `json:"extensions"`
+}
+
+type AuthorizationGrantBatchRequest struct {
+	Schema                      string                     `json:"schema"`
+	SchemaVersion               string                     `json:"schemaVersion"`
+	PrincipalID                 string                     `json:"principalId"`
+	ExpectedGrantRevision       int64                      `json:"expectedGrantRevision"`
+	ExpectedDeclarationRevision int64                      `json:"expectedDeclarationRevision"`
+	ExpectedStateRevision       int64                      `json:"expectedStateRevision"`
+	RecoveryEpoch               int64                      `json:"recoveryEpoch"`
+	IdempotencyKey              string                     `json:"idempotencyKey"`
+	ReasonDigest                string                     `json:"reasonDigest"`
+	Changes                     []AuthorizationGrantChange `json:"changes"`
+}
+
+type AuthorizationGrantChange struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	GrantID       string `json:"grantId"`
+	Change        string `json:"change"`
+	RoleID        string `json:"roleId"`
+	Action        string `json:"action"`
+	Capability    string `json:"capability"`
+	ResourceKind  string `json:"resourceKind"`
+	ResourceID    string `json:"resourceId"`
+	Branch        string `json:"branch"`
 }
 
 type BackupDependency struct {
@@ -1901,35 +1929,37 @@ type DeclarationOperation struct {
 }
 
 type DeclarationRevision struct {
-	Schema          string                 `json:"schema"`
-	SchemaVersion   string                 `json:"schemaVersion"`
-	HostAliasClaim  *HostAliasClaimRequest `json:"hostAliasClaim,omitempty"`
-	DeclarationID   string                 `json:"declarationId"`
-	DeclarationType string                 `json:"declarationType"`
-	Revision        int64                  `json:"revision"`
-	StateRevision   int64                  `json:"stateRevision"`
-	RecoveryEpoch   int64                  `json:"recoveryEpoch"`
-	ContentDigest   string                 `json:"contentDigest"`
-	Status          string                 `json:"status"`
-	Operations      []DeclarationOperation `json:"operations"`
-	CreatedAt       string                 `json:"createdAt"`
-	CreatedBy       string                 `json:"createdBy"`
-	AgentSessionID  string                 `json:"agentSessionId"`
-	Extensions      []ContractExtension    `json:"extensions"`
+	Schema                  string                          `json:"schema"`
+	SchemaVersion           string                          `json:"schemaVersion"`
+	AuthorizationGrantBatch *AuthorizationGrantBatchRequest `json:"grantBatch,omitempty"`
+	HostAliasClaim          *HostAliasClaimRequest          `json:"hostAliasClaim,omitempty"`
+	DeclarationID           string                          `json:"declarationId"`
+	DeclarationType         string                          `json:"declarationType"`
+	Revision                int64                           `json:"revision"`
+	StateRevision           int64                           `json:"stateRevision"`
+	RecoveryEpoch           int64                           `json:"recoveryEpoch"`
+	ContentDigest           string                          `json:"contentDigest"`
+	Status                  string                          `json:"status"`
+	Operations              []DeclarationOperation          `json:"operations"`
+	CreatedAt               string                          `json:"createdAt"`
+	CreatedBy               string                          `json:"createdBy"`
+	AgentSessionID          string                          `json:"agentSessionId"`
+	Extensions              []ContractExtension             `json:"extensions"`
 }
 
 type DeclarationRevisionRequest struct {
-	Schema                string                 `json:"schema"`
-	SchemaVersion         string                 `json:"schemaVersion"`
-	HostAliasClaim        *HostAliasClaimRequest `json:"hostAliasClaim,omitempty"`
-	DeclarationID         string                 `json:"declarationId"`
-	DeclarationType       string                 `json:"declarationType"`
-	ExpectedRevision      int64                  `json:"expectedRevision"`
-	ExpectedStateRevision int64                  `json:"expectedStateRevision"`
-	RecoveryEpoch         int64                  `json:"recoveryEpoch"`
-	Operations            []DeclarationOperation `json:"operations"`
-	ReasonDigest          string                 `json:"reasonDigest"`
-	Extensions            []ContractExtension    `json:"extensions"`
+	Schema                  string                          `json:"schema"`
+	SchemaVersion           string                          `json:"schemaVersion"`
+	AuthorizationGrantBatch *AuthorizationGrantBatchRequest `json:"grantBatch,omitempty"`
+	HostAliasClaim          *HostAliasClaimRequest          `json:"hostAliasClaim,omitempty"`
+	DeclarationID           string                          `json:"declarationId"`
+	DeclarationType         string                          `json:"declarationType"`
+	ExpectedRevision        int64                           `json:"expectedRevision"`
+	ExpectedStateRevision   int64                           `json:"expectedStateRevision"`
+	RecoveryEpoch           int64                           `json:"recoveryEpoch"`
+	Operations              []DeclarationOperation          `json:"operations"`
+	ReasonDigest            string                          `json:"reasonDigest"`
+	Extensions              []ContractExtension             `json:"extensions"`
 }
 
 type ExecutionReceipt struct {
@@ -3206,34 +3236,35 @@ type OutboxRecordData struct {
 }
 
 type Plan struct {
-	Schema                string                              `json:"schema"`
-	SchemaVersion         string                              `json:"schemaVersion"`
-	PlanID                string                              `json:"planId"`
-	PlanDigest            string                              `json:"planDigest"`
-	DeclarationID         string                              `json:"declarationId"`
-	Binding               PlanBinding                         `json:"binding"`
-	Operations            []PlanOperation                     `json:"operations"`
-	Status                string                              `json:"status"`
-	Risk                  string                              `json:"risk"`
-	AuthorizationBranch   string                              `json:"authorizationBranch"`
-	ExecutorMode          string                              `json:"executorMode"`
-	ExecutorID            *string                             `json:"executorId"`
-	CreatedAt             string                              `json:"createdAt"`
-	ExpiresAt             string                              `json:"expiresAt"`
-	ReadableDigest        string                              `json:"readableDigest"`
-	NativeRestart         *NativeRestartPresentation          `json:"nativeRestart,omitempty"`
-	HostActionNativeUnit  string                              `json:"hostActionNativeUnit,omitempty"`
-	HostActionConsole     *HostActionCredentialConfirmation   `json:"hostActionConsole,omitempty"`
-	HostReplacement       *HostReplacementRequest             `json:"hostReplacement,omitempty"`
-	HostAliasClaim        *HostAliasClaimRequest              `json:"hostAliasClaim,omitempty"`
-	ReplacementContinuity *HostReplacementContinuityReference `json:"replacementContinuity,omitempty"`
-	HostRoleScope         *HostRoleScope                      `json:"hostRoleScope,omitempty"`
-	HostBaselineScope     *HostBaselineScope                  `json:"hostBaselineScope,omitempty"`
-	HostAccessSequence    *HostAccessSequence                 `json:"hostAccessSequence,omitempty"`
-	HostAction            *HostActionRequest                  `json:"hostAction,omitempty"`
-	HostAdoption          *HostAdoptionRequest                `json:"hostAdoption,omitempty"`
-	HostDiscoveryTarget   *HostDiscoveryTargetDraftRequest    `json:"hostDiscoveryTarget,omitempty"`
-	Extensions            []ContractExtension                 `json:"extensions"`
+	Schema                  string                              `json:"schema"`
+	SchemaVersion           string                              `json:"schemaVersion"`
+	AuthorizationGrantBatch *AuthorizationGrantBatchRequest     `json:"grantBatch,omitempty"`
+	PlanID                  string                              `json:"planId"`
+	PlanDigest              string                              `json:"planDigest"`
+	DeclarationID           string                              `json:"declarationId"`
+	Binding                 PlanBinding                         `json:"binding"`
+	Operations              []PlanOperation                     `json:"operations"`
+	Status                  string                              `json:"status"`
+	Risk                    string                              `json:"risk"`
+	AuthorizationBranch     string                              `json:"authorizationBranch"`
+	ExecutorMode            string                              `json:"executorMode"`
+	ExecutorID              *string                             `json:"executorId"`
+	CreatedAt               string                              `json:"createdAt"`
+	ExpiresAt               string                              `json:"expiresAt"`
+	ReadableDigest          string                              `json:"readableDigest"`
+	NativeRestart           *NativeRestartPresentation          `json:"nativeRestart,omitempty"`
+	HostActionNativeUnit    string                              `json:"hostActionNativeUnit,omitempty"`
+	HostActionConsole       *HostActionCredentialConfirmation   `json:"hostActionConsole,omitempty"`
+	HostReplacement         *HostReplacementRequest             `json:"hostReplacement,omitempty"`
+	HostAliasClaim          *HostAliasClaimRequest              `json:"hostAliasClaim,omitempty"`
+	ReplacementContinuity   *HostReplacementContinuityReference `json:"replacementContinuity,omitempty"`
+	HostRoleScope           *HostRoleScope                      `json:"hostRoleScope,omitempty"`
+	HostBaselineScope       *HostBaselineScope                  `json:"hostBaselineScope,omitempty"`
+	HostAccessSequence      *HostAccessSequence                 `json:"hostAccessSequence,omitempty"`
+	HostAction              *HostActionRequest                  `json:"hostAction,omitempty"`
+	HostAdoption            *HostAdoptionRequest                `json:"hostAdoption,omitempty"`
+	HostDiscoveryTarget     *HostDiscoveryTargetDraftRequest    `json:"hostDiscoveryTarget,omitempty"`
+	Extensions              []ContractExtension                 `json:"extensions"`
 }
 
 type PlanBinding struct {

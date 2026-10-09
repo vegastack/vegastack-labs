@@ -54,6 +54,11 @@ func (repository *DeclarationRepository) CreateRevision(ctx context.Context, req
 	}
 	result := DeclarationRevisionResult{Document: request.Document}
 	intent, err := repository.store.writeIntent(ctx, intentRequest{Expected: &request.Expected, Idempotency: key, Event: event}, func(ctx context.Context, transaction *sql.Tx) error {
+		if request.Document.AuthorizationGrantBatch != nil {
+			if err := stageGrantBatchRows(ctx, transaction, *request.Document.AuthorizationGrantBatch, request.Attribution.AuthenticatedPrincipalID, request.Document.CreatedAt); err != nil {
+				return err
+			}
+		}
 		var latest int64
 		if err := transaction.QueryRowContext(ctx, `SELECT COALESCE(MAX(declaration_revision),0) FROM declaration_revisions WHERE declaration_id=?`, request.Document.DeclarationID).Scan(&latest); err != nil {
 			return err
@@ -128,7 +133,7 @@ func decodeStoredDeclaration(raw []byte, reasonDigest string, document *generate
 }
 
 func validDeclarationContent(document generated.DeclarationRevision, reasonDigest string) bool {
-	return validAliasClaimDeclarationShape(document, reasonDigest) && validOffsiteDeclarationShape(document) && document.ContentDigest == declarationContentDigest(document, reasonDigest)
+	return ValidateGrantBatchDeclaration(document) && validAliasClaimDeclarationShape(document, reasonDigest) && validOffsiteDeclarationShape(document) && document.ContentDigest == declarationContentDigest(document, reasonDigest)
 }
 
 func validOffsiteDeclarationShape(document generated.DeclarationRevision) bool {
@@ -150,13 +155,14 @@ func validOffsiteDeclarationShape(document generated.DeclarationRevision) bool {
 
 func declarationContentDigest(document generated.DeclarationRevision, reasonDigest string) string {
 	semantic := struct {
-		HostAliasClaim  *generated.HostAliasClaimRequest `json:"hostAliasClaim,omitempty"`
-		DeclarationID   string                           `json:"declarationId"`
-		DeclarationType string                           `json:"declarationType"`
-		Operations      []generated.DeclarationOperation `json:"operations"`
-		ReasonDigest    string                           `json:"reasonDigest"`
-		Extensions      []generated.ContractExtension    `json:"extensions"`
-	}{document.HostAliasClaim, document.DeclarationID, document.DeclarationType, document.Operations, reasonDigest, document.Extensions}
+		HostAliasClaim          *generated.HostAliasClaimRequest          `json:"hostAliasClaim,omitempty"`
+		AuthorizationGrantBatch *generated.AuthorizationGrantBatchRequest `json:"grantBatch,omitempty"`
+		DeclarationID           string                                    `json:"declarationId"`
+		DeclarationType         string                                    `json:"declarationType"`
+		Operations              []generated.DeclarationOperation          `json:"operations"`
+		ReasonDigest            string                                    `json:"reasonDigest"`
+		Extensions              []generated.ContractExtension             `json:"extensions"`
+	}{document.HostAliasClaim, document.AuthorizationGrantBatch, document.DeclarationID, document.DeclarationType, document.Operations, reasonDigest, document.Extensions}
 	encoded, err := json.Marshal(semantic)
 	if err != nil {
 		return ""

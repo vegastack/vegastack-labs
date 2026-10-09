@@ -982,6 +982,7 @@ func currentSchemas() []SchemaDefinition {
 	schemas = append(schemas, baselineSchemas()...)
 	schemas = append(schemas, linuxRoleSchemas()...)
 	schemas = append(schemas, hostReplacementSchemas()...)
+	schemas = append(schemas, authorizationGrantSchemas()...)
 	schemas = append(schemas, localSetupSchemas()...)
 	return append(schemas, apiSshSchemas()...)
 }

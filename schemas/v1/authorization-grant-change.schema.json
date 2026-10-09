@@ -1,0 +1,83 @@
+{
+  "$id": "vegastack-labs.dev/authorization-grant-change",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "action": {
+      "enum": [
+        "read",
+        "author",
+        "acknowledge",
+        "execute"
+      ],
+      "type": "string"
+    },
+    "branch": {
+      "enum": [
+        "",
+        "human"
+      ],
+      "type": "string"
+    },
+    "capability": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "change": {
+      "enum": [
+        "add",
+        "revoke"
+      ],
+      "type": "string"
+    },
+    "grantId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "resourceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "resourceKind": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "roleId": {
+      "enum": [
+        "reader",
+        "author",
+        "maintainer",
+        "infrastructure-admin",
+        "control-plane-admin"
+      ],
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/authorization-grant-change"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "grantId",
+    "change",
+    "roleId",
+    "action",
+    "capability",
+    "resourceKind",
+    "resourceId",
+    "branch"
+  ],
+  "title": "VegaStack Labs authorization grant change",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

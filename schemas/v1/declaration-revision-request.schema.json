@@ -1,5 +1,150 @@
 {
   "$defs": {
+    "authorization-grant-batch-request": {
+      "additionalProperties": false,
+      "properties": {
+        "changes": {
+          "items": {
+            "$ref": "#/$defs/authorization-grant-change"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "type": "array"
+        },
+        "expectedDeclarationRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "expectedGrantRevision": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "expectedStateRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "idempotencyKey": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "principalId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "reasonDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/authorization-grant-batch-request"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "principalId",
+        "expectedGrantRevision",
+        "expectedDeclarationRevision",
+        "expectedStateRevision",
+        "recoveryEpoch",
+        "idempotencyKey",
+        "reasonDigest",
+        "changes"
+      ],
+      "type": "object"
+    },
+    "authorization-grant-change": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "enum": [
+            "read",
+            "author",
+            "acknowledge",
+            "execute"
+          ],
+          "type": "string"
+        },
+        "branch": {
+          "enum": [
+            "",
+            "human"
+          ],
+          "type": "string"
+        },
+        "capability": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "change": {
+          "enum": [
+            "add",
+            "revoke"
+          ],
+          "type": "string"
+        },
+        "grantId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "resourceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "resourceKind": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "roleId": {
+          "enum": [
+            "reader",
+            "author",
+            "maintainer",
+            "infrastructure-admin",
+            "control-plane-admin"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/authorization-grant-change"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "grantId",
+        "change",
+        "roleId",
+        "action",
+        "capability",
+        "resourceKind",
+        "resourceId",
+        "branch"
+      ],
+      "type": "object"
+    },
     "contract-extension": {
       "additionalProperties": false,
       "properties": {
@@ -256,6 +401,16 @@
       },
       "maxItems": 64,
       "type": "array"
+    },
+    "grantBatch": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/authorization-grant-batch-request"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "hostAliasClaim": {
       "anyOf": [
