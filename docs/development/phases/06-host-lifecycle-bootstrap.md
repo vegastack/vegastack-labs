@@ -29,6 +29,8 @@ The operator restored the full outstanding Linux requirements. #223 owns exact p
 
 Issue #223 introduces the approved single server action key and a pinned one-shot helper protocol in the same executable. Its transport rejects unbound execution, mismatched current bindings and invalid peers, and treats interrupted post-authorization execution as uncertain. Production mutation handlers and native proof belong to their named downstream owners; a synthetic helper or protocol test does not harden a host. Fresh exact-action console confirmation does not promote discovery-only credentials or pass native encryption/custody gates. See D-132.
 
+Issue #225 adds the finite Debian access sequence: administrator preparation, exact account/SSH/firewall inputs, a local ten-minute rollback record, fresh source-specific probes, and receipt-bound control measurements. Central embedded Ansible rendering produces the declared configuration; the one-shot target helper applies only its compiled handlers. Unknown ownership or inconsistent probes refuse success. These implementation and temporary-file/loopback checks do not qualify a Debian image, prove real timer/reboot behavior, or authorize installation. Native qualification remains #228; effective baseline controls, admission and role installation remain with #226/#229/#230.
+
 Mac/iMac remain pending within v1. No current test result closes their requirements or full Phase 6. The real Slack app/channel binding has not been configured by this development work.
 
 ## Working-first registration delivery — 08-10-2026

@@ -35,6 +35,7 @@ func probeUDP(ctx context.Context, input generated.AccessProbeInput, tuple gener
 		if err == nil {
 			_, err = c.Write(payload)
 		}
+		sent := err == nil
 		reply := make([]byte, len(payload)+1)
 		var n int
 		if err == nil {
@@ -45,7 +46,7 @@ func probeUDP(ctx context.Context, input generated.AccessProbeInput, tuple gener
 		_ = c.Close()
 		deadlineExpired := errors.Is(bounded.Err(), context.DeadlineExceeded)
 		cancel()
-		if ctx.Err() != nil {
+		if ctx.Err() != nil || !sent {
 			return bad
 		}
 		current := SocketObservation{Outcome: "allowed", LocalIP: local}

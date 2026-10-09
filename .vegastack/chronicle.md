@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 09-10-2026 — Access changes can recover when verification fails ([#225](https://github.com/vegastack/vegastack-labs/issues/225))
+
+- **What:** The Debian access path prepares exact account, SSH and firewall changes through the existing executable and approval flow. A local ten-minute rollback remains armed until the approved access checks succeed. Administrator preparation remains a separate prerequisite.
+- **Why:** Finishing Linux onboarding needs a working configuration path that preserves recovery access when a connection disappears.
+- **How it went:** The work reused the existing action protocol and database. Integration required carrying actual measurements through the full execution receipt and distinguishing a probe source from its destination. Focused review found a UDP retry could report blocked access after an earlier successful attempt; real loopback regression tests now reject that inconsistent result. Actual Debian service, namespace, Ansible and reboot qualification is still pending and is not claimed by local tests.
+- **Changed:** Exact access changes · local rollback · fresh access probes · stored measured results · preserved unknown configuration.
+- **Decisions:** No new service or decision. Existing approval and protected-host boundaries remain; Mac remains deferred. No deployment, workload admission or full-phase acceptance is claimed.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/6.5.1-debian-access
+
 ## 09-10-2026 — One approved machine action has an exact execution boundary ([#223](https://github.com/vegastack/vegastack-labs/issues/223))
 
 - **What:** The host-action work adds a signed, single-action conversation between the existing server and the same executable on a pinned SSH target. The transport refuses unbound commands and changed target or plan bindings; interrupted execution stays uncertain instead of silently retrying. Real mutation handlers and native qualification remain separate required work.
