@@ -16,7 +16,7 @@ func TestAccessSequencePolicyCoverage(t *testing.T) {
 	if validateProbePolicy(in, []generated.AccessProbeInput{local, remote}) != nil {
 		t.Fatal("valid actual policy rejected")
 	}
-	for _, mode := range []string{"missing-ipv6", "source-inside-allowlist", "denied-allowed-tuple", "missing-flow", "missing-recovery-source", "wrong-destination-host"} {
+	for _, mode := range []string{"missing-ipv6", "source-inside-allowlist", "denied-allowed-tuple", "missing-flow", "missing-recovery-source", "wrong-destination-host", "ssh-wrong-port", "ssh-wrong-address", "non-container-east-west"} {
 		t.Run(mode, func(t *testing.T) {
 			policy := in
 			p := local
@@ -34,6 +34,14 @@ func TestAccessSequencePolicyCoverage(t *testing.T) {
 				policy.HostFlows = []generated.AccessFlow{{Protocol: "tcp", SourcePrefix: "192.0.2.0/24", DestinationPrefix: "192.0.2.2/32", Port: 443, Interface: "eth0"}}
 			case "missing-recovery-source":
 				policy.RecoverySourcePrefixes = []string{"192.0.2.10/32"}
+			case "ssh-wrong-port":
+				p.Cases[0].Destination.Port = 2223
+			case "ssh-wrong-address":
+				p.Cases[0].Destination.Address = "192.0.2.99"
+			case "non-container-east-west":
+				c := p.Cases[5]
+				c.Kind = "container-east-west"
+				p.Cases = append(p.Cases, c)
 			case "wrong-destination-host":
 				p.Cases[4].Destination.HostID = "unrelated"
 			}

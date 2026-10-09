@@ -72,7 +72,15 @@ func validateProbePolicy(in generated.DebianAccessInput, probes []generated.Acce
 				family = "6"
 			}
 			if strings.HasPrefix(c.Kind, "ssh-") {
-				if c.Destination.Protocol != "tcp" {
+				ownedAddress := false
+				for _, iface := range in.Interfaces {
+					for _, address := range iface.Addresses {
+						if address == dst.String() {
+							ownedAddress = true
+						}
+					}
+				}
+				if c.Destination.Protocol != "tcp" || c.Destination.Port != 22 || !ownedAddress {
 					return errInput
 				}
 				allowed := contains(in.SSHSourcePrefixes, src)
@@ -97,6 +105,9 @@ func validateProbePolicy(in generated.DebianAccessInput, probes []generated.Acce
 					}
 				}
 				continue
+			}
+			if c.Kind == "container-east-west" && p.Source.Kind != "container" {
+				return errInput
 			}
 			container := strings.HasPrefix(c.Kind, "container-")
 			flows := in.HostFlows
