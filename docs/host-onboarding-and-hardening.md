@@ -22,6 +22,12 @@ An expired or conflicting observation requires a new permitted observation and n
 
 Production discovery credential/recovery prerequisites remain blocked from Issue #217. Repository tests use synthetic observations, temporary databases and a separately approved isolated Linux environment; they are not live fleet evidence. CLI integration belongs to Issue #232. Nodes 04/05 remain entirely excluded, including reads and indirect effects.
 
+## Current host admission checks
+
+Issue [#229](https://github.com/vegastack/vegastack-labs/issues/229) binds the two host gates to the registered machine and current receipt-backed observations. The [admission evidence procedure](development/host-admission-evidence.md) explains the exact baseline → role installation → recollection → role admission sequence, missing-evidence responses and daily/after-change policy. Checking a gate reads the server database and causes no host operation. Negative checks block new admission without stopping existing workloads.
+
+Per-host observations and native profile qualification are separate prerequisites. Missing #228 qualification, #230 role measurements or applicable physical/recovery facts remain blockers; registration and synthetic tests cannot substitute for them. Mac/iMac remain deferred within v1.
+
 ## Outcome and scope
 
 Provide one onboarding workflow: supply the machine's identity, supported OS/version, intended role and approved bootstrap access; `vsk-labs` constructs the plan; Ansible installs and configures the applicable baseline and role; independent checks determine whether the host may receive workloads. Replacements and reimages repeat the same process. Hardening alone does not prove capacity, backups or the other role-admission gates.
