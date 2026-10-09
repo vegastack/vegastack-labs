@@ -113,7 +113,7 @@ func loadLocalSetup(ctx context.Context, setupPath, profilePath string, uid uint
 	if err != nil {
 		return out, err
 	}
-	if out.profile.RemoteRead.Enabled || out.profile.ConstrainedSSH != nil || out.profile.ScheduledRunner != nil || out.profile.LocalBackup != nil || out.profile.OffsiteBackup != nil || out.profile.AcknowledgementAdapterConfigPath == "" {
+	if out.profile.HostActionSignerPath != "" || out.profile.RemoteRead.Enabled || out.profile.ConstrainedSSH != nil || out.profile.ScheduledRunner != nil || out.profile.LocalBackup != nil || out.profile.OffsiteBackup != nil || out.profile.AcknowledgementAdapterConfigPath == "" {
 		return out, setupFailure(generated.ErrorCodePrerequisiteBlocked)
 	}
 	bound := false

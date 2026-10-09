@@ -4849,6 +4849,51 @@
       "artifactPath": "schemas/v1/gate-view.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/host-action-authorization",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-action-authorization.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/host-action-bundle",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-action-bundle.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/host-action-challenge",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-action-challenge.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/host-action-console-confirmation",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-action-console-confirmation.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/host-action-credential-confirmation",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-action-credential-confirmation.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/host-action-envelope",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-action-envelope.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/host-action-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-action-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/host-action-result",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-action-result.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/host-action-submission",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-action-submission.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/host-adoption-request",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/host-adoption-request.schema.json"
@@ -5071,6 +5116,16 @@
       "id": "vegastack-labs.dev/managed-host",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/managed-host.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-restart-presentation",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-restart-presentation.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-restart-selector",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-restart-selector.schema.json"
     },
     {
       "id": "vegastack-labs.dev/offsite-run-spec",

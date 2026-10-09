@@ -127,6 +127,15 @@ const (
 	SchemaIDGateProfileDraftRequest                = "vegastack-labs.dev/gate-profile-draft-request"
 	SchemaIDGateProfileDraftSubmission             = "vegastack-labs.dev/gate-profile-draft-submission"
 	SchemaIDGateView                               = "vegastack-labs.dev/gate-view"
+	SchemaIDHostActionAuthorization                = "vegastack-labs.dev/host-action-authorization"
+	SchemaIDHostActionBundle                       = "vegastack-labs.dev/host-action-bundle"
+	SchemaIDHostActionChallenge                    = "vegastack-labs.dev/host-action-challenge"
+	SchemaIDHostActionConsoleConfirmation          = "vegastack-labs.dev/host-action-console-confirmation"
+	SchemaIDHostActionCredentialConfirmation       = "vegastack-labs.dev/host-action-credential-confirmation"
+	SchemaIDHostActionEnvelope                     = "vegastack-labs.dev/host-action-envelope"
+	SchemaIDHostActionRequest                      = "vegastack-labs.dev/host-action-request"
+	SchemaIDHostActionResult                       = "vegastack-labs.dev/host-action-result"
+	SchemaIDHostActionSubmission                   = "vegastack-labs.dev/host-action-submission"
 	SchemaIDHostAdoptionRequest                    = "vegastack-labs.dev/host-adoption-request"
 	SchemaIDHostAdoptionSubmission                 = "vegastack-labs.dev/host-adoption-submission"
 	SchemaIDHostDiscoveryConsoleConfirmation       = "vegastack-labs.dev/host-discovery-console-confirmation"
@@ -175,6 +184,8 @@ const (
 	SchemaIDLocalSetupRequest                      = "vegastack-labs.dev/local-setup-request"
 	SchemaIDLocalSetupReviewRequest                = "vegastack-labs.dev/local-setup-review-request"
 	SchemaIDManagedHost                            = "vegastack-labs.dev/managed-host"
+	SchemaIDNativeRestartPresentation              = "vegastack-labs.dev/native-restart-presentation"
+	SchemaIDNativeRestartSelector                  = "vegastack-labs.dev/native-restart-selector"
 	SchemaIDOffsiteRunSpec                         = "vegastack-labs.dev/offsite-run-spec"
 	SchemaIDOutboxRecordData                       = "vegastack-labs.dev/outbox-record-data"
 	SchemaIDPlan                                   = "vegastack-labs.dev/plan"
@@ -1329,27 +1340,29 @@ type CredentialImportSubmission struct {
 }
 
 type CredentialLifecycleRequest struct {
-	Schema                      string                          `json:"schema"`
-	SchemaVersion               string                          `json:"schemaVersion"`
-	ExpectedStateRevision       int64                           `json:"expectedStateRevision"`
-	RecoveryEpoch               int64                           `json:"recoveryEpoch"`
-	TargetDigest                string                          `json:"targetDigest"`
-	IdempotencyKey              string                          `json:"idempotencyKey"`
-	Action                      string                          `json:"action"`
-	DraftID                     *string                         `json:"draftId"`
-	ReferenceID                 string                          `json:"referenceId"`
-	ConsumerIDs                 []string                        `json:"consumerIds"`
-	RequiredDeniedConsumerIDs   []string                        `json:"requiredDeniedConsumerIds"`
-	NativeConsumers             *[]CredentialNativeConsumer     `json:"nativeConsumers"`
-	NativeDeniedReaders         *[]CredentialNativeDeniedReader `json:"nativeDeniedReaders"`
-	MaterialVersion             string                          `json:"materialVersion"`
-	PriorMaterialVersion        *string                         `json:"priorMaterialVersion"`
-	ResolverID                  string                          `json:"resolverId"`
-	TargetID                    string                          `json:"targetId"`
-	OverlapSeconds              int64                           `json:"overlapSeconds"`
-	PriorRecoveryEpoch          *int64                          `json:"priorRecoveryEpoch"`
-	CustodyProofDigest          *string                         `json:"custodyProofDigest"`
-	FormerControllerFenceDigest *string                         `json:"formerControllerFenceDigest"`
+	Schema                      string                            `json:"schema"`
+	SchemaVersion               string                            `json:"schemaVersion"`
+	ExpectedStateRevision       int64                             `json:"expectedStateRevision"`
+	RecoveryEpoch               int64                             `json:"recoveryEpoch"`
+	TargetDigest                string                            `json:"targetDigest"`
+	IdempotencyKey              string                            `json:"idempotencyKey"`
+	NativeRestart               *NativeRestartSelector            `json:"nativeRestart,omitempty"`
+	HostActionConsole           *HostActionCredentialConfirmation `json:"hostActionConsole,omitempty"`
+	Action                      string                            `json:"action"`
+	DraftID                     *string                           `json:"draftId"`
+	ReferenceID                 string                            `json:"referenceId"`
+	ConsumerIDs                 []string                          `json:"consumerIds"`
+	RequiredDeniedConsumerIDs   []string                          `json:"requiredDeniedConsumerIds"`
+	NativeConsumers             *[]CredentialNativeConsumer       `json:"nativeConsumers"`
+	NativeDeniedReaders         *[]CredentialNativeDeniedReader   `json:"nativeDeniedReaders"`
+	MaterialVersion             string                            `json:"materialVersion"`
+	PriorMaterialVersion        *string                           `json:"priorMaterialVersion"`
+	ResolverID                  string                            `json:"resolverId"`
+	TargetID                    string                            `json:"targetId"`
+	OverlapSeconds              int64                             `json:"overlapSeconds"`
+	PriorRecoveryEpoch          *int64                            `json:"priorRecoveryEpoch"`
+	CustodyProofDigest          *string                           `json:"custodyProofDigest"`
+	FormerControllerFenceDigest *string                           `json:"formerControllerFenceDigest"`
 }
 
 type CredentialLifecycleSubmission struct {
@@ -1776,6 +1789,123 @@ type GateView struct {
 	Definition              GateDefinition `json:"definition"`
 	Evaluation              GateEvaluation `json:"evaluation"`
 	ApplicabilityReasonCode string         `json:"applicabilityReasonCode"`
+}
+
+type HostActionAuthorization struct {
+	Schema          string `json:"schema"`
+	SchemaVersion   string `json:"schemaVersion"`
+	BundleDigest    string `json:"bundleDigest"`
+	ChallengeDigest string `json:"challengeDigest"`
+	KeyID           string `json:"keyId"`
+	AuthorizedAt    string `json:"authorizedAt"`
+	ExpiresAt       string `json:"expiresAt"`
+	StateRevision   int64  `json:"stateRevision"`
+	RecoveryEpoch   int64  `json:"recoveryEpoch"`
+	Signature       string `json:"signature"`
+}
+
+type HostActionBundle struct {
+	Schema                    string `json:"schema"`
+	SchemaVersion             string `json:"schemaVersion"`
+	ActionID                  string `json:"actionId"`
+	ActionVersion             string `json:"actionVersion"`
+	ActionInputDigest         string `json:"actionInputDigest"`
+	ActionInput               string `json:"actionInput"`
+	BundleID                  string `json:"bundleId"`
+	PlanID                    string `json:"planId"`
+	RunID                     string `json:"runId"`
+	StepID                    string `json:"stepId"`
+	LeaseID                   string `json:"leaseId"`
+	HostID                    string `json:"hostId"`
+	DeclarationID             string `json:"declarationId"`
+	AutomationPrincipalID     string `json:"automationPrincipalId"`
+	CredentialReferenceID     string `json:"credentialReferenceId"`
+	CredentialMaterialVersion string `json:"credentialMaterialVersion"`
+	PlanDigest                string `json:"planDigest"`
+	HostIdentityDigest        string `json:"hostIdentityDigest"`
+	ConsoleConfirmationDigest string `json:"consoleConfirmationDigest"`
+	DeclarationRevision       int64  `json:"declarationRevision"`
+	StateRevision             int64  `json:"stateRevision"`
+	RecoveryEpoch             int64  `json:"recoveryEpoch"`
+	CallerUID                 int64  `json:"callerUid"`
+	IssuedAt                  string `json:"issuedAt"`
+	ExpiresAt                 string `json:"expiresAt"`
+}
+
+type HostActionChallenge struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	BundleDigest  string `json:"bundleDigest"`
+	Nonce         string `json:"nonce"`
+	HostID        string `json:"hostId"`
+	StartedAt     string `json:"startedAt"`
+}
+
+type HostActionConsoleConfirmation struct {
+	Schema             string `json:"schema"`
+	SchemaVersion      string `json:"schemaVersion"`
+	Method             string `json:"method"`
+	TargetDigest       string `json:"targetDigest"`
+	HostIdentityDigest string `json:"hostIdentityDigest"`
+}
+
+type HostActionCredentialConfirmation struct {
+	Schema                  string `json:"schema"`
+	SchemaVersion           string `json:"schemaVersion"`
+	Method                  string `json:"method"`
+	TargetDigest            string `json:"targetDigest"`
+	HostIdentityDigest      string `json:"hostIdentityDigest"`
+	TargetRevision          int64  `json:"targetRevision"`
+	NativeConsumerMachineID string `json:"nativeConsumerMachineId"`
+}
+
+type HostActionEnvelope struct {
+	Schema        string           `json:"schema"`
+	SchemaVersion string           `json:"schemaVersion"`
+	Bundle        HostActionBundle `json:"bundle"`
+	KeyID         string           `json:"keyId"`
+	Signature     string           `json:"signature"`
+}
+
+type HostActionRequest struct {
+	Schema                    string                        `json:"schema"`
+	SchemaVersion             string                        `json:"schemaVersion"`
+	ActionID                  string                        `json:"actionId"`
+	ActionVersion             string                        `json:"actionVersion"`
+	ActionInputDigest         string                        `json:"actionInputDigest"`
+	ActionInput               string                        `json:"actionInput"`
+	HostID                    string                        `json:"hostId"`
+	TargetRevision            int64                         `json:"targetRevision"`
+	TargetDigest              string                        `json:"targetDigest"`
+	AutomationPrincipalID     string                        `json:"automationPrincipalId"`
+	CallerUID                 int64                         `json:"callerUid"`
+	CredentialReferenceID     string                        `json:"credentialReferenceId"`
+	CredentialMaterialVersion string                        `json:"credentialMaterialVersion"`
+	ConsoleConfirmation       HostActionConsoleConfirmation `json:"consoleConfirmation"`
+	ExpectedStateRevision     int64                         `json:"expectedStateRevision"`
+	RecoveryEpoch             int64                         `json:"recoveryEpoch"`
+	IdempotencyKey            string                        `json:"idempotencyKey"`
+}
+
+type HostActionResult struct {
+	Schema         string `json:"schema"`
+	SchemaVersion  string `json:"schemaVersion"`
+	BundleDigest   string `json:"bundleDigest"`
+	ResultDigest   string `json:"resultDigest"`
+	Status         string `json:"status"`
+	Changed        bool   `json:"changed"`
+	EffectObserved bool   `json:"effectObserved"`
+	Reason         string `json:"reason"`
+}
+
+type HostActionSubmission struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	DraftID       string `json:"draftId"`
+	DeclarationID string `json:"declarationId"`
+	ContentDigest string `json:"contentDigest"`
+	StateRevision int64  `json:"stateRevision"`
+	RecoveryEpoch int64  `json:"recoveryEpoch"`
 }
 
 type HostAdoptionRequest struct {
@@ -2274,6 +2404,22 @@ type ManagedHost struct {
 	RecoveryEpoch int64  `json:"recoveryEpoch"`
 }
 
+type NativeRestartPresentation struct {
+	Schema                   string `json:"schema"`
+	SchemaVersion            string `json:"schemaVersion"`
+	PriorRunID               string `json:"priorRunId"`
+	PriorStepID              string `json:"priorStepId"`
+	PendingDigest            string `json:"pendingDigest"`
+	ExpectedInvocationDigest string `json:"expectedInvocationDigest"`
+}
+
+type NativeRestartSelector struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	PriorRunID    string `json:"priorRunId"`
+	PriorStepID   string `json:"priorStepId"`
+}
+
 type OffsiteRunSpec struct {
 	GenerationID               string `json:"generationId"`
 	SourcePointID              string `json:"sourcePointId"`
@@ -2313,24 +2459,28 @@ type OutboxRecordData struct {
 }
 
 type Plan struct {
-	Schema              string                           `json:"schema"`
-	SchemaVersion       string                           `json:"schemaVersion"`
-	PlanID              string                           `json:"planId"`
-	PlanDigest          string                           `json:"planDigest"`
-	DeclarationID       string                           `json:"declarationId"`
-	Binding             PlanBinding                      `json:"binding"`
-	Operations          []PlanOperation                  `json:"operations"`
-	Status              string                           `json:"status"`
-	Risk                string                           `json:"risk"`
-	AuthorizationBranch string                           `json:"authorizationBranch"`
-	ExecutorMode        string                           `json:"executorMode"`
-	ExecutorID          *string                          `json:"executorId"`
-	CreatedAt           string                           `json:"createdAt"`
-	ExpiresAt           string                           `json:"expiresAt"`
-	ReadableDigest      string                           `json:"readableDigest"`
-	HostAdoption        *HostAdoptionRequest             `json:"hostAdoption,omitempty"`
-	HostDiscoveryTarget *HostDiscoveryTargetDraftRequest `json:"hostDiscoveryTarget,omitempty"`
-	Extensions          []ContractExtension              `json:"extensions"`
+	Schema               string                            `json:"schema"`
+	SchemaVersion        string                            `json:"schemaVersion"`
+	PlanID               string                            `json:"planId"`
+	PlanDigest           string                            `json:"planDigest"`
+	DeclarationID        string                            `json:"declarationId"`
+	Binding              PlanBinding                       `json:"binding"`
+	Operations           []PlanOperation                   `json:"operations"`
+	Status               string                            `json:"status"`
+	Risk                 string                            `json:"risk"`
+	AuthorizationBranch  string                            `json:"authorizationBranch"`
+	ExecutorMode         string                            `json:"executorMode"`
+	ExecutorID           *string                           `json:"executorId"`
+	CreatedAt            string                            `json:"createdAt"`
+	ExpiresAt            string                            `json:"expiresAt"`
+	ReadableDigest       string                            `json:"readableDigest"`
+	NativeRestart        *NativeRestartPresentation        `json:"nativeRestart,omitempty"`
+	HostActionNativeUnit string                            `json:"hostActionNativeUnit,omitempty"`
+	HostActionConsole    *HostActionCredentialConfirmation `json:"hostActionConsole,omitempty"`
+	HostAction           *HostActionRequest                `json:"hostAction,omitempty"`
+	HostAdoption         *HostAdoptionRequest              `json:"hostAdoption,omitempty"`
+	HostDiscoveryTarget  *HostDiscoveryTargetDraftRequest  `json:"hostDiscoveryTarget,omitempty"`
+	Extensions           []ContractExtension               `json:"extensions"`
 }
 
 type PlanBinding struct {
@@ -2920,6 +3070,9 @@ type ServerProfile struct {
 	InventoryExportRoot              string                  `json:"inventoryExportRoot"`
 	PrincipalBindings                []LocalPrincipalBinding `json:"principalBindings"`
 	RemoteRead                       RemoteReadProfile       `json:"remoteRead"`
+	HostActionSignerPath             string                  `json:"hostActionSignerPath,omitempty"`
+	HostActionKeyID                  string                  `json:"hostActionKeyId,omitempty"`
+	HostActionIdentityDigests        []string                `json:"hostActionIdentityDigests,omitempty"`
 	AcknowledgementAdapterConfigPath string                  `json:"acknowledgementAdapterConfigPath"`
 	ScheduledRunner                  *ScheduledRunnerProfile `json:"scheduledRunner"`
 	StandardBackupRoot               *string                 `json:"standardBackupRoot"`
@@ -3218,6 +3371,7 @@ var Endpoints = []Endpoint{
 	{ID: "api.v1.gates.get", Method: "GET", Path: "/api/v1/gates/{gateId}", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/gate-view", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.gates.list", Method: "GET", Path: "/api/v1/gates", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/gate-list-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.health.get", Method: "GET", Path: "/api/v1/health", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/server-status-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.host-actions.draft", Method: "POST", Path: "/api/v1/host-actions/draft", Availability: "available", OwnerPhase: "6", QuerySchema: "", RequestSchema: "vegastack-labs.dev/host-action-request", DataSchema: "vegastack-labs.dev/host-action-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.host-adoptions.draft", Method: "POST", Path: "/api/v1/host-adoptions/draft", Availability: "available", OwnerPhase: "6", QuerySchema: "", RequestSchema: "vegastack-labs.dev/host-adoption-request", DataSchema: "vegastack-labs.dev/host-adoption-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.host-discovery-targets.draft", Method: "POST", Path: "/api/v1/host-discovery-targets/draft", Availability: "available", OwnerPhase: "6", QuerySchema: "", RequestSchema: "vegastack-labs.dev/host-discovery-target-draft-request", DataSchema: "vegastack-labs.dev/host-discovery-target-draft-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.host-observations.create", Method: "POST", Path: "/api/v1/host-observations", Availability: "available", OwnerPhase: "6", QuerySchema: "", RequestSchema: "vegastack-labs.dev/host-discovery-request", DataSchema: "vegastack-labs.dev/host-discovery-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},

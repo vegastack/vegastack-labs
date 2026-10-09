@@ -53,6 +53,12 @@ func ValidConsumerVerification(binding LifecycleBinding, verification ConsumerVe
 	if verification.MaterialVersion != binding.MaterialVersion || verification.CiphertextFingerprint != binding.CiphertextFingerprint || !ValidSHA256Digest(verification.EvidenceDigest) || !ValidReasonCode(verification.ReasonCode) {
 		return false
 	}
+	if verification.NativeReceipt != nil {
+		r := *verification.NativeReceipt
+		if verification.Result != "verified" || !ValidNativeLoadedReceipt(r) || r.Binding.Digest() != binding.Digest() || r.ConsumerID != verification.ConsumerID {
+			return false
+		}
+	}
 	switch verification.Result {
 	case "verified":
 		if !verification.RestartObserved || !slices.Contains(binding.ConsumerIDs, verification.ConsumerID) {

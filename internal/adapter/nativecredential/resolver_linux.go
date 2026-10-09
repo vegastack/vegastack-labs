@@ -21,16 +21,6 @@ type ReferenceInspector interface {
 	GetReference(context.Context, string) (generated.CredentialReference, error)
 }
 
-// LoadedCredential is a server-owned observation of the service manager's
-// restarted, loaded version. An absent observer does not grant authority.
-type LoadedCredential struct {
-	Name, MaterialVersion, CiphertextFingerprint string
-	RestartObserved                              bool
-}
-type LoadedObserver interface {
-	ObserveLoaded(context.Context, credentialref.StepBinding) (LoadedCredential, error)
-}
-
 type Resolver struct {
 	directory *os.File
 	ownerUID  uint32
@@ -104,11 +94,19 @@ func (resolver *Resolver) Resolve(ctx context.Context, binding credentialref.Ste
 	if err != nil || !loaded.RestartObserved || loaded.Name != LoadedName(binding) || loaded.MaterialVersion != binding.MaterialVersion || loaded.CiphertextFingerprint != reference.Fingerprint {
 		return nil, nativeError(generated.ErrorCodePrerequisiteBlocked, "loaded-version-unverified")
 	}
-	raw, err := ReadLoadedBytes(ctx, resolver.directory, loaded.Name, resolver.ownerUID)
+	raw, err := readLoadedBytes(ctx, resolver.directory, loaded.Name, resolver.ownerUID, &loaded)
 	if err != nil {
 		return nil, err
 	}
 	defer wipe(raw)
+	current, err := resolver.inspector.GetReference(ctx, binding.ReferenceID)
+	if err != nil || current.Status != "active" || current.MaterialVersion != reference.MaterialVersion || current.Fingerprint != reference.Fingerprint || current.StateRevision != reference.StateRevision || current.RecoveryEpoch != reference.RecoveryEpoch {
+		return nil, nativeError(generated.ErrorCodePrerequisiteBlocked, "active-consumer-changed")
+	}
+	rechecked, err := resolver.observer.ObserveLoaded(ctx, binding)
+	if err != nil || rechecked != loaded {
+		return nil, nativeError(generated.ErrorCodePrerequisiteBlocked, "loaded-invocation-changed")
+	}
 	value, err := credentialref.NewValue(raw)
 	if err != nil {
 		return nil, nativeError(generated.ErrorCodeIntegrityFailure, "native-loaded-value")
@@ -120,6 +118,10 @@ func (resolver *Resolver) Resolve(ctx context.Context, binding credentialref.Ste
 // existing Slack acknowledgement consumer. The caller owns and must wipe the
 // returned buffer. This primitive does not establish active-reference status.
 func ReadLoadedBytes(ctx context.Context, directory *os.File, name string, ownerUID uint32) ([]byte, error) {
+	return readLoadedBytes(ctx, directory, name, ownerUID, nil)
+}
+
+func readLoadedBytes(ctx context.Context, directory *os.File, name string, ownerUID uint32, expected *LoadedCredential) ([]byte, error) {
 	if ctx == nil || directory == nil || directory.Fd() == 0 || name == "" || filepath.Base(name) != name {
 		return nil, nativeError(generated.ErrorCodeInputInvalid, "loaded-credential-name")
 	}
@@ -136,10 +138,20 @@ func ReadLoadedBytes(ctx context.Context, directory *os.File, name string, owner
 	if unix.Fstat(fd, &stat) != nil || stat.Mode&unix.S_IFMT != unix.S_IFREG || stat.Uid != ownerUID || stat.Mode&0o077 != 0 || stat.Size < 8 || stat.Size > 4096 {
 		return nil, nativeError(generated.ErrorCodeAuthorizationDenied, "loaded-credential-file")
 	}
+	if expected != nil && (expected.Device == 0 || expected.Inode == 0 || uint64(stat.Dev) != expected.Device || stat.Ino != expected.Inode || stat.Uid != expected.UID || stat.Gid != expected.GID || stat.Mode != expected.Mode) {
+		return nil, nativeError(generated.ErrorCodePrerequisiteBlocked, "loaded-file-identity")
+	}
 	value, err := io.ReadAll(io.LimitReader(file, 4097))
 	if err != nil || len(value) < 8 || len(value) > 4096 || ctx.Err() != nil {
 		wipe(value)
 		return nil, nativeError(generated.ErrorCodeDependencyUnavailable, "loaded-credential")
+	}
+	if expected != nil {
+		var after unix.Stat_t
+		if unix.Fstat(fd, &after) != nil || after.Dev != stat.Dev || after.Ino != stat.Ino || after.Mode != stat.Mode || after.Uid != stat.Uid || after.Gid != stat.Gid || after.Size != stat.Size || int64(len(value)) != stat.Size {
+			wipe(value)
+			return nil, nativeError(generated.ErrorCodePrerequisiteBlocked, "loaded-file-changed")
+		}
 	}
 	return value, nil
 }

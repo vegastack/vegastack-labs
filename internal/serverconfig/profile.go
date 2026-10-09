@@ -38,6 +38,9 @@ type Profile struct {
 	PrincipalBindings                []principal.Binding
 	RemoteRead                       RemoteRead
 	AcknowledgementAdapterConfigPath string
+	HostActionSignerPath             string
+	HostActionKeyID                  string
+	HostActionIdentityDigests        []string
 	LocalBackup                      *LocalBackup
 	OffsiteBackup                    *OffsiteBackup
 	ScheduledRunner                  *ScheduledRunner
@@ -173,6 +176,28 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 		// instead of preventing the protected local Unix service from starting.
 		remoteRead = RemoteRead{Enabled: true}
 	}
+	if (input.HostActionSignerPath == "") != (input.HostActionKeyID == "") || (input.HostActionSignerPath != "" && (len(input.HostActionIdentityDigests) == 0 || !filepath.IsAbs(input.HostActionSignerPath) || filepath.Clean(input.HostActionSignerPath) != input.HostActionSignerPath)) || (input.HostActionSignerPath == "" && len(input.HostActionIdentityDigests) > 0) {
+		return invalid()
+	}
+	if len(input.HostActionIdentityDigests) > 64 {
+		return invalid()
+	}
+	if input.HostActionKeyID != "" && !offsiteProfileToken.MatchString(input.HostActionKeyID) {
+		return invalid()
+	}
+	seenActionIdentity := map[string]bool{}
+	for _, d := range input.HostActionIdentityDigests {
+		if seenActionIdentity[d] {
+			return invalid()
+		}
+		seenActionIdentity[d] = true
+		if len(d) != 71 || !strings.HasPrefix(d, "sha256:") {
+			return invalid()
+		}
+		if _, e := hex.DecodeString(d[7:]); e != nil || strings.ToLower(d) != d {
+			return invalid()
+		}
+	}
 	adapterConfigPath := input.AcknowledgementAdapterConfigPath
 	if adapterConfigPath != "" && (len(adapterConfigPath) > 4096 || !filepath.IsAbs(adapterConfigPath) || filepath.Clean(adapterConfigPath) != adapterConfigPath || adapterConfigPath == string(filepath.Separator)) {
 		return invalid()
@@ -212,9 +237,10 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 		PrincipalBindings:                append([]principal.Binding(nil), bindings...),
 		RemoteRead:                       remoteRead,
 		AcknowledgementAdapterConfigPath: adapterConfigPath,
-		LocalBackup:                      localBackup,
-		OffsiteBackup:                    offsiteBackup,
-		ScheduledRunner:                  scheduledRunner,
+		HostActionSignerPath:             input.HostActionSignerPath, HostActionKeyID: input.HostActionKeyID, HostActionIdentityDigests: append([]string(nil), input.HostActionIdentityDigests...),
+		LocalBackup:     localBackup,
+		OffsiteBackup:   offsiteBackup,
+		ScheduledRunner: scheduledRunner,
 	}, nil
 }
 

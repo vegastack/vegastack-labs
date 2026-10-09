@@ -23,6 +23,9 @@ var (
 )
 
 func main() {
+	if handled, code := runHostActionOnce(context.Background(), os.Args[1:]); handled {
+		os.Exit(code)
+	}
 	if len(os.Args) == 2 && os.Args[1] == backup.CustodyPolicyCheckMode {
 		os.Exit(backup.RunCustodyPolicyCheck(context.Background(), os.Stdin))
 	}

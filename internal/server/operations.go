@@ -235,7 +235,7 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	plans, err := planengine.NewService(planengine.Config{HostDiscoveryTargets: store.NewHostDiscoveryRepository(authority), HostAdoptions: store.NewHostAdoptionRepository(authority), Repository: planRepository, Observations: observations, Clock: time.Now, PolicyVersion: "1.0.0", ToolVersion: operations.build.ToolVersion, ContractVersion: "1.0.0", Risk: "destructive", AuthorizationBranch: "human", ExecutorMode: "central", OperationExecutorID: "executor-central"})
+	plans, err := planengine.NewService(planengine.Config{HostActions: store.NewHostActionRepository(authority), HostActionCredentials: store.NewCredentialRepository(authority), HostDiscoveryTargets: store.NewHostDiscoveryRepository(authority), HostAdoptions: store.NewHostAdoptionRepository(authority), Repository: planRepository, Observations: observations, Clock: time.Now, PolicyVersion: "1.0.0", ToolVersion: operations.build.ToolVersion, ContractVersion: "1.0.0", Risk: "destructive", AuthorizationBranch: "human", ExecutorMode: "central", OperationExecutorID: "executor-central"})
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err
@@ -395,6 +395,15 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 		_ = application.Shutdown(ctx)
 		return err
 	}
+	if err := api.RegisterHostActionOperations(application, api.HostActionOperations{Hosts: store.NewHostActionRepository(authority), Declarations: declarations, Credentials: credentialRepository, Results: factory}); err != nil {
+		return err
+	}
+	hostActionCleanup, err := composeHostActions(ctx, profile, operations.databasePath, authority, adapters)
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	defer hostActionCleanup()
 	if err := registerProductionRecoveryCredentialResolver(ctx, adapters, credentialRepository, gateRepository, profile.SocketOwnerUID); err != nil {
 		_ = application.Shutdown(ctx)
 		return err
@@ -423,8 +432,10 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 	if recoveryBackupAdapter != nil {
 		secretGate = scheduledBackupLiveGate{admission: scheduledAdmission, fallback: secretGate, clock: time.Now}
 	}
+	secretGate = hostActionGate{targets: store.NewHostActionRepository(authority), credentials: credentialRepository, allowed: profile.HostActionIdentityDigests, fallback: secretGate}
+	lifecycleGate := hostActionGate{targets: store.NewHostActionRepository(authority), credentials: credentialRepository, allowed: profile.HostActionIdentityDigests, fallback: runengine.UnavailableGateVerifier{}}
 	credentialStep := &runengine.CredentialStep{Bindings: credentialRepository, Resolvers: adapters, Profiles: gateRepository, Plans: plans, ScheduledPlans: scheduledAdmission, Clock: time.Now}
-	credentialCore, err := runengine.NewCoreCredentialEffect(credentialRepository, store.NewAcknowledgementRepository(authority), runengine.UnavailableGateVerifier{}, composeNativeCredentialLifecycleVerifier(ctx, operations.databasePath, profile.SocketOwnerUID), runengine.UnavailableCredentialRecoveryVerifier{}, time.Now)
+	credentialCore, err := runengine.NewCoreCredentialEffect(credentialRepository, store.NewAcknowledgementRepository(authority), lifecycleGate, composeNativeCredentialLifecycleVerifier(ctx, operations.databasePath, profile.SocketOwnerUID), runengine.UnavailableCredentialRecoveryVerifier{}, time.Now)
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err
@@ -473,7 +484,7 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 		return err
 	}
 	credentialImports := newProductionCredentialImporter(credentialRepository, planRepository, operations.databasePath, profile.SocketOwnerUID)
-	credentialLifecycle, err := api.NewCredentialLifecycleService(credentialRepository, planRepository, declarations, effectiveConfig.Authorizer)
+	credentialLifecycle, err := api.NewCredentialLifecycleService(credentialRepository, planRepository, declarations, effectiveConfig.Authorizer, composeNativeRestartPlanner(ctx, operations.databasePath, profile.SocketOwnerUID, credentialRepository))
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err

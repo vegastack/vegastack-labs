@@ -954,6 +954,9 @@ func browserType(field metadata.FieldDefinition) string {
 // These exact discovery plan fields carry references and a public fingerprint,
 // never private key bytes. Other credential-shaped browser fields remain denied.
 func discoveryPublicPlanField(schemaID, name string) bool {
+	if schemaID == "vegastack-labs.dev/host-action-request" {
+		return name == "credentialReferenceId" || name == "credentialMaterialVersion"
+	}
 	if schemaID != "vegastack-labs.dev/host-discovery-target" {
 		return false
 	}

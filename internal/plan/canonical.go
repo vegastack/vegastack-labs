@@ -34,6 +34,18 @@ func readablePlan(plan generated.Plan) string {
 	for _, operation := range plan.Operations {
 		fmt.Fprintf(&body, "%d. %s %s via %s/%s on %s input=%s artifact=%s idempotent=%t\n", operation.Sequence, operation.OperationID, operation.OperationType, operation.AdapterID, operation.ExecutorID, operation.TargetID, operation.InputDigest, operation.ArtifactDigest, operation.Idempotent)
 	}
+	if plan.NativeRestart != nil {
+		raw, _, _ := stateexport.CanonicalJSON(plan.NativeRestart)
+		fmt.Fprintf(&body, "Complete prior interrupted native credential restart: %s\nThis new approval verifies the exact current invocation and credential readers without repeating the restart. The prior partial run remains historical.\n", raw)
+	}
+	if plan.HostActionConsole != nil {
+		raw, _, _ := stateexport.CanonicalJSON(plan.HostActionConsole)
+		fmt.Fprintf(&body, "Credential consumer console confirmation: %s\nAdministrator confirms independent console access for BOTH the exact destination host/pinned key and the named native consumer/controller machine. Controller unit %s may restart during activation or rotation; native credential loading and denied-reader probes remain required.\n", raw, plan.HostActionNativeUnit)
+	}
+	if plan.HostAction != nil {
+		raw, _, _ := stateexport.CanonicalJSON(plan.HostAction)
+		fmt.Fprintf(&body, "Exact privileged host action and current console confirmation: %s\nAdministrator attestation: I independently verified this machine, pinned key and available console recovery access. This approves only the displayed action, not host admission.\n", raw)
+	}
 	if plan.HostAdoption != nil {
 		r := plan.HostAdoption
 		c := r.Confirmation

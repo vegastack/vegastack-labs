@@ -349,7 +349,7 @@ func (repository *CredentialRepository) ApplyCredentialLifecycle(ctx context.Con
 		if err := requireConsumerVerifications(binding, request.Verifications, target.VerifiedConsumerIDs); err != nil {
 			return generated.CredentialReference{}, err
 		}
-		extra = repository.consumerVerificationExtra(binding, request.Verifications)
+		extra = repository.consumerVerificationExtra(binding, request.Verifications, request.Stage)
 	case credentialref.ActionRotate:
 		if target.Status != "active" || target.ActivatedAt == nil || binding.PriorMaterialVersion == nil || *binding.PriorMaterialVersion == binding.MaterialVersion {
 			return generated.CredentialReference{}, credentialStoreError(generated.ErrorCodeInputInvalid, "credential-lifecycle-rotate")
@@ -364,7 +364,7 @@ func (repository *CredentialRepository) ApplyCredentialLifecycle(ctx context.Con
 		if err := requireConsumerVerifications(binding, request.Verifications, target.VerifiedConsumerIDs); err != nil {
 			return generated.CredentialReference{}, err
 		}
-		extra = repository.consumerVerificationExtra(binding, request.Verifications)
+		extra = repository.consumerVerificationExtra(binding, request.Verifications, request.Stage)
 	case credentialref.ActionRevoke:
 		if target.Status != "revoked" {
 			return generated.CredentialReference{}, credentialStoreError(generated.ErrorCodeInputInvalid, "credential-lifecycle-revoke")
@@ -408,6 +408,9 @@ func (repository *CredentialRepository) lifecycleAppendExtra(request CredentialL
 			return err
 		}
 		if err := requireExactLifecycleBinding(ctx, tx, request, versionID); err != nil {
+			return err
+		}
+		if err := consumeNativeRestartPending(ctx, tx, request); err != nil {
 			return err
 		}
 		if actionExtra != nil {
@@ -502,15 +505,26 @@ func recoveryEvidenceMatchesBinding(binding credentialref.LifecycleBinding, evid
 	return credentialref.ValidRecoveryVerification(binding, evidence)
 }
 
-func (repository *CredentialRepository) consumerVerificationExtra(binding credentialref.LifecycleBinding, verifications []credentialref.ConsumerVerification) func(ctx context.Context, tx *sql.Tx, versionID, created string) error {
+func (repository *CredentialRepository) consumerVerificationExtra(binding credentialref.LifecycleBinding, verifications []credentialref.ConsumerVerification, stage CredentialStageRequest) func(ctx context.Context, tx *sql.Tx, versionID, created string) error {
 	return func(ctx context.Context, tx *sql.Tx, versionID, created string) error {
 		for _, verification := range verifications {
 			restart := 0
 			if verification.RestartObserved {
 				restart = 1
 			}
+			var nativeReceipt any
+			if verification.NativeReceipt != nil {
+				if verification.NativeReceipt.PlanDigest != stage.PlanDigest || verification.NativeReceipt.RunID != stage.RunID || verification.NativeReceipt.StepID != stage.StepID {
+					return credentialStoreError(generated.ErrorCodeIntegrityFailure, "native-loaded-receipt-step")
+				}
+				var err error
+				nativeReceipt, err = credentialref.EncodeNativeLoadedReceipt(*verification.NativeReceipt)
+				if err != nil {
+					return credentialStoreError(generated.ErrorCodeIntegrityFailure, "native-loaded-receipt")
+				}
+			}
 			id := lifecycleEvidenceID(versionID, verification.ConsumerID, verification.Result)
-			if _, err := tx.ExecContext(ctx, `INSERT INTO credential_consumer_verifications(verification_id,reference_id,version_id,consumer_id,profile_id,role_id,material_version,ciphertext_fingerprint,evidence_digest,restart_observed,result,reason_code,recovery_epoch,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, id, binding.ReferenceID, versionID, verification.ConsumerID, verification.ProfileID, verification.RoleID, verification.MaterialVersion, verification.CiphertextFingerprint, verification.EvidenceDigest, restart, verification.Result, verification.ReasonCode, binding.RecoveryEpoch, created); err != nil {
+			if _, err := tx.ExecContext(ctx, `INSERT INTO credential_consumer_verifications(verification_id,reference_id,version_id,consumer_id,profile_id,role_id,material_version,ciphertext_fingerprint,evidence_digest,restart_observed,result,reason_code,recovery_epoch,created_at,native_receipt_bytes) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, id, binding.ReferenceID, versionID, verification.ConsumerID, verification.ProfileID, verification.RoleID, verification.MaterialVersion, verification.CiphertextFingerprint, verification.EvidenceDigest, restart, verification.Result, verification.ReasonCode, binding.RecoveryEpoch, created, nativeReceipt); err != nil {
 				return err
 			}
 		}

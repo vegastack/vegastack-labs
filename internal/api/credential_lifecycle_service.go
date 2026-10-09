@@ -20,18 +20,30 @@ type CredentialLifecycleService interface {
 	CreateDraft(context.Context, generated.CredentialLifecycleRequest, identity.Principal) (generated.CredentialLifecycleSubmission, error)
 }
 
+type CredentialNativeRestartPlanner interface {
+	PrepareContinuation(context.Context, credentialref.LifecycleBinding, string, string) (*credentialref.NativeRestartContinuation, error)
+}
+
 type credentialLifecycleService struct {
+	restart      CredentialNativeRestartPlanner
 	references   *store.CredentialRepository
 	revisions    *store.PlanRepository
 	declarations *change.Service
 	authorizer   EffectiveAuthorizer
 }
 
-func NewCredentialLifecycleService(references *store.CredentialRepository, revisions *store.PlanRepository, declarations *change.Service, authorizer EffectiveAuthorizer) (CredentialLifecycleService, error) {
+func NewCredentialLifecycleService(references *store.CredentialRepository, revisions *store.PlanRepository, declarations *change.Service, authorizer EffectiveAuthorizer, restart ...CredentialNativeRestartPlanner) (CredentialLifecycleService, error) {
 	if references == nil || revisions == nil || declarations == nil || authorizer == nil {
 		return nil, apiFailure(generated.ErrorCodeInputInvalid, "credential-lifecycle-config")
 	}
-	return &credentialLifecycleService{references, revisions, declarations, authorizer}, nil
+	if len(restart) > 1 {
+		return nil, apiFailure(generated.ErrorCodeInputInvalid, "native-restart-config")
+	}
+	service := &credentialLifecycleService{references: references, revisions: revisions, declarations: declarations, authorizer: authorizer}
+	if len(restart) == 1 {
+		service.restart = restart[0]
+	}
+	return service, nil
 }
 
 func lifecycleMetadataDigest(value string) string {
@@ -70,6 +82,9 @@ func (service *credentialLifecycleService) createDraftResult(ctx context.Context
 	changeID := "credential-change-" + keyDigest[7:39]
 	operationID := "credential-operation-" + keyDigest[7:39]
 	binding := credentialref.LifecycleBinding{OperationID: operationID, Action: credentialref.LifecycleAction(input.Action), DraftID: input.DraftID, ReferenceID: input.ReferenceID, ConsumerIDs: input.ConsumerIDs, RequiredDeniedConsumerIDs: input.RequiredDeniedConsumerIDs, MaterialVersion: input.MaterialVersion, PriorMaterialVersion: input.PriorMaterialVersion, ResolverID: input.ResolverID, TargetID: input.TargetID, OverlapSeconds: input.OverlapSeconds, StateRevision: input.ExpectedStateRevision + 3, RecoveryEpoch: input.RecoveryEpoch, PriorRecoveryEpoch: input.PriorRecoveryEpoch, CustodyProofDigest: input.CustodyProofDigest, FormerControllerFenceDigest: input.FormerControllerFenceDigest}
+	if c := input.HostActionConsole; c != nil {
+		binding.HostActionConsole = &credentialref.HostActionConsoleBinding{Method: c.Method, TargetDigest: c.TargetDigest, HostIdentityDigest: c.HostIdentityDigest, TargetRevision: c.TargetRevision, NativeConsumerMachineID: c.NativeConsumerMachineID}
+	}
 	var importDraft *store.CredentialImportDraft
 	if input.DraftID != nil {
 		draft, lookupErr := service.references.GetImportDraftByID(ctx, *input.DraftID)
@@ -106,6 +121,16 @@ func (service *credentialLifecycleService) createDraftResult(ctx context.Context
 		if bindNativeLifecycleReaders(input, hostID, &binding) != nil {
 			return zero, false, apiFailure(generated.ErrorCodePrerequisiteBlocked, "native-reader-map")
 		}
+	}
+	if selector := input.NativeRestart; selector != nil {
+		if service.restart == nil || binding.HostActionConsole == nil || binding.ResolverID != "native-systemd" || (binding.Action != credentialref.ActionActivate && binding.Action != credentialref.ActionRotate) || len(binding.NativeConsumers) != 1 || binding.NativeConsumers[0].ConsumerID != "host-action" {
+			return zero, false, apiFailure(generated.ErrorCodePrerequisiteBlocked, "native-restart-continuation")
+		}
+		continuation, err := service.restart.PrepareContinuation(ctx, binding, selector.PriorRunID, selector.PriorStepID)
+		if err != nil {
+			return zero, false, err
+		}
+		binding.NativeRestartContinuation = continuation
 	}
 	if importDraft != nil && !importDraft.MatchesLifecycleBinding(binding) {
 		return zero, false, apiFailure(generated.ErrorCodePrerequisiteBlocked, "credential-import-draft-exact-origin")

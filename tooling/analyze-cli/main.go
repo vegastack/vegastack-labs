@@ -443,11 +443,13 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 		// Its D-Bus and /proc surface is reviewed as a whole, never as a portable
 		// control client capability. Any source or import change breaks this seal.
 		sealedNativeCredential := reviewedNativeCredentialPackage(parsed, nativeCredentialImport, modulePath)
+		sealedHostAction := reviewedHostActionPackage(parsed, modulePath, "internal/hostaction")
+		sealedHostActionMain := reviewedHostActionPackage(parsed, modulePath, "cmd/vsk-labs")
 		sealedRecoveryCustodian := candidate.ImportPath == recoveryImport && reviewedRecoveryCustodianPackage(parsed)
-		isControlCapabilityPackage := isControlPackage && !(localClosure[candidate.ImportPath] && !result.LocalClientBoundary) && !sealedNativeCredential && !sealedRecoveryCustodian
+		isControlCapabilityPackage := isControlPackage && !(localClosure[candidate.ImportPath] && !result.LocalClientBoundary) && !sealedNativeCredential && !sealedRecoveryCustodian && !sealedHostAction
 		// The custodian command imports recovery's fixed protected pin/receipt
 		// source. Only this exact reviewed source closure may carry those paths.
-		inspectControlPaths := isControlPackage && candidate.ImportPath != generatedImport && candidate.ImportPath != serverConfigImport && !sealedNativeCredential && !sealedRecoveryCustodian
+		inspectControlPaths := isControlPackage && candidate.ImportPath != generatedImport && candidate.ImportPath != serverConfigImport && !sealedNativeCredential && !sealedRecoveryCustodian && !sealedHostAction && !sealedHostActionMain
 		for _, imported := range candidate.Imports {
 			if imported == "os/exec" && !isReleasePackage && !(candidate.ImportPath == sshTransportImport && reviewedSSHTransportPackage(parsed, localTransportImport)) && !reviewedNativeCredentialPackage(parsed, nativeCredentialImport, modulePath) && !reviewedBackupProcessPackage(parsed, backupImport) {
 				result.ShellDispatch = true
@@ -462,7 +464,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 				if !(candidate.ImportPath == auditImport && reviewedAuditVerificationPackage(parsed)) &&
 					!(candidate.ImportPath == recoveryImport && (reviewedRecoveryVerificationPackage(parsed) || reviewedRecoveryCustodianPackage(parsed))) &&
 					!reviewedRecoveryDenialVerificationPackage(parsed, modulePath) &&
-					!reviewedRecoveryCanaryVerificationFile(parsed, serverImport) {
+					!reviewedRecoveryCanaryVerificationFile(parsed, serverImport) && !sealedHostAction && !reviewedHostActionServerSigner(parsed, serverImport) {
 					result.StateExportTrust = true
 				}
 			case "crypto/rsa":
@@ -513,7 +515,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 			}
 		}
 		if !sealedNativeCredential {
-			registryGeneratedOrReviewed := candidate.ImportPath == apiImport || candidate.ImportPath == localAPIImport || (candidate.ImportPath == recoveryImport && reviewedRecoveryCustodianPackage(parsed)) ||
+			registryGeneratedOrReviewed := sealedHostAction || sealedHostActionMain || candidate.ImportPath == apiImport || candidate.ImportPath == localAPIImport || (candidate.ImportPath == recoveryImport && reviewedRecoveryCustodianPackage(parsed)) ||
 				(candidate.ImportPath == modulePath+"/internal/adapter/hostdiscovery" && reviewedHostDiscoveryCollectorPackage(parsed))
 			inspectPackage(parsed, generatedImport, stateExportImport, isReleasePackage, registryGeneratedOrReviewed, inspectControlPaths, &result)
 		}
@@ -561,6 +563,9 @@ const reviewedMainNativeLinuxDigest = "aabc6268605a8c4418b632d36247aa88071e4b024
 const reviewedMainNativeOtherDigest = "9637bd3d4b8bcffb7f66d6e053263af9b97194432feebc4c513f280a9e910e78"
 
 func reviewedMainComposition(candidate checkedSourcePackage, modulePath, cliImport, clientFileImport, releaseImport, serverImport string) bool {
+	if reviewedHostActionPackage(candidate, modulePath, "cmd/vsk-labs") {
+		return true
+	}
 	approvedInternal := map[string]bool{
 		modulePath + "/internal/backup":                   true,
 		modulePath + "/internal/adapter/nativecredential": true,
@@ -690,6 +695,9 @@ func reviewedControlExternalImport(candidate checkedSourcePackage, imported stri
 }
 
 func reviewedControlPlatformSource(candidate checkedSourcePackage, kind string) bool {
+	if kind == "serverconfig" && reviewedHostActionPackage(candidate, strings.TrimSuffix(candidate.listed.ImportPath, "/internal/serverconfig"), "internal/serverconfig") {
+		return true
+	}
 	names := append([]string(nil), candidate.listed.GoFiles...)
 	sort.Strings(names)
 	var expected string
@@ -1511,6 +1519,9 @@ func fileImportsOSExec(path string) (bool, error) {
 const reviewedNativeCredentialDigest = "20872b9996adb7eed1e2b5fb907ee213377fe365943158065b31f58b4d533c26"
 
 func reviewedNativeCredentialPackage(candidate checkedSourcePackage, nativeCredentialImport, modulePath string) bool {
+	if reviewedHostActionPackage(candidate, modulePath, "internal/adapter/nativecredential") {
+		return true
+	}
 	if candidate.listed.ImportPath != nativeCredentialImport || len(candidate.listed.CgoFiles) != 0 {
 		return false
 	}

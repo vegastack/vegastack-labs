@@ -33,6 +33,8 @@ type NativeLifecycleVerifier struct {
 	CiphertextOwnerUID uint32
 	policy             func(credentialref.LifecycleBinding) error
 	observe            func(context.Context, credentialref.LifecycleBinding, credentialref.NativeConsumerBinding) (NativeInvocationProof, error)
+	process            func(context.Context, AppliedUnitSnapshot, credentialref.NativeConsumerBinding) (ProcessIdentity, error)
+	current            func(context.Context, credentialref.LifecycleBinding, credentialref.NativeConsumerBinding) (NativeInvocationProof, error)
 	recheck            func(context.Context, credentialref.LifecycleBinding, credentialref.NativeConsumerBinding, NativeInvocationProof) error
 }
 
@@ -41,6 +43,7 @@ type NativeLifecycleVerifier struct {
 type NativeVerificationStep struct {
 	OperationID, OperationType, TargetID, ArtifactDigest string
 	PlanDigest, RunID, StepID                            string
+	PlanID, LeaseID                                      string
 }
 
 func NewNativeLifecycleVerifier(authority *LocalNativeAuthority, units AppliedUnitReader, ciphertextRoot string, ownerUID uint32) (*NativeLifecycleVerifier, error) {
@@ -48,11 +51,12 @@ func NewNativeLifecycleVerifier(authority *LocalNativeAuthority, units AppliedUn
 		return nil, errNativeLifecycle
 	}
 	v := &NativeLifecycleVerifier{Authority: authority, Units: units, CiphertextRoot: ciphertextRoot, CiphertextOwnerUID: ownerUID,
-		policy: qualifyNativePolicy}
+		policy: qualifyNativePolicy, process: observeProcessIdentity}
 	observer := invocationObserver{units: units, authority: authority, root: ciphertextRoot, ownerUID: ownerUID,
 		inspect: InspectEncrypted, process: observeProcessIdentity}
 	v.observe = observer.observe
 	v.recheck = v.recheckProof
+	v.current = v.currentNativeProof
 	return v, nil
 }
 
@@ -116,6 +120,10 @@ func (v *NativeLifecycleVerifier) VerifyNative(ctx context.Context, step NativeV
 			strconv.FormatUint(proof.SourceDevice, 10), strconv.FormatUint(proof.SourceInode, 10), proof.SourceFingerprint)
 		verification, err := credentialref.NewConsumerVerification(binding, reader.ConsumerID, reader.ProfileID, reader.RoleID, evidence, "native-systemd-delivery", "verified", true)
 		if err != nil {
+			return nil, errNativeLifecycle
+		}
+		verification.NativeReceipt = &credentialref.NativeLoadedReceipt{Version: 1, Binding: binding, ConsumerID: reader.ConsumerID, PlanDigest: step.PlanDigest, RunID: step.RunID, StepID: step.StepID, Proof: proof}
+		if !credentialref.ValidConsumerVerification(binding, verification) {
 			return nil, errNativeLifecycle
 		}
 		results = append(results, verification)
@@ -220,7 +228,7 @@ func (v *NativeLifecycleVerifier) recheckProof(ctx context.Context, binding cred
 		snapshot.BootID != proof.BootID || snapshot.InvocationID != proof.InvocationID || snapshot.MainPID != proof.MainPID || !unitIdentityMatches(snapshot, reader) {
 		return errNativeLifecycle
 	}
-	process, err := observeProcessIdentity(ctx, snapshot, reader)
+	process, err := v.process(ctx, snapshot, reader)
 	if err != nil || process.StartTicks != proof.ProcessStartTicks {
 		return errNativeLifecycle
 	}

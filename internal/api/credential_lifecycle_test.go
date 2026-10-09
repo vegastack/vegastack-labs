@@ -65,3 +65,28 @@ func TestLifecycleEndpointRejectsBrowserPrivateAndFingerprintFields(t *testing.T
 		t.Fatal("browser admission widened to lifecycle authoring")
 	}
 }
+
+func TestLifecycleEndpointAcceptsStageWithoutOptionalHostActionFields(t *testing.T) {
+	app := credentialImportTestApp(t, credentialImportServiceStub{})
+	service := lifecycleServiceFunc(func(_ context.Context, in generated.CredentialLifecycleRequest, _ identity.Principal) (generated.CredentialLifecycleSubmission, error) {
+		return generated.CredentialLifecycleSubmission{Schema: generated.SchemaIDCredentialLifecycleSubmission, SchemaVersion: "1.2.0", ChangeID: "change-a", OperationID: "operation-a", ReferenceID: in.ReferenceID, Action: in.Action, Status: "draft", StateRevision: in.ExpectedStateRevision + 2, RecoveryEpoch: in.RecoveryEpoch}, nil
+	})
+	if err := RegisterCredentialLifecycleOperation(app, CredentialLifecycleOperations{Lifecycle: service, Results: app.config.Results}); err != nil {
+		t.Fatal(err)
+	}
+	draft := "draft-a"
+	in := generated.CredentialLifecycleRequest{Schema: generated.SchemaIDCredentialLifecycleRequest, SchemaVersion: "1.3.0", Action: "credential.stage", DraftID: &draft, ReferenceID: "reference-a", ConsumerIDs: []string{"consumer-a"}, RequiredDeniedConsumerIDs: []string{}, MaterialVersion: "version-a", ResolverID: "native-systemd", TargetID: "target-a", ExpectedStateRevision: 1, IdempotencyKey: "stage-a"}
+	in.TargetDigest = credentialref.LifecycleTargetDigest(in)
+	raw, _ := json.Marshal(in)
+	if bytes.Contains(raw, []byte(`"hostActionConsole"`)) || bytes.Contains(raw, []byte(`"nativeRestart"`)) {
+		t.Fatal("fixture includes omitted fields")
+	}
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/credential-lifecycle-drafts", bytes.NewReader(raw))
+	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(identity.WithVerifiedPrincipal(req.Context(), identity.Principal{ID: "human-a", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}))
+	response := httptest.NewRecorder()
+	app.ServeHTTP(response, req)
+	if response.Code >= 300 || !strings.Contains(response.Body.String(), `"changeId":"change-a"`) {
+		t.Fatalf("ordinary stage rejected: %d %s", response.Code, response.Body.String())
+	}
+}

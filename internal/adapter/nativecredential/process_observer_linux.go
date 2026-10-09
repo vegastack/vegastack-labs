@@ -28,20 +28,7 @@ type ProcessIdentity struct {
 	NamespaceInode  uint64
 }
 
-type NativeInvocationProof struct {
-	BootID, InvocationID         string
-	MainPID                      uint32
-	ProcessStartTicks            uint64
-	NamespaceDevice              uint64
-	NamespaceInode               uint64
-	CredentialDevice             uint64
-	CredentialInode              uint64
-	CredentialUID, CredentialGID uint32
-	CredentialMode               uint32
-	SourceDevice                 uint64
-	SourceInode                  uint64
-	SourceFingerprint            string
-}
+type NativeInvocationProof = credentialref.NativeInvocationMetadata
 
 type invocationObserver struct {
 	units     AppliedUnitReader

@@ -42,7 +42,7 @@ func (app *Application) credentialLifecycleDraft(config CredentialLifecycleOpera
 		}
 		var input generated.CredentialLifecycleRequest
 		fields := []string{"schema", "schemaVersion", "expectedStateRevision", "recoveryEpoch", "targetDigest", "idempotencyKey", "action", "draftId", "referenceId", "consumerIds", "requiredDeniedConsumerIds", "nativeConsumers", "nativeDeniedReaders", "materialVersion", "priorMaterialVersion", "resolverId", "targetId", "overlapSeconds", "priorRecoveryEpoch", "custodyProofDigest", "formerControllerFenceDigest"}
-		if err := decodeOperationRequest(r, 262144, fields, &input); err != nil {
+		if err := decodeOperationRequest(r, 262144, fields, &input, "hostActionConsole", "nativeRestart"); err != nil {
 			app.failure(w, op, err)
 			return
 		}
