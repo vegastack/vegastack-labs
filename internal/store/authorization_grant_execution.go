@@ -51,12 +51,8 @@ func (r *GrantBatchRepository) Apply(ctx context.Context, in GrantBatchApply) (s
 		if err := validateGrantBatchChanges(row, *batch); err != nil {
 			return err
 		}
-		if _, e := r.store.filesystem.InspectDatabase(ctx, preimage, r.store.config.ExpectedUID); e != nil {
-			return actionError(generated.ErrorCodeRecoveryRequired)
-		}
-		actual, _, e := hashSnapshotFile(preimage)
-		if e != nil || "sha256:"+hex.EncodeToString(actual[:]) != before {
-			return actionError(generated.ErrorCodeRecoveryRequired)
+		if e := r.verifyGrantPreimage(ctx, preimage, before); e != nil {
+			return e
 		}
 		var readRevision int64
 		var readStatus string
@@ -158,13 +154,15 @@ func (r *GrantBatchRepository) prepareGrantSnapshot(ctx context.Context, p gener
 	name := string(digestParts("authorization-before", in.RunID, in.PlanDigest))[7:39]
 	preimage := filepath.Join(filepath.Dir(r.store.config.DatabasePath), "authorization-before-"+name+".db")
 	probe := filepath.Join(filepath.Dir(r.store.config.DatabasePath), "authorization-restore-check-"+name+".db")
-	if _, err = os.Lstat(preimage); errors.Is(err, os.ErrNotExist) {
-		if _, err = source.OnlineSnapshot(ctx, OnlineSnapshotRequest{Destination: preimage, Expected: expected}); err != nil {
-			return deny()
-		}
-	} else if err != nil {
+	// Never adopt an occupied artifact, even if its schema/revisions look valid.
+	if _, err = os.Lstat(preimage); !errors.Is(err, os.ErrNotExist) {
 		return deny()
 	}
+	capture, err := source.OnlineSnapshot(ctx, OnlineSnapshotRequest{Destination: preimage, Expected: expected})
+	if err != nil {
+		return deny()
+	}
+	before := "sha256:" + hex.EncodeToString(capture.DatabaseSHA256[:])
 	if inspection, e := port.InspectSnapshot(ctx, preimage, expected); e != nil || inspection.IntegrityStatus != IntegrityVerified {
 		return deny()
 	}
@@ -177,15 +175,25 @@ func (r *GrantBatchRepository) prepareGrantSnapshot(ctx context.Context, p gener
 	if inspection, e := port.InspectSnapshot(ctx, probe, expected); e != nil || inspection.IntegrityStatus != IntegrityVerified {
 		return deny()
 	}
+	if r.verifyGrantPreimage(ctx, preimage, before) != nil {
+		return deny()
+	}
 	// Remove only this exact verified temporary restore probe; retain the preimage.
 	if e := os.Remove(probe); e != nil {
 		return deny()
 	}
-	sum, _, err := hashSnapshotFile(preimage)
-	if err != nil {
-		return deny()
+	return preimage, before, nil
+}
+
+func (r *GrantBatchRepository) verifyGrantPreimage(ctx context.Context, path, expected string) error {
+	if _, err := r.store.filesystem.InspectDatabase(ctx, path, r.store.config.ExpectedUID); err != nil {
+		return actionError(generated.ErrorCodeRecoveryRequired)
 	}
-	return preimage, "sha256:" + hex.EncodeToString(sum[:]), nil
+	actual, _, err := hashSnapshotFile(path)
+	if err != nil || "sha256:"+hex.EncodeToString(actual[:]) != expected {
+		return actionError(generated.ErrorCodeRecoveryRequired)
+	}
+	return nil
 }
 
 func validateGrantBatchExecution(ctx context.Context, row discoveryRow, p generated.Plan, b generated.AuthorizationGrantBatchRequest, in GrantBatchApply, now time.Time) error {
