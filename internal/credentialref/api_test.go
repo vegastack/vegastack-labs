@@ -183,6 +183,7 @@ var allowedCredentialAPI = []string{
 	`func ValidNativeLoadedReceipt func(NativeLoadedReceipt) (bool)`,
 	`method NativeLoadedReceipt.Reader func() (NativeConsumerBinding, bool)`,
 	`field HostActionConsoleBinding.Method string`,
+	`field HostActionConsoleBinding.NativeConsumerMachineID string`,
 	`field HostActionConsoleBinding.TargetDigest string`,
 	`field HostActionConsoleBinding.TargetRevision int64`,
 	`field HostActionConsoleBinding.HostIdentityDigest string`,

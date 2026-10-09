@@ -41,7 +41,7 @@ func TestNativeRestartContinuationNeverRestarts(t *testing.T) {
 	b.NativeArtifactConsumerID = "host-action"
 	b.NativeConsumers[0].ConsumerID = "host-action"
 	b.NativeConsumers[0].LoadedName = credentialref.LoadedNameForVersion("host-action", b.ReferenceID, b.MaterialVersion)
-	b.HostActionConsole = &credentialref.HostActionConsoleBinding{Method: "administrator-verified-console", TargetDigest: b.CiphertextFingerprint, HostIdentityDigest: b.CiphertextFingerprint, TargetRevision: 1}
+	b.HostActionConsole = &credentialref.HostActionConsoleBinding{Method: "administrator-verified-console", TargetDigest: b.CiphertextFingerprint, HostIdentityDigest: b.CiphertextFingerprint, TargetRevision: 1, NativeConsumerMachineID: b.NativeConsumers[0].HostMachineID}
 	proof := r.Proof
 	proof.MainPID = uint32(os.Getpid())
 	proof.InvocationID = strings.Repeat("c", 32)

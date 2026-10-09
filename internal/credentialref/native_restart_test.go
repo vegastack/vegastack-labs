@@ -13,7 +13,7 @@ func restartPendingFixture() NativeRestartPending {
 	b.NativeConsumers = b.NativeConsumers[:1]
 	b.NativeConsumers[0].ConsumerID = "host-action"
 	b.NativeConsumers[0].LoadedName = LoadedNameForVersion("host-action", b.ReferenceID, b.MaterialVersion)
-	b.HostActionConsole = &HostActionConsoleBinding{Method: "administrator-verified-console", TargetDigest: b.CiphertextFingerprint, HostIdentityDigest: b.CiphertextFingerprint, TargetRevision: 1}
+	b.HostActionConsole = &HostActionConsoleBinding{Method: "administrator-verified-console", TargetDigest: b.CiphertextFingerprint, HostIdentityDigest: b.CiphertextFingerprint, TargetRevision: 1, NativeConsumerMachineID: b.NativeConsumers[0].HostMachineID}
 	return NativeRestartPending{Version: 1, PlanID: "plan-prior", PlanDigest: r.PlanDigest, RunID: "run-prior", StepID: "step-prior", LeaseID: "lease-prior", Binding: b, Before: NativeRestartBefore{ConsumerID: "host-action", MachineID: b.NativeConsumers[0].HostMachineID, BootID: r.Proof.BootID, InvocationID: r.Proof.InvocationID, MainPID: r.Proof.MainPID, ProcessStartTicks: r.Proof.ProcessStartTicks, SourceDevice: r.Proof.SourceDevice, SourceInode: r.Proof.SourceInode, SourceFingerprint: r.Proof.SourceFingerprint, RequestMonotonicNanos: 1}}
 }
 func TestNativeRestartPendingCanonicalAndExact(t *testing.T) {
