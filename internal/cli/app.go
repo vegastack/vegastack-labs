@@ -73,6 +73,10 @@ type CredentialLifecycleControlOperations interface {
 	CreateCredentialLifecycleDraft(context.Context, string, generated.CredentialLifecycleRequest) (localapi.TypedResponse[generated.CredentialLifecycleSubmission], error)
 }
 
+type AuthorizationGrantControlOperations interface {
+	DraftAuthorizationGrants(context.Context, string, generated.AuthorizationGrantBatchRequest) (localapi.TypedResponse[generated.DeclarationRevision], error)
+}
+
 type HostControlOperations interface {
 	PrepareHostTarget(context.Context, string, generated.HostDiscoveryTargetDraftRequest) (localapi.TypedResponse[generated.HostDiscoveryTargetDraftSubmission], error)
 	SubmitHostAction(context.Context, string, generated.HostActionRequest) (localapi.TypedResponse[generated.HostActionSubmission], error)
@@ -458,6 +462,8 @@ func (app *App) Run(ctx context.Context, args []string) int {
 			return app.failServer(mode, parsed.commandName(), err)
 		}
 		return app.handlePlanResponse(mode, response)
+	case generated.CommandNameAuthorizationGrantsDraft:
+		return app.runGrantBatchDraft(ctx, mode, parsed)
 	case generated.CommandNameNodeRolePrepare, generated.CommandNameServerPrepare:
 		return app.runRolePrepare(ctx, mode, parsed)
 	case generated.CommandNameNodeReplacementPrepare, generated.CommandNameNodeReplacementInspect, generated.CommandNameNodeTargetPrepare, generated.CommandNameNodeActionPrepare, generated.CommandNameNodeAccessPrepare, generated.CommandNameNodeObservationInspect:

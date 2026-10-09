@@ -9,6 +9,7 @@ import (
 
 	"github.com/vegastack/vegastack-labs/internal/adapter"
 	"github.com/vegastack/vegastack-labs/internal/audit"
+	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/identity"
@@ -151,7 +152,7 @@ func isCredentialLifecycleOperation(kind string) bool {
 }
 
 func isCoreOperation(adapterID, kind string) bool {
-	return adapterID == "core.host-replacement" && (kind == "host.alias.claim" || kind == "host.replacement.freeze" || kind == "host.replacement.commit") || adapterID == "core.host-adoption" && kind == "host.adopt" || adapterID == "core.host-discovery-target" && (kind == "host.discovery-target.activate" || kind == "host.discovery-target.revoke") ||
+	return adapterID == "core.authorization" && kind == "identity.change" || adapterID == "core.host-replacement" && (kind == "host.alias.claim" || kind == "host.replacement.freeze" || kind == "host.replacement.commit") || adapterID == "core.host-adoption" && kind == "host.adopt" || adapterID == "core.host-discovery-target" && (kind == "host.discovery-target.activate" || kind == "host.discovery-target.revoke") ||
 		adapterID == "core.gate" && isGateOperation(kind) ||
 		adapterID == "core.audit" && kind == "audit.checkpoint.anchor" ||
 		adapterID == "core.recovery" && kind == "recovery.canary.noop" ||
@@ -550,7 +551,7 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 		}
 		var implementation adapter.Adapter
 		if isCoreOperation(operation.AdapterID, operation.OperationType) {
-			if engine.core == nil || (operation.AdapterID != "core.schedule-observe" && operation.InputDigest != operation.ArtifactDigest) || plan.ExecutorMode != "central" {
+			if engine.core == nil || (operation.AdapterID != "core.schedule-observe" && operation.AdapterID != store.GrantBatchAdapter && operation.InputDigest != operation.ArtifactDigest) || plan.ExecutorMode != "central" {
 				err = runError(generated.ErrorCodePrerequisiteBlocked, "core-effect-unavailable")
 			}
 		} else if isRetentionLockOperation(operation.AdapterID, operation.OperationType) {
@@ -862,7 +863,7 @@ func (engine *Engine) verifyAdmission(ctx context.Context, plan generated.Plan, 
 	if err := engine.plans.ValidateCurrent(ctx, plan); err != nil {
 		return runError(generated.ErrorCodePlanStale, "plan")
 	}
-	if len(plan.Operations) == 0 || !decision.Allowed || decision.Action != "execute" || decision.TargetID != plan.Operations[0].TargetID || decision.PlanDigest != plan.PlanDigest || decision.RecoveryEpoch != plan.Binding.RecoveryEpoch || decision.Branch == nil || *decision.Branch != plan.AuthorizationBranch {
+	if len(plan.Operations) == 0 || !decision.Allowed || decision.Action != "execute" || !authorization.FirstExecutionTarget(plan, decision.TargetID) || decision.PlanDigest != plan.PlanDigest || decision.RecoveryEpoch != plan.Binding.RecoveryEpoch || decision.Branch == nil || *decision.Branch != plan.AuthorizationBranch {
 		return runError(generated.ErrorCodeAuthorizationDenied, "run-admission")
 	}
 	if plan.AuthorizationBranch == "human" && acknowledgement == nil {

@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/endpoint-registry",
-  "schemaVersion": "1.25.0",
+  "schemaVersion": "1.26.0",
   "endpoints": [
     {
       "id": "api.v1.audit-checkpoints.create",
@@ -40,6 +40,19 @@
       "stream": "finite",
       "audiences": [
         "browser",
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.authorization.grant-batches.create",
+      "method": "POST",
+      "path": "/api/v1/authorization/grant-batches",
+      "availability": "available",
+      "ownerPhase": "6",
+      "requestSchema": "vegastack-labs.dev/authorization-grant-batch-request",
+      "dataSchema": "vegastack-labs.dev/declaration-revision",
+      "stream": "finite",
+      "audiences": [
         "operator"
       ]
     },

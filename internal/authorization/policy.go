@@ -26,6 +26,7 @@ const (
 )
 
 type Request struct {
+	DeclarationRevision  int64
 	Action               Action
 	Target               Target
 	Plan                 *generated.Plan
@@ -245,6 +246,11 @@ func planContainsTarget(plan generated.Plan, targetID string) bool {
 		}
 	}
 	for _, operation := range plan.Operations {
+		for _, id := range ExecutionResourceIDs(plan, operation) {
+			if id == targetID {
+				return true
+			}
+		}
 		if operation.TargetID == targetID {
 			return true
 		}

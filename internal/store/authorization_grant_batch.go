@@ -86,7 +86,7 @@ func (r *GrantBatchRepository) Stage(ctx context.Context, in generated.Authoriza
 		}
 		var status string
 		var revision, epoch, state int64
-		if row(`SELECT p.status,p.grant_revision,s.state_revision,s.recovery_epoch FROM effective_authorization_principals p CROSS JOIN system_meta s WHERE p.principal_id=? AND s.id=1`, in.PrincipalID).Scan(&status, &revision, &state, &epoch) != nil || status != "active" || revision != in.ExpectedGrantRevision || state != in.ExpectedStateRevision || epoch != in.RecoveryEpoch {
+		if row(`SELECT p.status,p.grant_revision,s.state_revision,s.recovery_epoch FROM effective_authorization_principals p CROSS JOIN system_meta s WHERE p.principal_id=? AND s.id=1 AND EXISTS(SELECT 1 FROM read_principals r WHERE r.principal_id=p.principal_id AND r.status='active')`, in.PrincipalID).Scan(&status, &revision, &state, &epoch) != nil || status != "active" || revision != in.ExpectedGrantRevision || state != in.ExpectedStateRevision || epoch != in.RecoveryEpoch {
 			return actionError(generated.ErrorCodePlanStale)
 		}
 		return validateGrantBatchChanges(row, in)
@@ -104,16 +104,24 @@ func validateGrantBatchChanges(row discoveryRow, in generated.AuthorizationGrant
 	for _, g := range in.Changes {
 		var principal, role, action, capability, kind, resource, status string
 		var branch sql.NullString
-		err := row(`SELECT principal_id,role_id,action,capability,resource_kind,resource_id,branch,status FROM effective_authorization_grants WHERE grant_id=?`, g.GrantID).Scan(&principal, &role, &action, &capability, &kind, &resource, &branch, &status)
+		var revision int64
+		err := row(`SELECT principal_id,role_id,action,capability,resource_kind,resource_id,branch,status,grant_revision FROM effective_authorization_grants WHERE grant_id=?`, g.GrantID).Scan(&principal, &role, &action, &capability, &kind, &resource, &branch, &status, &revision)
 		if g.Change == "add" {
 			if err != sql.ErrNoRows {
 				return actionError(generated.ErrorCodeStateConflict)
+			}
+			if g.Action == "read" {
+				var readStatus string
+				e := row(`SELECT status FROM read_grants WHERE principal_id=? AND capability=? AND resource_kind=? AND resource_id=?`, in.PrincipalID, g.Capability, g.ResourceKind, g.ResourceID).Scan(&readStatus)
+				if e != sql.ErrNoRows && (e != nil || readStatus != "active") {
+					return actionError(generated.ErrorCodeStateConflict)
+				}
 			}
 			var count int
 			if row(`SELECT COUNT(*) FROM effective_authorization_grants WHERE principal_id=? AND role_id=? AND action=? AND capability=? AND resource_kind=? AND resource_id=? AND ifnull(branch,'')=?`, in.PrincipalID, g.RoleID, g.Action, g.Capability, g.ResourceKind, g.ResourceID, g.Branch).Scan(&count) != nil || count != 0 {
 				return actionError(generated.ErrorCodeStateConflict)
 			}
-		} else if err != nil || principal != in.PrincipalID || role != g.RoleID || action != g.Action || capability != g.Capability || kind != g.ResourceKind || resource != g.ResourceID || branch.String != g.Branch || status != "active" {
+		} else if err != nil || principal != in.PrincipalID || role != g.RoleID || action != g.Action || capability != g.Capability || kind != g.ResourceKind || resource != g.ResourceID || branch.String != g.Branch || status != "active" || revision != in.ExpectedGrantRevision {
 			return actionError(generated.ErrorCodeStateConflict)
 		}
 	}
@@ -131,15 +139,14 @@ func stageGrantBatchRows(ctx context.Context, tx *sql.Tx, in generated.Authoriza
 	}
 	var status string
 	var revision int64
-	if row(`SELECT status,grant_revision FROM effective_authorization_principals WHERE principal_id=?`, in.PrincipalID).Scan(&status, &revision) != nil || status != "active" || revision != in.ExpectedGrantRevision {
+	if row(`SELECT status,grant_revision FROM effective_authorization_principals WHERE principal_id=? AND EXISTS(SELECT 1 FROM read_principals r WHERE r.principal_id=effective_authorization_principals.principal_id AND r.status='active')`, in.PrincipalID).Scan(&status, &revision) != nil || status != "active" || revision != in.ExpectedGrantRevision {
 		return actionError(generated.ErrorCodePlanStale)
 	}
 	if err := validateGrantBatchChanges(row, in); err != nil {
 		return err
 	}
 	for _, g := range in.Changes {
-		sum := sha256.Sum256([]byte(hostaction.Digest(in) + ":" + g.GrantID))
-		id := "desired-" + hex.EncodeToString(sum[:16])
+		id := desiredBatchGrantID(in, g.GrantID)
 		var branch any
 		if g.Branch != "" {
 			branch = g.Branch
@@ -149,4 +156,9 @@ func stageGrantBatchRows(ctx context.Context, tx *sql.Tx, in generated.Authoriza
 		}
 	}
 	return nil
+}
+
+func desiredBatchGrantID(in generated.AuthorizationGrantBatchRequest, grantID string) string {
+	sum := sha256.Sum256([]byte(hostaction.Digest(in) + ":" + grantID))
+	return "desired-" + hex.EncodeToString(sum[:16])
 }

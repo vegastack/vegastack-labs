@@ -65,6 +65,7 @@ type TypedResponse[T any] struct {
 }
 
 type Client interface {
+	DraftAuthorizationGrants(context.Context, serverconfig.Profile, generated.AuthorizationGrantBatchRequest) (TypedResponse[generated.DeclarationRevision], error)
 	PrepareHostTarget(context.Context, serverconfig.Profile, generated.HostDiscoveryTargetDraftRequest) (TypedResponse[generated.HostDiscoveryTargetDraftSubmission], error)
 	SubmitHostAction(context.Context, serverconfig.Profile, generated.HostActionRequest) (TypedResponse[generated.HostActionSubmission], error)
 	SubmitHostAccess(context.Context, serverconfig.Profile, generated.HostAccessDraftRequest) (TypedResponse[generated.HostActionSubmission], error)

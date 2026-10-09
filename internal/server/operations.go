@@ -241,13 +241,17 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	effectiveConfig := api.EffectiveAuthorizationConfig{Authorizer: authorization.NewEvaluator(effectiveAuthorization), Recorder: effectiveAuthorization, Clock: time.Now}
+	effectiveConfig := api.EffectiveAuthorizationConfig{WorkflowOwners: authority, Authorizer: authorization.NewEvaluator(effectiveAuthorization), Recorder: effectiveAuthorization, Clock: time.Now}
 	if err := api.RegisterDeclarationPlanOperations(application, api.DeclarationPlanConfig{
 		Declarations:  declarations,
 		Plans:         plans,
 		Results:       factory,
 		Authorization: effectiveConfig,
 	}); err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	if err := api.RegisterAuthorizationGrantOperations(application, api.AuthorizationGrantOperations{Grants: store.NewGrantBatchRepository(authority), Declarations: declarations, Results: factory}); err != nil {
 		_ = application.Shutdown(ctx)
 		return err
 	}
@@ -394,7 +398,7 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 		return err
 	}
 	replacementComposition := hostReplacementComposition{authority: authority, repository: replacementRepository, gates: gateRepository, clock: time.Now}
-	coreRouter := runengine.CoreRouter{HostReplacement: &runengine.HostReplacementEffect{Operations: replacementComposition, Approvals: store.NewAcknowledgementRepository(authority)}, Adoption: &runengine.HostAdoptionEffect{Repository: store.NewHostAdoptionRepository(authority), Approvals: store.NewAcknowledgementRepository(authority)}, DiscoveryTarget: discoveryEffect, Gate: coreGate, Recovery: recoveryCore, Schedule: scheduleCore, ScheduleObserve: scheduleObserver}
+	coreRouter := runengine.CoreRouter{Authorization: &runengine.GrantBatchEffect{Repository: store.NewGrantBatchRepository(authority), Approvals: store.NewAcknowledgementRepository(authority)}, HostReplacement: &runengine.HostReplacementEffect{Operations: replacementComposition, Approvals: store.NewAcknowledgementRepository(authority)}, Adoption: &runengine.HostAdoptionEffect{Repository: store.NewHostAdoptionRepository(authority), Approvals: store.NewAcknowledgementRepository(authority)}, DiscoveryTarget: discoveryEffect, Gate: coreGate, Recovery: recoveryCore, Schedule: scheduleCore, ScheduleObserve: scheduleObserver}
 	credentialRepository := store.NewCredentialRepository(authority)
 	if err := api.RegisterHostReplacementOperations(application, api.HostReplacementOperations{Replacements: replacementRepository, Declarations: declarations, Results: factory}); err != nil {
 		return err

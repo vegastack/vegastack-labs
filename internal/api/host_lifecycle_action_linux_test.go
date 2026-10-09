@@ -76,7 +76,7 @@ func lifecycleApplyRole(t *testing.T, f roleAdmissionFixture, at *time.Time, tar
 	if e != nil {
 		t.Fatal(e)
 	}
-	auth := EffectiveAuthorizationConfig{Authorizer: evaluator, Recorder: policy, Clock: clock}
+	auth := EffectiveAuthorizationConfig{WorkflowOwners: f.authority, Authorizer: evaluator, Recorder: policy, Clock: clock}
 	app.effective = auth
 	serve := transport(app, f.authority, f.db, *at)
 	declarations, e := change.NewService(store.NewDeclarationRepository(f.authority), clock)
@@ -121,9 +121,9 @@ func lifecycleApplyRole(t *testing.T, f roleAdmissionFixture, at *time.Time, tar
 		}
 	}
 	f.seed.exec(`INSERT INTO effective_authorization_principals VALUES('linked-automation','agent','active',1,'now','now')`)
-	f.seed.exec(`INSERT INTO effective_authorization_grants VALUES('linked-automation','linked-automation','infrastructure-admin','execute','host.action.execute','execution-target',?,'human',1,'active','now','now')`, f.input.HostID)
+	f.seed.exec(`INSERT OR IGNORE INTO effective_authorization_grants VALUES('linked-automation','linked-automation','infrastructure-admin','execute','host.action.execute','execution-target',?,'human',1,'active','now','now')`, f.input.HostID)
 	grant := func(id, action, cap, kind, target string, branch any) {
-		f.seed.exec(`INSERT INTO effective_authorization_grants VALUES(?,'human-a','control-plane-admin',?,?,?,?,?,1,'active','now','now')`, "linked-"+id, action, cap, kind, target, branch)
+		f.seed.exec(`INSERT OR IGNORE INTO effective_authorization_grants VALUES(?,'human-a','control-plane-admin',?,?,?,?,?,1,'active','now','now')`, "linked-"+id, action, cap, kind, target, branch)
 	}
 	grant("prepare", "author", "host.action.prepare", "host", f.input.HostID, nil)
 	grant("execute", "execute", "host.action.execute", "execution-target", f.input.HostID, "human")
@@ -158,17 +158,6 @@ func lifecycleApplyRole(t *testing.T, f roleAdmissionFixture, at *time.Time, tar
 			raw, _ = json.Marshal(desired)
 		}
 		req := generated.HostActionRequest{Schema: generated.SchemaIDHostActionRequest, SchemaVersion: "1.0.0", HostID: f.input.HostID, TargetRevision: 1, TargetDigest: hostaction.Digest(target), ActionID: action, ActionVersion: "1.0.0", ActionInput: string(raw), ActionInputDigest: hostaction.BytesDigest(raw), AutomationPrincipalID: "linked-automation", CallerUID: 1001, CredentialReferenceID: "linked-role-key", CredentialMaterialVersion: "version-a", ExpectedStateRevision: rev.StateRevision, RecoveryEpoch: rev.RecoveryEpoch, IdempotencyKey: action, ConsoleConfirmation: generated.HostActionConsoleConfirmation{Schema: generated.SchemaIDHostActionConsoleConfirmation, SchemaVersion: "1.0.0", Method: "administrator-verified-console", TargetDigest: hostaction.Digest(target), HostIdentityDigest: f.input.HostIdentityDigest}}
-		sealed := req
-		if action == "debian.role.apply" {
-			prepared, e := readiness.PrepareRole(f.ctx, action, desired)
-			if e != nil {
-				t.Fatal("linked prepare", e)
-			}
-			b, _ := json.Marshal(prepared)
-			sealed.ActionInput = string(b)
-			sealed.ActionInputDigest = hostaction.BytesDigest(b)
-		}
-		grant(action+"-author", "author", "declaration.author", "declaration", hostaction.DraftID(sealed), nil)
 		var submission generated.HostActionSubmission
 		post("/api/v1/host-actions/draft", req, &submission)
 		if submission.OriginalRequestDigest != hostaction.Digest(req) {
@@ -189,11 +178,14 @@ func lifecycleApplyRole(t *testing.T, f roleAdmissionFixture, at *time.Time, tar
 		if e != nil {
 			t.Fatal(e)
 		}
-		grant(action+"-plan", "author", "plan.author", "declaration", doc.DeclarationID, nil)
 		var presentation generated.PlanPresentation
 		post("/api/v1/declarations/"+doc.DeclarationID+"/plans", generated.PlanCreateRequest{Schema: generated.SchemaIDPlanCreateRequest, SchemaVersion: "1.0.0", DeclarationID: doc.DeclarationID, DeclarationRevision: 1, ExpectedStateRevision: rev.StateRevision, RecoveryEpoch: rev.RecoveryEpoch, ObservationFingerprint: fp, IdempotencyKey: "plan-" + action, Extensions: doc.Extensions}, &presentation)
 		p := presentation.Plan
-		requestLifecycleBrowserApproval(t, serve, f.seed, p, at)
+		var approval generated.ApprovalStatus
+		post("/api/v1/plans/"+p.PlanID+"/approval-request", generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: p.PlanID, PlanDigest: p.PlanDigest, RecoveryEpoch: p.Binding.RecoveryEpoch, IdempotencyKey: "approve-" + action, Extensions: []generated.ContractExtension{}}, &approval)
+		if approval.Status != "approved" || !approval.AuthorizationCurrent || !approval.CanApply {
+			t.Fatal("resource-scoped approval failed", approval)
+		}
 		var result generated.RunPresentation
 		post("/api/v1/plans/"+p.PlanID+"/execute", generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: p.PlanID, PlanDigest: p.PlanDigest, RecoveryEpoch: p.Binding.RecoveryEpoch, IdempotencyKey: "execute-" + action, Extensions: []generated.ContractExtension{}}, &result)
 		assertLifecycleDurableRun(t, f.db, p, result.Run)

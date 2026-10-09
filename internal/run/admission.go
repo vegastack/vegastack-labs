@@ -32,7 +32,7 @@ func (gate *AdmissionGate) Verify(_ context.Context, plan generated.Plan, decisi
 }
 
 func (gate *AdmissionGate) verify(plan generated.Plan, decision generated.AuthorizationDecision, acknowledgement *generated.Acknowledgement, requireFreshProof bool) error {
-	if gate == nil || !exactContract(generated.SchemaIDPlan, plan) || len(plan.Operations) == 0 || !exactContract(generated.SchemaIDAuthorizationDecision, decision) || !decision.Allowed || decision.Action != string(authorization.ActionExecute) || decision.TargetID != plan.Operations[0].TargetID || decision.PlanDigest != plan.PlanDigest || decision.RecoveryEpoch != plan.Binding.RecoveryEpoch || decision.Branch == nil || *decision.Branch != plan.AuthorizationBranch {
+	if gate == nil || !exactContract(generated.SchemaIDPlan, plan) || len(plan.Operations) == 0 || !exactContract(generated.SchemaIDAuthorizationDecision, decision) || !decision.Allowed || decision.Action != string(authorization.ActionExecute) || !authorization.FirstExecutionTarget(plan, decision.TargetID) || decision.PlanDigest != plan.PlanDigest || decision.RecoveryEpoch != plan.Binding.RecoveryEpoch || decision.Branch == nil || *decision.Branch != plan.AuthorizationBranch {
 		return runError(generated.ErrorCodeAuthorizationDenied, "run-admission")
 	}
 	for _, operation := range plan.Operations {

@@ -17,6 +17,9 @@ func TestGrantBatchStageIsInert(t *testing.T) {
 	s := openEffectiveAuthorizationStore(t)
 	defer s.Close()
 	seedEffectivePrincipal(t, s, "operator", identity.PrincipalHuman, 1)
+	if _, err := s.conn.ExecContext(context.Background(), `INSERT INTO read_principals VALUES('operator','active',1,'now','now')`); err != nil {
+		t.Fatal(err)
+	}
 	seedEffectiveGrant(t, s, "policy-author", "operator", authorization.RoleControlPlaneAdmin, authorization.ActionAuthor, authorization.Target{Capability: "authorization.policy.write", ResourceKind: "authorization-policy", ResourceID: "operator"}, "", 1)
 	ctx := identity.WithVerifiedPrincipal(context.Background(), identity.Principal{ID: "operator", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman})
 	rev, err := NewPlanRepository(s).CurrentRevision(ctx)
@@ -44,4 +47,32 @@ func TestGrantBatchStageIsInert(t *testing.T) {
 	if _, err = NewGrantBatchRepository(s).Stage(ctx, in); Code(err) != generated.ErrorCodePlanStale {
 		t.Fatal("old batch accepted after state changed", err)
 	}
+	principal := identity.Principal{ID: "operator", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}
+	navigation := authorization.Request{DeclarationRevision: stored.Document.Revision, Action: authorization.ActionAuthor, Target: authorization.Target{Capability: "plan.author", ResourceKind: "declaration", ResourceID: stored.Document.DeclarationID}}
+	exact, err := authorization.NewEvaluator(NewEffectiveAuthorizationRepository(s)).Authorize(ctx, principal, navigation)
+	if err != nil || exact.Allowed {
+		t.Fatal("regression precondition: exact future-ID grant unexpectedly exists", err)
+	}
+	owners, err := s.WorkflowAuthorizationTargets(ctx, navigation)
+	if err != nil || len(owners) != 1 {
+		t.Fatal("sealed workflow owner unresolved", owners, err)
+	}
+	mappedRequest := navigation
+	mappedRequest.Target = owners[0]
+	mapped, err := authorization.NewEvaluator(NewEffectiveAuthorizationRepository(s)).Authorize(ctx, principal, mappedRequest)
+	if err != nil || !mapped.Allowed || mapped.Scope.ResourceID != "operator" || mapped.Scope.Capability != "authorization.policy.write" {
+		t.Fatal("sealed policy workflow denied without guessed future-ID grant", mapped, err)
+	}
+	bad := navigation
+	bad.Target.ResourceID = GrantBatchDeclarationID("other-principal")
+	if _, err = s.WorkflowAuthorizationTargets(ctx, bad); err == nil {
+		t.Fatal("unrelated subject resolved")
+	}
+	if _, err = s.conn.ExecContext(ctx, `UPDATE effective_authorization_grants SET status='revoked' WHERE grant_id='policy-author'`); err != nil {
+		t.Fatal(err)
+	}
+	if denied, e := authorization.NewEvaluator(NewEffectiveAuthorizationRepository(s)).Authorize(ctx, principal, mappedRequest); e != nil || denied.Allowed {
+		t.Fatal("revoked policy owner still authorizes its workflow", denied, e)
+	}
+
 }

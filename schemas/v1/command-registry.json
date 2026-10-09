@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/command-registry",
-  "schemaVersion": "1.25.0",
+  "schemaVersion": "1.26.0",
   "commands": [
     {
       "path": [
@@ -194,6 +194,79 @@
             "verify",
             "--config",
             "fixture/server-profile.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "authorization",
+        "grants",
+        "draft"
+      ],
+      "summary": "Prepare exact grant additions or revocations; approval and apply remain separate.",
+      "availability": "available",
+      "ownerPhase": "6",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one grant batch JSON file (32 KiB max).",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/authorization-grant-batch-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/declaration-revision",
+      "examples": [
+        {
+          "summary": "Prepare exact grant additions or revocations; approval and apply remain separate.",
+          "arguments": [
+            "authorization",
+            "grants",
+            "draft",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/grants.json",
             "--output",
             "json"
           ]

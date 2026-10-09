@@ -111,10 +111,6 @@ func (app *Application) hostAccessDraft(c HostAccessOperations) func(http.Respon
 		}
 		apply := requests[0]
 		id := "host-access-" + hostaction.Digest(seq)[7:39]
-		if _, e = app.authorizeAction(r, authorization.ActionAuthor, authorization.Target{Capability: "declaration.author", ResourceKind: "declaration", ResourceID: id}); e != nil {
-			fail(e)
-			return
-		}
 		principal, ok := identity.PrincipalFromContext(r.Context())
 		if !ok {
 			fail(apiFailure(generated.ErrorCodeAuthenticationRequired, "principal"))

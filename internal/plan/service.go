@@ -199,6 +199,9 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 		operations[index] = generated.PlanOperation{Sequence: operation.Sequence, OperationID: operation.OperationID, OperationType: operation.OperationType, AdapterID: operation.AdapterID, ExecutorID: service.config.OperationExecutorID, TargetID: operation.TargetID, InputDigest: operation.InputDigest, ArtifactDigest: operation.ArtifactDigest, Idempotent: operation.Idempotent}
 	}
 	risk := service.config.Risk
+	if declaration.AuthorizationGrantBatch != nil {
+		risk = string(authorization.RiskControlPlane)
+	}
 	sequence, sequenceErr := service.accessSequence(ctx, declaration, operations)
 	if sequenceErr != nil {
 		return store.PlanCommitResult{}, sequenceErr

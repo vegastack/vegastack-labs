@@ -18,3 +18,15 @@ func authorizationGrantSchemas() []SchemaDefinition {
 			FieldDefinition{JSONName: "changes", GoName: "Changes", Kind: ValueArray, Required: true, ItemRef: "vegastack-labs.dev/authorization-grant-change", MinItems: intPointer(1), MaxItems: intPointer(32)}),
 	}
 }
+
+func authorizationGrantCommand() CommandDefinition {
+	c := phase5GateCommand([]string{"authorization", "grants", "draft"}, "Prepare exact grant additions or revocations; approval and apply remain separate.", "vegastack-labs.dev/authorization-grant-batch-request", "vegastack-labs.dev/declaration-revision", RiskMutation, []FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected server profile."}, {Name: "--file", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one grant batch JSON file (32 KiB max)."}}, []string{"authorization", "grants", "draft", "--config", "fixture/server-profile.json", "--file", "fixture/grants.json", "--output", "json"})
+	c.OwnerPhase = "6"
+	return c
+}
+func authorizationGrantEndpoint() EndpointDefinition {
+	e := phase5Endpoint("api.v1.authorization.grant-batches.create", "POST", "/api/v1/authorization/grant-batches", "vegastack-labs.dev/authorization-grant-batch-request", "vegastack-labs.dev/declaration-revision", false)
+	e.Availability = AvailabilityAvailable
+	e.OwnerPhase = "6"
+	return e
+}

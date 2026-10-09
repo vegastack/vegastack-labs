@@ -96,10 +96,6 @@ func (app *Application) discoveryDraft(c HostDiscoveryOperations) func(http.Resp
 			return
 		}
 		declarationID := "discovery-draft-" + hostdiscovery.Digest(input)[7:39]
-		if _, err := app.authorizeAction(r, authorization.ActionAuthor, authorization.Target{Capability: "declaration.author", ResourceKind: "declaration", ResourceID: declarationID}); err != nil {
-			app.failure(w, op, err)
-			return
-		}
 		principal, ok := identity.PrincipalFromContext(r.Context())
 		if !ok {
 			app.failure(w, op, apiFailure(generated.ErrorCodeAuthenticationRequired, "principal"))

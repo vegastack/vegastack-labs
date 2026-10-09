@@ -258,3 +258,14 @@ Omitting `credentialMode` preserves the existing qualified-reference path. There
 ## Linux replacement ownership
 
 The [host replacement procedure](development/host-replacement.md) defines initial alias claims, durable freeze, supported restore, current qualification and atomic reassignment through the existing plan/acknowledgement flow. Registration and alias metadata do not confer workload admission; unknown provider ownership and missing native qualification remain blockers.
+
+
+## Approved resource grants — 10-10-2026
+
+`vsk-labs authorization grants draft --config <profile> --file <request.json>` prepares an inert batch of 1–32 exact additions or revocations for one already initialized principal. The request binds its current grant revision, declaration revision, state revision and recovery epoch. It uses the existing declaration, immutable plan, Slack acknowledgement and `apply` flow; drafting never changes permissions.
+
+Initial setup must include the administrator's `authorization.policy.write` author grant and `authorization.policy.read` read grant on resource kind `authorization-policy` with the existing subject principal ID. The administrator also needs human `plan.acknowledge` on `plan-target` and `identity.change` execution on `execution-target`, both with that subject ID. The mutation requires control-plane-admin authority. These administration seeds cannot be changed or delegated by a batch. No principal creation, wildcard, preauthorized branch or direct database editing is provided. Revoked immutable grant tuples and legacy read scopes cannot be reactivated by this command.
+
+The server resolves declaration, plan and run navigation through exact stored workflow payloads to their stable resource owners. Plan authoring resolves the requested declaration revision. Multi-host workflows require every owner; discovery target activation uses its target ID, registration uses the declared host ID, and replacement execution requires both hosts. Alias claiming requires the named host and aliases. Credential navigation resolves the sealed reference binding; recovery-point navigation resolves the creation receipt's exact backup policy. Existing exact grants remain available for workflows without a supported owner mapping. Resource execution grants, current risk policy, explicit human acknowledgement, native checks and recovery fences still apply separately.
+
+Grant activation updates effective and legacy read permissions atomically, carries unrelated active grants to the next revision, and records the responsible human plus agent/session attribution. The existing run reservation and effect transactions recheck current authority. Source suspension, restore qualification, hardware evidence and workload admission remain their existing separate boundaries. Software fixtures provide no native or fleet qualification.

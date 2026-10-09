@@ -59,10 +59,6 @@ func (app *Application) replacementDraft(c HostReplacementOperations) func(http.
 		}
 		d := hostaction.Digest(in)
 		id := "host-replacement-" + d[7:39]
-		if _, err := app.authorizeAction(r, authorization.ActionAuthor, authorization.Target{Capability: "declaration.author", ResourceKind: "declaration", ResourceID: id}); err != nil {
-			app.failure(w, op, err)
-			return
-		}
 		attribution, err := hostdiscovery.Attribution(r.Context(), id)
 		if err != nil {
 			app.failure(w, op, err)

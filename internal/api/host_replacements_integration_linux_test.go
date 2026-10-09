@@ -607,7 +607,7 @@ func runReplacementPipeline(t *testing.T, transport lifecycleBrowserTransport, d
 		app.config.Reads = store.NewReadRepository(f.authority)
 		serve = transport(app, f.authority, f.db, at)
 	}
-	auth := EffectiveAuthorizationConfig{Authorizer: evaluator, Recorder: policy, Clock: clock}
+	auth := EffectiveAuthorizationConfig{WorkflowOwners: f.authority, Authorizer: evaluator, Recorder: policy, Clock: clock}
 	app.effective = auth
 	declarations, e := change.NewService(store.NewDeclarationRepository(f.authority), clock)
 	if e != nil {
@@ -651,7 +651,7 @@ func runReplacementPipeline(t *testing.T, transport lifecycleBrowserTransport, d
 	}
 	browserRoleAdmission(f.input.HostID)
 	grant := func(id, action, cap, kind, target string, branch any) {
-		f.seed.exec(`INSERT INTO effective_authorization_grants VALUES(?,'human-a','control-plane-admin',?,?,?,?,?,1,'active','now','now')`, id, action, cap, kind, target, branch)
+		f.seed.exec(`INSERT OR IGNORE INTO effective_authorization_grants VALUES(?,'human-a','control-plane-admin',?,?,?,?,?,1,'active','now','now')`, id, action, cap, kind, target, branch)
 	}
 	ack, e := acknowledgement.NewService(acknowledgement.Config{Repository: store.NewAcknowledgementRepository(f.authority), Plans: roleTestPlans{plans}, Authorizer: evaluator, Clock: clock})
 	if e != nil {
@@ -724,9 +724,11 @@ func runReplacementPipeline(t *testing.T, transport lifecycleBrowserTransport, d
 			}
 			p = made.Plan
 		}
-		target := p.Operations[0].TargetID
-		grant("execute-"+declarationID, "execute", p.Operations[0].OperationType, "execution-target", target, "human")
-		grant("ack-"+declarationID, "acknowledge", "plan.acknowledge", "plan-target", target, "human")
+		target := authorization.ExecutionResourceIDs(p, p.Operations[0])[0]
+		for i, target := range authorization.ExecutionResourceIDs(p, p.Operations[0]) {
+			grant(fmt.Sprintf("execute-%s-%d", declarationID, i), "execute", p.Operations[0].OperationType, "execution-target", target, "human")
+			grant(fmt.Sprintf("ack-%s-%d", declarationID, i), "acknowledge", "plan.acknowledge", "plan-target", target, "human")
+		}
 		if transport != nil {
 			ref := generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: p.PlanID, PlanDigest: p.PlanDigest, RecoveryEpoch: p.Binding.RecoveryEpoch, IdempotencyKey: "run-" + declarationID, Extensions: []generated.ContractExtension{}}
 			grant("read-plan-"+declarationID, "read", "plan.read", "plan", p.PlanID, nil)
@@ -750,12 +752,13 @@ func runReplacementPipeline(t *testing.T, transport lifecycleBrowserTransport, d
 			if denied.Code < 400 || !strings.Contains(denied.Body.String(), "PLAN_STALE") {
 				t.Fatalf("stale plan accepted: %d %s", denied.Code, denied.Body.String())
 			}
-			f.seed.exec(`UPDATE effective_authorization_grants SET status='revoked' WHERE grant_id=?`, "execute-"+declarationID)
+			revokedTarget := authorization.ExecutionResourceIDs(p, p.Operations[0])[0]
+			f.seed.exec(`UPDATE effective_authorization_grants SET status='revoked' WHERE principal_id='human-a' AND action='execute' AND capability=? AND resource_kind='execution-target' AND resource_id=?`, p.Operations[0].OperationType, revokedTarget)
 			denied = serve(http.MethodPost, "/api/v1/plans/"+p.PlanID+"/execute", ref)
 			if denied.Code != http.StatusForbidden {
 				t.Fatalf("revoked grant accepted: %d %s", denied.Code, denied.Body.String())
 			}
-			f.seed.exec(`INSERT INTO effective_authorization_grants VALUES(?,'human-a','infrastructure-admin','execute',?,'execution-target',?,'human',1,'active','now','now')`, "execute-restored-"+declarationID, p.Operations[0].OperationType, target)
+			f.seed.exec(`INSERT OR IGNORE INTO effective_authorization_grants VALUES(?,'human-a','infrastructure-admin','execute',?,'execution-target',?,'human',1,'active','now','now')`, "execute-restored-"+declarationID, p.Operations[0].OperationType, revokedTarget)
 		}
 		var approved generated.Acknowledgement
 		if transport != nil {
@@ -800,7 +803,9 @@ func runReplacementPipeline(t *testing.T, transport lifecycleBrowserTransport, d
 	d := hostaction.Digest(claim)
 	decl := generated.DeclarationRevisionRequest{Schema: generated.SchemaIDDeclarationRevisionRequest, SchemaVersion: "1.0.0", DeclarationID: "initial-alias", DeclarationType: "host.alias-claim", ExpectedRevision: 1, ExpectedStateRevision: rev.StateRevision, RecoveryEpoch: rev.RecoveryEpoch, HostAliasClaim: &claim, ReasonDigest: d, Extensions: []generated.ContractExtension{{Name: hostreplacement.AliasClaimExtension, ValueDigest: d}}, Operations: []generated.DeclarationOperation{{Sequence: 1, OperationID: "claim", OperationType: hostreplacement.AliasClaimOperation, AdapterID: hostreplacement.AdapterID, TargetID: "initial-alias", InputDigest: d, ArtifactDigest: d, Idempotent: true}}}
 	grant("prepare-"+f.input.HostID, "author", "host.replacement.prepare", "host", f.input.HostID, nil)
-	grant("claim-author", "author", "declaration.author", "declaration", decl.DeclarationID, nil)
+	for i, id := range decl.HostAliasClaim.AliasIDs {
+		grant(fmt.Sprintf("alias-claim-%d", i), "author", "host.alias.claim", "host-alias", id, nil)
+	}
 	w := serve(http.MethodPost, "/api/v1/declarations/initial-alias/revisions", decl)
 	if transport != nil {
 		if w.Code != http.StatusForbidden {
@@ -868,7 +873,7 @@ func runReplacementPipeline(t *testing.T, transport lifecycleBrowserTransport, d
 		f.seed.exec(`UPDATE system_meta SET state_revision=? WHERE id=1`, currentRevision.StateRevision+100)
 		seedHostAdmissionFixture(t, &at, baseline, nil, f.authority, f.db, f.proofs, false)
 		f.seed.exec(`INSERT INTO effective_authorization_principals VALUES('automation-a','agent','active',1,'now','now')`)
-		f.seed.exec(`INSERT INTO effective_authorization_grants VALUES('new-role-automation','automation-a','infrastructure-admin','execute','host.action.execute','execution-target',?,'human',1,'active','now','now')`, newInput.HostID)
+		f.seed.exec(`INSERT OR IGNORE INTO effective_authorization_grants VALUES('new-role-automation','automation-a','infrastructure-admin','execute','host.action.execute','execution-target',?,'human',1,'active','now','now')`, newInput.HostID)
 		grant("new-role-prepare", "author", "host.action.prepare", "host", newInput.HostID, nil)
 		keyDigest := hostaction.Digest("synthetic-new-role-key")
 		f.seed.exec(`INSERT INTO credential_reference_versions VALUES('new-role-action','new-role-action','host-action','host-action-ssh',?,'native-systemd','version-a',?,'active',1,0,?,?,'fixture-declaration',1,'fixture-plan',?,'fixture-run','fixture-step','fixture-lease','human-a','now')`, newInput.HostID, keyDigest, at.Format(time.RFC3339), []byte(`["host-action"]`), keyDigest)

@@ -371,7 +371,9 @@ func uniqueTargets(plan generated.Plan) []string {
 		}
 	}
 	for _, operation := range plan.Operations {
-		seen[operation.TargetID] = true
+		for _, id := range authorization.ExecutionResourceIDs(plan, operation) {
+			seen[id] = true
+		}
 	}
 	result := make([]string, 0, len(seen))
 	for target := range seen {
