@@ -38,6 +38,10 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
+    "ansibleExecutableDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
     "ansibleVersion": {
       "maxLength": 64,
       "minLength": 1,
@@ -117,6 +121,7 @@
     "packages",
     "executableVersion",
     "ansibleVersion",
+    "ansibleExecutableDigest",
     "collectionDigest",
     "roleDigest",
     "backend"

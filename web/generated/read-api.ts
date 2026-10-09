@@ -51,6 +51,13 @@ export const BACKUP_JOB_TRANSITIONS = [{"from":"pending","to":"failed"},{"from":
 export const RESTORE_TRANSITIONS = [{"from":"fenced","to":"failed"},{"from":"fenced","to":"restoring"},{"from":"planned","to":"failed"},{"from":"planned","to":"fenced"},{"from":"restoring","to":"failed"},{"from":"restoring","to":"uncertain"},{"from":"restoring","to":"verification-required"},{"from":"verification-required","to":"failed"},{"from":"verification-required","to":"uncertain"},{"from":"verification-required","to":"verified"}] as const;
 export const SCHEDULED_JOB_TRANSITIONS = [{"from":"queued","to":"blocked"},{"from":"queued","to":"cancelled"},{"from":"queued","to":"failed"},{"from":"queued","to":"running"},{"from":"queued","to":"skipped"},{"from":"retry-wait","to":"cancelled"},{"from":"retry-wait","to":"failed"},{"from":"retry-wait","to":"running"},{"from":"running","to":"failed"},{"from":"running","to":"retry-wait"},{"from":"running","to":"succeeded"},{"from":"running","to":"uncertain"}] as const;
 
+export interface AccessTargetIdentity {
+  readonly "schema": "vegastack-labs.dev/access-target-identity";
+  readonly "schemaVersion": "1.0.0";
+  readonly "hostId": string;
+  readonly "identityDigest": string;
+}
+
 export interface ApiAuditEventData {
   readonly "event": BrowserAuditEvent;
 }
@@ -642,6 +649,8 @@ export interface HostAccessProbeStep {
 export interface HostAccessSequence {
   readonly "schema": "vegastack-labs.dev/host-access-sequence";
   readonly "schemaVersion": "1.0.0";
+  readonly "actions": ReadonlyArray<HostActionRequest>;
+  readonly "auxiliaryTargets": ReadonlyArray<AccessTargetIdentity>;
   readonly "subjectHostId": string;
   readonly "subjectIdentityDigest": string;
   readonly "profileLockDigest": string;
@@ -958,6 +967,43 @@ type FieldRule = {
 };
 
 const SCHEMAS: ReadonlyArray<SchemaRule> = [
+  {
+    "id": "vegastack-labs.dev/access-target-identity",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/access-target-identity"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "hostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "identityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
   {
     "id": "vegastack-labs.dev/api-audit-event-data",
     "fields": [
@@ -4617,6 +4663,22 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         ]
       },
       {
+        "name": "actions",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/host-action-request",
+        "maxItems": 18
+      },
+      {
+        "name": "auxiliaryTargets",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/access-target-identity",
+        "maxItems": 64
+      },
+      {
         "name": "subjectHostId",
         "kind": "string",
         "required": true,
@@ -6466,6 +6528,10 @@ export function validatePlanTiming(value: unknown): void {
   const created = Date.parse(plan.createdAt as string);
   const expires = Date.parse(plan.expiresAt as string);
   if (!Number.isFinite(created) || expires - created !== PLAN_VALIDITY_SECONDS * 1000) return mismatch("plan.expiresAt", "plan expiry must be exactly 30 minutes");
+}
+
+function decodeAccessTargetIdentity(value: unknown): AccessTargetIdentity {
+  return decodeSchema("vegastack-labs.dev/access-target-identity", value) as unknown as AccessTargetIdentity;
 }
 
 function decodeApiAuditEventData(value: unknown): ApiAuditEventData {

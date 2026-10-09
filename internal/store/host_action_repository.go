@@ -7,6 +7,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/adapter"
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
+	"github.com/vegastack/vegastack-labs/internal/debianaccess"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"github.com/vegastack/vegastack-labs/internal/hostdiscovery"
@@ -23,12 +24,13 @@ type HostActionDraft struct {
 	Request    generated.HostActionRequest
 }
 type HostActionExecution struct {
-	Plan   generated.Plan
-	Run    generated.Run
-	Step   generated.RunStep
-	Lease  generated.ExecutorLease
-	Draft  HostActionDraft
-	Target generated.HostDiscoveryTarget
+	Plan                 generated.Plan
+	Run                  generated.Run
+	Step                 generated.RunStep
+	Lease                generated.ExecutorLease
+	Draft                HostActionDraft
+	Target               generated.HostDiscoveryTarget
+	VerificationEvidence *generated.AccessVerificationEvidence
 }
 
 func actionError(code string) error { return newStoreError(code, "host-action", false, nil) }
@@ -81,7 +83,7 @@ func (r *HostActionRepository) StageDraft(ctx context.Context, req generated.Hos
 		if err := validate(func(q string, args ...any) *sql.Row { return tx.QueryRowContext(ctx, q, args...) }); err != nil {
 			return err
 		}
-		_, err := tx.ExecContext(ctx, `INSERT INTO host_action_drafts VALUES(?,?,?,?,?,?)`, d.ID, d.Digest, raw, a.AuthenticatedPrincipalID, req.ExpectedStateRevision, req.RecoveryEpoch)
+		_, err := tx.ExecContext(ctx, `INSERT INTO host_action_drafts VALUES(?,?,?,?,?,?) ON CONFLICT(draft_id) DO NOTHING`, d.ID, d.Digest, raw, a.AuthenticatedPrincipalID, req.ExpectedStateRevision, req.RecoveryEpoch)
 		return err
 	})
 	return d, err
@@ -108,7 +110,7 @@ func (r *HostActionRepository) GetDraft(ctx context.Context, id string) (HostAct
 }
 func (r *HostActionRepository) CurrentExecution(ctx context.Context, op adapter.Operation, b adapter.ExactExecutionBinding) (HostActionExecution, error) {
 	var out HostActionExecution
-	if r == nil || r.store == nil || ctx == nil || adapter.ValidateOperation(op) != nil || op.AdapterID != hostaction.AdapterID || op.OperationType != hostaction.OperationType {
+	if r == nil || r.store == nil || ctx == nil || adapter.ValidateOperation(op) != nil || op.AdapterID != hostaction.AdapterID || (op.OperationType != hostaction.OperationType && op.OperationType != debianaccess.LocalProbeOperation) {
 		return out, actionError(generated.ErrorCodeAuthorizationDenied)
 	}
 	err := r.store.Read(ctx, func(tx ReadTx) error {
@@ -118,20 +120,23 @@ func (r *HostActionRepository) CurrentExecution(ctx context.Context, op adapter.
 			return actionError(generated.ErrorCodePlanStale)
 		}
 		p := out.Plan
-		if p.HostAction == nil || p.PlanID != b.PlanID || p.PlanDigest != b.PlanDigest || p.AuthorizationBranch != "human" || p.ExecutorMode != "central" || len(p.Operations) != 1 || p.Binding.StateRevision != b.StateRevision || p.Binding.RecoveryEpoch != b.RecoveryEpoch {
+		if (p.HostAction == nil && p.HostAccessSequence == nil) || p.PlanID != b.PlanID || p.PlanDigest != b.PlanDigest || p.AuthorizationBranch != "human" || p.ExecutorMode != "central" || p.Binding.StateRevision != b.StateRevision || p.Binding.RecoveryEpoch != b.RecoveryEpoch {
 			return actionError(generated.ErrorCodeAuthorizationDenied)
 		}
-		planned := p.Operations[0]
-		if planned.OperationID != op.OperationID || planned.OperationType != op.OperationType || planned.AdapterID != op.AdapterID || planned.ExecutorID != op.ExecutorID || planned.TargetID != op.TargetID || planned.InputDigest != op.InputDigest || planned.ArtifactDigest != op.ArtifactDigest || planned.Idempotent != op.Idempotent {
-			return actionError(generated.ErrorCodePlanStale)
-		}
 		var err error
-		out.Draft, err = readHostActionDraft(row, hostaction.DraftID(*p.HostAction))
+		var planned generated.PlanOperation
+		out.Draft, planned, err = actionDraftForPlan(row, p, op.OperationID)
 		if err != nil {
 			return err
 		}
+		if planned.OperationID != op.OperationID || planned.OperationType != op.OperationType || planned.AdapterID != op.AdapterID || planned.ExecutorID != op.ExecutorID || planned.TargetID != op.TargetID || planned.InputDigest != op.InputDigest || planned.ArtifactDigest != op.ArtifactDigest || planned.Idempotent != op.Idempotent {
+			return actionError(generated.ErrorCodePlanStale)
+		}
 		d := out.Draft
-		if d.Digest != op.ArtifactDigest || d.Digest != hostaction.Digest(*p.HostAction) || d.Request.HostID != op.TargetID {
+		if p.HostAccessSequence == nil && (d.Request.ActionID == "debian.access.apply" || d.Request.ActionID == "debian.access.confirm" || d.Request.ActionID == "debian.access.probe-source" || d.Request.ActionID == "debian.access.probe.local") {
+			return actionError(generated.ErrorCodeAuthorizationDenied)
+		}
+		if d.Digest != op.ArtifactDigest || d.Request.HostID != op.TargetID {
 			return actionError(generated.ErrorCodePlanStale)
 		}
 		out.Target, err = actionTarget(row, d.Request)
@@ -160,6 +165,21 @@ func (r *HostActionRepository) CurrentExecution(ctx context.Context, op adapter.
 		err = row(`SELECT a.human_id FROM plan_runs r JOIN acknowledgement_requests a ON a.acknowledgement_id=r.acknowledgement_id JOIN plan_run_steps s ON s.run_id=r.run_id WHERE r.run_id=? AND a.plan_id=r.plan_id AND a.plan_digest=r.plan_digest AND a.status='approved' AND a.consumed_at IS NOT NULL AND a.recovery_epoch=r.recovery_epoch AND s.step_id=? AND s.active_lease_id=? AND s.status='running' AND s.effect_state='intent-recorded' AND s.target_id=? AND s.operation_id=? AND s.operation_type=? AND s.adapter_id=? AND s.input_digest=? AND s.artifact_digest=?`, b.RunID, b.StepID, b.LeaseID, op.TargetID, op.OperationID, op.OperationType, op.AdapterID, op.InputDigest, op.ArtifactDigest).Scan(&human)
 		if err != nil {
 			return actionError(generated.ErrorCodeApprovalRequired)
+		}
+
+		if p.HostAccessSequence != nil {
+			if e := validateAccessCurrentTargets(row, p, r.store.config.Clock()); e != nil {
+				return e
+			}
+			for _, target := range p.HostAccessSequence.AuxiliaryTargets {
+				var n int
+				if row(`SELECT COUNT(*) FROM effective_authorization_principals p JOIN effective_authorization_grants g ON g.principal_id=p.principal_id AND g.grant_revision=p.grant_revision WHERE p.principal_id=? AND p.status='active' AND g.status='active' AND g.branch='human' AND g.action='acknowledge' AND g.capability='plan.acknowledge' AND g.resource_kind='plan-target' AND g.resource_id=?`, human, target.HostID).Scan(&n) != nil || n == 0 {
+					return actionError(generated.ErrorCodeAuthorizationDenied)
+				}
+				if row(`SELECT COUNT(*) FROM effective_authorization_principals p JOIN effective_authorization_grants g ON g.principal_id=p.principal_id AND g.grant_revision=p.grant_revision JOIN audit_events a ON a.principal_id=p.principal_id WHERE a.event_type='run.created' AND a.correlation_id=? AND p.status='active' AND g.status='active' AND g.branch='human' AND g.action='execute' AND g.capability='host.action.execute' AND g.resource_kind='execution-target' AND g.resource_id=?`, b.RunID, target.HostID).Scan(&n) != nil || n == 0 {
+					return actionError(generated.ErrorCodeAuthorizationDenied)
+				}
+			}
 		}
 		var count int
 		if row(`SELECT COUNT(*) FROM effective_authorization_principals p JOIN effective_authorization_grants g ON g.principal_id=p.principal_id AND g.grant_revision=p.grant_revision WHERE p.principal_id=? AND p.principal_kind='human' AND p.status='active' AND g.status='active' AND g.role_id IN ('infrastructure-admin','control-plane-admin') AND g.action='acknowledge' AND g.branch='human' AND g.capability='plan.acknowledge' AND g.resource_kind='plan-target' AND g.resource_id=?`, human, op.TargetID).Scan(&count) != nil || count == 0 {
@@ -195,6 +215,12 @@ func (r *HostActionRepository) CurrentExecution(ctx context.Context, op adapter.
 	if err != nil || current.StateRevision != b.StateRevision || current.RecoveryEpoch != b.RecoveryEpoch {
 		return HostActionExecution{}, actionError(generated.ErrorCodePlanStale)
 	}
+	if out.Plan.HostAccessSequence != nil && out.Draft.Request.ActionID == "debian.access.confirm" {
+		out.VerificationEvidence, err = r.AccessVerificationEvidence(ctx, out)
+		if err != nil {
+			return HostActionExecution{}, err
+		}
+	}
 	return out, nil
 }
 
@@ -203,16 +229,24 @@ func (r *HostActionRepository) ExecutionForBundle(ctx context.Context, b generat
 		return HostActionExecution{}, actionError(generated.ErrorCodePrerequisiteBlocked)
 	}
 	stored, err := NewPlanRepository(r.store).GetPlan(ctx, b.PlanID)
-	if err != nil || stored.Plan.PlanDigest != b.PlanDigest || len(stored.Plan.Operations) != 1 {
+	if err != nil || stored.Plan.PlanDigest != b.PlanDigest {
 		return HostActionExecution{}, actionError(generated.ErrorCodePlanStale)
 	}
-	p := stored.Plan.Operations[0]
-	var maximum string
+	var p generated.PlanOperation
+	var maximum, operationID string
 	err = r.store.Read(ctx, func(tx ReadTx) error {
-		return tx.queryRow(ctx, `SELECT maximum_expires_at FROM target_execution_leases WHERE lease_id=?`, b.LeaseID).Scan(&maximum)
+		return tx.queryRow(ctx, `SELECT maximum_expires_at,operation_id FROM target_execution_leases WHERE lease_id=? AND run_id=? AND step_id=?`, b.LeaseID, b.RunID, b.StepID).Scan(&maximum, &operationID)
 	})
 	if err != nil {
 		return HostActionExecution{}, err
+	}
+	for _, candidate := range stored.Plan.Operations {
+		if candidate.OperationID == operationID {
+			p = candidate
+		}
+	}
+	if p.OperationType != hostaction.OperationType {
+		return HostActionExecution{}, actionError(generated.ErrorCodeAuthorizationDenied)
 	}
 	return r.CurrentExecution(ctx, adapter.Operation{OperationID: p.OperationID, OperationType: p.OperationType, AdapterID: p.AdapterID, ExecutorID: p.ExecutorID, TargetID: p.TargetID, InputDigest: p.InputDigest, ArtifactDigest: p.ArtifactDigest, Idempotent: p.Idempotent}, adapter.ExactExecutionBinding{PlanID: b.PlanID, PlanDigest: b.PlanDigest, RunID: b.RunID, StepID: b.StepID, LeaseID: b.LeaseID, StateRevision: b.StateRevision, RecoveryEpoch: b.RecoveryEpoch, MaximumExpiresAt: maximum})
 }

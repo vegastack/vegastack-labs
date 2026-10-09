@@ -1,5 +1,86 @@
 {
   "$defs": {
+    "access-destination-observation": {
+      "additionalProperties": false,
+      "properties": {
+        "address": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "containerId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "contextDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "contextId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "hostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "identityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "namespaceDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "networkId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "observedAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "processId": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "processStart": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/access-destination-observation"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "hostId",
+        "identityDigest",
+        "contextId",
+        "contextDigest",
+        "containerId",
+        "networkId",
+        "address",
+        "namespaceDigest",
+        "processId",
+        "processStart",
+        "observedAt"
+      ],
+      "type": "object"
+    },
     "access-probe-observation": {
       "additionalProperties": false,
       "properties": {
@@ -96,6 +177,13 @@
     "controlId": {
       "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
       "type": "string"
+    },
+    "destinationOwnership": {
+      "items": {
+        "$ref": "#/$defs/access-destination-observation"
+      },
+      "maxItems": 8,
+      "type": "array"
     },
     "kind": {
       "enum": [

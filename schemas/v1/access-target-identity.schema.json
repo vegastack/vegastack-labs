@@ -1,13 +1,8 @@
 {
-  "$id": "vegastack-labs.dev/access-probe-tuple",
+  "$id": "vegastack-labs.dev/access-target-identity",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
-    "address": {
-      "maxLength": 64,
-      "minLength": 1,
-      "type": "string"
-    },
     "hostId": {
       "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
       "type": "string"
@@ -16,24 +11,9 @@
       "pattern": "^sha256:[a-f0-9]{64}$",
       "type": "string"
     },
-    "ownershipDigest": {
-      "pattern": "^sha256:[a-f0-9]{64}$",
-      "type": "string"
-    },
-    "port": {
-      "minimum": 1,
-      "type": "integer"
-    },
-    "protocol": {
-      "enum": [
-        "tcp",
-        "udp"
-      ],
-      "type": "string"
-    },
     "schema": {
       "enum": [
-        "vegastack-labs.dev/access-probe-tuple"
+        "vegastack-labs.dev/access-target-identity"
       ],
       "type": "string"
     },
@@ -48,12 +28,9 @@
     "schema",
     "schemaVersion",
     "hostId",
-    "identityDigest",
-    "address",
-    "port",
-    "protocol"
+    "identityDigest"
   ],
-  "title": "VegaStack Labs access probe tuple",
+  "title": "VegaStack Labs access target identity",
   "type": "object",
   "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
 }

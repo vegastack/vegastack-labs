@@ -196,8 +196,18 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 		operations[index] = generated.PlanOperation{Sequence: operation.Sequence, OperationID: operation.OperationID, OperationType: operation.OperationType, AdapterID: operation.AdapterID, ExecutorID: service.config.OperationExecutorID, TargetID: operation.TargetID, InputDigest: operation.InputDigest, ArtifactDigest: operation.ArtifactDigest, Idempotent: operation.Idempotent}
 	}
 	risk := service.config.Risk
+	sequence, sequenceErr := service.accessSequence(ctx, declaration, operations)
+	if sequenceErr != nil {
+		return store.PlanCommitResult{}, sequenceErr
+	}
+	if sequence != nil {
+		risk = string(authorization.RiskInfrastructure)
+	}
 	var action *generated.HostActionRequest
 	for _, op := range operations {
+		if sequence != nil {
+			break
+		}
 		if op.AdapterID != hostaction.AdapterID && op.OperationType != hostaction.OperationType {
 			continue
 		}
@@ -320,6 +330,7 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 		}
 	}
 	candidate.HostAction = action
+	candidate.HostAccessSequence = sequence
 	candidate.HostAdoption = adoption
 	candidate.HostDiscoveryTarget = discovery
 	readable := readablePlan(candidate)

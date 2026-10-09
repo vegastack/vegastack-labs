@@ -16,6 +16,7 @@ const (
 	ExecutorCheckInSeconds                         = 20
 	SchemaIDAccessAccount                          = "vegastack-labs.dev/access-account"
 	SchemaIDAccessConfirmInput                     = "vegastack-labs.dev/access-confirm-input"
+	SchemaIDAccessDestinationObservation           = "vegastack-labs.dev/access-destination-observation"
 	SchemaIDAccessFlow                             = "vegastack-labs.dev/access-flow"
 	SchemaIDAccessInterface                        = "vegastack-labs.dev/access-interface"
 	SchemaIDAccessMeasurement                      = "vegastack-labs.dev/access-measurement"
@@ -28,6 +29,7 @@ const (
 	SchemaIDAccessProbeTuple                       = "vegastack-labs.dev/access-probe-tuple"
 	SchemaIDAccessRollbackSpecification            = "vegastack-labs.dev/access-rollback-specification"
 	SchemaIDAccessServiceKey                       = "vegastack-labs.dev/access-service-key"
+	SchemaIDAccessTargetIdentity                   = "vegastack-labs.dev/access-target-identity"
 	SchemaIDAccessVerificationEvidence             = "vegastack-labs.dev/access-verification-evidence"
 	SchemaIDAcknowledgement                        = "vegastack-labs.dev/acknowledgement"
 	SchemaIDAcknowledgementRequest                 = "vegastack-labs.dev/acknowledgement-request"
@@ -409,6 +411,22 @@ type AccessConfirmInput struct {
 	ProbeSpecificationDigest string `json:"probeSpecificationDigest"`
 }
 
+type AccessDestinationObservation struct {
+	Schema          string `json:"schema"`
+	SchemaVersion   string `json:"schemaVersion"`
+	HostID          string `json:"hostId"`
+	IdentityDigest  string `json:"identityDigest"`
+	ContextID       string `json:"contextId"`
+	ContextDigest   string `json:"contextDigest"`
+	ContainerID     string `json:"containerId"`
+	NetworkID       string `json:"networkId"`
+	Address         string `json:"address"`
+	NamespaceDigest string `json:"namespaceDigest"`
+	ProcessID       int64  `json:"processId"`
+	ProcessStart    string `json:"processStart"`
+	ObservedAt      string `json:"observedAt"`
+}
+
 type AccessFlow struct {
 	Schema            string `json:"schema"`
 	SchemaVersion     string `json:"schemaVersion"`
@@ -429,25 +447,26 @@ type AccessInterface struct {
 }
 
 type AccessMeasurement struct {
-	Schema                string                  `json:"schema"`
-	SchemaVersion         string                  `json:"schemaVersion"`
-	ControlID             string                  `json:"controlId"`
-	Kind                  string                  `json:"kind"`
-	Status                string                  `json:"status"`
-	SubjectHostID         string                  `json:"subjectHostId"`
-	SubjectIdentityDigest string                  `json:"subjectIdentityDigest"`
-	ProfileLockDigest     string                  `json:"profileLockDigest"`
-	ProducerID            string                  `json:"producerId"`
-	ProducerVersion       string                  `json:"producerVersion"`
-	BundleDigest          string                  `json:"bundleDigest"`
-	ObservedAt            string                  `json:"observedAt"`
-	ConfigurationDigest   string                  `json:"configurationDigest"`
-	MeasurementDigest     string                  `json:"measurementDigest"`
-	PositiveProbeDigest   string                  `json:"positiveProbeDigest"`
-	NegativeProbeDigest   string                  `json:"negativeProbeDigest"`
-	Reason                string                  `json:"reason"`
-	Probe                 *AccessProbeObservation `json:"probe,omitempty"`
-	RollbackRecordDigest  string                  `json:"rollbackRecordDigest,omitempty"`
+	Schema                string                         `json:"schema"`
+	SchemaVersion         string                         `json:"schemaVersion"`
+	DestinationOwnership  []AccessDestinationObservation `json:"destinationOwnership,omitempty"`
+	ControlID             string                         `json:"controlId"`
+	Kind                  string                         `json:"kind"`
+	Status                string                         `json:"status"`
+	SubjectHostID         string                         `json:"subjectHostId"`
+	SubjectIdentityDigest string                         `json:"subjectIdentityDigest"`
+	ProfileLockDigest     string                         `json:"profileLockDigest"`
+	ProducerID            string                         `json:"producerId"`
+	ProducerVersion       string                         `json:"producerVersion"`
+	BundleDigest          string                         `json:"bundleDigest"`
+	ObservedAt            string                         `json:"observedAt"`
+	ConfigurationDigest   string                         `json:"configurationDigest"`
+	MeasurementDigest     string                         `json:"measurementDigest"`
+	PositiveProbeDigest   string                         `json:"positiveProbeDigest"`
+	NegativeProbeDigest   string                         `json:"negativeProbeDigest"`
+	Reason                string                         `json:"reason"`
+	Probe                 *AccessProbeObservation        `json:"probe,omitempty"`
+	RollbackRecordDigest  string                         `json:"rollbackRecordDigest,omitempty"`
 }
 
 type AccessOwnedState struct {
@@ -522,13 +541,14 @@ type AccessProbeSource struct {
 }
 
 type AccessProbeTuple struct {
-	Schema         string `json:"schema"`
-	SchemaVersion  string `json:"schemaVersion"`
-	HostID         string `json:"hostId"`
-	IdentityDigest string `json:"identityDigest"`
-	Address        string `json:"address"`
-	Port           int64  `json:"port"`
-	Protocol       string `json:"protocol"`
+	Schema          string `json:"schema"`
+	SchemaVersion   string `json:"schemaVersion"`
+	OwnershipDigest string `json:"ownershipDigest,omitempty"`
+	HostID          string `json:"hostId"`
+	IdentityDigest  string `json:"identityDigest"`
+	Address         string `json:"address"`
+	Port            int64  `json:"port"`
+	Protocol        string `json:"protocol"`
 }
 
 type AccessRollbackSpecification struct {
@@ -549,6 +569,13 @@ type AccessServiceKey struct {
 	PublicKey       string   `json:"publicKey"`
 	PublicKeyDigest string   `json:"publicKeyDigest"`
 	SourcePrefixes  []string `json:"sourcePrefixes"`
+}
+
+type AccessTargetIdentity struct {
+	Schema         string `json:"schema"`
+	SchemaVersion  string `json:"schemaVersion"`
+	HostID         string `json:"hostId"`
+	IdentityDigest string `json:"identityDigest"`
 }
 
 type AccessVerificationEvidence struct {
@@ -1714,19 +1741,20 @@ type DebianAccessInput struct {
 }
 
 type DebianProfileLock struct {
-	Schema              string          `json:"schema"`
-	SchemaVersion       string          `json:"schemaVersion"`
-	ImageDigest         string          `json:"imageDigest"`
-	OSFamily            string          `json:"osFamily"`
-	OSVersion           string          `json:"osVersion"`
-	Architecture        string          `json:"architecture"`
-	PackageSourceDigest string          `json:"packageSourceDigest"`
-	Packages            []AccessPackage `json:"packages"`
-	ExecutableVersion   string          `json:"executableVersion"`
-	AnsibleVersion      string          `json:"ansibleVersion"`
-	CollectionDigest    string          `json:"collectionDigest"`
-	RoleDigest          string          `json:"roleDigest"`
-	Backend             string          `json:"backend"`
+	Schema                  string          `json:"schema"`
+	SchemaVersion           string          `json:"schemaVersion"`
+	ImageDigest             string          `json:"imageDigest"`
+	OSFamily                string          `json:"osFamily"`
+	OSVersion               string          `json:"osVersion"`
+	Architecture            string          `json:"architecture"`
+	PackageSourceDigest     string          `json:"packageSourceDigest"`
+	Packages                []AccessPackage `json:"packages"`
+	ExecutableVersion       string          `json:"executableVersion"`
+	AnsibleVersion          string          `json:"ansibleVersion"`
+	AnsibleExecutableDigest string          `json:"ansibleExecutableDigest"`
+	CollectionDigest        string          `json:"collectionDigest"`
+	RoleDigest              string          `json:"roleDigest"`
+	Backend                 string          `json:"backend"`
 }
 
 type DeclarationOperation struct {
@@ -2059,17 +2087,19 @@ type HostAccessProbeStep struct {
 }
 
 type HostAccessSequence struct {
-	Schema                string                `json:"schema"`
-	SchemaVersion         string                `json:"schemaVersion"`
-	SubjectHostID         string                `json:"subjectHostId"`
-	SubjectIdentityDigest string                `json:"subjectIdentityDigest"`
-	ProfileLockDigest     string                `json:"profileLockDigest"`
-	ApplyOperationID      string                `json:"applyOperationId"`
-	ApplyDraftDigest      string                `json:"applyDraftDigest"`
-	ProbeSteps            []HostAccessProbeStep `json:"probeSteps"`
-	ConfirmOperationID    string                `json:"confirmOperationId"`
-	ConfirmDraftDigest    string                `json:"confirmDraftDigest"`
-	SpecificationDigest   string                `json:"specificationDigest"`
+	Schema                string                 `json:"schema"`
+	SchemaVersion         string                 `json:"schemaVersion"`
+	Actions               []HostActionRequest    `json:"actions"`
+	AuxiliaryTargets      []AccessTargetIdentity `json:"auxiliaryTargets"`
+	SubjectHostID         string                 `json:"subjectHostId"`
+	SubjectIdentityDigest string                 `json:"subjectIdentityDigest"`
+	ProfileLockDigest     string                 `json:"profileLockDigest"`
+	ApplyOperationID      string                 `json:"applyOperationId"`
+	ApplyDraftDigest      string                 `json:"applyDraftDigest"`
+	ProbeSteps            []HostAccessProbeStep  `json:"probeSteps"`
+	ConfirmOperationID    string                 `json:"confirmOperationId"`
+	ConfirmDraftDigest    string                 `json:"confirmDraftDigest"`
+	SpecificationDigest   string                 `json:"specificationDigest"`
 }
 
 type HostActionAuthorization struct {

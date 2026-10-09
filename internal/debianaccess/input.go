@@ -48,6 +48,15 @@ func ValidateInput(in generated.DebianAccessInput) error {
 // ValidateDesiredInput checks finite desired state before the fixed renderer runs.
 // The final signed input must additionally pass ValidateInput.
 func ValidateDesiredInput(in generated.DebianAccessInput) error {
+	raw, marshalErr := json.Marshal(in)
+	if marshalErr != nil {
+		return errInput
+	}
+	for _, marker := range []string{"{{", "{%", "{#", `\n`, `\r`, `\t`, `\u000`} {
+		if strings.Contains(string(raw), marker) {
+			return errInput
+		}
+	}
 	if in.ActionVersion != ActionVersion || in.AutomationUID <= 0 || in.AutomationUID > 4294967295 || ProtectedName(in.HostID) || in.HostID == "" || in.HostIdentityDigest == "" || in.ProfileID == "" || in.ProfileLockDigest != hostaction.Digest(in.ProfileLock) || in.ProfileLock.OSFamily != "debian" || in.ProfileLock.OSVersion != "13.6" || in.ProfileLock.Architecture != "amd64" || in.ProfileLock.Backend != "iptables-nft" || len(in.ProfileLock.Packages) == 0 {
 		return errInput
 	}

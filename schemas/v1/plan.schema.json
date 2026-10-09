@@ -1,5 +1,37 @@
 {
   "$defs": {
+    "access-target-identity": {
+      "additionalProperties": false,
+      "properties": {
+        "hostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "identityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/access-target-identity"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "hostId",
+        "identityDigest"
+      ],
+      "type": "object"
+    },
     "contract-extension": {
       "additionalProperties": false,
       "properties": {
@@ -82,6 +114,13 @@
     "host-access-sequence": {
       "additionalProperties": false,
       "properties": {
+        "actions": {
+          "items": {
+            "$ref": "#/$defs/host-action-request"
+          },
+          "maxItems": 18,
+          "type": "array"
+        },
         "applyDraftDigest": {
           "pattern": "^sha256:[a-f0-9]{64}$",
           "type": "string"
@@ -89,6 +128,13 @@
         "applyOperationId": {
           "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
           "type": "string"
+        },
+        "auxiliaryTargets": {
+          "items": {
+            "$ref": "#/$defs/access-target-identity"
+          },
+          "maxItems": 64,
+          "type": "array"
         },
         "confirmDraftDigest": {
           "pattern": "^sha256:[a-f0-9]{64}$",
@@ -137,6 +183,8 @@
       "required": [
         "schema",
         "schemaVersion",
+        "actions",
+        "auxiliaryTargets",
         "subjectHostId",
         "subjectIdentityDigest",
         "profileLockDigest",

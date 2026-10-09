@@ -47,10 +47,24 @@ func bundleFromExecution(x store.HostActionExecution, issued, expires time.Time)
 	r := x.Draft.Request
 	p := x.Plan
 	l := x.Lease
-	return generated.HostActionBundle{Schema: generated.SchemaIDHostActionBundle, SchemaVersion: "1.0.0", ActionID: r.ActionID, ActionVersion: r.ActionVersion, ActionInput: r.ActionInput, ActionInputDigest: r.ActionInputDigest, BundleID: "action-" + hostaction.Digest([]string{p.PlanID, p.PlanDigest, r.HostID, x.Draft.Digest})[7:39], PlanID: p.PlanID, PlanDigest: p.PlanDigest, RunID: x.Run.RunID, StepID: x.Step.StepID, LeaseID: l.LeaseID, HostID: r.HostID, HostIdentityDigest: r.ConsoleConfirmation.HostIdentityDigest, DeclarationID: p.DeclarationID, DeclarationRevision: p.Binding.DeclarationRevision, StateRevision: p.Binding.StateRevision, RecoveryEpoch: p.Binding.RecoveryEpoch, AutomationPrincipalID: r.AutomationPrincipalID, CallerUID: r.CallerUID, CredentialReferenceID: r.CredentialReferenceID, CredentialMaterialVersion: r.CredentialMaterialVersion, ConsoleConfirmationDigest: hostaction.Digest(r.ConsoleConfirmation), IssuedAt: issued.UTC().Format(time.RFC3339), ExpiresAt: expires.UTC().Format(time.RFC3339)}
+	bundle := generated.HostActionBundle{Schema: generated.SchemaIDHostActionBundle, SchemaVersion: "1.0.0", ActionID: r.ActionID, ActionVersion: r.ActionVersion, ActionInput: r.ActionInput, ActionInputDigest: r.ActionInputDigest, BundleID: "action-" + hostaction.Digest([]string{p.PlanID, p.PlanDigest, r.HostID, x.Draft.Digest})[7:39], PlanID: p.PlanID, PlanDigest: p.PlanDigest, RunID: x.Run.RunID, StepID: x.Step.StepID, LeaseID: l.LeaseID, HostID: r.HostID, HostIdentityDigest: r.ConsoleConfirmation.HostIdentityDigest, DeclarationID: p.DeclarationID, DeclarationRevision: p.Binding.DeclarationRevision, StateRevision: p.Binding.StateRevision, RecoveryEpoch: p.Binding.RecoveryEpoch, AutomationPrincipalID: r.AutomationPrincipalID, CallerUID: r.CallerUID, CredentialReferenceID: r.CredentialReferenceID, CredentialMaterialVersion: r.CredentialMaterialVersion, ConsoleConfirmationDigest: hostaction.Digest(r.ConsoleConfirmation), IssuedAt: issued.UTC().Format(time.RFC3339), ExpiresAt: expires.UTC().Format(time.RFC3339)}
+	if x.VerificationEvidence != nil {
+		bundle.VerificationEvidence = x.VerificationEvidence
+		bundle.VerificationEvidenceDigest = hostaction.Digest(*x.VerificationEvidence)
+	}
+	return bundle
 }
 func actionDeadline(x store.HostActionExecution, now time.Time) (time.Time, error) {
 	deadline := now.Add(5 * time.Minute)
+	if x.VerificationEvidence != nil {
+		at, e := time.Parse(time.RFC3339, x.VerificationEvidence.ExpiresAt)
+		if e != nil || !now.Before(at) {
+			return time.Time{}, actionFailure()
+		}
+		if at.Before(deadline) {
+			deadline = at
+		}
+	}
 	for _, value := range []string{x.Plan.ExpiresAt, x.Lease.LeaseExpiresAt, x.Lease.MaximumExpiresAt} {
 		at, err := time.Parse(time.RFC3339, value)
 		if err != nil || !now.Before(at) {
@@ -117,7 +131,7 @@ func (a *HostActionAuthority) Authorize(ctx context.Context, envelope generated.
 	issued, e1 := time.Parse(time.RFC3339, b.IssuedAt)
 	expiry, e2 := time.Parse(time.RFC3339, b.ExpiresAt)
 	limit, e3 := actionDeadline(x, now)
-	if e1 != nil || e2 != nil || e3 != nil || expiry.After(limit) || bundleFromExecution(x, issued, expiry) != b {
+	if e1 != nil || e2 != nil || e3 != nil || expiry.After(limit) || hostaction.Digest(bundleFromExecution(x, issued, expiry)) != hostaction.Digest(b) {
 		return out, actionFailure()
 	}
 	digest, _ := hostaction.BundleDigest(b)

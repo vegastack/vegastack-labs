@@ -71,6 +71,7 @@ var embeddedMigrationManifest = []migrationManifestEntry{
 	{ID: 29, Name: "0029_host_action_drafts", SHA256: mustSHA256("c949a1d19640762ac94fa5ec461c847c7bd9aaad786db9d0f9883575467690af")},
 	{ID: 30, Name: "0030_native_loaded_receipts", SHA256: mustSHA256("5653dd97d23cf32531dd6106369eb55ffe0bcfff150615be01057bb6928c8a57")},
 	{ID: 31, Name: "0031_native_restart_pending", SHA256: mustSHA256("e680d99573e25400e4a9841de9144c0846136ac199cf82b94e75c4dcc30f1ac0")},
+	{ID: 32, Name: "0032_host_control_results", SHA256: mustSHA256("7ad5ba9bcffb93f14e47c13d9e63c3577b88fe33f4179a00f3cd8b5da3589688")},
 }
 
 func Catalog() ([]Migration, error) {

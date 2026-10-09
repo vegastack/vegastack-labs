@@ -4300,6 +4300,11 @@
       "artifactPath": "schemas/v1/access-confirm-input.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/access-destination-observation",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/access-destination-observation.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/access-flow",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/access-flow.schema.json"
@@ -4358,6 +4363,11 @@
       "id": "vegastack-labs.dev/access-service-key",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/access-service-key.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/access-target-identity",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/access-target-identity.schema.json"
     },
     {
       "id": "vegastack-labs.dev/access-verification-evidence",
