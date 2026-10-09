@@ -71,7 +71,7 @@ func (a *Adapter) exchange(ctx context.Context, target Target, envelope generate
 	if protocol.WriteFrame(input, envelope, protocol.MaximumEnvelope) != nil {
 		return fail(false)
 	}
-	reader := bufio.NewReaderSize(output, protocol.MaximumFrame+2)
+	reader := bufio.NewReaderSize(output, protocol.MaximumResultFrame+2)
 	raw, err := protocol.ReadFrame(reader, protocol.MaximumFrame)
 	var challenge generated.HostActionChallenge
 	if err != nil || generated.ValidateContractJSON(generated.SchemaIDHostActionChallenge, raw, generated.ContractExact) != nil || json.Unmarshal(raw, &challenge) != nil || challenge.BundleDigest != digest || challenge.HostID != target.HostID {
@@ -111,9 +111,9 @@ func (a *Adapter) exchange(ctx context.Context, target Target, envelope generate
 	if protocol.WriteFrame(input, authorization, protocol.MaximumFrame) != nil || input.Close() != nil {
 		return fail(true)
 	}
-	raw, err = protocol.ReadFrame(reader, protocol.MaximumFrame)
+	raw, err = protocol.ReadFrame(reader, protocol.MaximumResultFrame)
 	var result generated.HostActionResult
-	if err != nil || generated.ValidateContractJSON(generated.SchemaIDHostActionResult, raw, generated.ContractExact) != nil || json.Unmarshal(raw, &result) != nil || result.BundleDigest != digest {
+	if err != nil || generated.ValidateContractJSON(generated.SchemaIDHostActionResult, raw, generated.ContractExact) != nil || json.Unmarshal(raw, &result) != nil || result.BundleDigest != digest || protocol.ValidateResult(result) != nil {
 		return fail(true)
 	}
 	if _, err = reader.ReadByte(); err != io.EOF || ctx.Err() != nil {

@@ -12,6 +12,7 @@ import (
 	"encoding/pem"
 	"io"
 	"net"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -174,10 +175,23 @@ func fixture(t *testing.T, mode string) (*Adapter, adapter.Operation, adapter.Ex
 					return
 				}
 				result := generated.HostActionResult{Schema: generated.SchemaIDHostActionResult, SchemaVersion: "1.0.0", BundleDigest: digest, ResultDigest: d, Status: "succeeded", EffectObserved: true, Reason: "verified"}
+
+				if mode == "measured" || mode == "tampered-measured" {
+					for i := 0; i < 8; i++ {
+						m := generated.AccessMeasurement{Schema: generated.SchemaIDAccessMeasurement, SchemaVersion: "1.0.0", ControlID: "control-" + strconv.Itoa(i), Kind: "ssh", Status: "passed", SubjectHostID: b.HostID, SubjectIdentityDigest: d, ProfileLockDigest: d, ProducerID: "debian-access", ProducerVersion: "1.0.0", BundleDigest: digest, ObservedAt: time.Now().UTC().Format(time.RFC3339), ConfigurationDigest: d, PositiveProbeDigest: d, NegativeProbeDigest: d, Reason: "measured"}
+						m.Probe = &generated.AccessProbeObservation{Schema: generated.SchemaIDAccessProbeObservation, SchemaVersion: "1.0.0", ProbeID: m.ControlID, SourceHostID: "source-host", SourceIdentityDigest: d, SourceContextDigest: d, ActualSourceAddress: "127.0.0.1", SourceNamespaceDigest: d, DestinationDigest: d, WitnessDigest: d, Expected: "allowed", Actual: "allowed"}
+						m.MeasurementDigest = protocol.MeasurementDigest(m)
+						result.ControlMeasurements = append(result.ControlMeasurements, m)
+					}
+					result.ResultDigest = protocol.ResultDigest(result)
+					if mode == "tampered-measured" {
+						result.ControlMeasurements[0].Status = "failed"
+					}
+				}
 				if mode == "wrong-result" {
 					result.BundleDigest = protocol.BytesDigest([]byte("wrong"))
 				}
-				_ = protocol.WriteFrame(ch, result, protocol.MaximumFrame)
+				_ = protocol.WriteFrame(ch, result, protocol.MaximumResultFrame)
 				if mode == "trailing" {
 					_, _ = ch.Write([]byte("extra\n"))
 				}

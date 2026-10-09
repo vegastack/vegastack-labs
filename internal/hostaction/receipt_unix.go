@@ -77,7 +77,7 @@ func (r *Receipts) FinishExecution(key, digest string, result generated.HostActi
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	raw, err := json.Marshal(result)
-	if r.dir == nil || !digestPattern.MatchString(digest) || !digestPattern.MatchString(key) || !r.claims[key+"/"+digest] || result.BundleDigest != digest || err != nil || len(raw) > MaximumFrame || generated.ValidateContractJSON(generated.SchemaIDHostActionResult, raw, generated.ContractExact) != nil {
+	if r.dir == nil || !digestPattern.MatchString(digest) || !digestPattern.MatchString(key) || !r.claims[key+"/"+digest] || result.BundleDigest != digest || err != nil || len(raw) > MaximumResultFrame || ValidateResult(result) != nil {
 		return blocked()
 	}
 	// Never replace the durable claim. A separate exclusive result retains the

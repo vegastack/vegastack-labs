@@ -1,0 +1,7 @@
+---
+- name: Render the exact finite Debian access intentions
+  ansible.builtin.copy:
+    dest: "{{ render_destination }}"
+    mode: '0600'
+    content: "{{ {'schema': 'vegastack-labs.dev/rendered-access', 'schemaVersion': '1.0.0', 'profileLockDigest': access.profileLockDigest, 'rendererDigest': access.profileLock.roleDigest, 'accounts': access.accounts, 'sshUsers': access.sshUsers, 'sshSourcePrefixes': access.sshSourcePrefixes, 'recoverySourcePrefixes': access.recoverySourcePrefixes, 'privilegedServiceKeys': access.privilegedServiceKeys, 'interfaces': access.interfaces, 'hostFlows': access.hostFlows, 'containerFlows': access.containerFlows, 'rollbackUnitsDigest': rollback_units_digest} | to_json }}"
+  no_log: true

@@ -139,5 +139,5 @@ func RunOnce(ctx context.Context, input io.Reader, output io.Writer, policy Poli
 	if receipts.FinishExecution(ExecutionDigest(bundle), digest, result) != nil {
 		return blocked()
 	}
-	return WriteFrame(output, result, MaximumFrame)
+	return WriteFrame(output, result, MaximumResultFrame)
 }
