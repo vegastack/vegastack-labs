@@ -29,6 +29,7 @@ type CurrentEvidenceReader interface {
 }
 
 type evaluationContext struct {
+	host        *hostProofVerifier
 	reader      EvidenceReader
 	scope       ResolvedScope
 	subject     Subject
@@ -80,6 +81,10 @@ func (state *evaluationContext) check(ctx context.Context, gateID string) (gener
 		evaluation.Outcome, evaluation.ReasonCode = "unknown", "definition-unresolved"
 		return evaluation, nil
 	}
+	if state.host == nil && (gateID == "host.hardening-baseline" || gateID == "host.role-admission") && item.Applicable {
+		evaluation.Outcome, evaluation.ReasonCode = "blocked", "host-binding-changed"
+		return evaluation, nil
+	}
 	if !item.Applicable {
 		evaluation.Outcome, evaluation.ReasonCode = "not-applicable", item.ReasonCode
 		state.completed[gateID] = evaluation
@@ -98,6 +103,9 @@ func (state *evaluationContext) check(ctx context.Context, gateID string) (gener
 		}
 		if prerequisite.Outcome != "passed" {
 			evaluation.Outcome, evaluation.ReasonCode = "blocked", "prerequisite-not-passed"
+			if state.host != nil {
+				evaluation.ReasonCode = prerequisite.ReasonCode
+			}
 			state.completed[gateID] = evaluation
 			return evaluation, nil
 		}
@@ -153,6 +161,10 @@ func (state *evaluationContext) check(ctx context.Context, gateID string) (gener
 			evaluation.EvidenceIDs = append(evaluation.EvidenceIDs, row.EvidenceID)
 		}
 		if row.Status == "revoked" {
+			if state.host != nil {
+				evaluation.Outcome, evaluation.ReasonCode = "blocked", "host-evidence-revoked"
+				return evaluation, nil
+			}
 			continue
 		}
 		if replaced[row.EvidenceID] {
@@ -162,6 +174,9 @@ func (state *evaluationContext) check(ctx context.Context, gateID string) (gener
 		reason := state.validate(item.Definition, row)
 		if reason != "" {
 			evaluation.Outcome, evaluation.ReasonCode = "blocked", reason
+			if state.host != nil {
+				return evaluation, nil
+			}
 			continue
 		}
 		verifier, registered := state.verifiers.Lookup(gateID, row.SourceKind)
@@ -175,6 +190,12 @@ func (state *evaluationContext) check(ctx context.Context, gateID string) (gener
 		}
 		if !proof.Verified {
 			evaluation.Outcome, evaluation.ReasonCode = "blocked", "proof-rejected"
+			if state.host != nil {
+				if proof.ReasonCode != "" {
+					evaluation.ReasonCode = proof.ReasonCode
+				}
+				return evaluation, nil
+			}
 			continue
 		}
 		evaluation.Outcome, evaluation.ReasonCode, evaluation.ReadyForInput = "passed", "proof-verified", false
@@ -189,6 +210,9 @@ func (state *evaluationContext) check(ctx context.Context, gateID string) (gener
 }
 
 func (state *evaluationContext) validate(definition Definition, evidence generated.GateEvidence) string {
+	if state.host != nil {
+		return state.host.validateEvidence(definition, evidence)
+	}
 	raw, err := json.Marshal(evidence)
 	if err != nil || generated.ValidateContractJSON(generated.SchemaIDGateEvidence, raw, generated.ContractExact) != nil {
 		return "evidence-invalid"

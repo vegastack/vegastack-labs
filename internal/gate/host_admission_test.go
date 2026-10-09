@@ -38,7 +38,7 @@ func hostRegistry() ProofRegistry {
 	return registry
 }
 
-func TestHostAdmissionRemainsDeferred(t *testing.T) {
+func TestHostAdmissionRequiresBoundSnapshot(t *testing.T) {
 	at := time.Date(2026, 9, 16, 0, 0, 0, 0, time.UTC)
 	for _, profileID := range []string{"vegastack-labs", "minimal-no-account"} {
 		for _, withHostEvidence := range []bool{false, true} {
@@ -60,7 +60,7 @@ func TestHostAdmissionRemainsDeferred(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					if got.Outcome != "not-applicable" || got.ReasonCode != "deferred" || got.ReadyForInput || len(got.EvidenceIDs) != 0 {
+					if got.Outcome != "blocked" || got.ReasonCode != "host-binding-changed" || got.ReadyForInput || len(got.EvidenceIDs) != 0 {
 						t.Fatalf("%s admitted or read generic evidence: %+v", gateID, got)
 					}
 				}
