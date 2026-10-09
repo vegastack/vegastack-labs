@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"io"
+	"os"
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/generated"
@@ -40,6 +41,24 @@ func ReadFrame(r *bufio.Reader, maximum int) ([]byte, error) {
 func RunOnce(ctx context.Context, input io.Reader, output io.Writer, policy Policy, receipts *Receipts, dispatcher Dispatcher, now func() time.Time, random io.Reader) error {
 	if ctx == nil || input == nil || output == nil || receipts == nil || dispatcher == nil || now == nil || random == nil {
 		return blocked()
+	}
+	// Prepare real inherited pipes as pollable handles before any blocking I/O.
+	// Tests with in-memory streams exercise the same framing without OS handles.
+	if file, ok := input.(*os.File); ok {
+		wrapped, cleanup, err := interruptiblePipe(file)
+		if err != nil {
+			return blocked()
+		}
+		defer cleanup()
+		input = wrapped
+	}
+	if file, ok := output.(*os.File); ok {
+		wrapped, cleanup, err := interruptiblePipe(file)
+		if err != nil {
+			return blocked()
+		}
+		defer cleanup()
+		output = wrapped
 	}
 	// Production input is a pipe. Closing it on cancellation interrupts blocked
 	// reads without spawning a goroutine for each frame.
