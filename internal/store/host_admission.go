@@ -64,6 +64,17 @@ func (r *GateRepository) resolveHostAdmission(ctx context.Context, tx ReadTx, ho
 	if err = row(`SELECT identity_digest FROM managed_hosts WHERE host_id=?`, hostID).Scan(&out.IdentityDigest); err != nil {
 		return
 	}
+	var applied GateAppliedProfile
+	var capabilities []byte
+	pe := row(`SELECT profile_id,profile_version,policy_id,policy_version,capabilities_bytes,state_revision,recovery_epoch FROM gate_applied_profiles WHERE recovery_epoch=? AND state_revision<=? ORDER BY state_revision DESC,binding_id DESC LIMIT 1`, out.Revision.RecoveryEpoch, out.Revision.StateRevision).Scan(&applied.ProfileID, &applied.ProfileVersion, &applied.PolicyID, &applied.PolicyVersion, &capabilities, &applied.StateRevision, &applied.RecoveryEpoch)
+	if pe == nil {
+		if json.Unmarshal(capabilities, &applied.Capabilities) != nil {
+			return out, actionError(generated.ErrorCodeIntegrityFailure)
+		}
+		out.AppliedProfileDigest = hostaction.Digest(applied)
+	} else if pe != sql.ErrNoRows {
+		return out, pe
+	}
 	if out.Host.RecoveryEpoch != out.Revision.RecoveryEpoch {
 		out.Blockers = append(out.Blockers, "host-binding-changed")
 	}
@@ -76,6 +87,9 @@ func (r *GateRepository) resolveHostAdmission(ctx context.Context, tx ReadTx, ho
 	if err = r.admissionMeasurements(ctx, tx, &out); err != nil {
 		return
 	}
+	if err = admissionRoleBinding(ctx, tx, &out); err != nil {
+		return
+	}
 	if err = admissionMutationInvalidation(ctx, tx, &out); err != nil {
 		return
 	}
@@ -86,14 +100,16 @@ func (r *GateRepository) resolveHostAdmission(ctx context.Context, tx ReadTx, ho
 		out.Blockers = append(out.Blockers, "host-control-missing")
 	}
 	out.BindingDigest = hostaction.Digest(struct {
-		Host        generated.ManagedHost
-		Identity    string
-		Target      any
-		Profile     generated.HostProfile
-		Lock        string
-		Declaration string
-		Revision    int64
-	}{out.Host, out.IdentityDigest, target, out.Profile, out.ProfileLockDigest, out.DeclarationID, out.DeclarationRevision})
+		Host                                generated.ManagedHost
+		Identity                            string
+		Target                              any
+		Profile                             generated.HostProfile
+		Lock                                string
+		Declaration                         string
+		Revision                            int64
+		RoleBinding                         string
+		NetworkingRequired, StandbyRequired bool
+	}{out.Host, out.IdentityDigest, target, out.Profile, out.ProfileLockDigest, out.DeclarationID, out.DeclarationRevision, out.RoleBindingDigest, out.NetworkingRequired, out.StandbyRequired})
 	if err = r.admissionEvidence(ctx, tx, &out); err != nil {
 		return
 	}
@@ -110,7 +126,7 @@ func (r *GateRepository) admissionMeasurements(ctx context.Context, tx ReadTx, o
 	for _, id := range ids {
 		args = append(args, id)
 	}
-	query := `WITH current_controls AS (SELECT c.control_bytes,c.measurement_bytes,c.result_bytes,p.canonical_bytes AS plan_bytes,e.canonical_bytes AS receipt_bytes,p.readable_plan,c.observed_at,c.rowid AS durable_row,ROW_NUMBER() OVER(PARTITION BY c.control_id ORDER BY c.observed_at DESC,c.rowid DESC) AS control_rank FROM host_control_results c JOIN immutable_plans p ON p.plan_id=c.plan_id AND p.plan_digest=c.plan_digest JOIN execution_receipts e ON e.receipt_id=c.receipt_id AND e.result_digest=c.result_digest AND e.status='succeeded' JOIN plan_run_steps s ON s.run_id=c.run_id AND s.step_id=c.step_id AND s.status='succeeded' AND s.effect_state='verified' WHERE c.host_id=? AND c.host_identity_digest=? AND c.recovery_epoch=? AND (c.control_id IN (` + marks + `) OR EXISTS(SELECT 1 FROM declaration_revisions d WHERE d.declaration_type='host.volume' AND d.declaration_id=json_extract(c.measurement_bytes,'$.volume.binding.declarationId') AND d.declaration_revision=json_extract(c.measurement_bytes,'$.volume.binding.declarationRevision') AND d.status!='superseded' AND NOT EXISTS(SELECT 1 FROM declaration_revisions n WHERE n.declaration_id=d.declaration_id AND n.declaration_revision>d.declaration_revision)))) SELECT control_bytes,measurement_bytes,result_bytes,plan_bytes,receipt_bytes,readable_plan FROM current_controls WHERE control_rank=1 ORDER BY observed_at DESC,durable_row DESC LIMIT 257`
+	query := `WITH current_controls AS (SELECT c.control_bytes,c.measurement_bytes,c.result_bytes,p.canonical_bytes AS plan_bytes,e.canonical_bytes AS receipt_bytes,p.readable_plan,c.observed_at,c.rowid AS durable_row,ROW_NUMBER() OVER(PARTITION BY c.control_id ORDER BY c.observed_at DESC,c.rowid DESC) AS control_rank FROM host_control_results c JOIN immutable_plans p ON p.plan_id=c.plan_id AND p.plan_digest=c.plan_digest JOIN execution_receipts e ON e.receipt_id=c.receipt_id AND e.result_digest=c.result_digest AND e.status IN ('succeeded','failed','partial') JOIN plan_run_steps s ON s.run_id=c.run_id AND s.step_id=c.step_id AND s.status IN ('succeeded','failed','partial') AND s.effect_state='verified' WHERE c.host_id=? AND c.host_identity_digest=? AND c.recovery_epoch=? AND (c.control_id IN (` + marks + `) OR EXISTS(SELECT 1 FROM declaration_revisions d WHERE d.declaration_type='host.volume' AND d.declaration_id=json_extract(c.measurement_bytes,'$.volume.binding.declarationId') AND d.declaration_revision=json_extract(c.measurement_bytes,'$.volume.binding.declarationRevision') AND d.status!='superseded' AND NOT EXISTS(SELECT 1 FROM declaration_revisions n WHERE n.declaration_id=d.declaration_id AND n.declaration_revision>d.declaration_revision)))) SELECT control_bytes,measurement_bytes,result_bytes,plan_bytes,receipt_bytes,readable_plan FROM current_controls WHERE control_rank=1 ORDER BY observed_at DESC,durable_row DESC LIMIT 257`
 	rows, e := tx.query(ctx, query, args...)
 	if e != nil {
 		return e
@@ -160,7 +176,7 @@ func (r *GateRepository) admissionMeasurements(ctx context.Context, tx ReadTx, o
 		seen[v.Control.ControlID] = true
 		blockers := &out.Blockers
 		volumeAction := v.Plan.HostAction != nil && (v.Plan.HostAction.ActionID == "debian.volume.observe" || v.Plan.HostAction.ActionID == "debian.volume-recovery.verify")
-		if volumeAction {
+		if volumeAction || v.Plan.HostRoleScope != nil {
 			blockers = &out.RoleBlockers
 		}
 		var declarationRaw []byte
@@ -401,18 +417,18 @@ func (r *GateRepository) validateHostAdmissionSnapshot(ctx context.Context, tx R
 func hostAdmissionProofDigest(s HostAdmissionSnapshot) string {
 	// Global revision deliberately excluded: unrelated writes are not host drift.
 	return hostaction.Digest(struct {
-		Binding, RoleBinding                string
-		Epoch                               int64
-		Measurements                        []HostAdmissionMeasurement
-		Evidence                            []generated.GateEvidence
-		Qualifications                      []HostNativeQualification
-		Prerequisites                       map[string]string
-		Storage                             HostStoragePrerequisites
-		Blockers                            []string
-		RoleBlockers                        []string
-		VolumeIDs                           []string
-		NetworkingRequired, StandbyRequired bool
-	}{s.BindingDigest, s.RoleBindingDigest, s.Revision.RecoveryEpoch, s.Measurements, s.Evidence, s.Qualifications, s.PrerequisiteDigests, s.Storage, s.Blockers, s.RoleBlockers, s.VolumeIDs, s.NetworkingRequired, s.StandbyRequired})
+		Binding, RoleBinding, AppliedProfile string
+		Epoch, RoleIntentRevision            int64
+		Measurements                         []HostAdmissionMeasurement
+		Evidence                             []generated.GateEvidence
+		Qualifications                       []HostNativeQualification
+		Prerequisites                        map[string]string
+		Storage                              HostStoragePrerequisites
+		Blockers                             []string
+		RoleBlockers                         []string
+		VolumeIDs                            []string
+		NetworkingRequired, StandbyRequired  bool
+	}{s.BindingDigest, s.RoleBindingDigest, s.AppliedProfileDigest, s.Revision.RecoveryEpoch, s.RoleIntentRevision, s.Measurements, s.Evidence, s.Qualifications, s.PrerequisiteDigests, s.Storage, s.Blockers, s.RoleBlockers, s.VolumeIDs, s.NetworkingRequired, s.StandbyRequired})
 }
 
 // A later attempted mutation invalidates earlier measurements even if it failed
@@ -428,7 +444,7 @@ func admissionMutationInvalidation(ctx context.Context, tx ReadTx, out *HostAdmi
 			oldest = m.Plan.Binding.StateRevision
 		}
 	}
-	rows, e := tx.query(ctx, `SELECT DISTINCT p.canonical_bytes,p.readable_plan FROM immutable_plans p JOIN plan_runs r ON r.plan_id=p.plan_id AND r.plan_digest=p.plan_digest JOIN plan_run_steps s ON s.run_id=r.run_id WHERE r.recovery_epoch=? AND s.operation_type='host.action.execute' AND s.effect_state IN ('intent-recorded','receipt-recorded','effect-unknown','verified') AND s.target_id=? AND p.state_revision>? AND (json_extract(p.canonical_bytes,'$.hostAction.actionId') IN ('debian.access.apply','debian.baseline.apply','debian.aide.initialize','debian.aide.refresh') OR json_type(p.canonical_bytes,'$.hostAccessSequence')='object') ORDER BY p.state_revision DESC LIMIT 65`, out.Revision.RecoveryEpoch, out.Host.HostID, oldest)
+	rows, e := tx.query(ctx, `SELECT DISTINCT p.canonical_bytes,p.readable_plan FROM immutable_plans p JOIN plan_runs r ON r.plan_id=p.plan_id AND r.plan_digest=p.plan_digest JOIN plan_run_steps s ON s.run_id=r.run_id WHERE r.recovery_epoch=? AND s.operation_type='host.action.execute' AND s.effect_state IN ('intent-recorded','receipt-recorded','effect-unknown','verified') AND s.target_id=? AND p.state_revision>? AND (json_extract(p.canonical_bytes,'$.hostAction.actionId') IN ('debian.access.apply','debian.baseline.apply','debian.aide.initialize','debian.aide.refresh','debian.role.apply','debian.control.handoff') OR json_type(p.canonical_bytes,'$.hostAccessSequence')='object') ORDER BY p.state_revision DESC LIMIT 65`, out.Revision.RecoveryEpoch, out.Host.HostID, oldest)
 	if e != nil {
 		return e
 	}
@@ -447,6 +463,10 @@ func admissionMutationInvalidation(ctx context.Context, tx ReadTx, out *HostAdmi
 		}
 		for _, m := range out.Measurements {
 			if hostMutationInvalidates(p, m, out.Host.HostID) {
+				if m.Control.ProducerID == "linux-role" {
+					out.RoleBlockers = append(out.RoleBlockers, "host-binding-changed")
+					continue
+				}
 				out.Blockers = append(out.Blockers, "host-binding-changed")
 				return nil
 			}
@@ -465,6 +485,8 @@ func hostMutationInvalidates(p generated.Plan, m HostAdmissionMeasurement, hostI
 		return false
 	}
 	switch p.HostAction.ActionID {
+	case "debian.role.apply", "debian.control.handoff":
+		return p.HostRoleScope != nil && (m.Control.ProducerID == "linux-role" || slices.Contains(p.HostRoleScope.AffectedBaselineControlIDs, m.Control.ControlID))
 	case "debian.access.apply":
 		return m.Control.ProducerID == "debian-access-native" || m.Control.ProducerID == "debian-access-probe"
 	case "debian.baseline.apply", "debian.aide.initialize", "debian.aide.refresh":
@@ -484,7 +506,7 @@ func admissionCurrentControlIDs(ctx context.Context, tx ReadTx, out *HostAdmissi
 		}
 	}
 	var raw []byte
-	e := tx.queryRow(ctx, `SELECT p.canonical_bytes FROM host_control_results c JOIN immutable_plans p ON p.plan_id=c.plan_id AND p.plan_digest=c.plan_digest JOIN execution_receipts e ON e.receipt_id=c.receipt_id AND e.result_digest=c.result_digest AND e.status='succeeded' JOIN plan_run_steps s ON s.run_id=c.run_id AND s.step_id=c.step_id AND s.status='succeeded' AND s.effect_state='verified' WHERE c.host_id=? AND c.host_identity_digest=? AND c.recovery_epoch=? AND c.control_id='debian.ssh' ORDER BY c.observed_at DESC,c.rowid DESC LIMIT 1`, out.Host.HostID, out.IdentityDigest, out.Revision.RecoveryEpoch).Scan(&raw)
+	e := tx.queryRow(ctx, `SELECT p.canonical_bytes FROM host_control_results c JOIN immutable_plans p ON p.plan_id=c.plan_id AND p.plan_digest=c.plan_digest JOIN execution_receipts e ON e.receipt_id=c.receipt_id AND e.result_digest=c.result_digest AND e.status IN ('succeeded','failed','partial') JOIN plan_run_steps s ON s.run_id=c.run_id AND s.step_id=c.step_id AND s.status IN ('succeeded','failed','partial') AND s.effect_state='verified' WHERE c.host_id=? AND c.host_identity_digest=? AND c.recovery_epoch=? AND c.control_id='debian.ssh' ORDER BY c.observed_at DESC,c.rowid DESC LIMIT 1`, out.Host.HostID, out.IdentityDigest, out.Revision.RecoveryEpoch).Scan(&raw)
 	if e == sql.ErrNoRows {
 		return ids, nil
 	}
@@ -499,7 +521,7 @@ func admissionCurrentControlIDs(ctx context.Context, tx ReadTx, out *HostAdmissi
 		// A standalone collection re-observes configuration; it does not replace
 		// the exact confirmed sequence that supplied the network observations.
 		collection := p.HostAction
-		e = tx.queryRow(ctx, `SELECT p.canonical_bytes FROM host_control_results c JOIN immutable_plans p ON p.plan_id=c.plan_id AND p.plan_digest=c.plan_digest JOIN execution_receipts e ON e.receipt_id=c.receipt_id AND e.result_digest=c.result_digest AND e.status='succeeded' JOIN plan_run_steps s ON s.run_id=c.run_id AND s.step_id=c.step_id AND s.status='succeeded' AND s.effect_state='verified' WHERE c.host_id=? AND c.host_identity_digest=? AND c.recovery_epoch=? AND c.control_id='debian-access-confirm' ORDER BY c.observed_at DESC,c.rowid DESC LIMIT 1`, out.Host.HostID, out.IdentityDigest, out.Revision.RecoveryEpoch).Scan(&raw)
+		e = tx.queryRow(ctx, `SELECT p.canonical_bytes FROM host_control_results c JOIN immutable_plans p ON p.plan_id=c.plan_id AND p.plan_digest=c.plan_digest JOIN execution_receipts e ON e.receipt_id=c.receipt_id AND e.result_digest=c.result_digest AND e.status IN ('succeeded','failed','partial') JOIN plan_run_steps s ON s.run_id=c.run_id AND s.step_id=c.step_id AND s.status IN ('succeeded','failed','partial') AND s.effect_state='verified' WHERE c.host_id=? AND c.host_identity_digest=? AND c.recovery_epoch=? AND c.control_id='debian-access-confirm' ORDER BY c.observed_at DESC,c.rowid DESC LIMIT 1`, out.Host.HostID, out.IdentityDigest, out.Revision.RecoveryEpoch).Scan(&raw)
 		if e == sql.ErrNoRows {
 			return ids, nil
 		}

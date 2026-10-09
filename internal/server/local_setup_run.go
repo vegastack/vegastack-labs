@@ -15,6 +15,9 @@ import (
 // RunSetup is a finite initial branch of the server owner, not an alternate
 // controller. Every ordinary restart goes through Run and OpenExisting.
 func (operations *Operations) RunSetup(ctx context.Context, configPath, setupPath string) error {
+	if err := rejectLegacyControlDatabase(operations.databasePath); err != nil {
+		return err
+	}
 	platform, err := operations.platformProbe.Current(ctx)
 	if err != nil || !supportedPlatform(platform) {
 		return setupFailure(generated.ErrorCodeUnsupportedPlatform)
@@ -119,6 +122,9 @@ func (operations *Operations) RunSetup(ctx context.Context, configPath, setupPat
 	}
 	initial, err := review.initialSetup(approval)
 	if err != nil {
+		return err
+	}
+	if err = rejectLegacyControlDatabase(operations.databasePath); err != nil {
 		return err
 	}
 	authority, err := operations.openStore(ctx, store.Config{DatabasePath: operations.databasePath, Mode: store.InitializeNew, ExpectedUID: uid, ToolVersion: operations.build.ToolVersion, BuildVersion: operations.build.ReleaseBuildID, InitialSetup: &initial})

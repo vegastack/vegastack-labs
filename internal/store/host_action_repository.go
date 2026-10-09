@@ -12,6 +12,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"github.com/vegastack/vegastack-labs/internal/hostdiscovery"
+	"github.com/vegastack/vegastack-labs/internal/linuxrole"
 	"slices"
 	"time"
 )
@@ -61,6 +62,11 @@ func (r *HostActionRepository) StageDraft(ctx context.Context, req generated.Hos
 	if debianbaseline.IsAction(req.ActionID) {
 		if e := r.ValidateBaselinePreparation(ctx, req); e != nil {
 			return HostActionDraft{}, e
+		}
+	}
+	if linuxrole.IsAction(req.ActionID) {
+		if err := r.ValidateRolePreparation(ctx, req); err != nil {
+			return HostActionDraft{}, err
 		}
 	}
 	validate := func(row discoveryRow) error {
@@ -142,6 +148,9 @@ func (r *HostActionRepository) CurrentExecution(ctx context.Context, op adapter.
 		if debianbaseline.IsAction(d.Request.ActionID) != (p.HostBaselineScope != nil) {
 			return actionError(generated.ErrorCodeIntegrityFailure)
 		}
+		if linuxrole.IsAction(d.Request.ActionID) != (p.HostRoleScope != nil) {
+			return actionError(generated.ErrorCodeIntegrityFailure)
+		}
 		if p.HostAccessSequence == nil && (d.Request.ActionID == "debian.access.apply" || d.Request.ActionID == "debian.access.confirm" || d.Request.ActionID == "debian.access.probe-source" || d.Request.ActionID == "debian.access.probe.local") {
 			return actionError(generated.ErrorCodeAuthorizationDenied)
 		}
@@ -176,6 +185,14 @@ func (r *HostActionRepository) CurrentExecution(ctx context.Context, op adapter.
 			return actionError(generated.ErrorCodeApprovalRequired)
 		}
 
+		if p.HostRoleScope != nil {
+			if e := validateRoleCurrent(row, p); e != nil {
+				return e
+			}
+			if e := authorizeRoleScope(ctx, row, p, b.RunID); e != nil {
+				return e
+			}
+		}
 		if p.HostBaselineScope != nil {
 			if e := validateBaselineCurrent(row, p, r.store.config.Clock()); e != nil {
 				return e

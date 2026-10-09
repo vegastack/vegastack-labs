@@ -7,6 +7,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/debianbaseline"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
+	"github.com/vegastack/vegastack-labs/internal/linuxrole"
 	"github.com/vegastack/vegastack-labs/internal/store"
 	"slices"
 	"time"
@@ -397,7 +398,11 @@ func (v *hostProofVerifier) validateMeasurement(x store.HostAdmissionMeasurement
 			return "host-control-invalid"
 		}
 		a := p.HostAction
-		if (a.ActionID != "debian.role.collect" && a.ActionID != "debian.role.apply") || a.HostID != s.Host.HostID || a.ActionInputDigest != hostaction.BytesDigest([]byte(a.ActionInput)) || m.ConfigurationDigest != a.ActionInputDigest {
+		roleScope, err := linuxrole.ScopeForRequest(*a)
+		if err != nil || roleScope == nil || p.HostRoleScope == nil || hostaction.Digest(roleScope) != hostaction.Digest(p.HostRoleScope) || roleScope.RoleBindingDigest != s.RoleBindingDigest {
+			return "host-control-invalid"
+		}
+		if !linuxrole.IsAction(a.ActionID) || a.HostID != s.Host.HostID || a.ActionInputDigest != hostaction.BytesDigest([]byte(a.ActionInput)) || m.ConfigurationDigest != a.ActionInputDigest {
 			return "host-control-invalid"
 		}
 		matched := false
@@ -474,6 +479,17 @@ func (v *hostProofVerifier) controlDigest(req generated.HostControlRequirement) 
 				return "", "host-control-invalid"
 			}
 			digests = append(digests, x.Measurement.MeasurementDigest)
+			if id == "linux.role-network-boundary" {
+				in, err := linuxrole.DecodeInput([]byte(x.Plan.HostAction.ActionInput))
+				if err != nil {
+					return "", "host-control-invalid"
+				}
+				proof, err := RoleNetworkProofDigest(v.snapshot, in, v.at)
+				if err != nil {
+					return "", "host-probe-missing"
+				}
+				digests = append(digests, proof)
+			}
 			if req.ProducerID == "debian-access-native" {
 				probes, reason := v.accessProof(x)
 				if reason != "" {

@@ -154,6 +154,9 @@ func (r *HostAdoptionRepository) Get(ctx context.Context, id string) (generated.
 		}
 		var err error
 		h, err = readManagedHost(row, id)
+		if err == nil {
+			h.RoleFoundation, err = readRoleFoundation(ctx, tx, id, h.RecoveryEpoch)
+		}
 		return err
 	})
 	return h, err

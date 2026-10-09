@@ -11,6 +11,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/acknowledgement"
 	"github.com/vegastack/vegastack-labs/internal/adapter"
 	"github.com/vegastack/vegastack-labs/internal/adapter/backuptrust"
+	roletransport "github.com/vegastack/vegastack-labs/internal/adapter/hostaction"
 	"github.com/vegastack/vegastack-labs/internal/adapter/localbackup"
 	"github.com/vegastack/vegastack-labs/internal/adapter/localretention"
 	"github.com/vegastack/vegastack-labs/internal/adapters/slack"
@@ -41,7 +42,7 @@ import (
 // productionDatabasePath remains fixed in normal builds. The Phase 3 acceptance
 // verifier replaces this string at link time in its isolated test executable so
 // it can exercise the real command boundary without adding a runtime override.
-var productionDatabasePath = "/var/lib/vsk-labs/control.db"
+var productionDatabasePath = "/var/lib/vsk-labs/control/control.db"
 
 type Operations struct {
 	setupHostIdentity        func(context.Context) (string, error)
@@ -360,6 +361,8 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 		}
 	}
 	gateRepository := store.NewGateRepository(authority)
+	roleComposition := hostRoleComposition{gates: gateRepository, render: roletransport.RenderLinuxRole, clock: time.Now}
+	runRepository.ConfigureHostRoles(gateRepository, roleComposition)
 	if err := api.RegisterGateOperations(application, api.GateOperations{Gates: gateRepository, Revisions: planRepository, Declarations: declarations, Results: factory, Build: operations.build, Clock: time.Now}); err != nil {
 		_ = application.Shutdown(ctx)
 		return err
@@ -395,7 +398,7 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	if err := api.RegisterHostActionOperations(application, api.HostActionOperations{BaselineRenderer: hostAccessComposition{}, Hosts: store.NewHostActionRepository(authority), Declarations: declarations, Credentials: credentialRepository, Results: factory}); err != nil {
+	if err := api.RegisterHostActionOperations(application, api.HostActionOperations{RolePreparer: roleComposition, BaselineRenderer: hostAccessComposition{}, Hosts: store.NewHostActionRepository(authority), Declarations: declarations, Credentials: credentialRepository, Results: factory}); err != nil {
 		return err
 	}
 	if err := api.RegisterHostAccessOperations(application, api.HostAccessOperations{Hosts: store.NewHostActionRepository(authority), Declarations: declarations, Credentials: credentialRepository, Renderer: hostAccessComposition{}, Results: factory}); err != nil {
@@ -612,6 +615,9 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 // closes it before acquiring the filesystem authority lock, and then reopens
 // the exact promoted database in recovery-required mode.
 func (operations *Operations) openAuthorityWithPromotion(ctx context.Context, profile serverconfig.Profile) (*store.Store, error) {
+	if err := rejectLegacyControlDatabase(operations.databasePath); err != nil {
+		return nil, err
+	}
 	configFor := func(path string) store.Config {
 		return store.Config{DatabasePath: path, Mode: store.OpenExisting, ExpectedUID: profile.SocketOwnerUID, ToolVersion: operations.build.ToolVersion, BuildVersion: operations.build.ReleaseBuildID}
 	}

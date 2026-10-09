@@ -12,6 +12,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"github.com/vegastack/vegastack-labs/internal/hostdiscovery"
 	"github.com/vegastack/vegastack-labs/internal/identity"
+	"github.com/vegastack/vegastack-labs/internal/linuxrole"
 	"github.com/vegastack/vegastack-labs/internal/result"
 	"github.com/vegastack/vegastack-labs/internal/store"
 	"net/http"
@@ -20,7 +21,11 @@ import (
 type BaselineRenderer interface {
 	RenderPolicy(context.Context, generated.DebianBaselineInput) (string, error)
 }
+type RolePreparer interface {
+	PrepareRole(context.Context, string, generated.LinuxRoleInput) (generated.LinuxRoleInput, error)
+}
 type HostActionOperations struct {
+	RolePreparer     RolePreparer
 	BaselineRenderer BaselineRenderer
 	Hosts            *store.HostActionRepository
 	Declarations     *change.Service
@@ -73,6 +78,29 @@ func (app *Application) hostActionDraft(c HostActionOperations) func(http.Respon
 				input.ActionInputDigest = hostaction.BytesDigest(raw)
 			}
 			if err := c.Hosts.ValidateBaselinePreparation(r.Context(), input); err != nil {
+				app.failure(w, operation, err)
+				return
+			}
+		}
+		if linuxrole.IsAction(input.ActionID) {
+			if _, err := app.authorizeAction(r, authorization.ActionAuthor, authorization.Target{Capability: "host.action.prepare", ResourceKind: "host", ResourceID: input.HostID}); err != nil {
+				app.failure(w, operation, err)
+				return
+			}
+			desired, decodeErr := linuxrole.DecodeDesiredInput([]byte(input.ActionInput))
+			if decodeErr != nil || c.RolePreparer == nil {
+				app.failure(w, operation, apiFailure(generated.ErrorCodePrerequisiteBlocked, "role-preparation"))
+				return
+			}
+			prepared, err := c.RolePreparer.PrepareRole(r.Context(), input.ActionID, desired)
+			if err != nil || linuxrole.ValidateInput(prepared) != nil {
+				app.failure(w, operation, apiFailure(generated.ErrorCodePrerequisiteBlocked, "role-baseline"))
+				return
+			}
+			raw, _ = json.Marshal(prepared)
+			input.ActionInput = string(raw)
+			input.ActionInputDigest = hostaction.BytesDigest(raw)
+			if err = c.Hosts.ValidateRolePreparation(r.Context(), input); err != nil {
 				app.failure(w, operation, err)
 				return
 			}

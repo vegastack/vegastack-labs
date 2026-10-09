@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/vegastack/vegastack-labs/internal/debianbaseline"
+	"github.com/vegastack/vegastack-labs/internal/linuxrole"
 	"sort"
 	"strings"
 	"time"
@@ -337,6 +338,11 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 			return store.PlanCommitResult{}, planError(generated.ErrorCodeInputInvalid)
 		}
 		candidate.HostBaselineScope = scope
+		roleScope, err := linuxrole.ScopeForRequest(*action)
+		if err != nil {
+			return store.PlanCommitResult{}, planError(generated.ErrorCodeInputInvalid)
+		}
+		candidate.HostRoleScope = roleScope
 	}
 	candidate.HostAccessSequence = sequence
 	candidate.HostAdoption = adoption

@@ -46,6 +46,10 @@ func readablePlan(plan generated.Plan) string {
 		raw, _, _ := stateexport.CanonicalJSON(plan.HostActionConsole)
 		fmt.Fprintf(&body, "Credential consumer console confirmation: %s\nAdministrator confirms independent console access for BOTH the exact destination host/pinned key and the named native consumer/controller machine. Controller unit %s may restart during activation or rotation; native credential loading and denied-reader probes remain required.\n", raw, plan.HostActionNativeUnit)
 	}
+	if scope := plan.HostRoleScope; scope != nil {
+		raw, _, _ := stateexport.CanonicalJSON(scope)
+		fmt.Fprintf(&body, "\nLinux role %s on %s; exact role scope: %s\nRole installation does not grant workload admission.\n", scope.RoleID, scope.SubjectHostID, raw)
+	}
 	if scope := plan.HostBaselineScope; scope != nil {
 		raw, _, _ := stateexport.CanonicalJSON(scope)
 		fmt.Fprintf(&body, "\nDebian baseline: subject %s; executor %s; role %s; selected controls %s.\nExact baseline scope: %s\n", scope.SubjectHostID, scope.ExecutionHostID, scope.RoleID, strings.Join(scope.ControlIDs, ", "), raw)

@@ -6,7 +6,9 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/debianbaseline"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
+	"github.com/vegastack/vegastack-labs/internal/linuxrole"
 	"github.com/vegastack/vegastack-labs/internal/store"
+	"os"
 	"testing"
 	"time"
 )
@@ -23,8 +25,44 @@ func resealHostMeasurement(s *store.HostAdmissionSnapshot, x *store.HostAdmissio
 func qualifiedRoleSnapshot(t *testing.T, at time.Time) store.HostAdmissionSnapshot {
 	t.Helper()
 	s := qualifiedHostSnapshot(t, at)
+	var roleInput generated.LinuxRoleInput
+	roleRaw, err := os.ReadFile("testdata/linux-role-input.json")
+	if err != nil || json.Unmarshal(roleRaw, &roleInput) != nil {
+		t.Fatal("role fixture", err)
+	}
+	for _, m := range s.Measurements {
+		if m.Control.ControlID == "debian.host-firewall" {
+			var access generated.DebianAccessInput
+			var raw string
+			if m.Plan.HostAction != nil {
+				raw = m.Plan.HostAction.ActionInput
+			} else if m.Plan.HostAccessSequence != nil {
+				raw = m.Plan.HostAccessSequence.Actions[0].ActionInput
+			}
+			if json.Unmarshal([]byte(raw), &access) != nil {
+				t.Fatal("network input")
+			}
+			roleInput.NetworkAccess = &access
+		}
+	}
+	roleInput.HostID = s.Host.HostID
+	roleInput.HostIdentityDigest = s.IdentityDigest
+	roleInput.ProfileID = s.Profile.ProfileID
+	roleInput.ProfileLock = s.ProfileLock
+	roleInput.ProfileLockDigest = s.ProfileLockDigest
+	roleInput.AutomationUID = roleInput.NetworkAccess.AutomationUID
+	roleInput.Accounts[0].UID = roleInput.AutomationUID
+	for i := range roleInput.Directories {
+		roleInput.Directories[i].UID = roleInput.AutomationUID
+	}
+	roleInput.RenderedPolicyDigest = linuxrole.PolicyDigest(roleInput)
+	roleInput.RoleBindingDigest = linuxrole.RoleBindingDigest(roleInput)
+	if err := linuxrole.ValidateInput(roleInput); err != nil {
+		t.Fatal("role fixture invalid", err)
+	}
+	s.RoleIntentRevision = 1
 	s.Profile.RoleID = "control"
-	s.RoleBindingDigest = hostaction.Digest("current control declaration")
+	s.RoleBindingDigest = roleInput.RoleBindingDigest
 	s.BindingDigest = hostaction.Digest("current control host binding")
 	var template store.HostAdmissionMeasurement
 	for i := range s.Measurements {
@@ -141,9 +179,15 @@ func qualifiedRoleSnapshot(t *testing.T, at time.Time) store.HostAdmissionSnapsh
 			x.Measurement.Role = &generated.RoleObservation{Schema: generated.SchemaIDRoleObservation, SchemaVersion: "1.0.0", RoleID: "control", RoleBindingDigest: s.RoleBindingDigest, FactsDigest: d(id), Verification: "effective-probe"}
 			x.Plan.HostBaselineScope = nil
 			x.Plan.HostAction.ActionID = "debian.role.collect"
-			x.Plan.HostAction.ActionInput = `{"fixture":"exact-role-intent"}`
+			raw, _ := json.Marshal(roleInput)
+			x.Plan.HostAction.ActionInput = string(raw)
 			x.Plan.HostAction.ActionInputDigest = hostaction.BytesDigest([]byte(x.Plan.HostAction.ActionInput))
 			x.Measurement.ConfigurationDigest = x.Plan.HostAction.ActionInputDigest
+			var err error
+			x.Plan.HostRoleScope, err = linuxrole.ScopeForRequest(*x.Plan.HostAction)
+			if err != nil {
+				t.Fatal(err)
+			}
 		})
 	}
 	// Container measurement remains bound to the exact validated access sequence, including all four container cases.
@@ -268,5 +312,45 @@ func TestHostRoleRejectsSpoofedProjectionAndKeepsBaselineIndependent(t *testing.
 				}
 			}
 		})
+	}
+}
+
+func TestHostRoleNetworkRequiresPostRoleExactProbeReceipts(t *testing.T) {
+	at := time.Date(2026, 10, 9, 10, 0, 0, 0, time.UTC)
+	s := qualifiedRoleSnapshot(t, at)
+	var in generated.LinuxRoleInput
+	for _, x := range s.Measurements {
+		if x.Control.ControlID == "linux.role-network-boundary" {
+			if json.Unmarshal([]byte(x.Plan.HostAction.ActionInput), &in) != nil {
+				t.Fatal("input")
+			}
+		}
+	}
+	if _, err := RoleNetworkProofDigest(s, in, at); err != nil {
+		t.Fatal("complete network evidence denied", err)
+	}
+	prior := s
+	prior.RoleIntentRevision = 10
+	if _, err := RoleNetworkProofDigest(prior, in, at); err == nil {
+		t.Fatal("pre-role probes admitted role networking")
+	}
+	missing := s
+	missing.Measurements = nil
+	missing.Results = nil
+	for _, x := range s.Measurements {
+		if x.Control.ProducerID != "debian-access-probe" {
+			missing.Measurements = append(missing.Measurements, x)
+			missing.Results = append(missing.Results, x.Control)
+		}
+	}
+	if _, err := RoleNetworkProofDigest(missing, in, at); err == nil {
+		t.Fatal("configuration-only evidence admitted role networking")
+	}
+	changed := in
+	network := *in.NetworkAccess
+	changed.NetworkAccess = &network
+	changed.NetworkAccess.HostFlows = nil
+	if _, err := RoleNetworkProofDigest(s, changed, at); err == nil {
+		t.Fatal("different requested network policy reused existing probe receipts")
 	}
 }

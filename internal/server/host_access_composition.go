@@ -4,9 +4,12 @@ import (
 	"context"
 	"github.com/vegastack/vegastack-labs/internal/adapter"
 	transport "github.com/vegastack/vegastack-labs/internal/adapter/hostaction"
+	"github.com/vegastack/vegastack-labs/internal/gate"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/linuxrole"
 	"github.com/vegastack/vegastack-labs/internal/store"
 	"slices"
+	"time"
 )
 
 type hostAccessComposition struct {
@@ -38,7 +41,37 @@ func (c hostAccessComposition) RecordVerifiedControlResults(ctx context.Context,
 	if e != nil {
 		return e
 	}
-	return c.store.RecordHostControlResults(ctx, store.HostControlResultsRequest{Operation: op, Binding: b, Effect: effect, Result: result, Attribution: a})
+	request := store.HostControlResultsRequest{Operation: op, Binding: b, Effect: effect, Result: result, Attribution: a}
+	for _, m := range result.ControlMeasurements {
+		if m.ControlID == "linux.role-network-boundary" && m.Status == "passed" {
+			execution, err := store.NewPlanRepository(c.store).GetPlan(ctx, b.PlanID)
+			if err != nil {
+				return err
+			}
+			if execution.Plan.HostAction == nil || execution.Plan.PlanDigest != b.PlanDigest {
+				return actionFailure()
+			}
+			in, err := linuxrole.DecodeInput([]byte(execution.Plan.HostAction.ActionInput))
+			if err != nil {
+				return err
+			}
+			gates := store.NewGateRepository(c.store)
+			readCtx, err := c.store.HostRunReadContext(ctx, b.RunID)
+			if err != nil {
+				return err
+			}
+			snapshot, err := gates.ResolveHostAdmission(readCtx, op.TargetID)
+			if err != nil {
+				return err
+			}
+			if _, err = gate.RoleNetworkProofDigest(snapshot, in, time.Now().UTC()); err != nil {
+				return err
+			}
+			request.RoleNetworkSnapshot = &snapshot
+			request.RoleNetworkGates = gates
+		}
+	}
+	return c.store.RecordHostControlResults(ctx, request)
 }
 
 var _ transport.AccessSequenceSource = hostAccessComposition{}

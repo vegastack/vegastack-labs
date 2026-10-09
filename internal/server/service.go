@@ -377,7 +377,7 @@ func (service *service) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 	}
 	remote := service.currentRemote()
 	status := generated.ServerStatusData{
-		State: string(state), ReadAvailable: state == StateReady || state == StateSafeMode,
+		InstanceID: health.InstanceID, State: string(state), ReadAvailable: state == StateReady || state == StateSafeMode,
 		MutationAvailable: false, RecoveryEpoch: health.RecoveryEpoch, StateRevision: health.StateRevision,
 		RemoteReadState: string(remote.state), RemoteReadReason: string(remote.reason),
 	}
