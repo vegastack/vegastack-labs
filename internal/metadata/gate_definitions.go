@@ -63,16 +63,16 @@ func CurrentGateDefinitions() []GateDefinitionSource {
 func phase6HostGateDefinitions() []GateDefinitionSource {
 	return []GateDefinitionSource{
 		{
-			GateID: "host.hardening-baseline", DefinitionVersion: "1.0.0", Layer: "platform",
-			Applicability: "deferred", SubjectKinds: []string{"node"},
+			GateID: "host.hardening-baseline", DefinitionVersion: "1.1.0", Layer: "platform",
+			Applicability: "always", SubjectKinds: []string{"node"},
 			PrerequisiteGateIDs: []string{"platform-safety"}, EvidenceSchemaID: gateEvidenceSchemaID,
-			EvaluatorVersion: "1.0.0", FreshnessSeconds: 86400, RecoveryEpochBound: true,
+			EvaluatorVersion: "1.1.0", FreshnessSeconds: 86400, RecoveryEpochBound: true,
 		},
 		{
-			GateID: "host.role-admission", DefinitionVersion: "1.0.0", Layer: "platform",
-			Applicability: "deferred", SubjectKinds: []string{"node"},
+			GateID: "host.role-admission", DefinitionVersion: "1.1.0", Layer: "platform",
+			Applicability: "always", SubjectKinds: []string{"node"},
 			PrerequisiteGateIDs: []string{"host.hardening-baseline"}, EvidenceSchemaID: gateEvidenceSchemaID,
-			EvaluatorVersion: "1.0.0", FreshnessSeconds: 86400, RecoveryEpochBound: true,
+			EvaluatorVersion: "1.1.0", FreshnessSeconds: 86400, RecoveryEpochBound: true,
 		},
 	}
 }

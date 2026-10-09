@@ -308,6 +308,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/host-discovery-target-draft-request.schema.json",
 		"schemas/v1/host-discovery-target-draft-submission.schema.json",
 		"schemas/v1/host-discovery-target.schema.json",
+		"schemas/v1/host-gate-query.schema.json",
 		"schemas/v1/host-hardening-evidence-fact.schema.json",
 		"schemas/v1/host-identity-confirmation.schema.json",
 		"schemas/v1/host-identity.schema.json",
@@ -357,6 +358,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/restore-source-binding.schema.json",
 		"schemas/v1/restore-verification.schema.json",
 		"schemas/v1/restore-verify-request.schema.json",
+		"schemas/v1/role-observation.schema.json",
 		"schemas/v1/run-presentation.schema.json",
 		"schemas/v1/run-reference-request.schema.json",
 		"schemas/v1/run-result.schema.json",
@@ -837,7 +839,7 @@ func TestGeneratedGoIsRuntimeSerializable(t *testing.T) {
 	}
 	for _, want := range []string{
 		`RegistrySchemaVersion`,
-		`= "1.24.0"`,
+		`= "1.25.0"`,
 		`type Endpoint struct`,
 		`var Endpoints = []Endpoint`,
 		`type DatabaseStatusData struct`,
@@ -899,4 +901,23 @@ func TestGenerateDoesNotLeakRejectedMetadata(t *testing.T) {
 	if strings.Contains(err.Error(), secret) {
 		t.Fatalf("Generate() leaked rejected metadata: %q", err)
 	}
+}
+
+func TestHostGateQueryUsesExactSerializer(t *testing.T) {
+	artifacts, err := Generate(metadata.Current())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, a := range artifacts {
+		if a.Path == browserClientPath {
+			s := string(a.Content)
+			for _, want := range []string{"function hostGateQuery(value: HostGateQuery", `params.set("subjectId", query.subjectId)`, "hostGateQuery(query)"} {
+				if !strings.Contains(s, want) {
+					t.Fatal("missing exact host query serializer", want)
+				}
+			}
+			return
+		}
+	}
+	t.Fatal("missing browser client")
 }

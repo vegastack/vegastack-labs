@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
+	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -51,6 +53,32 @@ func RegisterGateOperations(app *Application, config GateOperations) error {
 	return nil
 }
 
+var gateSubjectPattern = regexp.MustCompile(`^[a-z][a-z0-9._:-]{0,127}$`)
+
+func gateSubjectQuery(raw string) (string, error) {
+	if raw == "" {
+		return "scope", nil
+	}
+	if len(raw) > 512 {
+		return "", apiFailure(generated.ErrorCodeInputInvalid, "gate-subject")
+	}
+	values, err := url.ParseQuery(raw)
+	subjects := values["subjectId"]
+	if err != nil || len(values) != 1 || len(subjects) != 1 || !gateSubjectPattern.MatchString(subjects[0]) {
+		return "", apiFailure(generated.ErrorCodeInputInvalid, "gate-subject")
+	}
+	return subjects[0], nil
+}
+
+func hostAdmissionGate(id string) bool {
+	return id == "host.hardening-baseline" || id == "host.role-admission"
+}
+
+func (app *Application) authorizeHostGateSubject(r *http.Request, subject string) error {
+	_, err := app.authorizeAction(r, authorization.ActionRead, authorization.Target{Capability: "host.read", ResourceKind: "host", ResourceID: subject})
+	return err
+}
+
 func gateDefinition(id string) (generated.GateDefinition, bool) {
 	for _, item := range generated.GeneratedGateDefinitions {
 		if item.GateID == id {
@@ -94,7 +122,7 @@ func gateUnboundProjection(evaluation generated.GateEvaluation, applicable bool,
 	return evaluation
 }
 
-func gateResult(ctx context.Context, config GateOperations, def generated.GateDefinition, subjectID string, token store.RevisionToken) (generated.GateView, error) {
+func gateResult(ctx context.Context, config GateOperations, def generated.GateDefinition, subjectID string, boundSubject bool, token store.RevisionToken) (generated.GateView, error) {
 	at := config.Clock().UTC().Truncate(time.Second)
 	scope, found, err := gateScope(ctx, config)
 	if err != nil {
@@ -119,15 +147,29 @@ func gateResult(ctx context.Context, config GateOperations, def generated.GateDe
 					break
 				}
 			}
-			// The server has no authoritative subject/declaration/artifact resolver
-			// in #104. Caller-supplied digest claims and evidence rows cannot fill
-			// those bindings. Preserve derived applicability/evidence inspection,
-			// but never expose a positive live result through this unbound read.
-			evaluation, err = gate.Evaluate(ctx, config.Gates, scope, gate.Subject{ID: subjectID, Kind: def.SubjectKinds[0], ReleaseBuildID: config.Build.ReleaseBuildID, ToolVersion: config.Build.ToolVersion, StateRevision: token.StateRevision}, def.GateID, at, gate.NewProofRegistry())
-			if err != nil {
-				return generated.GateView{}, err
+			if hostAdmissionGate(def.GateID) && boundSubject {
+				snapshot, resolveErr := config.Gates.ResolveHostAdmission(ctx, subjectID)
+				if resolveErr != nil {
+					return generated.GateView{}, resolveErr
+				}
+				if snapshot.Revision != token {
+					return generated.GateView{}, apiFailure(generated.ErrorCodePlanStale, "host-admission-snapshot")
+				}
+				evaluation, err = gate.EvaluateHostAdmission(ctx, snapshot, scope, def.GateID, at)
+				if err != nil {
+					return generated.GateView{}, err
+				}
+			} else {
+				// The server has no authoritative subject/declaration/artifact resolver
+				// in #104. Caller-supplied digest claims and evidence rows cannot fill
+				// those bindings. Preserve derived applicability/evidence inspection,
+				// but never expose a positive live result through this unbound read.
+				evaluation, err = gate.Evaluate(ctx, config.Gates, scope, gate.Subject{ID: subjectID, Kind: def.SubjectKinds[0], ReleaseBuildID: config.Build.ReleaseBuildID, ToolVersion: config.Build.ToolVersion, StateRevision: token.StateRevision}, def.GateID, at, gate.NewProofRegistry())
+				if err != nil {
+					return generated.GateView{}, err
+				}
+				evaluation = gateUnboundProjection(evaluation, applicable, reason)
 			}
-			evaluation = gateUnboundProjection(evaluation, applicable, reason)
 		}
 	}
 	view := generated.GateView{Schema: generated.SchemaIDGateView, SchemaVersion: "1.1.0", Definition: def, Evaluation: evaluation, ApplicabilityReasonCode: reason}
@@ -141,9 +183,16 @@ func gateResult(ctx context.Context, config GateOperations, def generated.GateDe
 func (app *Application) gatesList(config GateOperations) func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string) {
 	return func(w http.ResponseWriter, r *http.Request, _ authorization.ReadScope, _ map[string]string) {
 		const op = "api.v1.gates.list"
-		if r.URL.RawQuery != "" {
-			app.failure(w, op, apiFailure(generated.ErrorCodeInputInvalid, "query"))
+		subject, err := gateSubjectQuery(r.URL.RawQuery)
+		if err != nil {
+			app.failure(w, op, err)
 			return
+		}
+		if r.URL.RawQuery != "" {
+			if err := app.authorizeHostGateSubject(r, subject); err != nil {
+				app.failure(w, op, err)
+				return
+			}
 		}
 		token, err := gateRevision(r.Context(), config)
 		if err != nil {
@@ -152,7 +201,11 @@ func (app *Application) gatesList(config GateOperations) func(http.ResponseWrite
 		}
 		data := generated.GateListData{Schema: generated.SchemaIDGateListData, SchemaVersion: "1.1.0", Gates: []generated.GateView{}, RecoveryEpoch: token.RecoveryEpoch}
 		for _, def := range generated.GeneratedGateDefinitions {
-			view, err := gateResult(r.Context(), config, def, "scope", token)
+			selectedSubject := "scope"
+			if hostAdmissionGate(def.GateID) {
+				selectedSubject = subject
+			}
+			view, err := gateResult(r.Context(), config, def, selectedSubject, r.URL.RawQuery != "", token)
 			if err != nil {
 				app.failure(w, op, err)
 				return
@@ -172,16 +225,31 @@ func (app *Application) gateGet(config GateOperations) func(http.ResponseWriter,
 	return func(w http.ResponseWriter, r *http.Request, _ authorization.ReadScope, params map[string]string) {
 		const op = "api.v1.gates.get"
 		def, ok := gateDefinition(params["gateId"])
-		if !ok || r.URL.RawQuery != "" {
+		if !ok {
 			app.failure(w, op, apiFailure(generated.ErrorCodeResourceNotFound, "gate"))
 			return
+		}
+		subject, err := gateSubjectQuery(r.URL.RawQuery)
+		if err != nil {
+			app.failure(w, op, err)
+			return
+		}
+		if r.URL.RawQuery != "" {
+			if !hostAdmissionGate(def.GateID) {
+				app.failure(w, op, apiFailure(generated.ErrorCodeInputInvalid, "gate-subject"))
+				return
+			}
+			if err := app.authorizeHostGateSubject(r, subject); err != nil {
+				app.failure(w, op, err)
+				return
+			}
 		}
 		token, err := gateRevision(r.Context(), config)
 		if err != nil {
 			app.failure(w, op, err)
 			return
 		}
-		view, err := gateResult(r.Context(), config, def, "scope", token)
+		view, err := gateResult(r.Context(), config, def, subject, r.URL.RawQuery != "", token)
 		if err != nil {
 			app.failure(w, op, err)
 			return
@@ -213,6 +281,12 @@ func (app *Application) gateCheck(config GateOperations) func(http.ResponseWrite
 			app.failure(w, op, err)
 			return
 		}
+		if hostAdmissionGate(def.GateID) {
+			if err := app.authorizeHostGateSubject(r, input.SubjectID); err != nil {
+				app.failure(w, op, err)
+				return
+			}
+		}
 		token, err := gateRevision(r.Context(), config)
 		if err != nil {
 			app.failure(w, op, err)
@@ -222,7 +296,7 @@ func (app *Application) gateCheck(config GateOperations) func(http.ResponseWrite
 			app.failure(w, op, apiFailure(generated.ErrorCodePlanStale, "gate-check"))
 			return
 		}
-		view, err := gateResult(r.Context(), config, def, input.SubjectID, token)
+		view, err := gateResult(r.Context(), config, def, input.SubjectID, true, token)
 		if err != nil {
 			app.failure(w, op, err)
 			return

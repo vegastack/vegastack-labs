@@ -767,6 +767,10 @@ export interface HostDiscoveryTargetDraftRequest {
   readonly "consoleConfirmation"?: HostDiscoveryConsoleConfirmation | null;
 }
 
+export interface HostGateQuery {
+  readonly "subjectId"?: string;
+}
+
 export interface HostIdentityConfirmation {
   readonly "schema": "vegastack-labs.dev/host-identity-confirmation";
   readonly "schemaVersion": "1.0.0";
@@ -5419,6 +5423,18 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/host-gate-query",
+    "fields": [
+      {
+        "name": "subjectId",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/host-identity-confirmation",
     "fields": [
       {
@@ -6900,6 +6916,10 @@ function decodeHostDiscoveryTargetDraftRequest(value: unknown): HostDiscoveryTar
   return decodeSchema("vegastack-labs.dev/host-discovery-target-draft-request", value) as unknown as HostDiscoveryTargetDraftRequest;
 }
 
+function decodeHostGateQuery(value: unknown): HostGateQuery {
+  return decodeSchema("vegastack-labs.dev/host-gate-query", value) as unknown as HostGateQuery;
+}
+
 function decodeHostIdentityConfirmation(value: unknown): HostIdentityConfirmation {
   return decodeSchema("vegastack-labs.dev/host-identity-confirmation", value) as unknown as HostIdentityConfirmation;
 }
@@ -7082,6 +7102,15 @@ function encodePathInteger(value: number, name: string): string {
   return String(value);
 }
 
+function hostGateQuery(value: HostGateQuery | undefined): string {
+  if (value === undefined) return "";
+  const query = decodeHostGateQuery(value);
+  const params = new URLSearchParams();
+  if (query.subjectId !== undefined) params.set("subjectId", query.subjectId);
+  const encoded = params.toString();
+  return encoded === "" ? "" : "?" + encoded;
+}
+
 function pageQuery(value: ApiPageQuery | undefined): string {
   if (value === undefined) return "";
   const query = decodeApiPageQuery(value);
@@ -7220,8 +7249,8 @@ export type ReadClient = {
   readonly getDeclaration: (path: { readonly declarationId: string; readonly revision: number }, options?: RequestOptions) => Promise<ReadResult<BrowserDeclarationRevision>>;
   readonly preparePlan: (path: { readonly declarationId: string; readonly revision: number }, options?: RequestOptions) => Promise<ReadResult<PlanPreparation>>;
   readonly streamEvents: (options?: StreamOptions) => AsyncIterable<ApiAuditEventData>;
-  readonly getGate: (path: { readonly gateId: string }, options?: RequestOptions) => Promise<ReadResult<GateView>>;
-  readonly listGates: (options?: RequestOptions) => Promise<ReadResult<GateListData>>;
+  readonly getGate: (path: { readonly gateId: string }, query?: HostGateQuery, options?: RequestOptions) => Promise<ReadResult<GateView>>;
+  readonly listGates: (query?: HostGateQuery, options?: RequestOptions) => Promise<ReadResult<GateListData>>;
   readonly getHealth: (options?: RequestOptions) => Promise<ReadResult<ServerStatusData>>;
   readonly getInventoryDraftAlias: (path: { readonly draftId: string; readonly revision: number; readonly recordId: string }, options?: RequestOptions) => Promise<ReadResult<ApiInventoryAliasData>>;
   readonly listInventoryDraftAliases: (path: { readonly draftId: string; readonly revision: number }, query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<ApiInventoryAliasListData>>;
@@ -7275,13 +7304,13 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
     streamEvents(options = {}) {
       return streamSSE(fetchTransport, "/api/v1/events", options, "api.v1.events.stream", "audit-event", decodeApiAuditEventData, (data) => data.event.eventId);
     },
-    async getGate(path, options = {}) {
+    async getGate(path, query = {}, options = {}) {
       const operation = "api.v1.gates.get";
-      return performRead(fetchTransport, "/api/v1/gates/" + encodePathString(path.gateId, "gateId") + "", options, operation, decodeGateView);
+      return performRead(fetchTransport, "/api/v1/gates/" + encodePathString(path.gateId, "gateId") + "" + hostGateQuery(query), options, operation, decodeGateView);
     },
-    async listGates(options = {}) {
+    async listGates(query = {}, options = {}) {
       const operation = "api.v1.gates.list";
-      return performRead(fetchTransport, "/api/v1/gates", options, operation, decodeGateListData);
+      return performRead(fetchTransport, "/api/v1/gates" + hostGateQuery(query), options, operation, decodeGateListData);
     },
     async getHealth(options = {}) {
       const operation = "api.v1.health.get";
@@ -7455,8 +7484,8 @@ export type Phase5Client = {
   readonly getBackupStatus: (options?: RequestOptions) => Promise<ReadResult<BrowserBackupStatusData>>;
   readonly draftGateEvidence: (path: { readonly gateId: string }, request: GateEvidenceRequest, options?: RequestOptions) => Promise<ReadResult<GateEvidenceSubmission>>;
   readonly checkGate: (path: { readonly gateId: string }, request: GateCheckRequest, options?: RequestOptions) => Promise<ReadResult<GateEvaluation>>;
-  readonly getGate: (path: { readonly gateId: string }, options?: RequestOptions) => Promise<ReadResult<GateView>>;
-  readonly listGates: (options?: RequestOptions) => Promise<ReadResult<GateListData>>;
+  readonly getGate: (path: { readonly gateId: string }, query?: HostGateQuery, options?: RequestOptions) => Promise<ReadResult<GateView>>;
+  readonly listGates: (query?: HostGateQuery, options?: RequestOptions) => Promise<ReadResult<GateListData>>;
   readonly listRecoveryPoints: (query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<BrowserRecoveryPointListData>>;
   readonly draftRestore: (path: { readonly pointId: string }, request: BrowserRestoreDraftRequest, options?: RequestOptions) => Promise<ReadResult<BrowserRestoreDraftSubmission>>;
   readonly listRestoreStatuses: (query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<BrowserRestoreStatusListData>>;
@@ -7489,13 +7518,13 @@ export function createPhase5Client(fetchTransport: FetchTransport): Phase5Client
       const body = decodeGateCheckRequest(request);
       return performChange(fetchTransport, "/api/v1/gates/" + encodePathString(path.gateId, "gateId") + "/check", body, options, operation, decodeGateEvaluation, false);
     },
-    async getGate(path, options = {}) {
+    async getGate(path, query = {}, options = {}) {
       const operation = "api.v1.gates.get";
-      return performRead(fetchTransport, "/api/v1/gates/" + encodePathString(path.gateId, "gateId") + "", options, operation, decodeGateView);
+      return performRead(fetchTransport, "/api/v1/gates/" + encodePathString(path.gateId, "gateId") + "" + hostGateQuery(query), options, operation, decodeGateView);
     },
-    async listGates(options = {}) {
+    async listGates(query = {}, options = {}) {
       const operation = "api.v1.gates.list";
-      return performRead(fetchTransport, "/api/v1/gates", options, operation, decodeGateListData);
+      return performRead(fetchTransport, "/api/v1/gates" + hostGateQuery(query), options, operation, decodeGateListData);
     },
     async listRecoveryPoints(query = {}, options = {}) {
       const operation = "api.v1.recovery-points.list";

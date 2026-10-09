@@ -6,7 +6,7 @@ import "encoding/json"
 
 const (
 	SchemaMajor                                    = 1
-	RegistrySchemaVersion                          = "1.24.0"
+	RegistrySchemaVersion                          = "1.25.0"
 	AvailabilityAvailable                          = "available"
 	AvailabilityPlanned                            = "planned"
 	FlagKindValue                                  = "value"
@@ -176,6 +176,7 @@ const (
 	SchemaIDHostDiscoveryTarget                    = "vegastack-labs.dev/host-discovery-target"
 	SchemaIDHostDiscoveryTargetDraftRequest        = "vegastack-labs.dev/host-discovery-target-draft-request"
 	SchemaIDHostDiscoveryTargetDraftSubmission     = "vegastack-labs.dev/host-discovery-target-draft-submission"
+	SchemaIDHostGateQuery                          = "vegastack-labs.dev/host-gate-query"
 	SchemaIDHostHardeningEvidenceFact              = "vegastack-labs.dev/host-hardening-evidence-fact"
 	SchemaIDHostIdentity                           = "vegastack-labs.dev/host-identity"
 	SchemaIDHostIdentityConfirmation               = "vegastack-labs.dev/host-identity-confirmation"
@@ -248,6 +249,7 @@ const (
 	SchemaIDRestoreVerification                    = "vegastack-labs.dev/restore-verification"
 	SchemaIDRestoreVerifyRequest                   = "vegastack-labs.dev/restore-verify-request"
 	SchemaIDResultError                            = "vegastack-labs.dev/result-error"
+	SchemaIDRoleObservation                        = "vegastack-labs.dev/role-observation"
 	SchemaIDRun                                    = "vegastack-labs.dev/run"
 	SchemaIDRunPresentation                        = "vegastack-labs.dev/run-presentation"
 	SchemaIDRunReferenceRequest                    = "vegastack-labs.dev/run-reference-request"
@@ -459,6 +461,7 @@ type AccessInterface struct {
 type AccessMeasurement struct {
 	Schema                string                         `json:"schema"`
 	SchemaVersion         string                         `json:"schemaVersion"`
+	Role                  *RoleObservation               `json:"role,omitempty"`
 	Baseline              *BaselineObservation           `json:"baseline,omitempty"`
 	Volume                *VolumeObservation             `json:"volume,omitempty"`
 	DestinationOwnership  []AccessDestinationObservation `json:"destinationOwnership,omitempty"`
@@ -2447,6 +2450,10 @@ type HostDiscoveryTargetDraftSubmission struct {
 	RecoveryEpoch int64  `json:"recoveryEpoch"`
 }
 
+type HostGateQuery struct {
+	SubjectID string `json:"subjectId"`
+}
+
 type HostHardeningEvidenceFact struct {
 	Schema          string  `json:"schema"`
 	SchemaVersion   string  `json:"schemaVersion"`
@@ -3367,6 +3374,15 @@ type ResultError struct {
 	Retryable bool   `json:"retryable"`
 }
 
+type RoleObservation struct {
+	Schema            string `json:"schema"`
+	SchemaVersion     string `json:"schemaVersion"`
+	RoleID            string `json:"roleId"`
+	RoleBindingDigest string `json:"roleBindingDigest"`
+	FactsDigest       string `json:"factsDigest"`
+	Verification      string `json:"verification"`
+}
+
 type Run struct {
 	Schema                  string              `json:"schema"`
 	SchemaVersion           string              `json:"schemaVersion"`
@@ -3880,8 +3896,8 @@ var Endpoints = []Endpoint{
 	{ID: "api.v1.gate-evidence.create", Method: "POST", Path: "/api/v1/gates/{gateId}/evidence", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/gate-evidence-request", DataSchema: "vegastack-labs.dev/gate-evidence-submission", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.gate-profile-drafts.create", Method: "POST", Path: "/api/v1/gates/profile-drafts", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/gate-profile-draft-request", DataSchema: "vegastack-labs.dev/gate-profile-draft-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.gates.check", Method: "POST", Path: "/api/v1/gates/{gateId}/check", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/gate-check-request", DataSchema: "vegastack-labs.dev/gate-evaluation", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
-	{ID: "api.v1.gates.get", Method: "GET", Path: "/api/v1/gates/{gateId}", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/gate-view", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
-	{ID: "api.v1.gates.list", Method: "GET", Path: "/api/v1/gates", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/gate-list-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.gates.get", Method: "GET", Path: "/api/v1/gates/{gateId}", Availability: "available", OwnerPhase: "5", QuerySchema: "vegastack-labs.dev/host-gate-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/gate-view", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.gates.list", Method: "GET", Path: "/api/v1/gates", Availability: "available", OwnerPhase: "5", QuerySchema: "vegastack-labs.dev/host-gate-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/gate-list-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.health.get", Method: "GET", Path: "/api/v1/health", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/server-status-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.host-access.draft", Method: "POST", Path: "/api/v1/host-access/draft", Availability: "available", OwnerPhase: "6", QuerySchema: "", RequestSchema: "vegastack-labs.dev/host-access-draft-request", DataSchema: "vegastack-labs.dev/host-action-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.host-actions.draft", Method: "POST", Path: "/api/v1/host-actions/draft", Availability: "available", OwnerPhase: "6", QuerySchema: "", RequestSchema: "vegastack-labs.dev/host-action-request", DataSchema: "vegastack-labs.dev/host-action-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},

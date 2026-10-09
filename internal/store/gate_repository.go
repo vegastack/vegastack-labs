@@ -15,7 +15,10 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/generated"
 )
 
-type GateRepository struct{ store *Store }
+type GateRepository struct {
+	store          *Store
+	hostProvenance HostAdmissionProvenance
+}
 
 func NewGateRepository(authority *Store) *GateRepository { return &GateRepository{store: authority} }
 

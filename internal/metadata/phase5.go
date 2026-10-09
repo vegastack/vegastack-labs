@@ -955,6 +955,9 @@ func phase5Endpoint(identifier, method, path, request, data string, browser bool
 func phase5AvailableGateEndpoint(identifier, method, path, request, data string, browser bool) EndpointDefinition {
 	endpoint := phase5Endpoint(identifier, method, path, request, data, browser)
 	endpoint.Availability = AvailabilityAvailable
+	if identifier == "api.v1.gates.list" || identifier == "api.v1.gates.get" {
+		endpoint.QuerySchema = "vegastack-labs.dev/host-gate-query"
+	}
 	return endpoint
 }
 

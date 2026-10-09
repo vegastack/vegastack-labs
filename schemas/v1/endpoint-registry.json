@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/endpoint-registry",
-  "schemaVersion": "1.24.0",
+  "schemaVersion": "1.25.0",
   "endpoints": [
     {
       "id": "api.v1.audit-checkpoints.create",
@@ -404,6 +404,7 @@
       "path": "/api/v1/gates/{gateId}",
       "availability": "available",
       "ownerPhase": "5",
+      "querySchema": "vegastack-labs.dev/host-gate-query",
       "dataSchema": "vegastack-labs.dev/gate-view",
       "stream": "finite",
       "audiences": [
@@ -417,6 +418,7 @@
       "path": "/api/v1/gates",
       "availability": "available",
       "ownerPhase": "5",
+      "querySchema": "vegastack-labs.dev/host-gate-query",
       "dataSchema": "vegastack-labs.dev/gate-list-data",
       "stream": "finite",
       "audiences": [

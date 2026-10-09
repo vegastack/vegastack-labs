@@ -1,0 +1,56 @@
+{
+  "$id": "vegastack-labs.dev/role-observation",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "factsDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "roleBindingDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "roleId": {
+      "enum": [
+        "control",
+        "application",
+        "ci",
+        "recovery-spare",
+        "reserve"
+      ],
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/role-observation"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "verification": {
+      "enum": [
+        "configuration-observed",
+        "effective-probe",
+        "unavailable"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "roleId",
+    "roleBindingDigest",
+    "factsDigest",
+    "verification"
+  ],
+  "title": "VegaStack Labs role observation",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

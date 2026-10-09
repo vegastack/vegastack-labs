@@ -416,6 +416,13 @@
           "github.com/vegastack/vegastack-labs/internal/debianbaseline"
         ],
         "mutationBoundaryDigest": "sha256:6d55250f6c92eb292cd5400e7bb80d03ddde1ff3950f3ed727da16837c980a4a"
+      },
+      {
+        "id": "phase6-issue229-v1",
+        "issue": 229,
+        "commands": [],
+        "imports": [],
+        "mutationBoundaryDigest": "sha256:3560c11c09d8106bb43c2ea9b847c48cd15a77b59b14f1edad326b4557793314"
       }
     ]
   },

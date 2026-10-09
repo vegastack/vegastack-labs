@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/command-registry",
-  "schemaVersion": "1.24.0",
+  "schemaVersion": "1.25.0",
   "commands": [
     {
       "path": [
@@ -5094,6 +5094,11 @@
       "artifactPath": "schemas/v1/host-discovery-target-draft-submission.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/host-gate-query",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-gate-query.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/host-hardening-evidence-fact",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/host-hardening-evidence-fact.schema.json"
@@ -5429,6 +5434,11 @@
     {
       "id": "vegastack-labs.dev/result-error",
       "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/role-observation",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/role-observation.schema.json"
     },
     {
       "id": "vegastack-labs.dev/run",

@@ -647,6 +647,12 @@ func renderGoGateDefinitions(definitions []metadata.GateDefinitionSource) ([]byt
 			"1.1.0", definition.GateID, definition.DefinitionVersion, definition.Layer, profile, capability, stringSlice(definition.SubjectKinds), definition.Applicability, stringSlice(definition.PrerequisiteGateIDs), definition.EvidenceSchemaID, definition.EvaluatorVersion, definition.FreshnessSeconds, definition.RecoveryEpochBound)
 	}
 	output.WriteString("}\n")
+	output.WriteString("type HostControlRequirement struct { ControlID, ProducerID string; ProducerControlIDs []string; Stage string; Roles []string; Applicability string }\n")
+	output.WriteString("var GeneratedHostControlRequirements = []HostControlRequirement{\n")
+	for _, r := range metadata.CurrentHostControlRequirements() {
+		fmt.Fprintf(&output, "{ControlID:%q,ProducerID:%q,ProducerControlIDs:%s,Stage:%q,Roles:%s,Applicability:%q},\n", r.ControlID, r.ProducerID, stringSlice(r.ProducerControlIDs), r.Stage, stringSlice(r.Roles), r.Applicability)
+	}
+	output.WriteString("}\n")
 	formatted, err := format.Source(output.Bytes())
 	if err != nil {
 		return nil, artifactError("GENERATED_GO_INVALID", "internal/generated/gate_definitions_gen.go")
