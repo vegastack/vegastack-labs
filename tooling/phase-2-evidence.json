@@ -444,6 +444,20 @@
           "github.com/vegastack/vegastack-labs/internal/hostreplacement"
         ],
         "mutationBoundaryDigest": "sha256:29075937b18f6c2ced724240d556863714fe03ddf4bf6e2cd177aac7005097ed"
+      },
+      {
+        "id": "phase6-issue239-v1",
+        "issue": 239,
+        "commands": [
+          "node access prepare",
+          "node action prepare",
+          "node observation inspect",
+          "node replacement inspect",
+          "node replacement prepare",
+          "node target prepare"
+        ],
+        "imports": [],
+        "mutationBoundaryDigest": "sha256:7b0e991d60047c05f6dd8bddbc0796abb96674c9a2cd2f5875d8aa5a4204d943"
       }
     ]
   },

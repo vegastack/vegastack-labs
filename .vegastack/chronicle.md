@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 09-10-2026 — Linux host work has one operator path ([#239](https://github.com/vegastack/vegastack-labs/issues/239))
+
+- **What:** The CLI and Nodes screen now guide target preparation, discovery, registration, hardening, role setup and replacement through the existing server plans and Slack acknowledgement. Operators can inspect current admission separately from a successful run, and see the server’s next recovery action without treating a partial restore as a completed ownership transfer.
+- **Why:** Earlier registration work left operators without the full Linux lifecycle controls promised by the approved scope.
+- **How it went:** The workflow was completed against the actual admission, role and replacement interfaces as they landed. Browser checks caught an invalid success fixture; the generated decoder correctly refused a passed gate with no evidence.
+- **Changed:** Bounded typed policy imports · scoped host inspection · explicit discovery · inert drafts · shared exact-plan controls · admission and replacement status · first-control-service guidance · equivalent CLI procedures. Software fixtures do not qualify native hosts, configure real Slack, or complete Mac/iMac acceptance.
+- **Decisions:** none.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/6.10.3-linux-host-workflows
+
 ## 09-10-2026 — Replacement preserves host ownership through recovery ([#233](https://github.com/vegastack/vegastack-labs/issues/233))
 
 - **What:** Operators can claim an unowned host alias, freeze its former machine and prepare a separately approved transfer to a qualified replacement. Control recovery carries newer alias history into an older database snapshot so recovery cannot silently restore an obsolete owner.

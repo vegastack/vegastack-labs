@@ -934,7 +934,7 @@ const (
 )
 
 func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
-	if reviewedLinuxRolePackage(candidate, strings.TrimSuffix(candidate.listed.ImportPath, "/internal/localapi"), "internal/localapi") {
+	if reviewedHostWorkflowPackage(candidate, strings.TrimSuffix(candidate.listed.ImportPath, "/internal/localapi"), "internal/localapi") || reviewedLinuxRolePackage(candidate, strings.TrimSuffix(candidate.listed.ImportPath, "/internal/localapi"), "internal/localapi") {
 		return true
 	}
 	names := append([]string(nil), candidate.listed.GoFiles...)

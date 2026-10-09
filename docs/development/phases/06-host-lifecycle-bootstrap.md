@@ -135,3 +135,10 @@ See the [host admission procedure](../host-admission-evidence.md). Applied nativ
 ## Replacement and recovery composition — 09-10-2026
 
 Issue #233 owns exact initial alias claims, old-host authority freeze, independent current denial, verified source/candidate continuity and all-alias compare-and-swap after common role admission. See the [procedure](../host-replacement.md). It restores through existing recovery operations, preserves newer alias history across older backups and never substitutes setup, role reapply or a canary no-op for restoration. Software verification is separate from #228 native qualification and #234 integrated reporting; Mac/iMac and full-v1 acceptance remain pending.
+
+
+## Linux operator workflow
+
+Issue #239 completes the CLI and Console path over the existing discovery, registration, hardening, role/admission and replacement interfaces. Policy imports and draft preparation remain inert; effectful work still needs the exact server plan, current authorization and Slack acknowledgement. The Nodes screen distinguishes installation results, current gate evaluation and persisted replacement stages, and directs incomplete restore work to the existing recovery view and server-provided safe next action. See the [operator procedure](../host-lifecycle-workflow.md).
+
+Generated-client and browser fixtures verify the software boundary, not actual hardware, external credentials or native controls. The connected API/store tests use temporary databases and synthetic external peers. Native qualification remains #228, aggregate Linux acceptance remains #234, Mac/iMac remain pending, and development grants no fleet access or real Slack configuration. Nodes04/05 remain excluded.
