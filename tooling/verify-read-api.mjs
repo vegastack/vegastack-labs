@@ -69,6 +69,8 @@ const REVIEWED_HOST_ACCESS_ENDPOINTS = [{"id":"api.v1.host-access.draft","method
 // #233 adds only inert replacement drafts and scoped state reads.
 // Alias claim reuses declarations; execution remains on acknowledged plans.
 const REVIEWED_HOST_REPLACEMENT_ENDPOINTS = [{"id":"api.v1.host-replacements.create","method":"POST","path":"/api/v1/host-replacements","availability":"available","ownerPhase":"6","requestSchema":"vegastack-labs.dev/host-replacement-request","dataSchema":"vegastack-labs.dev/host-replacement-submission","stream":"finite","audiences":["browser","operator"]},{"id":"api.v1.host-replacements.get","method":"GET","path":"/api/v1/host-replacements/{replacementId}","availability":"available","ownerPhase":"6","dataSchema":"vegastack-labs.dev/host-replacement-state","stream":"finite","audiences":["browser","operator"]}];
+// #247 adds one inert operator grant-batch draft; apply retains the existing plan route.
+const REVIEWED_GRANT_ENDPOINTS = [{"id":"api.v1.authorization.grant-batches.create","method":"POST","path":"/api/v1/authorization/grant-batches","availability":"available","ownerPhase":"6","requestSchema":"vegastack-labs.dev/authorization-grant-batch-request","dataSchema":"vegastack-labs.dev/declaration-revision","stream":"finite","audiences":["operator"]}];
 const REVIEWED_DISCOVERY_ENDPOINTS = ["api.v1.host-discovery-targets.draft", "api.v1.host-observations.create", "api.v1.host-observations.get"];
 const REVIEWED_OPERATOR_ENDPOINTS = [
   "api.v1.database-backups.create", "api.v1.database-exports.create", "api.v1.database-restores.create", "api.v1.database-verifications.create",
@@ -139,8 +141,14 @@ export async function verifyReadAPI(root = ROOT) {
         return actual && Object.keys(actual).length === Object.keys(expected).length && Object.entries(expected).every(([key, value]) => JSON.stringify(actual[key]) === JSON.stringify(value));
       });
       const replacementIDs = replacementEndpoints.map(({id}) => id);
-      const historicalIDs = ids.filter((id) => !gateIDs.includes(id) && !credentialImportIDs.includes(id) && !auditIDs.includes(id) && !lifecycleIDs.includes(id) && !backupIDs.includes(id) && !operatorIDs.includes(id) && !discoveryIDs.includes(id) && !adoptionIDs.includes(id) && !hostActionIDs.includes(id) && !hostAccessIDs.includes(id) && !replacementIDs.includes(id));
-      if (!replacementExact || !hostAccessExact || !hostActionExact || !adoptionExact || JSON.stringify(discoveryIDs) !== JSON.stringify(REVIEWED_DISCOVERY_ENDPOINTS) || JSON.stringify(historicalIDs) !== JSON.stringify(EXPECTED_ENDPOINTS) ||
+      const grantEndpoints = registry.endpoints.filter(({id}) => id.startsWith("api.v1.authorization."));
+      const grantExact = grantEndpoints.length === REVIEWED_GRANT_ENDPOINTS.length && REVIEWED_GRANT_ENDPOINTS.every((expected) => {
+        const actual = grantEndpoints.find(({id}) => id === expected.id);
+        return actual && Object.keys(actual).length === Object.keys(expected).length && Object.entries(expected).every(([key, value]) => JSON.stringify(actual[key]) === JSON.stringify(value));
+      });
+      const grantIDs = grantEndpoints.map(({id}) => id);
+      const historicalIDs = ids.filter((id) => !gateIDs.includes(id) && !credentialImportIDs.includes(id) && !auditIDs.includes(id) && !lifecycleIDs.includes(id) && !backupIDs.includes(id) && !operatorIDs.includes(id) && !discoveryIDs.includes(id) && !adoptionIDs.includes(id) && !hostActionIDs.includes(id) && !hostAccessIDs.includes(id) && !replacementIDs.includes(id) && !grantIDs.includes(id));
+      if (!grantExact || !replacementExact || !hostAccessExact || !hostActionExact || !adoptionExact || JSON.stringify(discoveryIDs) !== JSON.stringify(REVIEWED_DISCOVERY_ENDPOINTS) || JSON.stringify(historicalIDs) !== JSON.stringify(EXPECTED_ENDPOINTS) ||
           JSON.stringify(gateIDs) !== JSON.stringify(REVIEWED_GATE_ENDPOINTS) ||
           JSON.stringify(credentialImportIDs) !== JSON.stringify(REVIEWED_CREDENTIAL_IMPORT_ENDPOINTS) ||
           JSON.stringify(auditIDs) !== JSON.stringify(REVIEWED_AUDIT_ENDPOINTS) || JSON.stringify(lifecycleIDs) !== JSON.stringify(REVIEWED_CREDENTIAL_LIFECYCLE_ENDPOINTS) || JSON.stringify(operatorIDs) !== JSON.stringify(REVIEWED_OPERATOR_ENDPOINTS) ||
