@@ -36,18 +36,19 @@ type BaselineProfile struct {
 	Digest string `json:"digest"`
 }
 type RollbackRecord struct {
-	BaselineProfiles    []BaselineProfile `json:"baselineProfiles,omitempty"`
-	RunID               string            `json:"runId"`
-	HostID              string            `json:"hostId"`
-	HostIdentityDigest  string            `json:"hostIdentityDigest"`
-	PlanID              string            `json:"planId"`
-	InputDigest         string            `json:"inputDigest"`
-	AuthorizationDigest string            `json:"authorizationDigest"`
-	BundleDigest        string            `json:"bundleDigest"`
-	BootID              string            `json:"bootId"`
-	ArmedAt             time.Time         `json:"armedAt"`
-	Deadline            time.Time         `json:"deadline"`
-	Files               []RollbackFile    `json:"files"`
+	BaselineProfileStates map[string]string `json:"baselineProfileStates,omitempty"`
+	BaselineProfiles      []BaselineProfile `json:"baselineProfiles,omitempty"`
+	RunID                 string            `json:"runId"`
+	HostID                string            `json:"hostId"`
+	HostIdentityDigest    string            `json:"hostIdentityDigest"`
+	PlanID                string            `json:"planId"`
+	InputDigest           string            `json:"inputDigest"`
+	AuthorizationDigest   string            `json:"authorizationDigest"`
+	BundleDigest          string            `json:"bundleDigest"`
+	BootID                string            `json:"bootId"`
+	ArmedAt               time.Time         `json:"armedAt"`
+	Deadline              time.Time         `json:"deadline"`
+	Files                 []RollbackFile    `json:"files"`
 	// Firewall snapshots contain only the finite owned chain, never shared tables.
 	Firewall              []RollbackFirewall  `json:"firewall,omitempty"`
 	State                 string              `json:"state"`
@@ -71,6 +72,7 @@ type RollbackFirewall struct {
 }
 
 func (r RollbackRecord) Digest() string {
+	r.BaselineProfileStates = nil
 	r.State = ""
 	r.ProbeDigest = ""
 	r.ReconciledBootID = ""
@@ -112,6 +114,11 @@ func validRollback(r RollbackRecord) bool {
 			return false
 		}
 		profiles[p.Name] = true
+	}
+	for name, state := range r.BaselineProfileStates {
+		if !profiles[name] || (state != "adding" && state != "added") {
+			return false
+		}
 	}
 	seen := map[string]bool{}
 	for _, f := range r.Files {

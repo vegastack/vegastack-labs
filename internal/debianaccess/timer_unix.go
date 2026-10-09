@@ -161,7 +161,7 @@ func (n *nativeRuntime) restore(ctx context.Context) error {
 		if e := n.restoreFirewall(ctx, r, newBoot, false); e != nil {
 			return e
 		}
-		if e := n.restoreBaselineProfiles(ctx, r.BaselineProfiles); e != nil {
+		if e := n.restoreBaselineProfiles(ctx, r, newBoot); e != nil {
 			return e
 		}
 		if len(r.BaselineServices) > 0 {

@@ -75,18 +75,36 @@ func (n *nativeRuntime) loadBaselineProfiles(ctx context.Context, digest string)
 		if e = n.checkBaselineProfiles(ctx, r.BaselineProfiles, true); e != nil {
 			return e
 		}
+		if r.BaselineProfileStates == nil {
+			r.BaselineProfileStates = map[string]string{}
+		}
 		for _, p := range r.BaselineProfiles {
+			if r.BaselineProfileStates[p.Name] != "" {
+				return errAccess
+			}
+		}
+		for _, p := range r.BaselineProfiles {
+			r.BaselineProfileStates[p.Name] = "adding"
+			if e = saveRollback(fs, r); e != nil {
+				return e
+			}
 			if _, e = n.run(ctx, "/usr/sbin/apparmor_parser", []string{"--add", "--skip-cache", "--config-file=/dev/null", "--", path.Join(n.root, p.File)}, nil); e != nil {
+				return e
+			}
+			r.BaselineProfileStates[p.Name] = "added"
+			if e = saveRollback(fs, r); e != nil {
 				return e
 			}
 		}
 		return nil
 	})
 }
-func (n *nativeRuntime) restoreBaselineProfiles(ctx context.Context, profiles []BaselineProfile) error {
+func (n *nativeRuntime) restoreBaselineProfiles(ctx context.Context, r RollbackRecord, newBoot bool) error {
+	profiles := r.BaselineProfiles
 	if e := n.checkBaselineProfiles(ctx, profiles, false); e != nil {
 		return e
 	}
+	ambiguous := false
 	for _, p := range profiles {
 		raw, e := n.run(ctx, "/usr/sbin/aa-status", []string{"--json"}, nil)
 		if e != nil {
@@ -98,12 +116,24 @@ func (n *nativeRuntime) restoreBaselineProfiles(ctx context.Context, profiles []
 		if json.Unmarshal(raw, &s) != nil {
 			return errAccess
 		}
+		state := r.BaselineProfileStates[p.Name]
+		if state == "adding" {
+			ambiguous = true
+			continue
+		}
 		if _, ok := s.Profiles[p.Name]; !ok {
+			continue
+		}
+		if state != "added" || newBoot {
+			ambiguous = true
 			continue
 		}
 		if _, e = n.run(ctx, "/usr/sbin/apparmor_parser", []string{"--remove", "--skip-cache", "--config-file=/dev/null", "--", path.Join(n.root, p.File)}, nil); e != nil {
 			return e
 		}
+	}
+	if ambiguous {
+		return errAccess
 	}
 	return nil
 }

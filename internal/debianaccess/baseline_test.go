@@ -122,6 +122,7 @@ func TestBaselineAbsentProfilesRollbackAfterPartialLoad(t *testing.T) {
 				return []byte(name), nil
 			case "--add":
 				if name == "second" {
+					loaded[name] = "enforce" // The process failed after an effect: ownership remains ambiguous.
 					return nil, errAccess
 				}
 				loaded[name] = "enforce"
@@ -141,8 +142,8 @@ func TestBaselineAbsentProfilesRollbackAfterPartialLoad(t *testing.T) {
 	if e = f.n.loadBaselineProfiles(context.Background(), d); e == nil || loaded["first"] != "enforce" {
 		t.Fatal("missing partial effect", e, loaded)
 	}
-	if e = f.n.restore(context.Background()); e != nil || len(loaded) != 0 {
-		t.Fatal("partial profile not restored", e, loaded)
+	if e = f.n.restore(context.Background()); e == nil || loaded["first"] != "" || loaded["second"] != "enforce" {
+		t.Fatal("successful addition not removed or ambiguous failure falsely restored", e, loaded)
 	}
 }
 
@@ -205,5 +206,57 @@ func TestBaselineBootRestorationRemainsPendingUntilServiceObserved(t *testing.T)
 func TestBaselineBootRollbackFollowsAppArmorLoad(t *testing.T) {
 	if !strings.Contains(rollbackBootService, "After=local-fs.target apparmor.service\n") || !strings.Contains(rollbackBootService, "Before=network-pre.target ssh.service ssh.socket docker.service") {
 		t.Fatal("boot profile recovery ordering lost")
+	}
+}
+
+func TestBaselinePreAddRefusalNeverRemovesExternalProfile(t *testing.T) {
+	f := nativeFixtureNew(t)
+	os.MkdirAll(filepath.Join(f.root, "etc/apparmor.d"), 0700)
+	raw := []byte("profile owned { }\n")
+	os.WriteFile(filepath.Join(f.root, "etc/apparmor.d/owned"), raw, 0600)
+	loaded := false
+	removed := false
+	original := f.n.run
+	f.n.run = func(ctx context.Context, bin string, args []string, b []byte) ([]byte, error) {
+		if bin == "/usr/sbin/aa-status" {
+			profiles := map[string]string{}
+			if loaded {
+				profiles["owned"] = "enforce"
+			}
+			return json.Marshal(map[string]any{"profiles": profiles})
+		}
+		if bin == "/usr/sbin/apparmor_parser" {
+			if args[0] == "--names" {
+				return []byte("owned"), nil
+			}
+			if args[0] == "--remove" {
+				removed = true
+				loaded = false
+				return nil, nil
+			}
+			t.Fatal("unexpected profile mutation", args)
+		}
+		return original(ctx, bin, args, b)
+	}
+	d, e := f.n.armBaselineProfiles(context.Background(), f.bundle, nil, nil, []BaselineProfile{{File: "etc/apparmor.d/owned", Name: "owned", Digest: digestBytes(raw)}})
+	if e != nil {
+		t.Fatal(e)
+	}
+	loaded = true // A different administrator/service wins before our --add.
+	if e = f.n.loadBaselineProfiles(context.Background(), d); e == nil {
+		t.Fatal("external load not refused")
+	}
+	_ = f.n.restore(context.Background())
+	if removed || !loaded {
+		t.Fatal("rollback removed external confinement")
+	}
+	fs, e := os.OpenRoot(f.root)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer fs.Close()
+	r, e := readRollback(fs)
+	if e != nil || r.State != "uncertain" {
+		t.Fatal("external ownership not retained as uncertain", r.State, e)
 	}
 }
