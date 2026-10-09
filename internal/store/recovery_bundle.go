@@ -49,14 +49,24 @@ func (store *Store) WriteRecoveredAuthorityBundle(ctx context.Context, bundle Re
 		}
 		continuityBytes, _ = json.Marshal(bundle.ReplacementContinuity)
 	}
+	// The source snapshot can predate its approved restore plan. Preserve the
+	// sealed plan's revision floor in the recovered epoch so the exact canary
+	// remains executable; never weaken its plan/run comparison or roll a newer
+	// destination revision backwards. This does not enable ordinary mutation.
+	finish := func() error {
+		if _, err := tx.ExecContext(ctx, `UPDATE system_meta SET state_revision=MAX(state_revision,?) WHERE id=1`, bundle.Plan.Binding.StateRevision); err != nil {
+			return err
+		}
+		return tx.Commit()
+	}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO recovery_authority_bundles(plan_id,plan_digest,bundle_digest,plan_bytes,readable_plan,request_bytes,binding_bytes,status,created_at,continuity_bytes) VALUES(?,?,?,?,?,?,?,?,?,?)`, bundle.Plan.PlanID, bundle.Plan.PlanDigest, digest, planBytes, bundle.Readable, requestBytes, bindingBytes, bundle.Status, store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339), continuityBytes); err != nil {
 		var existingDigest string
 		if getErr := tx.QueryRowContext(ctx, `SELECT bundle_digest FROM recovery_authority_bundles WHERE plan_id=?`, bundle.Plan.PlanID).Scan(&existingDigest); getErr == nil && existingDigest == digest {
-			return digest, nil
+			return digest, finish()
 		}
 		return "", newStoreError(generated.ErrorCodeStateConflict, "recovery-authority-bundle", false, err)
 	}
-	if err := tx.Commit(); err != nil {
+	if err := finish(); err != nil {
 		return "", err
 	}
 	return digest, nil

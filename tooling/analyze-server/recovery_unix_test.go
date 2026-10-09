@@ -9,6 +9,7 @@ import (
 func TestReviewedRecoveryUnixFileRequiresExactSource(t *testing.T) {
 	for _, path := range []string{
 		"internal/adapter/localbackup/recovery_restore_linux.go",
+		"internal/recovery/candidate_destination_linux.go",
 		"internal/recovery/manifest_file_unix.go",
 		"internal/recovery/receipt_file_unix.go",
 		"internal/recovery/package_file_unix.go",

@@ -472,3 +472,18 @@ func readRestoredAliasWatermark(ctx context.Context, path string) (int64, error)
 	}
 	return watermark, nil
 }
+
+// InspectSnapshotBytes uses the same authenticated restore and SQLite
+// inspection as source verification. No caller-proposed size is accepted.
+func (reader *recoverySnapshotReader) InspectSnapshotBytes(ctx context.Context) (int64, error) {
+	var size int64
+	err := reader.withRestored(ctx, "restore-size-"+reader.source.Verification.VerificationID, reader.source.Verification.ProofDigest, "size-run-"+reader.source.Point.PointID, "size-step", "size-lease-"+randomHex(12), func(path string) error {
+		info, err := os.Lstat(path)
+		if err != nil || !info.Mode().IsRegular() || info.Size() <= 0 {
+			return backupError(generated.ErrorCodeIntegrityFailure, "restore-snapshot-size")
+		}
+		size = info.Size()
+		return nil
+	})
+	return size, err
+}

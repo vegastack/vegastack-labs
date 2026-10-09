@@ -443,7 +443,7 @@
         "imports": [
           "github.com/vegastack/vegastack-labs/internal/hostreplacement"
         ],
-        "mutationBoundaryDigest": "sha256:3edf78a249e7a2249617638af4843c2b95e8e571b9a736f7a5ead75d687d7e78"
+        "mutationBoundaryDigest": "sha256:29075937b18f6c2ced724240d556863714fe03ddf4bf6e2cd177aac7005097ed"
       }
     ]
   },

@@ -98,6 +98,9 @@ func (manager CandidateManager) Stage(ctx context.Context, binding generated.Res
 	if err != nil {
 		return CandidateReceipt{}, err
 	}
+	if err := manager.preflightReplacementDestination(ctx, binding, source, paths); err != nil {
+		return CandidateReceipt{}, err
+	}
 	if err := manager.Storage.CreateCandidate(ctx, paths); err != nil {
 		return CandidateReceipt{}, err
 	}

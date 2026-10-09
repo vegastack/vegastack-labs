@@ -30,9 +30,16 @@ func (g StoreReplacementContinuityGuard) PrepareReplacementContinuity(ctx contex
 	if err != nil {
 		return nil, err
 	}
+	watermark, err := InspectVerifiedSourceAliasWatermark(ctx, source)
+	if err != nil {
+		return nil, err
+	}
 	if current == 0 {
-		if request.ReplacementContinuity != nil {
+		if watermark != 0 || request.ReplacementContinuity != nil {
 			return deny()
+		}
+		if err := g.Authority.VerifyOriginalEmptyHostAuthority(ctx); err != nil {
+			return nil, err
 		}
 		return nil, nil
 	}
@@ -42,10 +49,6 @@ func (g StoreReplacementContinuityGuard) PrepareReplacementContinuity(ctx contex
 	}
 	if draft.Request.Source == nil || draft.Request.Source.SourceBindingDigest != hostaction.Digest(source.Binding) || draft.Request.Source.CustodyReferenceID != request.RecoveryDraftID || draft.Request.Source.CustodyBindingDigest != request.SourceAdmissionDigest {
 		return deny()
-	}
-	watermark, err := InspectVerifiedSourceAliasWatermark(ctx, source)
-	if err != nil {
-		return nil, err
 	}
 	ref := generated.HostReplacementContinuityReference{Schema: generated.SchemaIDHostReplacementContinuityReference, SchemaVersion: "1.0.0", ReplacementID: draft.Request.ReplacementID, SourcePointID: source.Binding.PointID, SourceBindingDigest: hostaction.Digest(source.Binding), SourceAliasHighWatermark: watermark}
 	continuity, err := g.Authority.LoadHostReplacementContinuity(ctx, draft.Request.ReplacementID, ref)

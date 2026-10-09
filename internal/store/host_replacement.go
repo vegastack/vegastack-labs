@@ -136,13 +136,7 @@ func validateReplacementHosts(row discoveryRow, q generated.HostReplacementReque
 	if row(`SELECT canonical_bytes FROM declaration_revisions WHERE declaration_id=? AND declaration_revision=?`, q.ProposedRoleDeclarationID, q.ProposedRoleDeclarationRevision).Scan(&declared) != nil || json.Unmarshal(declared, &declaration) != nil || declaration.DeclarationID != q.ProposedRoleDeclarationID || declaration.Revision != q.ProposedRoleDeclarationRevision {
 		return replacementError(generated.ErrorCodePlanStale)
 	}
-	if q.Operation == "freeze" {
-		var prior []byte
-		var p generated.Plan
-		if row(`SELECT p.canonical_bytes FROM immutable_plans p JOIN plan_runs r ON r.plan_id=p.plan_id AND r.plan_digest=p.plan_digest JOIN plan_run_steps s ON s.run_id=r.run_id WHERE s.target_id=? AND s.effect_state IN ('intent-recorded','receipt-recorded','effect-unknown','verified') AND json_extract(p.canonical_bytes,'$.hostAction.actionId') IN ('debian.role.apply','debian.control.handoff') ORDER BY p.state_revision DESC,p.plan_id DESC LIMIT 1`, q.OldHostID).Scan(&prior) != nil || json.Unmarshal(prior, &p) != nil || p.HostRoleScope == nil || p.DeclarationID != q.RoleDeclarationID || p.Binding.DeclarationRevision != q.RoleDeclarationRevision || p.HostRoleScope.RoleBindingDigest != q.OldRoleBindingDigest || p.HostRoleScope.ProfileLockDigest != q.ProfileLockDigest || p.HostRoleScope.SubjectIdentityDigest != q.OldIdentityDigest {
-			return replacementError(generated.ErrorCodePlanStale)
-		}
-	}
+
 	// Exact proposed role declaration is an existing ordinary role action draft.
 	d, err := readHostActionDraft(row, q.ProposedRoleDeclarationID)
 	if err != nil {
@@ -152,7 +146,7 @@ func validateReplacementHosts(row discoveryRow, q generated.HostReplacementReque
 	if err != nil || in.HostID != q.NewHostID || in.HostIdentityDigest != q.NewIdentityDigest || in.RoleBindingDigest != q.ProposedRoleBindingDigest || in.ProfileLockDigest != q.ProfileLockDigest || hostreplacement.RolePreimageDigest(in) != q.PreservedPreimageDigest {
 		return replacementError(generated.ErrorCodePlanStale)
 	}
-	return nil
+	return validateReplacementRestorationClass(row, q, in.RoleID)
 }
 func (r *HostReplacementRepository) Stage(ctx context.Context, q generated.HostReplacementRequest, a audit.Attribution) (HostReplacementDraft, error) {
 	if r == nil || r.store == nil || hostreplacement.ValidateInput(q) != nil {
@@ -340,4 +334,26 @@ func (r *HostReplacementRepository) ValidateDraftBinding(ctx context.Context, d 
 	return r.store.Read(ctx, func(tx ReadTx) error {
 		return validateReplacementDraftBinding(func(q string, a ...any) *sql.Row { return tx.queryRow(ctx, q, a...) }, d)
 	})
+}
+
+// Restoration class is a consequence of persisted ownership, never a caller's
+// assertion that a control database has no payload. Recheck on every stage.
+func validateReplacementRestorationClass(row discoveryRow, q generated.HostReplacementRequest, proposedRole string) error {
+	var raw []byte
+	var p generated.Plan
+	if row(`SELECT p.canonical_bytes FROM immutable_plans p JOIN plan_runs r ON r.plan_id=p.plan_id AND r.plan_digest=p.plan_digest JOIN plan_run_steps s ON s.run_id=r.run_id WHERE s.target_id=? AND s.effect_state IN ('intent-recorded','receipt-recorded','effect-unknown','verified') AND json_extract(p.canonical_bytes,'$.hostAction.actionId') IN ('debian.role.apply','debian.control.handoff') ORDER BY p.state_revision DESC,p.plan_id DESC LIMIT 1`, q.OldHostID).Scan(&raw) != nil || json.Unmarshal(raw, &p) != nil || p.HostAction == nil || p.HostRoleScope == nil || p.DeclarationID != q.RoleDeclarationID || p.Binding.DeclarationRevision != q.RoleDeclarationRevision || p.HostRoleScope.RoleBindingDigest != q.OldRoleBindingDigest || p.HostRoleScope.ProfileLockDigest != q.ProfileLockDigest || p.HostRoleScope.SubjectIdentityDigest != q.OldIdentityDigest {
+		return replacementError(generated.ErrorCodePlanStale)
+	}
+	in, err := linuxrole.DecodeInput([]byte(p.HostAction.ActionInput))
+	if err != nil || in.HostID != q.OldHostID || in.HostIdentityDigest != q.OldIdentityDigest || in.RoleBindingDigest != q.OldRoleBindingDigest || in.RoleID != p.HostRoleScope.RoleID || in.RoleID != proposedRole {
+		return replacementError(generated.ErrorCodePrerequisiteBlocked)
+	}
+	class := "stateless-role"
+	if in.RoleID == "control" {
+		class = "control-database"
+	}
+	if q.RestorationClass != class || (class == "control-database" && q.Source == nil) {
+		return replacementError(generated.ErrorCodePrerequisiteBlocked)
+	}
+	return nil
 }

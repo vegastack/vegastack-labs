@@ -49,7 +49,7 @@ func TestReplacementStageNeverClaimsRecoveredAuthority(t *testing.T) {
 }
 func TestReplacementDestinationPreservesCapacityAndIdentity(t *testing.T) {
 	in, _ := restoreFixture()
-	observed := ReplacementDestination{HostID: in.NewHostID, IdentityDigest: in.NewIdentityDigest, TargetDigest: in.NewTargetDigest, ProfileLockDigest: in.ProfileLockDigest, PreservedPreimageDigest: in.PreservedPreimageDigest, CapacityBytes: 1000, SnapshotBytes: 400, PreservedBytes: 200, VolumeProofDigest: "proof", CandidatePreimageDigest: "candidate"}
+	observed := ReplacementDestination{HostID: in.NewHostID, IdentityDigest: in.NewIdentityDigest, TargetDigest: in.NewTargetDigest, ProfileLockDigest: in.ProfileLockDigest, PreservedPreimageDigest: in.PreservedPreimageDigest, CapacityBytes: 1000, SnapshotBytes: 400, PreservedBytes: 200, FilesystemObservationDigest: "proof", CandidatePreimageDigest: "candidate"}
 	if e := ValidateDestination(in, observed); e != nil {
 		t.Fatal(e)
 	}

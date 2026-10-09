@@ -51,10 +51,11 @@ func BuildRestoreChange(ctx context.Context, request generated.RestoreRequest, s
 	canary := generated.DeclarationOperation{Sequence: 2, OperationID: request.CanaryStepID, OperationType: "recovery.canary.noop", AdapterID: "core.recovery", TargetID: request.NewInstanceID, InputDigest: request.CanaryBindingDigest, ArtifactDigest: request.CanaryBindingDigest, Idempotent: true}
 	extensions := []generated.ContractExtension{{Name: "x-restore-binding", ValueDigest: bindingDigest}}
 	semantic := struct {
-		DeclarationID, DeclarationType string
-		Operations                     []generated.DeclarationOperation
-		ReasonDigest                   string
-		Extensions                     []generated.ContractExtension
+		DeclarationID   string                           `json:"declarationId"`
+		DeclarationType string                           `json:"declarationType"`
+		Operations      []generated.DeclarationOperation `json:"operations"`
+		ReasonDigest    string                           `json:"reasonDigest"`
+		Extensions      []generated.ContractExtension    `json:"extensions"`
 	}{
 		"restore-" + strings.TrimPrefix(bindingDigest, "sha256:")[:32], "recovery.restore", []generated.DeclarationOperation{operation, canary}, request.AuditDecisionDigest, extensions,
 	}

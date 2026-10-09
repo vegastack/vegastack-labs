@@ -77,13 +77,12 @@ func (bundles StoreRecoveryBundleStore) WriteRecoveryBundle(ctx context.Context,
 			return "", failure.New(generated.ErrorCodePlanStale, "replacement-continuity", false)
 		}
 		replacementContinuity = &current
-	} else if bundles.Authority != nil {
-		watermark, readErr := bundles.Authority.HostAliasHighWatermark(ctx)
-		if readErr != nil {
-			return "", readErr
-		}
-		if watermark != 0 {
+	} else {
+		if bundles.Authority == nil {
 			return "", failure.New(generated.ErrorCodePrerequisiteBlocked, "replacement-continuity", false)
+		}
+		if err := bundles.Authority.VerifyOriginalEmptyHostAuthority(ctx); err != nil {
+			return "", err
 		}
 	}
 	candidate, err := bundles.Open(ctx, path)
@@ -91,6 +90,11 @@ func (bundles StoreRecoveryBundleStore) WriteRecoveryBundle(ctx context.Context,
 		return "", err
 	}
 	defer candidate.Close()
+	if replacementContinuity == nil {
+		if err := candidate.VerifyEmptyHostAliasHistory(ctx); err != nil {
+			return "", err
+		}
+	}
 	return candidate.WriteRecoveredAuthorityBundle(ctx, store.RecoveredAuthorityBundle{ReplacementContinuity: replacementContinuity, Plan: planned.Plan, Readable: planned.Readable, Request: qualification.Request, Binding: binding, Status: "verification-required"})
 }
 
