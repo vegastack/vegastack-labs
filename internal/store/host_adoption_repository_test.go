@@ -126,7 +126,7 @@ func (f *registrationStoreFixture) bind(t *testing.T, d HostAdoptionDraft, modes
 	exec(`INSERT INTO plan_run_steps(step_id,run_id,sequence,operation_id,operation_type,adapter_id,executor_id,target_id,input_digest,artifact_digest,idempotent,status,effect_state,active_lease_id,result_digest,started_at,finished_at) VALUES(?,?,1,'adopt','host.adopt','core.host-adoption','executor',?,?,?,1,'running','intent-recorded',?,NULL,'now',NULL)`, stepID, runID, id, d.Digest, d.Digest, leaseID)
 	exec(`INSERT INTO target_execution_leases (lease_id,run_id,step_id,target_id,binding_digest,nonce_digest,recovery_epoch,claimed_at,renew_after,expires_at,maximum_expires_at,status,canonical_bytes) VALUES(?,?,?,?,?,?,0,'2026-01-01T00:00:00Z','2026-12-01T00:00:00Z',?,'later','active',?)`, leaseID, runID, stepID, id, hash, hash, f.s.config.Clock().Add(time.Hour).UTC().Format(time.RFC3339), []byte(`{}`))
 	for _, v := range []struct{ action, cap, kind string }{{"acknowledge", "plan.acknowledge", "plan-target"}, {"execute", "host.adopt", "execution-target"}} {
-		exec(`INSERT INTO effective_authorization_grants VALUES(?,'operator-a','control-plane-admin',?,?,?,?,'human',1,'active','now','now')`, v.action+id, v.action, v.cap, v.kind, id)
+		exec(`INSERT OR IGNORE INTO effective_authorization_grants VALUES(?,'operator-a','control-plane-admin',?,?,?,?,'human',1,'active','now','now')`, v.action+d.Request.HostID, v.action, v.cap, v.kind, d.Request.HostID)
 	}
 	_, err := f.s.executeAuditIntent(f.ctx, discoveryIntent(f.attr, "run.created", runID, hash, hash), false, func(context.Context, *sql.Tx) error { return nil })
 	if err != nil {

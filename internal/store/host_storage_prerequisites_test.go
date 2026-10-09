@@ -202,7 +202,7 @@ func TestBaselineScopeUsesCanonicalSubjectRoleAuthorization(t *testing.T) {
 		t.Fatal(e)
 	}
 	for _, host := range []string{"synthetic-host", "custodian"} {
-		exec(`INSERT INTO effective_authorization_grants VALUES(?,'operator-a','control-plane-admin','acknowledge','plan.acknowledge','plan-target',?,'human',1,'active','now','now')`, "baseline-ack-"+host, host)
+		exec(`INSERT OR IGNORE INTO effective_authorization_grants VALUES(?,'operator-a','control-plane-admin','acknowledge','plan.acknowledge','plan-target',?,'human',1,'active','now','now')`, "baseline-ack-"+host, host)
 		role := "infrastructure-admin"
 		if host == "synthetic-host" {
 			role = "maintainer"
