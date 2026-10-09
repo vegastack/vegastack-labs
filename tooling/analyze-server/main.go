@@ -127,7 +127,10 @@ func analyze(root string) (analysis, error) {
 			// #223 uses only these reviewed protected-file and cancellable-pipe
 			// helpers; sibling files gain no Unix syscall permission.
 			approvedHostActionFile := relative == "internal/hostaction/policy_unix.go" || relative == "internal/hostaction/receipt_unix.go" || relative == "internal/hostaction/pipe_unix.go"
-			if importPath == "golang.org/x/sys/unix" && !(approvedClientFile || approvedLinuxFile || approvedBackupAdapterFile || approvedHostActionFile || isReviewedRecoverySource) {
+			// #225 confines native rollback, interface inspection and namespace probes
+			// to exact files; other Debian helpers remain outside this permission.
+			approvedAccessFile := relative == "internal/debianaccess/rollback_unix.go" || relative == "internal/debianaccess/observations_unix.go" || relative == "internal/debianaccess/source_probe_linux.go"
+			if importPath == "golang.org/x/sys/unix" && !(approvedClientFile || approvedLinuxFile || approvedBackupAdapterFile || approvedHostActionFile || approvedAccessFile || isReviewedRecoverySource) {
 				result.XSysOutsideScope = true
 			}
 		}
