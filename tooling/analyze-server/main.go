@@ -131,7 +131,7 @@ func analyze(root string) (analysis, error) {
 			// to exact files; other Debian helpers remain outside this permission.
 			approvedAccessFile := relative == "internal/debianaccess/rollback_unix.go" || relative == "internal/debianaccess/observations_unix.go" || relative == "internal/debianaccess/source_probe_linux.go"
 			approvedBaselineFile := relative == "internal/debianbaseline/volume_files_unix.go" || relative == "internal/debianbaseline/volume_recovery_linux.go" || relative == "internal/debianbaseline/volume_linux.go"
-			if importPath == "golang.org/x/sys/unix" && !(approvedClientFile || approvedLinuxFile || approvedBackupAdapterFile || approvedHostActionFile || approvedAccessFile || approvedBaselineFile || isReviewedRecoverySource) {
+			if importPath == "golang.org/x/sys/unix" && !(approvedClientFile || approvedLinuxFile || approvedBackupAdapterFile || approvedHostActionFile || approvedAccessFile || approvedBaselineFile || isReviewedRecoverySource || reviewedLinuxRoleUnixFile(relative, content)) {
 				result.XSysOutsideScope = true
 			}
 		}
@@ -165,7 +165,7 @@ func analyze(root string) (analysis, error) {
 					result.TCPListener = true
 				}
 			case strings.HasSuffix(importPath, "/internal/identity") && selector.Sel.Name == "WithVerifiedPrincipal":
-				if !isServer {
+				if !isServer && !reviewedLinuxRoleActorFile(relative, content) {
 					result.ContextSetterOutside = true
 				}
 			case selector.Sel.Name == "Get" || selector.Sel.Name == "Values":
