@@ -20,6 +20,9 @@ const (
 var errUnknownRisk = errors.New("unknown plan operation or risk")
 
 var operationRisk = map[string]RiskClass{
+	"host.alias.claim":                   RiskInfrastructure,
+	"host.replacement.freeze":            RiskInfrastructure,
+	"host.replacement.commit":            RiskInfrastructure,
 	"host.access.probe.local":            RiskInfrastructure,
 	"host.action.execute":                RiskInfrastructure,
 	"host.adopt":                         RiskControlPlane,
@@ -86,6 +89,9 @@ func ClassifyPlan(plan generated.Plan) (RiskClass, error) {
 		risk, ok := operationRisk[operation.OperationType]
 		if !ok {
 			return "", errUnknownRisk
+		}
+		if (operation.OperationType == "host.replacement.freeze" || operation.OperationType == "host.replacement.commit") && plan.HostReplacement != nil && plan.HostReplacement.RestorationClass == "control-database" {
+			risk = RiskControlPlane
 		}
 		if riskRank[risk] > riskRank[result] {
 			result = risk

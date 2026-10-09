@@ -1,0 +1,51 @@
+{
+  "$id": "vegastack-labs.dev/host-replacement-alias-binding",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "aliasId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "ownerHostId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "ownerIdentityDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "ownerRevision": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "ownershipGeneration": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/host-replacement-alias-binding"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "aliasId",
+    "ownerHostId",
+    "ownerIdentityDigest",
+    "ownerRevision",
+    "ownershipGeneration"
+  ],
+  "title": "VegaStack Labs host replacement alias binding",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

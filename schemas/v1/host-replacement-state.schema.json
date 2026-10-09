@@ -1,0 +1,237 @@
+{
+  "$defs": {
+    "host-replacement-alias-binding": {
+      "additionalProperties": false,
+      "properties": {
+        "aliasId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "ownerHostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "ownerIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "ownerRevision": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ownershipGeneration": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-replacement-alias-binding"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "aliasId",
+        "ownerHostId",
+        "ownerIdentityDigest",
+        "ownerRevision",
+        "ownershipGeneration"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/host-replacement-state",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "admissionSnapshotDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "aliasBindings": {
+      "items": {
+        "$ref": "#/$defs/host-replacement-alias-binding"
+      },
+      "maxItems": 32,
+      "minItems": 1,
+      "type": "array"
+    },
+    "bindingDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "blockers": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 32,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "continuityDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "declarationId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "declarationRevision": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "freezeEventDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "newHostId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "newIdentityDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "nextAction": {
+      "enum": [
+        "approve-freeze",
+        "resolve-fences",
+        "stage-restore",
+        "restart-candidate",
+        "verify-restore",
+        "qualify-replacement",
+        "prepare-commit",
+        "none"
+      ],
+      "type": "string"
+    },
+    "oldHostId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "oldIdentityDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "planId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "priorOwnershipGeneration": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "proposedOwnershipGeneration": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "replacementId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "restorationClass": {
+      "enum": [
+        "control-database",
+        "stateless-role"
+      ],
+      "type": "string"
+    },
+    "restorationReceiptDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "restorePlanId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "roleBindingDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "roleIntentRevision": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "runId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/host-replacement-state"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "stateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "status": {
+      "enum": [
+        "staged",
+        "frozen",
+        "restore-pending",
+        "verification-required",
+        "qualification-required",
+        "committed"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "replacementId",
+    "declarationId",
+    "oldHostId",
+    "newHostId",
+    "bindingDigest",
+    "oldIdentityDigest",
+    "newIdentityDigest",
+    "roleBindingDigest",
+    "declarationRevision",
+    "priorOwnershipGeneration",
+    "proposedOwnershipGeneration",
+    "roleIntentRevision",
+    "stateRevision",
+    "recoveryEpoch",
+    "status",
+    "restorationClass",
+    "aliasBindings",
+    "nextAction",
+    "blockers",
+    "planId",
+    "runId",
+    "restorePlanId"
+  ],
+  "title": "VegaStack Labs host replacement state",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

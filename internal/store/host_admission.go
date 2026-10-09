@@ -51,6 +51,9 @@ func (r *GateRepository) resolveHostAdmission(ctx context.Context, tx ReadTx, ho
 	if _, err = adoptionGrant(ctx, row, hostID, "host", "read", "host.read", false); err != nil {
 		return
 	}
+	if err = requireHostUnfrozen(row, hostID); err != nil {
+		return
+	}
 	if out.Host, err = readManagedHost(row, hostID); err != nil {
 		return
 	}

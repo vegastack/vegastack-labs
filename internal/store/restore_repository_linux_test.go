@@ -5,6 +5,7 @@ package store
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"testing"
@@ -13,6 +14,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"github.com/vegastack/vegastack-labs/internal/identity"
 )
 
@@ -92,6 +94,14 @@ func TestScopedRestoreStatusListFiltersPartialGrantAndRejectsRevocation(t *testi
 }
 
 func TestRestorePlanIsInertAndTransitionJournalIsAppendOnly(t *testing.T) {
+	testRestorePlanAuthorityBundle(t, false)
+}
+
+func TestReplacementContinuitySurvivesRecoveredAuthorityBundle(t *testing.T) {
+	testRestorePlanAuthorityBundle(t, true)
+}
+
+func testRestorePlanAuthorityBundle(t *testing.T, withContinuity bool) {
 	config := testConfig(t)
 	config.Clock = func() time.Time { return time.Date(2026, 9, 24, 6, 0, 0, 0, time.UTC) }
 	authority, err := Open(context.Background(), config)
@@ -124,6 +134,23 @@ func TestRestorePlanIsInertAndTransitionJournalIsAppendOnly(t *testing.T) {
 	}
 	planRequest.DesiredDeclaration.DeclarationType = "recovery.restore"
 	planRequest.DesiredDeclaration.Operations = draft.Document.Operations
+	var replacementContinuity *HostReplacementContinuity
+	var controlCommitDraft HostReplacementDraft
+	if withContinuity {
+		c := testHostReplacementContinuity(t, testRestoreBinding(planRequest.Plan, before.InstanceID, "ack").Source)
+		replacementContinuity = &c
+		controlCommitDraft = c.Drafts[0]
+		controlCommitDraft.Request.Operation = "commit"
+		controlCommitDraft.Request.RecoveryEpoch = before.RecoveryEpoch + 1
+		controlCommitDraft.Request.IdempotencyKey = "post-restore-commit"
+		controlCommitDraft.Digest = hostaction.Digest(controlCommitDraft.Request)
+		controlCommitDraft.ID = "host-replacement-" + controlCommitDraft.Digest[7:39]
+		if e := NewHostReplacementRepository(authority).ValidateDraftBinding(context.Background(), controlCommitDraft); e == nil {
+			t.Fatal("control commit accepted absent restore transition")
+		}
+
+		planRequest.Plan.ReplacementContinuity = &c.Reference
+	}
 	planRequest.Plan.PlanID, planRequest.Plan.PlanDigest = "", ""
 	preimage, _ := json.Marshal(planRequest.Plan)
 	planSum := sha256.Sum256(preimage)
@@ -131,7 +158,16 @@ func TestRestorePlanIsInertAndTransitionJournalIsAppendOnly(t *testing.T) {
 	planRequest.Plan.PlanID = "plan-" + hex.EncodeToString(planSum[:16])
 	planRequest.CanonicalBytes, _ = json.Marshal(planRequest.Plan)
 	plannedBinding := testRestoreBinding(planRequest.Plan, before.InstanceID, "pending-human-acknowledgement")
+	plannedBinding.ReplacementContinuity = planRequest.Plan.ReplacementContinuity
+	if replacementContinuity != nil {
+		q := replacementContinuity.Drafts[0].Request
+		plannedBinding.FormerHostID = q.OldHostID
+		plannedBinding.ReplacementHostID = q.NewHostID
+		plannedBinding.RecoveryDraftID = q.Source.CustodyReferenceID
+		plannedBinding.SourceAdmissionDigest = q.Source.CustodyBindingDigest
+	}
 	planRequest.RestoreQualification = &RestorePlanQualification{Request: testRestoreRequest(plannedBinding), Binding: plannedBinding}
+	planRequest.RestoreQualification.Request.ReplacementContinuity = plannedBinding.ReplacementContinuity
 	requestBytes, _ := json.Marshal(planRequest.RestoreQualification.Request)
 	if err := generated.ValidateContractJSON(generated.SchemaIDRestoreRequest, requestBytes, generated.ContractExact); err != nil {
 		t.Fatalf("restore request fixture: %v", err)
@@ -152,6 +188,13 @@ func TestRestorePlanIsInertAndTransitionJournalIsAppendOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	binding := testRestoreBinding(committed.Plan, before.InstanceID, ackID)
+	binding.ReplacementContinuity = committed.Plan.ReplacementContinuity
+	if replacementContinuity != nil {
+		binding.FormerHostID = plannedBinding.FormerHostID
+		binding.ReplacementHostID = plannedBinding.ReplacementHostID
+		binding.RecoveryDraftID = plannedBinding.RecoveryDraftID
+		binding.SourceAdmissionDigest = plannedBinding.SourceAdmissionDigest
+	}
 	repository := NewRestoreRepository(authority)
 	qualification, err := repository.Qualification(context.Background(), binding.PlanID)
 	if err != nil || qualification.Binding.HumanAcknowledgementID != "pending-human-acknowledgement" || qualification.Request.CandidateDigest != binding.CandidateDigest {
@@ -198,13 +241,35 @@ func TestRestorePlanIsInertAndTransitionJournalIsAppendOnly(t *testing.T) {
 	if err := authority.PrepareRecoveredAuthority(context.Background(), binding, audit.Fingerprint(testDigest)); err != nil {
 		t.Fatal(err)
 	}
-	bundleDigest, err := authority.WriteRecoveredAuthorityBundle(context.Background(), RecoveredAuthorityBundle{Plan: committed.Plan, Readable: committed.Readable, Request: qualification.Request, Binding: binding, Status: "verification-required"})
+	bundle := RecoveredAuthorityBundle{ReplacementContinuity: replacementContinuity, Plan: committed.Plan, Readable: committed.Readable, Request: qualification.Request, Binding: binding, Status: "verification-required"}
+	if withContinuity {
+		omitted := bundle
+		omitted.ReplacementContinuity = nil
+		if _, e := authority.WriteRecoveredAuthorityBundle(context.Background(), omitted); e == nil {
+			t.Fatal("missing continuity bytes accepted")
+		}
+		if n, e := authority.HostAliasHighWatermark(context.Background()); e != nil || n != 0 {
+			t.Fatalf("failed bundle changed candidate: %d %v", n, e)
+		}
+	}
+	bundleDigest, err := authority.WriteRecoveredAuthorityBundle(context.Background(), bundle)
 	if err != nil || !restoreDigest(bundleDigest) {
 		t.Fatalf("bundle digest=%s err=%v", bundleDigest, err)
 	}
 	recovered, gotDigest, err := authority.RecoveredAuthorityBundle(context.Background(), binding.PlanID)
 	if err != nil || gotDigest != bundleDigest || recovered.Status != "verification-required" || recovered.Binding.HumanAcknowledgementID != ackID {
 		t.Fatalf("recovered=%#v digest=%s err=%v", recovered, gotDigest, err)
+	}
+	if withContinuity {
+		if recovered.ReplacementContinuity == nil {
+			t.Fatal("continuity disappeared from candidate bundle")
+		}
+		if e := NewHostReplacementRepository(authority).ValidateDraftBinding(context.Background(), controlCommitDraft); e == nil {
+			t.Fatal("control commit accepted promoted but unverified restore")
+		}
+		if n, e := authority.HostAliasHighWatermark(context.Background()); e != nil || n != replacementContinuity.Reference.CurrentAliasHighWatermark {
+			t.Fatalf("actual candidate ownership rows missing: %d %v", n, e)
+		}
 	}
 	health, err := authority.Health(context.Background())
 	if err != nil {
@@ -271,6 +336,54 @@ func TestRestorePlanIsInertAndTransitionJournalIsAppendOnly(t *testing.T) {
 	verification, err := authority.VerifyAuditHistory(context.Background(), nil)
 	if err != nil || verification.Status != "anchored" || verification.ReasonCode != "local-anchor-valid" || verification.InstanceID != binding.NewInstanceID || verification.RecoveryEpoch != binding.NextRecoveryEpoch || verification.LastAnchoredSequence != checkpoint.LastSegmentSequence+1 {
 		t.Fatalf("post-transition audit verification=%#v err=%v", verification, err)
+	}
+	if withContinuity {
+		replacementRepo := NewHostReplacementRepository(authority)
+		if e := replacementRepo.ValidateDraftBinding(context.Background(), controlCommitDraft); e != nil {
+			t.Fatalf("verified actual restore did not permit current-epoch commit: %v", e)
+		}
+		for name, change := range map[string]func(*HostReplacementDraft){
+			"wrong-epoch": func(d *HostReplacementDraft) { d.Request.RecoveryEpoch++ },
+			"changed-intent": func(d *HostReplacementDraft) {
+				d.Request.ProposedRoleBindingDigest = hostaction.Digest("different-role")
+			},
+			"different-replacement": func(d *HostReplacementDraft) { d.Request.ReplacementID = "other-replacement" },
+		} {
+			t.Run(name, func(t *testing.T) {
+				bad := controlCommitDraft
+				change(&bad)
+				bad.Digest = hostaction.Digest(bad.Request)
+				if e := replacementRepo.ValidateDraftBinding(context.Background(), bad); e == nil {
+					t.Fatal("unbound post-restore commit accepted")
+				}
+			})
+		}
+		original, e := readReplacementDraft(func(query string, args ...any) *sql.Row {
+			return authority.conn.QueryRowContext(context.Background(), query, args...)
+		}, replacementContinuity.Drafts[0].ID)
+		if e != nil || original.Request.RecoveryEpoch != before.RecoveryEpoch || original.BindingDigest != controlCommitDraft.BindingDigest || original.Digest != replacementContinuity.Drafts[0].Digest {
+			t.Fatalf("original immutable replacement intent changed: %+v %v", original, e)
+		}
+		if e := authority.Close(); e != nil {
+			t.Fatal(e)
+		}
+		reopenedConfig := config
+		reopenedConfig.Mode = OpenExisting
+		authority, err = Open(context.Background(), reopenedConfig)
+		if err != nil {
+			t.Fatal(err)
+		}
+		persisted, got, e := authority.RecoveredAuthorityBundle(context.Background(), binding.PlanID)
+		if e != nil || got != bundleDigest || persisted.ReplacementContinuity == nil {
+			t.Fatalf("reopen lost continuity: %s %v", got, e)
+		}
+		owner := replacementContinuity.Owners[0]
+		if _, e = authority.conn.ExecContext(context.Background(), `UPDATE host_alias_owners SET owner_revision=owner_revision+1 WHERE alias_id=?`, owner.Alias.AliasID); e != nil {
+			t.Fatal(e)
+		}
+		if _, _, e = authority.RecoveredAuthorityBundle(context.Background(), binding.PlanID); e == nil {
+			t.Fatal("bundle accepted changed actual ownership rows")
+		}
 	}
 }
 

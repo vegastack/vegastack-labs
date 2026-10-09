@@ -72,3 +72,14 @@ func LoadSystemQualifiedAdapters(ctx context.Context, required []BoundaryRequire
 	}
 	return parseQualifiedAdapters(raw, root, required, now, productionDenialFactories)
 }
+
+func (verifier systemDirectDenialVerifier) probeHostGeneration(ctx context.Context, challenge recoverydenial.Challenge) (recoverydenial.Result, error) {
+	if verifier.adapter == nil || verifier.clock == nil {
+		return recoverydenial.Result{}, ErrWitnessUnavailable
+	}
+	result, err := verifier.adapter.Probe(ctx, challenge)
+	if err != nil || recoverydenial.ValidateResult(ctx, challenge, result, verifier.clock().UTC()) != nil {
+		return recoverydenial.Result{}, ErrWitnessUnavailable
+	}
+	return result, nil
+}

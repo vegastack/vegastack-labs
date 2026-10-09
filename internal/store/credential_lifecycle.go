@@ -404,6 +404,12 @@ func (repository *CredentialRepository) ApplyCredentialLifecycle(ctx context.Con
 // including by a direct in-process caller that seeds an otherwise exact step.
 func (repository *CredentialRepository) lifecycleAppendExtra(request CredentialLifecycleApplyRequest, actionExtra func(ctx context.Context, tx *sql.Tx, versionID, created string) error) func(ctx context.Context, tx *sql.Tx, versionID, created string) error {
 	return func(ctx context.Context, tx *sql.Tx, versionID, created string) error {
+		if request.Binding.Action != credentialref.ActionRevoke {
+			row := func(q string, args ...any) *sql.Row { return tx.QueryRowContext(ctx, q, args...) }
+			if err := requireHostUnfrozen(row, request.Binding.TargetID); err != nil {
+				return err
+			}
+		}
 		if err := requireConsumedHumanAcknowledgement(ctx, tx, request.Stage); err != nil {
 			return err
 		}

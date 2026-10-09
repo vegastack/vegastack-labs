@@ -200,3 +200,7 @@ A node is role-eligible only after a typed `G-002` evidence bundle is committed 
 ### Private host discovery observations
 
 Phase 6.3 stores discovery attempts and observations separately from immutable inventory drafts. An optional exact draft revision/asset reference provides comparison context and needs inventory-read permission. An inventory address, matching serial, or successful scan grants no target connection authority or workload admission. Duplicate machine/DMI claims, inventory serial mismatch, unsupported OS/architecture, missing facts and stale observations remain blockers; the collector never rewrites inventory or assigns a role. See the [discovery procedure and qualification limits](host-onboarding-and-hardening.md#phase-63-discovery-inspect-without-admission).
+
+## Linux replacement ownership
+
+The [host replacement procedure](development/host-replacement.md) defines initial alias claims, durable freeze, supported restore, current qualification and atomic reassignment through the existing plan/acknowledgement flow. Registration and alias metadata do not confer workload admission; unknown provider ownership and missing native qualification remain blockers.

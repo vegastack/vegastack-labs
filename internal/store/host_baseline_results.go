@@ -19,7 +19,7 @@ func validateBaselineCurrent(row discoveryRow, p generated.Plan, now time.Time) 
 	if e != nil || scope == nil || hostaction.Digest(scope) != hostaction.Digest(p.HostBaselineScope) {
 		return actionError(generated.ErrorCodeIntegrityFailure)
 	}
-	if _, e = actionTarget(row, *p.HostAction); e != nil {
+	if _, e = actionTargetBinding(row, *p.HostAction); e != nil {
 		return e
 	}
 	for id, digest := range map[string]string{scope.SubjectHostID: scope.SubjectIdentityDigest, scope.ExecutionHostID: scope.ExecutionIdentityDigest} {

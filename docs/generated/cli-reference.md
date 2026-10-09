@@ -1052,6 +1052,7 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 
 - `schema`: `vegastack-labs.dev/declaration-revision`
 - `schemaVersion`: `1.0.0`
+- `hostAliasClaim`
 - `declarationId`
 - `declarationType`
 - `revision`
@@ -1069,6 +1070,7 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 
 - `schema`: `vegastack-labs.dev/declaration-revision-request`
 - `schemaVersion`: `1.0.0`
+- `hostAliasClaim`
 - `declarationId`
 - `declarationType`
 - `expectedRevision`
@@ -1188,6 +1190,9 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 - `nativeRestart`
 - `hostActionNativeUnit`
 - `hostActionConsole`
+- `hostReplacement`
+- `hostAliasClaim`
+- `replacementContinuity`
 - `hostRoleScope`
 - `hostBaselineScope`
 - `hostAccessSequence`

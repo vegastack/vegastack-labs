@@ -270,6 +270,10 @@ func reviewedRecoveryUnixFile(relative string, content []byte) bool {
 	var expected string
 	switch relative {
 	case "internal/adapter/localbackup/recovery_restore_linux.go":
+		// #233 inspects only the independently restored immutable snapshot alias watermark.
+		if fmt.Sprintf("%x", sha256.Sum256(content)) == "103ce086485ac17694f3c04a7dca293ed2e146d23f893a5a421751eac03d7eee" {
+			return true
+		}
 		expected = "b1c3c0d02898f8d69f9b75e9eb061e77d2e88b81cad5d947b1b9712dfe328b10"
 	case "internal/recovery/candidate_linux.go":
 		expected = "731018d77530933afb9706317b9814d3c71be772c6bbde35e991fe85957d518c"

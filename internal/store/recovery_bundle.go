@@ -11,14 +11,16 @@ import (
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/hostaction"
 )
 
 type RecoveredAuthorityBundle struct {
-	Plan     generated.Plan
-	Readable string
-	Request  generated.RestoreRequest
-	Binding  generated.RestoreBinding
-	Status   string
+	ReplacementContinuity *HostReplacementContinuity
+	Plan                  generated.Plan
+	Readable              string
+	Request               generated.RestoreRequest
+	Binding               generated.RestoreBinding
+	Status                string
 }
 
 func (store *Store) WriteRecoveredAuthorityBundle(ctx context.Context, bundle RecoveredAuthorityBundle) (string, error) {
@@ -38,7 +40,16 @@ func (store *Store) WriteRecoveredAuthorityBundle(ctx context.Context, bundle Re
 	if err := tx.QueryRowContext(ctx, `SELECT instance_id,recovery_epoch,authority_mode FROM system_meta WHERE id=1`).Scan(&instance, &epoch, &mode); err != nil || instance != bundle.Binding.NewInstanceID || epoch != bundle.Binding.NextRecoveryEpoch || mode != "recovery-required" {
 		return "", newStoreError(generated.ErrorCodeStateConflict, "recovery-authority-bundle", false, err)
 	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO recovery_authority_bundles(plan_id,plan_digest,bundle_digest,plan_bytes,readable_plan,request_bytes,binding_bytes,status,created_at) VALUES(?,?,?,?,?,?,?,?,?)`, bundle.Plan.PlanID, bundle.Plan.PlanDigest, digest, planBytes, bundle.Readable, requestBytes, bindingBytes, bundle.Status, store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339)); err != nil {
+	// Keep absent optional continuity as SQL NULL; a typed nil byte slice
+	// binds as an empty BLOB and violates the bounded payload constraint.
+	var continuityBytes any
+	if bundle.ReplacementContinuity != nil {
+		if err := mergeReplacementContinuity(ctx, tx, *bundle.ReplacementContinuity); err != nil {
+			return "", err
+		}
+		continuityBytes, _ = json.Marshal(bundle.ReplacementContinuity)
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO recovery_authority_bundles(plan_id,plan_digest,bundle_digest,plan_bytes,readable_plan,request_bytes,binding_bytes,status,created_at,continuity_bytes) VALUES(?,?,?,?,?,?,?,?,?,?)`, bundle.Plan.PlanID, bundle.Plan.PlanDigest, digest, planBytes, bundle.Readable, requestBytes, bindingBytes, bundle.Status, store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339), continuityBytes); err != nil {
 		var existingDigest string
 		if getErr := tx.QueryRowContext(ctx, `SELECT bundle_digest FROM recovery_authority_bundles WHERE plan_id=?`, bundle.Plan.PlanID).Scan(&existingDigest); getErr == nil && existingDigest == digest {
 			return digest, nil
@@ -53,13 +64,23 @@ func (store *Store) WriteRecoveredAuthorityBundle(ctx context.Context, bundle Re
 
 func (store *Store) RecoveredAuthorityBundle(ctx context.Context, planID string) (RecoveredAuthorityBundle, string, error) {
 	var result RecoveredAuthorityBundle
-	var planBytes, requestBytes, bindingBytes []byte
+	var planBytes, requestBytes, bindingBytes, continuityBytes []byte
 	var digest string
 	var bundleStatus string
 	var journalPlanDigest string
 	err := store.Read(ctx, func(tx ReadTx) error {
-		if err := tx.queryRow(ctx, `SELECT plan_bytes,readable_plan,request_bytes,binding_bytes,status,bundle_digest FROM recovery_authority_bundles WHERE plan_id=?`, planID).Scan(&planBytes, &result.Readable, &requestBytes, &bindingBytes, &bundleStatus, &digest); err != nil {
+		if err := tx.queryRow(ctx, `SELECT plan_bytes,readable_plan,request_bytes,binding_bytes,status,bundle_digest,continuity_bytes FROM recovery_authority_bundles WHERE plan_id=?`, planID).Scan(&planBytes, &result.Readable, &requestBytes, &bindingBytes, &bundleStatus, &digest, &continuityBytes); err != nil {
 			return err
+		}
+		if len(continuityBytes) > 0 {
+			var c HostReplacementContinuity
+			if json.Unmarshal(continuityBytes, &c) != nil || validateReplacementContinuity(c) != nil {
+				return replacementError(generated.ErrorCodeIntegrityFailure)
+			}
+			if err := verifyReplacementContinuityRows(ctx, tx, c); err != nil {
+				return err
+			}
+			result.ReplacementContinuity = &c
 		}
 		rows, err := tx.query(ctx, `SELECT transition,plan_digest,binding_bytes FROM recovery_authority_journal WHERE plan_id=? ORDER BY transition`, planID)
 		if err != nil {
@@ -114,13 +135,24 @@ func validateRecoveredAuthorityBundle(bundle RecoveredAuthorityBundle) ([]byte, 
 	if planErr != nil || requestErr != nil || bindingErr != nil || generated.ValidateContractJSON(generated.SchemaIDPlan, planBytes, generated.ContractExact) != nil || generated.ValidateContractJSON(generated.SchemaIDRestoreRequest, requestBytes, generated.ContractExact) != nil || generated.ValidateContractJSON(generated.SchemaIDRestoreBinding, bindingBytes, generated.ContractExact) != nil || !validPlanDigests(bundle.Plan, bundle.Readable) || !validRestoreBinding(bundle.Binding) || bundle.Binding.PlanID != bundle.Plan.PlanID || bundle.Binding.PlanDigest != bundle.Plan.PlanDigest || bundle.Binding.HumanAcknowledgementID == "" || bundle.Binding.HumanAcknowledgementID == "pending-human-acknowledgement" || !restoreRequestMatchesBinding(bundle.Request, bundle.Binding) || len(bundle.Plan.Operations) != 2 || bundle.Plan.Operations[0].OperationType != "recovery.restore.cutover" || bundle.Plan.Operations[0].AdapterID != "core.recovery" || bundle.Plan.Operations[0].TargetID != bundle.Binding.TargetIDs[0] || bundle.Plan.Operations[1].OperationType != "recovery.canary.noop" || bundle.Plan.Operations[1].AdapterID != "core.recovery" || bundle.Plan.Operations[1].OperationID != bundle.Binding.CanaryStepID || bundle.Plan.Operations[1].TargetID != bundle.Binding.NewInstanceID || bundle.Plan.Operations[1].InputDigest != bundle.Binding.CanaryBindingDigest || bundle.Plan.Operations[1].ArtifactDigest != bundle.Binding.CanaryBindingDigest || !bundle.Plan.Operations[1].Idempotent {
 		return nil, nil, nil, "", errors.New("invalid recovered authority bundle")
 	}
+	if bundle.ReplacementContinuity == nil {
+		if bundle.Plan.ReplacementContinuity != nil || bundle.Binding.ReplacementContinuity != nil || bundle.Request.ReplacementContinuity != nil {
+			return nil, nil, nil, "", errors.New("missing replacement continuity")
+		}
+	} else {
+		c := bundle.ReplacementContinuity
+		if c.Reference.SourcePointID != bundle.Binding.Source.PointID || c.Reference.SourceBindingDigest != hostaction.Digest(bundle.Binding.Source) || validateReplacementContinuity(*c) != nil || bundle.Plan.ReplacementContinuity == nil || bundle.Binding.ReplacementContinuity == nil || bundle.Request.ReplacementContinuity == nil || hostaction.Digest(c.Reference) != hostaction.Digest(*bundle.Plan.ReplacementContinuity) || hostaction.Digest(c.Reference) != hostaction.Digest(*bundle.Binding.ReplacementContinuity) || hostaction.Digest(c.Reference) != hostaction.Digest(*bundle.Request.ReplacementContinuity) {
+			return nil, nil, nil, "", errors.New("replacement continuity binding mismatch")
+		}
+	}
 	raw, err := json.Marshal(struct {
-		Domain  string
-		Plan    generated.Plan
-		Request generated.RestoreRequest
-		Binding generated.RestoreBinding
-		Status  string
-	}{"vegastack-labs.dev/recovered-authority-bundle/v1", bundle.Plan, bundle.Request, bundle.Binding, bundle.Status})
+		Domain                string
+		Plan                  generated.Plan
+		Request               generated.RestoreRequest
+		Binding               generated.RestoreBinding
+		Status                string
+		ReplacementContinuity *HostReplacementContinuity `json:",omitempty"`
+	}{"vegastack-labs.dev/recovered-authority-bundle/v1", bundle.Plan, bundle.Request, bundle.Binding, bundle.Status, bundle.ReplacementContinuity})
 	if err != nil {
 		return nil, nil, nil, "", err
 	}

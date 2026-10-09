@@ -37,6 +37,14 @@ type HostActionExecution struct {
 
 func actionError(code string) error { return newStoreError(code, "host-action", false, nil) }
 func actionTarget(row discoveryRow, req generated.HostActionRequest) (generated.HostDiscoveryTarget, error) {
+	if err := requireHostUnfrozen(row, req.HostID); err != nil {
+		return generated.HostDiscoveryTarget{}, err
+	}
+	return actionTargetBinding(row, req)
+}
+
+// Receipt validation checks identity bindings without granting issuance authority.
+func actionTargetBinding(row discoveryRow, req generated.HostActionRequest) (generated.HostDiscoveryTarget, error) {
 	if hostaction.ValidateRequest(req) != nil {
 		return generated.HostDiscoveryTarget{}, actionError(generated.ErrorCodeInputInvalid)
 	}
@@ -294,6 +302,9 @@ func (r *HostActionRepository) VerifyHostActionConsole(ctx context.Context, host
 	}
 	return r.store.Read(ctx, func(tx ReadTx) error {
 		row := func(q string, args ...any) *sql.Row { return tx.queryRow(ctx, q, args...) }
+		if err := requireHostUnfrozen(row, hostID); err != nil {
+			return err
+		}
 		h, err := readManagedHost(row, hostID)
 		if err != nil {
 			return err

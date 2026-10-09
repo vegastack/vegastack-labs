@@ -46,9 +46,10 @@ func (recorder StoreCandidateRecorder) BindRecoveryCandidate(ctx context.Context
 }
 
 type StoreRecoveryBundleStore struct {
-	Open     CandidateStoreOpener
-	Plans    *store.PlanRepository
-	Restores *store.RestoreRepository
+	Authority *store.Store
+	Open      CandidateStoreOpener
+	Plans     *store.PlanRepository
+	Restores  *store.RestoreRepository
 }
 
 func (bundles StoreRecoveryBundleStore) WriteRecoveryBundle(ctx context.Context, path string, binding generated.RestoreBinding) (string, error) {
@@ -63,12 +64,34 @@ func (bundles StoreRecoveryBundleStore) WriteRecoveryBundle(ctx context.Context,
 	if err != nil {
 		return "", err
 	}
+	var replacementContinuity *store.HostReplacementContinuity
+	if binding.ReplacementContinuity != nil {
+		if bundles.Authority == nil {
+			return "", failure.New(generated.ErrorCodePrerequisiteBlocked, "replacement-continuity", false)
+		}
+		current, loadErr := bundles.Authority.LoadHostReplacementContinuity(ctx, binding.ReplacementContinuity.ReplacementID, *binding.ReplacementContinuity)
+		if loadErr != nil {
+			return "", loadErr
+		}
+		if !sameJSONValue(current.Reference, *binding.ReplacementContinuity) {
+			return "", failure.New(generated.ErrorCodePlanStale, "replacement-continuity", false)
+		}
+		replacementContinuity = &current
+	} else if bundles.Authority != nil {
+		watermark, readErr := bundles.Authority.HostAliasHighWatermark(ctx)
+		if readErr != nil {
+			return "", readErr
+		}
+		if watermark != 0 {
+			return "", failure.New(generated.ErrorCodePrerequisiteBlocked, "replacement-continuity", false)
+		}
+	}
 	candidate, err := bundles.Open(ctx, path)
 	if err != nil {
 		return "", err
 	}
 	defer candidate.Close()
-	return candidate.WriteRecoveredAuthorityBundle(ctx, store.RecoveredAuthorityBundle{Plan: planned.Plan, Readable: planned.Readable, Request: qualification.Request, Binding: binding, Status: "verification-required"})
+	return candidate.WriteRecoveredAuthorityBundle(ctx, store.RecoveredAuthorityBundle{ReplacementContinuity: replacementContinuity, Plan: planned.Plan, Readable: planned.Readable, Request: qualification.Request, Binding: binding, Status: "verification-required"})
 }
 
 func (bundles StoreRecoveryBundleStore) VerifyRecoveryBundle(ctx context.Context, path string, binding generated.RestoreBinding, digest string) error {
@@ -81,7 +104,7 @@ func (bundles StoreRecoveryBundleStore) VerifyRecoveryBundle(ctx context.Context
 	}
 	defer candidate.Close()
 	stored, got, err := candidate.RecoveredAuthorityBundle(ctx, binding.PlanID)
-	if err != nil || got != digest || !sameRestoreSource(stored.Binding.Source, binding.Source) || stored.Binding.PlanDigest != binding.PlanDigest || stored.Binding.HumanAcknowledgementID != binding.HumanAcknowledgementID {
+	if err != nil || got != digest || !sameJSONValue(stored.Binding.ReplacementContinuity, binding.ReplacementContinuity) || !sameRestoreSource(stored.Binding.Source, binding.Source) || stored.Binding.PlanDigest != binding.PlanDigest || stored.Binding.HumanAcknowledgementID != binding.HumanAcknowledgementID {
 		return failure.New(generated.ErrorCodeIntegrityFailure, "recovery-authority-bundle", false)
 	}
 	return nil

@@ -236,7 +236,7 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	plans, err := planengine.NewService(planengine.Config{HostActions: store.NewHostActionRepository(authority), HostActionCredentials: store.NewCredentialRepository(authority), HostDiscoveryTargets: store.NewHostDiscoveryRepository(authority), HostAdoptions: store.NewHostAdoptionRepository(authority), Repository: planRepository, Observations: observations, Clock: time.Now, PolicyVersion: "1.0.0", ToolVersion: operations.build.ToolVersion, ContractVersion: "1.0.0", Risk: "destructive", AuthorizationBranch: "human", ExecutorMode: "central", OperationExecutorID: "executor-central"})
+	plans, err := planengine.NewService(planengine.Config{HostReplacements: store.NewHostReplacementRepository(authority), HostActions: store.NewHostActionRepository(authority), HostActionCredentials: store.NewCredentialRepository(authority), HostDiscoveryTargets: store.NewHostDiscoveryRepository(authority), HostAdoptions: store.NewHostAdoptionRepository(authority), Repository: planRepository, Observations: observations, Clock: time.Now, PolicyVersion: "1.0.0", ToolVersion: operations.build.ToolVersion, ContractVersion: "1.0.0", Risk: "destructive", AuthorizationBranch: "human", ExecutorMode: "central", OperationExecutorID: "executor-central"})
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err
@@ -389,8 +389,16 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 	}
 	discoveryRepository := store.NewHostDiscoveryRepository(authority)
 	discoveryEffect := &runengine.HostDiscoveryTargetEffect{Repository: discoveryRepository, Approvals: store.NewAcknowledgementRepository(authority), RecoveryPrecheck: discoveryConsoleGate{targets: discoveryRepository, fallback: runengine.UnavailableGateVerifier{}}}
-	coreRouter := runengine.CoreRouter{Adoption: &runengine.HostAdoptionEffect{Repository: store.NewHostAdoptionRepository(authority), Approvals: store.NewAcknowledgementRepository(authority)}, DiscoveryTarget: discoveryEffect, Gate: coreGate, Recovery: recoveryCore, Schedule: scheduleCore, ScheduleObserve: scheduleObserver}
+	replacementRepository := store.NewHostReplacementRepository(authority)
+	if err := replacementRepository.ConfigureAdmission(gateRepository); err != nil {
+		return err
+	}
+	replacementComposition := hostReplacementComposition{authority: authority, repository: replacementRepository, gates: gateRepository, clock: time.Now}
+	coreRouter := runengine.CoreRouter{HostReplacement: &runengine.HostReplacementEffect{Operations: replacementComposition, Approvals: store.NewAcknowledgementRepository(authority)}, Adoption: &runengine.HostAdoptionEffect{Repository: store.NewHostAdoptionRepository(authority), Approvals: store.NewAcknowledgementRepository(authority)}, DiscoveryTarget: discoveryEffect, Gate: coreGate, Recovery: recoveryCore, Schedule: scheduleCore, ScheduleObserve: scheduleObserver}
 	credentialRepository := store.NewCredentialRepository(authority)
+	if err := api.RegisterHostReplacementOperations(application, api.HostReplacementOperations{Replacements: replacementRepository, Declarations: declarations, Results: factory}); err != nil {
+		return err
+	}
 	if err := api.RegisterHostAdoptionOperations(application, api.HostAdoptionOperations{Hosts: store.NewHostAdoptionRepository(authority), Declarations: declarations, Results: factory}); err != nil {
 		return err
 	}
@@ -546,7 +554,7 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 	}
 	restorePlanner := recovery.StoreRestorePlanner{Declarations: declarationRepository, Plans: planRepository, Restores: restoreRepository, Clock: time.Now}
 	restoreSessions := recovery.StoreRestoreSessions{Repository: restoreRepository}
-	restoreCandidates := recovery.StoreCandidateStager{Repository: restoreRepository, Plans: planRepository, Manager: recovery.CandidateManager{DatabasePath: operations.databasePath, Storage: recovery.LocalCandidateStorage{ExpectedUID: profile.SocketOwnerUID}, Authority: recovery.StoreCandidateAuthority{Open: candidateOpener}, Bundles: recovery.StoreRecoveryBundleStore{Open: candidateOpener}}}
+	restoreCandidates := recovery.StoreCandidateStager{Repository: restoreRepository, Plans: planRepository, Manager: recovery.CandidateManager{DatabasePath: operations.databasePath, Storage: recovery.LocalCandidateStorage{ExpectedUID: profile.SocketOwnerUID}, Authority: recovery.StoreCandidateAuthority{Open: candidateOpener}, Bundles: recovery.StoreRecoveryBundleStore{Open: candidateOpener, Authority: authority}}}
 	restoreFences := recovery.TwoStageFences{
 		Admissions: recovery.LoadSystemSourceAdmission, Profiles: gateRepository,
 		Execution:      recovery.SystemExactFenceWitnessVerifier(operations.build.ReleaseBuildID, "1.0.0"),
@@ -572,7 +580,8 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 		operations.recoveryCanaryObserve(restoreCanary)
 	}
 	restoreService, err := recovery.NewOperationsService(recovery.OperationsConfig{
-		Sources: recovery.SourceVerifier{Local: backupRepository, Snapshots: restoreSnapshotResolver, Compatibility: restoreCompatibility, Audit: restoreAudit, Clock: time.Now}, Continuity: recovery.ContinuityResolver{}, Fences: restoreFences,
+		ReplacementContinuity: recovery.StoreReplacementContinuityGuard{Authority: authority, Replacements: store.NewHostReplacementRepository(authority)},
+		Sources:               recovery.SourceVerifier{Local: backupRepository, Snapshots: restoreSnapshotResolver, Compatibility: restoreCompatibility, Audit: restoreAudit, Clock: time.Now}, Continuity: recovery.ContinuityResolver{}, Fences: restoreFences,
 		Plans: restorePlanner, Sessions: restoreSessions, Candidates: restoreCandidates, Canary: restoreCanary,
 		TargetReleaseBuildID: operations.build.ReleaseBuildID, TargetToolVersion: operations.build.ToolVersion, TargetSchemaVersion: strconv.FormatUint(health.SchemaVersion, 10),
 	})

@@ -168,6 +168,7 @@ const (
 	SchemaIDHostActionSubmission                   = "vegastack-labs.dev/host-action-submission"
 	SchemaIDHostAdoptionRequest                    = "vegastack-labs.dev/host-adoption-request"
 	SchemaIDHostAdoptionSubmission                 = "vegastack-labs.dev/host-adoption-submission"
+	SchemaIDHostAliasClaimRequest                  = "vegastack-labs.dev/host-alias-claim-request"
 	SchemaIDHostBaselineScope                      = "vegastack-labs.dev/host-baseline-scope"
 	SchemaIDHostControlResult                      = "vegastack-labs.dev/host-control-result"
 	SchemaIDHostDiscoveryConsoleConfirmation       = "vegastack-labs.dev/host-discovery-console-confirmation"
@@ -183,6 +184,13 @@ const (
 	SchemaIDHostIdentityConfirmation               = "vegastack-labs.dev/host-identity-confirmation"
 	SchemaIDHostObservation                        = "vegastack-labs.dev/host-observation"
 	SchemaIDHostProfile                            = "vegastack-labs.dev/host-profile"
+	SchemaIDHostReplacementAliasBinding            = "vegastack-labs.dev/host-replacement-alias-binding"
+	SchemaIDHostReplacementContinuityReference     = "vegastack-labs.dev/host-replacement-continuity-reference"
+	SchemaIDHostReplacementOsPreparation           = "vegastack-labs.dev/host-replacement-os-preparation"
+	SchemaIDHostReplacementRequest                 = "vegastack-labs.dev/host-replacement-request"
+	SchemaIDHostReplacementSourceReference         = "vegastack-labs.dev/host-replacement-source-reference"
+	SchemaIDHostReplacementState                   = "vegastack-labs.dev/host-replacement-state"
+	SchemaIDHostReplacementSubmission              = "vegastack-labs.dev/host-replacement-submission"
 	SchemaIDHostRole                               = "vegastack-labs.dev/host-role"
 	SchemaIDHostRoleAlias                          = "vegastack-labs.dev/host-role-alias"
 	SchemaIDHostRoleFoundation                     = "vegastack-labs.dev/host-role-foundation"
@@ -1887,6 +1895,7 @@ type DeclarationOperation struct {
 type DeclarationRevision struct {
 	Schema          string                 `json:"schema"`
 	SchemaVersion   string                 `json:"schemaVersion"`
+	HostAliasClaim  *HostAliasClaimRequest `json:"hostAliasClaim,omitempty"`
 	DeclarationID   string                 `json:"declarationId"`
 	DeclarationType string                 `json:"declarationType"`
 	Revision        int64                  `json:"revision"`
@@ -1904,6 +1913,7 @@ type DeclarationRevision struct {
 type DeclarationRevisionRequest struct {
 	Schema                string                 `json:"schema"`
 	SchemaVersion         string                 `json:"schemaVersion"`
+	HostAliasClaim        *HostAliasClaimRequest `json:"hostAliasClaim,omitempty"`
 	DeclarationID         string                 `json:"declarationId"`
 	DeclarationType       string                 `json:"declarationType"`
 	ExpectedRevision      int64                  `json:"expectedRevision"`
@@ -2359,6 +2369,17 @@ type HostAdoptionSubmission struct {
 	RecoveryEpoch int64  `json:"recoveryEpoch"`
 }
 
+type HostAliasClaimRequest struct {
+	Schema                string   `json:"schema"`
+	SchemaVersion         string   `json:"schemaVersion"`
+	HostID                string   `json:"hostId"`
+	IdempotencyKey        string   `json:"idempotencyKey"`
+	HostIdentityDigest    string   `json:"hostIdentityDigest"`
+	AliasIDs              []string `json:"aliasIds"`
+	ExpectedStateRevision int64    `json:"expectedStateRevision"`
+	RecoveryEpoch         int64    `json:"recoveryEpoch"`
+}
+
 type HostBaselineScope struct {
 	Schema                   string   `json:"schema"`
 	SchemaVersion            string   `json:"schemaVersion"`
@@ -2549,6 +2570,126 @@ type HostProfile struct {
 	Architecture      string  `json:"architecture"`
 	RoleID            string  `json:"roleId"`
 	DefinitionVersion string  `json:"definitionVersion"`
+}
+
+type HostReplacementAliasBinding struct {
+	Schema              string `json:"schema"`
+	SchemaVersion       string `json:"schemaVersion"`
+	AliasID             string `json:"aliasId"`
+	OwnerHostID         string `json:"ownerHostId"`
+	OwnerIdentityDigest string `json:"ownerIdentityDigest"`
+	OwnerRevision       int64  `json:"ownerRevision"`
+	OwnershipGeneration int64  `json:"ownershipGeneration"`
+}
+
+type HostReplacementContinuityReference struct {
+	Schema                    string `json:"schema"`
+	SchemaVersion             string `json:"schemaVersion"`
+	ReplacementID             string `json:"replacementId"`
+	SourcePointID             string `json:"sourcePointId"`
+	Digest                    string `json:"digest"`
+	SourceBindingDigest       string `json:"sourceBindingDigest"`
+	SourceAliasHighWatermark  int64  `json:"sourceAliasHighWatermark"`
+	CurrentAliasHighWatermark int64  `json:"currentAliasHighWatermark"`
+}
+
+type HostReplacementOsPreparation struct {
+	Schema             string `json:"schema"`
+	SchemaVersion      string `json:"schemaVersion"`
+	Method             string `json:"method"`
+	ObservationID      string `json:"observationId"`
+	ObservationDigest  string `json:"observationDigest"`
+	HostIdentityDigest string `json:"hostIdentityDigest"`
+	ConfirmedAt        string `json:"confirmedAt"`
+}
+
+type HostReplacementRequest struct {
+	Schema                          string                          `json:"schema"`
+	SchemaVersion                   string                          `json:"schemaVersion"`
+	ReplacementID                   string                          `json:"replacementId"`
+	OldHostID                       string                          `json:"oldHostId"`
+	NewHostID                       string                          `json:"newHostId"`
+	ProfileID                       string                          `json:"profileId"`
+	RoleDeclarationID               string                          `json:"roleDeclarationId"`
+	ProposedRoleDeclarationID       string                          `json:"proposedRoleDeclarationId"`
+	IdempotencyKey                  string                          `json:"idempotencyKey"`
+	OldIdentityDigest               string                          `json:"oldIdentityDigest"`
+	NewIdentityDigest               string                          `json:"newIdentityDigest"`
+	OldTargetDigest                 string                          `json:"oldTargetDigest"`
+	NewTargetDigest                 string                          `json:"newTargetDigest"`
+	OldSSHHostKeyDigest             string                          `json:"oldSshHostKeyDigest"`
+	NewSSHHostKeyDigest             string                          `json:"newSshHostKeyDigest"`
+	ProfileLockDigest               string                          `json:"profileLockDigest"`
+	OldRoleBindingDigest            string                          `json:"oldRoleBindingDigest"`
+	ProposedRoleBindingDigest       string                          `json:"proposedRoleBindingDigest"`
+	PreservedPreimageDigest         string                          `json:"preservedPreimageDigest"`
+	OldTargetRevision               int64                           `json:"oldTargetRevision"`
+	NewTargetRevision               int64                           `json:"newTargetRevision"`
+	RoleDeclarationRevision         int64                           `json:"roleDeclarationRevision"`
+	ProposedRoleDeclarationRevision int64                           `json:"proposedRoleDeclarationRevision"`
+	ExpectedDeclarationRevision     int64                           `json:"expectedDeclarationRevision"`
+	ExpectedStateRevision           int64                           `json:"expectedStateRevision"`
+	RecoveryEpoch                   int64                           `json:"recoveryEpoch"`
+	Operation                       string                          `json:"operation"`
+	RestorationClass                string                          `json:"restorationClass"`
+	AliasBindings                   []HostReplacementAliasBinding   `json:"aliasBindings"`
+	PayloadIDs                      []string                        `json:"payloadIds"`
+	VolumeIDs                       []string                        `json:"volumeIds"`
+	ResourceIDs                     []string                        `json:"resourceIds"`
+	Source                          *HostReplacementSourceReference `json:"source,omitempty"`
+	OSPreparation                   HostReplacementOsPreparation    `json:"osPreparation"`
+}
+
+type HostReplacementSourceReference struct {
+	Schema               string `json:"schema"`
+	SchemaVersion        string `json:"schemaVersion"`
+	PointID              string `json:"pointId"`
+	CustodyReferenceID   string `json:"custodyReferenceId"`
+	ManifestDigest       string `json:"manifestDigest"`
+	SourceBindingDigest  string `json:"sourceBindingDigest"`
+	CustodyBindingDigest string `json:"custodyBindingDigest"`
+}
+
+type HostReplacementState struct {
+	Schema                      string                        `json:"schema"`
+	SchemaVersion               string                        `json:"schemaVersion"`
+	ReplacementID               string                        `json:"replacementId"`
+	DeclarationID               string                        `json:"declarationId"`
+	OldHostID                   string                        `json:"oldHostId"`
+	NewHostID                   string                        `json:"newHostId"`
+	BindingDigest               string                        `json:"bindingDigest"`
+	OldIdentityDigest           string                        `json:"oldIdentityDigest"`
+	NewIdentityDigest           string                        `json:"newIdentityDigest"`
+	RoleBindingDigest           string                        `json:"roleBindingDigest"`
+	DeclarationRevision         int64                         `json:"declarationRevision"`
+	PriorOwnershipGeneration    int64                         `json:"priorOwnershipGeneration"`
+	ProposedOwnershipGeneration int64                         `json:"proposedOwnershipGeneration"`
+	RoleIntentRevision          int64                         `json:"roleIntentRevision"`
+	StateRevision               int64                         `json:"stateRevision"`
+	RecoveryEpoch               int64                         `json:"recoveryEpoch"`
+	Status                      string                        `json:"status"`
+	RestorationClass            string                        `json:"restorationClass"`
+	AliasBindings               []HostReplacementAliasBinding `json:"aliasBindings"`
+	NextAction                  string                        `json:"nextAction"`
+	Blockers                    []string                      `json:"blockers"`
+	PlanID                      *string                       `json:"planId"`
+	RunID                       *string                       `json:"runId"`
+	RestorePlanID               *string                       `json:"restorePlanId"`
+	FreezeEventDigest           string                        `json:"freezeEventDigest,omitempty"`
+	RestorationReceiptDigest    string                        `json:"restorationReceiptDigest,omitempty"`
+	AdmissionSnapshotDigest     string                        `json:"admissionSnapshotDigest,omitempty"`
+	ContinuityDigest            string                        `json:"continuityDigest,omitempty"`
+}
+
+type HostReplacementSubmission struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	ReplacementID string `json:"replacementId"`
+	DraftID       string `json:"draftId"`
+	DeclarationID string `json:"declarationId"`
+	ContentDigest string `json:"contentDigest"`
+	StateRevision int64  `json:"stateRevision"`
+	RecoveryEpoch int64  `json:"recoveryEpoch"`
 }
 
 type HostRole struct {
@@ -3055,31 +3196,34 @@ type OutboxRecordData struct {
 }
 
 type Plan struct {
-	Schema               string                            `json:"schema"`
-	SchemaVersion        string                            `json:"schemaVersion"`
-	PlanID               string                            `json:"planId"`
-	PlanDigest           string                            `json:"planDigest"`
-	DeclarationID        string                            `json:"declarationId"`
-	Binding              PlanBinding                       `json:"binding"`
-	Operations           []PlanOperation                   `json:"operations"`
-	Status               string                            `json:"status"`
-	Risk                 string                            `json:"risk"`
-	AuthorizationBranch  string                            `json:"authorizationBranch"`
-	ExecutorMode         string                            `json:"executorMode"`
-	ExecutorID           *string                           `json:"executorId"`
-	CreatedAt            string                            `json:"createdAt"`
-	ExpiresAt            string                            `json:"expiresAt"`
-	ReadableDigest       string                            `json:"readableDigest"`
-	NativeRestart        *NativeRestartPresentation        `json:"nativeRestart,omitempty"`
-	HostActionNativeUnit string                            `json:"hostActionNativeUnit,omitempty"`
-	HostActionConsole    *HostActionCredentialConfirmation `json:"hostActionConsole,omitempty"`
-	HostRoleScope        *HostRoleScope                    `json:"hostRoleScope,omitempty"`
-	HostBaselineScope    *HostBaselineScope                `json:"hostBaselineScope,omitempty"`
-	HostAccessSequence   *HostAccessSequence               `json:"hostAccessSequence,omitempty"`
-	HostAction           *HostActionRequest                `json:"hostAction,omitempty"`
-	HostAdoption         *HostAdoptionRequest              `json:"hostAdoption,omitempty"`
-	HostDiscoveryTarget  *HostDiscoveryTargetDraftRequest  `json:"hostDiscoveryTarget,omitempty"`
-	Extensions           []ContractExtension               `json:"extensions"`
+	Schema                string                              `json:"schema"`
+	SchemaVersion         string                              `json:"schemaVersion"`
+	PlanID                string                              `json:"planId"`
+	PlanDigest            string                              `json:"planDigest"`
+	DeclarationID         string                              `json:"declarationId"`
+	Binding               PlanBinding                         `json:"binding"`
+	Operations            []PlanOperation                     `json:"operations"`
+	Status                string                              `json:"status"`
+	Risk                  string                              `json:"risk"`
+	AuthorizationBranch   string                              `json:"authorizationBranch"`
+	ExecutorMode          string                              `json:"executorMode"`
+	ExecutorID            *string                             `json:"executorId"`
+	CreatedAt             string                              `json:"createdAt"`
+	ExpiresAt             string                              `json:"expiresAt"`
+	ReadableDigest        string                              `json:"readableDigest"`
+	NativeRestart         *NativeRestartPresentation          `json:"nativeRestart,omitempty"`
+	HostActionNativeUnit  string                              `json:"hostActionNativeUnit,omitempty"`
+	HostActionConsole     *HostActionCredentialConfirmation   `json:"hostActionConsole,omitempty"`
+	HostReplacement       *HostReplacementRequest             `json:"hostReplacement,omitempty"`
+	HostAliasClaim        *HostAliasClaimRequest              `json:"hostAliasClaim,omitempty"`
+	ReplacementContinuity *HostReplacementContinuityReference `json:"replacementContinuity,omitempty"`
+	HostRoleScope         *HostRoleScope                      `json:"hostRoleScope,omitempty"`
+	HostBaselineScope     *HostBaselineScope                  `json:"hostBaselineScope,omitempty"`
+	HostAccessSequence    *HostAccessSequence                 `json:"hostAccessSequence,omitempty"`
+	HostAction            *HostActionRequest                  `json:"hostAction,omitempty"`
+	HostAdoption          *HostAdoptionRequest                `json:"hostAdoption,omitempty"`
+	HostDiscoveryTarget   *HostDiscoveryTargetDraftRequest    `json:"hostDiscoveryTarget,omitempty"`
+	Extensions            []ContractExtension                 `json:"extensions"`
 }
 
 type PlanBinding struct {
@@ -3277,41 +3421,42 @@ type RestoreAuditDecision struct {
 }
 
 type RestoreBinding struct {
-	Schema                   string               `json:"schema"`
-	SchemaVersion            string               `json:"schemaVersion"`
-	Source                   RestoreSourceBinding `json:"source"`
-	PointID                  string               `json:"pointId"`
-	DependencyIDs            []string             `json:"dependencyIds"`
-	TargetIDs                []string             `json:"targetIds"`
-	TargetDigest             string               `json:"targetDigest"`
-	PlanID                   string               `json:"planId"`
-	PlanDigest               string               `json:"planDigest"`
-	HumanAcknowledgementID   string               `json:"humanAcknowledgementId"`
-	FenceSetDigest           string               `json:"fenceSetDigest"`
-	AuditDecisionDigest      string               `json:"auditDecisionDigest"`
-	CandidateDigest          string               `json:"candidateDigest"`
-	FormerHostID             string               `json:"formerHostId"`
-	ReplacementHostID        string               `json:"replacementHostId"`
-	RecoveryDraftID          string               `json:"recoveryDraftId"`
-	CiphertextFingerprint    string               `json:"ciphertextFingerprint"`
-	SourceAdmissionDigest    string               `json:"sourceAdmissionDigest"`
-	FenceQualificationDigest string               `json:"fenceQualificationDigest"`
-	RecoveryRunID            string               `json:"recoveryRunId"`
-	RecoveryStepID           string               `json:"recoveryStepId"`
-	RecoveryLeaseID          string               `json:"recoveryLeaseId"`
-	RecoveryChallengeID      string               `json:"recoveryChallengeId"`
-	RecoveryReceiptID        string               `json:"recoveryReceiptId"`
-	CanaryRunID              string               `json:"canaryRunId"`
-	CanaryStepID             string               `json:"canaryStepId"`
-	CanaryLeaseID            string               `json:"canaryLeaseId"`
-	CanaryChallengeID        string               `json:"canaryChallengeId"`
-	CanaryReceiptID          string               `json:"canaryReceiptId"`
-	CanaryBindingDigest      string               `json:"canaryBindingDigest"`
-	PriorInstanceID          string               `json:"priorInstanceId"`
-	NewInstanceID            string               `json:"newInstanceId"`
-	PriorRecoveryEpoch       int64                `json:"priorRecoveryEpoch"`
-	NextRecoveryEpoch        int64                `json:"nextRecoveryEpoch"`
-	Status                   string               `json:"status"`
+	Schema                   string                              `json:"schema"`
+	SchemaVersion            string                              `json:"schemaVersion"`
+	ReplacementContinuity    *HostReplacementContinuityReference `json:"replacementContinuity,omitempty"`
+	Source                   RestoreSourceBinding                `json:"source"`
+	PointID                  string                              `json:"pointId"`
+	DependencyIDs            []string                            `json:"dependencyIds"`
+	TargetIDs                []string                            `json:"targetIds"`
+	TargetDigest             string                              `json:"targetDigest"`
+	PlanID                   string                              `json:"planId"`
+	PlanDigest               string                              `json:"planDigest"`
+	HumanAcknowledgementID   string                              `json:"humanAcknowledgementId"`
+	FenceSetDigest           string                              `json:"fenceSetDigest"`
+	AuditDecisionDigest      string                              `json:"auditDecisionDigest"`
+	CandidateDigest          string                              `json:"candidateDigest"`
+	FormerHostID             string                              `json:"formerHostId"`
+	ReplacementHostID        string                              `json:"replacementHostId"`
+	RecoveryDraftID          string                              `json:"recoveryDraftId"`
+	CiphertextFingerprint    string                              `json:"ciphertextFingerprint"`
+	SourceAdmissionDigest    string                              `json:"sourceAdmissionDigest"`
+	FenceQualificationDigest string                              `json:"fenceQualificationDigest"`
+	RecoveryRunID            string                              `json:"recoveryRunId"`
+	RecoveryStepID           string                              `json:"recoveryStepId"`
+	RecoveryLeaseID          string                              `json:"recoveryLeaseId"`
+	RecoveryChallengeID      string                              `json:"recoveryChallengeId"`
+	RecoveryReceiptID        string                              `json:"recoveryReceiptId"`
+	CanaryRunID              string                              `json:"canaryRunId"`
+	CanaryStepID             string                              `json:"canaryStepId"`
+	CanaryLeaseID            string                              `json:"canaryLeaseId"`
+	CanaryChallengeID        string                              `json:"canaryChallengeId"`
+	CanaryReceiptID          string                              `json:"canaryReceiptId"`
+	CanaryBindingDigest      string                              `json:"canaryBindingDigest"`
+	PriorInstanceID          string                              `json:"priorInstanceId"`
+	NewInstanceID            string                              `json:"newInstanceId"`
+	PriorRecoveryEpoch       int64                               `json:"priorRecoveryEpoch"`
+	NextRecoveryEpoch        int64                               `json:"nextRecoveryEpoch"`
+	Status                   string                              `json:"status"`
 }
 
 type RestoreCanaryResult struct {
@@ -3357,42 +3502,43 @@ type RestoreFenceItem struct {
 }
 
 type RestoreRequest struct {
-	Schema                   string               `json:"schema"`
-	SchemaVersion            string               `json:"schemaVersion"`
-	ExpectedStateRevision    int64                `json:"expectedStateRevision"`
-	RecoveryEpoch            int64                `json:"recoveryEpoch"`
-	TargetDigest             string               `json:"targetDigest"`
-	IdempotencyKey           string               `json:"idempotencyKey"`
-	Source                   RestoreSourceBinding `json:"source"`
-	Fences                   []RestoreFenceItem   `json:"fences"`
-	AuditDecision            RestoreAuditDecision `json:"auditDecision"`
-	PointID                  string               `json:"pointId"`
-	DependencyIDs            []string             `json:"dependencyIds"`
-	TargetIDs                []string             `json:"targetIds"`
-	PriorInstanceID          string               `json:"priorInstanceId"`
-	NewInstanceID            string               `json:"newInstanceId"`
-	PriorRecoveryEpoch       int64                `json:"priorRecoveryEpoch"`
-	NextRecoveryEpoch        int64                `json:"nextRecoveryEpoch"`
-	FenceSetDigest           string               `json:"fenceSetDigest"`
-	AuditDecisionDigest      string               `json:"auditDecisionDigest"`
-	CandidateDigest          string               `json:"candidateDigest"`
-	FormerHostID             string               `json:"formerHostId"`
-	ReplacementHostID        string               `json:"replacementHostId"`
-	RecoveryDraftID          string               `json:"recoveryDraftId"`
-	CiphertextFingerprint    string               `json:"ciphertextFingerprint"`
-	SourceAdmissionDigest    string               `json:"sourceAdmissionDigest"`
-	FenceQualificationDigest string               `json:"fenceQualificationDigest"`
-	RecoveryRunID            string               `json:"recoveryRunId"`
-	RecoveryStepID           string               `json:"recoveryStepId"`
-	RecoveryLeaseID          string               `json:"recoveryLeaseId"`
-	RecoveryChallengeID      string               `json:"recoveryChallengeId"`
-	RecoveryReceiptID        string               `json:"recoveryReceiptId"`
-	CanaryRunID              string               `json:"canaryRunId"`
-	CanaryStepID             string               `json:"canaryStepId"`
-	CanaryLeaseID            string               `json:"canaryLeaseId"`
-	CanaryChallengeID        string               `json:"canaryChallengeId"`
-	CanaryReceiptID          string               `json:"canaryReceiptId"`
-	CanaryBindingDigest      string               `json:"canaryBindingDigest"`
+	Schema                   string                              `json:"schema"`
+	SchemaVersion            string                              `json:"schemaVersion"`
+	ExpectedStateRevision    int64                               `json:"expectedStateRevision"`
+	RecoveryEpoch            int64                               `json:"recoveryEpoch"`
+	TargetDigest             string                              `json:"targetDigest"`
+	IdempotencyKey           string                              `json:"idempotencyKey"`
+	ReplacementContinuity    *HostReplacementContinuityReference `json:"replacementContinuity,omitempty"`
+	Source                   RestoreSourceBinding                `json:"source"`
+	Fences                   []RestoreFenceItem                  `json:"fences"`
+	AuditDecision            RestoreAuditDecision                `json:"auditDecision"`
+	PointID                  string                              `json:"pointId"`
+	DependencyIDs            []string                            `json:"dependencyIds"`
+	TargetIDs                []string                            `json:"targetIds"`
+	PriorInstanceID          string                              `json:"priorInstanceId"`
+	NewInstanceID            string                              `json:"newInstanceId"`
+	PriorRecoveryEpoch       int64                               `json:"priorRecoveryEpoch"`
+	NextRecoveryEpoch        int64                               `json:"nextRecoveryEpoch"`
+	FenceSetDigest           string                              `json:"fenceSetDigest"`
+	AuditDecisionDigest      string                              `json:"auditDecisionDigest"`
+	CandidateDigest          string                              `json:"candidateDigest"`
+	FormerHostID             string                              `json:"formerHostId"`
+	ReplacementHostID        string                              `json:"replacementHostId"`
+	RecoveryDraftID          string                              `json:"recoveryDraftId"`
+	CiphertextFingerprint    string                              `json:"ciphertextFingerprint"`
+	SourceAdmissionDigest    string                              `json:"sourceAdmissionDigest"`
+	FenceQualificationDigest string                              `json:"fenceQualificationDigest"`
+	RecoveryRunID            string                              `json:"recoveryRunId"`
+	RecoveryStepID           string                              `json:"recoveryStepId"`
+	RecoveryLeaseID          string                              `json:"recoveryLeaseId"`
+	RecoveryChallengeID      string                              `json:"recoveryChallengeId"`
+	RecoveryReceiptID        string                              `json:"recoveryReceiptId"`
+	CanaryRunID              string                              `json:"canaryRunId"`
+	CanaryStepID             string                              `json:"canaryStepId"`
+	CanaryLeaseID            string                              `json:"canaryLeaseId"`
+	CanaryChallengeID        string                              `json:"canaryChallengeId"`
+	CanaryReceiptID          string                              `json:"canaryReceiptId"`
+	CanaryBindingDigest      string                              `json:"canaryBindingDigest"`
 }
 
 type RestoreRunRequest struct {
@@ -4048,6 +4194,8 @@ var Endpoints = []Endpoint{
 	{ID: "api.v1.host-discovery-targets.draft", Method: "POST", Path: "/api/v1/host-discovery-targets/draft", Availability: "available", OwnerPhase: "6", QuerySchema: "", RequestSchema: "vegastack-labs.dev/host-discovery-target-draft-request", DataSchema: "vegastack-labs.dev/host-discovery-target-draft-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.host-observations.create", Method: "POST", Path: "/api/v1/host-observations", Availability: "available", OwnerPhase: "6", QuerySchema: "", RequestSchema: "vegastack-labs.dev/host-discovery-request", DataSchema: "vegastack-labs.dev/host-discovery-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.host-observations.get", Method: "GET", Path: "/api/v1/host-observations/{observationID}", Availability: "available", OwnerPhase: "6", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/host-observation", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.host-replacements.create", Method: "POST", Path: "/api/v1/host-replacements", Availability: "available", OwnerPhase: "6", QuerySchema: "", RequestSchema: "vegastack-labs.dev/host-replacement-request", DataSchema: "vegastack-labs.dev/host-replacement-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.host-replacements.get", Method: "GET", Path: "/api/v1/host-replacements/{replacementId}", Availability: "available", OwnerPhase: "6", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/host-replacement-state", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.hosts.get", Method: "GET", Path: "/api/v1/hosts/{hostID}", Availability: "available", OwnerPhase: "6", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/managed-host", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.inventory-diffs.create", Method: "POST", Path: "/api/v1/inventory-diffs", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "vegastack-labs.dev/inventory-diff-request", DataSchema: "vegastack-labs.dev/inventory-diff-data", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.inventory-draft-aliases.get", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/aliases/{recordId}", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-alias-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},

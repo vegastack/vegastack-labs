@@ -13,6 +13,8 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/gate"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/hostaction"
+	"github.com/vegastack/vegastack-labs/internal/hostreplacement"
 	"github.com/vegastack/vegastack-labs/internal/stateexport"
 	"github.com/vegastack/vegastack-labs/internal/store"
 )
@@ -77,18 +79,28 @@ func (service *Service) Revise(ctx context.Context, author AuthorScope, request 
 			return Result{}, inputError()
 		}
 	}
+	if err := validateAliasClaimDeclaration(request, operations, extensions); err != nil {
+		return Result{}, err
+	}
+	var alias *generated.HostAliasClaimRequest
+	if request.HostAliasClaim != nil {
+		cloned := *request.HostAliasClaim
+		cloned.AliasIDs = append([]string(nil), cloned.AliasIDs...)
+		alias = &cloned
+	}
 	semantic := struct {
+		HostAliasClaim  *generated.HostAliasClaimRequest `json:"hostAliasClaim,omitempty"`
 		DeclarationID   string                           `json:"declarationId"`
 		DeclarationType string                           `json:"declarationType"`
 		Operations      []generated.DeclarationOperation `json:"operations"`
 		ReasonDigest    string                           `json:"reasonDigest"`
 		Extensions      []generated.ContractExtension    `json:"extensions"`
-	}{request.DeclarationID, request.DeclarationType, operations, request.ReasonDigest, extensions}
+	}{alias, request.DeclarationID, request.DeclarationType, operations, request.ReasonDigest, extensions}
 	_, contentSum, err := stateexport.CanonicalJSON(semantic)
 	if err != nil {
 		return Result{}, inputError()
 	}
-	document := generated.DeclarationRevision{Schema: generated.SchemaIDDeclarationRevision, SchemaVersion: "1.0.0", DeclarationID: request.DeclarationID, DeclarationType: request.DeclarationType, Revision: request.ExpectedRevision, StateRevision: request.ExpectedStateRevision + 1, RecoveryEpoch: request.RecoveryEpoch, ContentDigest: digest(contentSum), Status: "draft", Operations: operations, CreatedAt: service.clock().UTC().Truncate(time.Second).Format(time.RFC3339), CreatedBy: author.PrincipalID, AgentSessionID: author.AgentSessionID, Extensions: extensions}
+	document := generated.DeclarationRevision{HostAliasClaim: alias, Schema: generated.SchemaIDDeclarationRevision, SchemaVersion: "1.0.0", DeclarationID: request.DeclarationID, DeclarationType: request.DeclarationType, Revision: request.ExpectedRevision, StateRevision: request.ExpectedStateRevision + 1, RecoveryEpoch: request.RecoveryEpoch, ContentDigest: digest(contentSum), Status: "draft", Operations: operations, CreatedAt: service.clock().UTC().Truncate(time.Second).Format(time.RFC3339), CreatedBy: author.PrincipalID, AgentSessionID: author.AgentSessionID, Extensions: extensions}
 	normalizedRequest := request
 	normalizedRequest.Operations = operations
 	normalizedRequest.Extensions = extensions
@@ -110,3 +122,29 @@ func (service *Service) Revise(ctx context.Context, author AuthorScope, request 
 
 func digest(sum [32]byte) string { return "sha256:" + hex.EncodeToString(sum[:]) }
 func inputError() error          { return failure.New(generated.ErrorCodeInputInvalid, "declaration", false) }
+
+func validateAliasClaimDeclaration(r generated.DeclarationRevisionRequest, ops []generated.DeclarationOperation, extensions []generated.ContractExtension) error {
+	present := r.HostAliasClaim != nil || r.DeclarationType == "host.alias-claim"
+	for _, op := range ops {
+		if op.OperationType == hostreplacement.AliasClaimOperation {
+			present = true
+		}
+	}
+	for _, e := range extensions {
+		if e.Name == hostreplacement.AliasClaimExtension {
+			present = true
+		}
+	}
+	if !present {
+		return nil
+	}
+	if r.HostAliasClaim == nil || hostreplacement.ValidateAliasClaim(*r.HostAliasClaim) != nil || r.DeclarationType != "host.alias-claim" || len(ops) != 1 || len(extensions) != 1 || r.HostAliasClaim.ExpectedStateRevision != r.ExpectedStateRevision || r.HostAliasClaim.RecoveryEpoch != r.RecoveryEpoch {
+		return inputError()
+	}
+	d := hostaction.Digest(r.HostAliasClaim)
+	op := ops[0]
+	if op.OperationType != hostreplacement.AliasClaimOperation || op.AdapterID != hostreplacement.AdapterID || op.TargetID != r.DeclarationID || !op.Idempotent || op.InputDigest != d || op.ArtifactDigest != d || extensions[0].Name != hostreplacement.AliasClaimExtension || extensions[0].ValueDigest != d || r.ReasonDigest != d {
+		return inputError()
+	}
+	return nil
+}
