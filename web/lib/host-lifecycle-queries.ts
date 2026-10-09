@@ -1,8 +1,8 @@
 "use client";
 
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { createHostClient, type HostDiscoveryTargetDraftRequest, type HostAdoptionRequest, type HostDiscoveryRequest, type HostActionRequest, type HostAccessDraftRequest } from "@/generated/read-api";
-import { changeClient } from "@/lib/read-client";
+import { createHostClient, ReadClientError, type HostDiscoveryTargetDraftRequest, type HostAdoptionRequest, type HostDiscoveryRequest, type HostActionRequest, type HostAccessDraftRequest } from "@/generated/read-api";
+import { changeClient, readClient } from "@/lib/read-client";
 import { planFromView } from "@/lib/change-queries";
 
 export const hostClient = createHostClient((input, init) => fetch(input, init));
@@ -28,4 +28,14 @@ export function useHostPlan() {
     const result = await changeClient.createPlan({ declarationId }, { schema: "vegastack-labs.dev/plan-create-request", schemaVersion: "1.0.0", declarationId, declarationRevision: p.declarationRevision, expectedStateRevision: p.expectedStateRevision, recoveryEpoch: p.recoveryEpoch, observationFingerprint: p.observationFingerprint, idempotencyKey: `console-host-plan-${crypto.randomUUID()}`, extensions: [] });
     return planFromView(result.data);
   } });
+}
+
+export function useHostAdmission(id: string, gateId: "host.hardening-baseline" | "host.role-admission", revision: number, epoch: number) {
+  return useQuery({ queryKey: ["read", "hosts", "admission", id, gateId, revision, epoch], retry: false,
+    queryFn: async ({ signal }) => {
+      const result = await readClient.getGate({ gateId }, { subjectId: id }, { signal });
+      if (result.data.evaluation.subjectId !== id || result.data.evaluation.gateId !== gateId || result.data.definition.gateId !== gateId || result.data.evaluation.recoveryEpoch !== result.recoveryEpoch) throw new ReadClientError("schema-mismatch", "INTEGRITY_FAILURE", "host-admission");
+      return result;
+    },
+  });
 }

@@ -67,3 +67,33 @@ test("registration submits bounded identity enums and seconds-only confirmation"
  await form.getByRole("button",{name:"Prepare registration",exact:true}).click();
  await expect(page.getByText("Host workflow unavailable")).toBeVisible();expect(captured.confirmation.identityClass).toBe("qualified-virtual");expect(captured.confirmation.identityKind).toBe("product-uuid");expect(captured.confirmation.confirmedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
 });
+
+test("role import stays inert and shows independent admission prerequisites",async({page})=>{
+ await installReadFixture(page);let captured:any;let mutations=0;
+ const input=JSON.parse(readFileSync(__dirname+"/../../internal/linuxrole/testdata/role-input.json","utf8"));
+ const request=JSON.parse(readFileSync(__dirname+"/../../internal/localapi/testdata/host-action.json","utf8"));
+ Object.assign(request,{actionId:"debian.role.apply",hostId:input.hostId,callerUid:input.automationUid,actionInput:JSON.stringify(input)});request.consoleConfirmation.hostIdentityDigest=input.hostIdentityDigest;
+ await page.route("**/api/v1/host-actions/draft",route=>{mutations++;captured=route.request().postDataJSON();return route.fulfill({json:envelope("api.v1.host-actions.draft",{schema:"vegastack-labs.dev/host-action-submission",schemaVersion:"1.0.0",draftId:"role-draft",declarationId:"role-draft",contentDigest:digest,stateRevision:3,recoveryEpoch:0})});});
+ await page.goto("/nodes");await page.getByRole("button",{name:"Role and service handoff",exact:true}).click();
+ await page.getByLabel("Prepared role policy file").setInputFiles({name:"role.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify(request))});
+ await expect(page.getByLabel("Prepared role details")).toContainText(`Role: ${input.roleId}`);
+ await expect(page.getByText("Role apply leaves network qualification pending.",{exact:false})).toBeVisible();expect(mutations).toBe(0);
+ await page.getByRole("button",{name:"Prepare role draft",exact:true}).click();
+ await expect(page.getByText("No host action has been applied.")).toBeVisible();expect(mutations).toBe(1);expect(captured.actionInput).toBe(request.actionInput);
+ await expect(page.getByRole("button",{name:"Execute exact plan"})).toHaveCount(0);
+ await expect(page.getByText("First control service setup",{exact:true})).toBeVisible();
+});
+
+test("baseline success does not replace blocked or stale role admission",async({page})=>{
+ await installReadFixture(page);let stale=false;
+ await page.route("**/api/v1/hosts/host-a",route=>route.fulfill({json:envelope("api.v1.hosts.get",{schema:"vegastack-labs.dev/managed-host",schemaVersion:"1.0.0",hostId:"host-a",targetId:"target-a",observationId:"observation-a",profileId:"profile-a",identityClass:"physical",status:"adopted-unadmitted",stateRevision:3,recoveryEpoch:0})}));
+ await page.route("**/api/v1/gates/host.*",route=>{
+  const url=new URL(route.request().url());expect(url.searchParams.get("subjectId")).toBe("host-a");const gateId=url.pathname.split("/").at(-1)!;const role=gateId==="host.role-admission";
+  const outcome=role?(stale?"stale":"blocked"):"passed";
+  return route.fulfill({json:envelope("api.v1.gates.get",{schema:"vegastack-labs.dev/gate-view",schemaVersion:"1.1.0",applicabilityReasonCode:"applicable",definition:{schema:"vegastack-labs.dev/gate-definition",schemaVersion:"1.1.0",gateId,definitionVersion:"1.1.0",layer:"platform",profileId:null,capabilityId:null,subjectKinds:["node"],applicability:"always",prerequisiteGateIds:[],evidenceSchemaId:"vegastack-labs.dev/gate-evidence",evaluatorVersion:"1.1.0",freshnessSeconds:86400,recoveryEpochBound:true},evaluation:{schema:"vegastack-labs.dev/gate-evaluation",schemaVersion:"1.1.0",evaluationId:"evaluation-a",gateId,subjectId:"host-a",definitionVersion:"1.1.0",evaluatorVersion:"1.1.0",evidenceIds:role?[]:["baseline-evidence-a"],evaluatedAt:"2026-10-09T12:00:00Z",recoveryEpoch:0,outcome,reasonCode:role?(stale?"host.binding-changed":"host.role-evidence-missing"):"requirements-passed",evidenceSource:"local",readyForInput:role}})});
+ });
+ await page.goto("/nodes");await page.getByLabel("Managed host ID",{exact:true}).fill("host-a");await page.getByRole("button",{name:"Inspect registered host",exact:true}).click();
+ await expect(page.getByText("Baseline: passed",{exact:true})).toBeVisible();await expect(page.getByText("Role admission: blocked",{exact:true})).toBeVisible();
+ stale=true;await page.getByRole("button",{name:"Read current admission",exact:true}).click();await expect(page.getByText("Role admission: stale",{exact:true})).toBeVisible();
+ await expect(page.getByText("Missing or stale role evidence leaves this host unadmitted.",{exact:false})).toBeVisible();
+});

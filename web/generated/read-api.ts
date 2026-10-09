@@ -637,6 +637,23 @@ export interface ContractExtension {
   readonly "valueDigest": string;
 }
 
+export interface ControlHandoffInput {
+  readonly "schema": "vegastack-labs.dev/control-handoff-input";
+  readonly "schemaVersion": "1.0.0";
+  readonly "foregroundPid": number;
+  readonly "foregroundStartIdentity": string;
+  readonly "serviceUid": number;
+  readonly "databaseInstanceId": string;
+  readonly "recoveryEpoch": number;
+  readonly "writerLockDigest": string;
+  readonly "unitDigest": string;
+  readonly "configDigest": string;
+  readonly "executableDigest": string;
+  readonly "socketIdentityDigest": string;
+  readonly "expiresAt": string;
+  readonly "rollbackDeadline": string;
+}
+
 export interface DatabaseStatusData {
   readonly "mode": "ready" | "safe-mode";
   readonly "schemaVersion": number;
@@ -1256,6 +1273,70 @@ export interface InventoryDraftCounts {
   readonly "hardwareFacts": number;
   readonly "provenance": number;
   readonly "findings": number;
+}
+
+export interface LinuxRoleAccount {
+  readonly "schema": "vegastack-labs.dev/linux-role-account";
+  readonly "schemaVersion": "1.0.0";
+  readonly "selector": "control" | "application" | "ci" | "standby";
+  readonly "uid": number;
+  readonly "gid": number;
+  readonly "existing": boolean;
+}
+
+export interface LinuxRoleDirectory {
+  readonly "schema": "vegastack-labs.dev/linux-role-directory";
+  readonly "schemaVersion": "1.0.0";
+  readonly "selector": "config" | "state" | "runtime" | "work";
+  readonly "uid": number;
+  readonly "gid": number;
+  readonly "mode": "0700" | "0750";
+  readonly "expectedState": "absent" | "owned";
+  readonly "expectedDigest"?: string;
+}
+
+export interface LinuxRoleInput {
+  readonly "schema": "vegastack-labs.dev/linux-role-input";
+  readonly "schemaVersion": "1.0.0";
+  readonly "hostId": string;
+  readonly "hostIdentityDigest": string;
+  readonly "profileId": string;
+  readonly "profileLockDigest": string;
+  readonly "roleId": "control" | "application" | "ci" | "recovery-spare" | "reserve";
+  readonly "controlIds": ReadonlyArray<string>;
+  readonly "affectedBaselineControlIds": ReadonlyArray<string>;
+  readonly "baselineSnapshotDigest"?: string;
+  readonly "currentRoleBindingDigest"?: string;
+  readonly "roleBindingDigest": string;
+  readonly "networkingRequired": boolean;
+  readonly "standbyRequired": boolean;
+  readonly "networkAccess"?: DebianAccessInput | null;
+  readonly "profileLock": DebianProfileLock;
+  readonly "actionVersion": string;
+  readonly "automationUid": number;
+  readonly "accounts": ReadonlyArray<LinuxRoleAccount>;
+  readonly "directories": ReadonlyArray<LinuxRoleDirectory>;
+  readonly "resources": LinuxRoleResources;
+  readonly "renderedPolicyDigest": string;
+  readonly "executableDigest": string;
+  readonly "configDigest": string;
+  readonly "expectedServiceState": "absent" | "inactive" | "active";
+  readonly "expectedUnitDigest"?: string;
+  readonly "expectedTmpfilesDigest"?: string;
+  readonly "handoff"?: ControlHandoffInput | null;
+}
+
+export interface LinuxRoleResources {
+  readonly "schema": "vegastack-labs.dev/linux-role-resources";
+  readonly "schemaVersion": "1.0.0";
+  readonly "memoryMaxBytes": number;
+  readonly "cpuQuotaPercent": number;
+  readonly "tasksMax": number;
+  readonly "minimumFreeBytes": number;
+  readonly "minimumFreePercent": number;
+  readonly "capacityMemoryBytes": number;
+  readonly "capacityCpuPercent": number;
+  readonly "capacityTasks": number;
 }
 
 export interface ManagedHost {
@@ -5090,6 +5171,113 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/control-handoff-input",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/control-handoff-input"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "foregroundPid",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "foregroundStartIdentity",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "serviceUid",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "databaseInstanceId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "writerLockDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "unitDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "configDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "executableDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "socketIdentityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "expiresAt",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      {
+        "name": "rollbackDeadline",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
       }
     ]
   },
@@ -9022,6 +9210,435 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/linux-role-account",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/linux-role-account"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "selector",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "control",
+          "application",
+          "ci",
+          "standby"
+        ]
+      },
+      {
+        "name": "uid",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "gid",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "existing",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/linux-role-directory",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/linux-role-directory"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "selector",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "config",
+          "state",
+          "runtime",
+          "work"
+        ]
+      },
+      {
+        "name": "uid",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "gid",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "mode",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "0700",
+          "0750"
+        ]
+      },
+      {
+        "name": "expectedState",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "absent",
+          "owned"
+        ]
+      },
+      {
+        "name": "expectedDigest",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/linux-role-input",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/linux-role-input"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "hostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "hostIdentityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "profileId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "profileLockDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "roleId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "control",
+          "application",
+          "ci",
+          "recovery-spare",
+          "reserve"
+        ]
+      },
+      {
+        "name": "controlIds",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "maxItems": 6,
+        "uniqueItems": true
+      },
+      {
+        "name": "affectedBaselineControlIds",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "maxItems": 16,
+        "uniqueItems": true
+      },
+      {
+        "name": "baselineSnapshotDigest",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "currentRoleBindingDigest",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "roleBindingDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "networkingRequired",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "standbyRequired",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "networkAccess",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "ref": "vegastack-labs.dev/debian-access-input"
+      },
+      {
+        "name": "profileLock",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/debian-profile-lock"
+      },
+      {
+        "name": "actionVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"
+      },
+      {
+        "name": "automationUid",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "accounts",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/linux-role-account",
+        "maxItems": 2
+      },
+      {
+        "name": "directories",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/linux-role-directory",
+        "maxItems": 4
+      },
+      {
+        "name": "resources",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/linux-role-resources"
+      },
+      {
+        "name": "renderedPolicyDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "executableDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "configDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "expectedServiceState",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "absent",
+          "inactive",
+          "active"
+        ]
+      },
+      {
+        "name": "expectedUnitDigest",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "expectedTmpfilesDigest",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "handoff",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "ref": "vegastack-labs.dev/control-handoff-input"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/linux-role-resources",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/linux-role-resources"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "memoryMaxBytes",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "cpuQuotaPercent",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "tasksMax",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "minimumFreeBytes",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "minimumFreePercent",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "capacityMemoryBytes",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "capacityCpuPercent",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "capacityTasks",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/managed-host",
     "fields": [
       {
@@ -10686,6 +11303,10 @@ function decodeContractExtension(value: unknown): ContractExtension {
   return decodeSchema("vegastack-labs.dev/contract-extension", value) as unknown as ContractExtension;
 }
 
+function decodeControlHandoffInput(value: unknown): ControlHandoffInput {
+  return decodeSchema("vegastack-labs.dev/control-handoff-input", value) as unknown as ControlHandoffInput;
+}
+
 function decodeDatabaseStatusData(value: unknown): DatabaseStatusData {
   return decodeSchema("vegastack-labs.dev/database-status-data", value) as unknown as DatabaseStatusData;
 }
@@ -10876,6 +11497,22 @@ function decodeHostVolumeBinding(value: unknown): HostVolumeBinding {
 
 function decodeInventoryDraftCounts(value: unknown): InventoryDraftCounts {
   return decodeSchema("vegastack-labs.dev/inventory-draft-counts", value) as unknown as InventoryDraftCounts;
+}
+
+function decodeLinuxRoleAccount(value: unknown): LinuxRoleAccount {
+  return decodeSchema("vegastack-labs.dev/linux-role-account", value) as unknown as LinuxRoleAccount;
+}
+
+function decodeLinuxRoleDirectory(value: unknown): LinuxRoleDirectory {
+  return decodeSchema("vegastack-labs.dev/linux-role-directory", value) as unknown as LinuxRoleDirectory;
+}
+
+function decodeLinuxRoleInput(value: unknown): LinuxRoleInput {
+  return decodeSchema("vegastack-labs.dev/linux-role-input", value) as unknown as LinuxRoleInput;
+}
+
+function decodeLinuxRoleResources(value: unknown): LinuxRoleResources {
+  return decodeSchema("vegastack-labs.dev/linux-role-resources", value) as unknown as LinuxRoleResources;
 }
 
 function decodeManagedHost(value: unknown): ManagedHost {

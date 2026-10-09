@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { HostAdmission, InitialControlGuidance } from "@/components/host-admission";
 import { HostPolicyForm } from "@/components/host-policy-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,7 +73,9 @@ function HostLifecycleContent({ initialHostId }: { initialHostId: string | null 
         <Field name="hostId" label="New managed host ID" /><Field name="identityDigest" label="Independently verified identity digest" /><label className="grid gap-1 text-sm">Identity class<select aria-label="Identity class" name="identityClass" defaultValue="physical" className="rounded-md border p-2"><option value="physical">Physical machine</option><option value="qualified-virtual">Qualified virtual machine</option></select></label><label className="grid gap-1 text-sm">Identity kind<select aria-label="Identity kind" name="identityKind" defaultValue="product-serial" className="rounded-md border p-2"><option value="product-serial">Product serial</option><option value="product-uuid">Product UUID</option></select></label><Field name="revision" label="Current state revision" number /><Button type="submit" disabled={busy || !observation.data}>Prepare registration</Button>
       </form>
     </CardContent></Card>
+    {host.data ? <HostAdmission key={host.data.data.hostId} hostId={host.data.data.hostId} revision={host.data.data.stateRevision} epoch={host.data.data.recoveryEpoch} /> : null}
     <HostPolicyForm onPrepared={saveDraft} />
+    <InitialControlGuidance />
     {draft ? <Card><CardHeader><CardTitle>Draft prepared</CardTitle><CardDescription>No host action has been applied.</CardDescription></CardHeader><CardContent className="space-y-3"><p>Declaration: {draft.declarationId}</p><p className="break-all">Digest: {draft.digest}</p><Button disabled={busy} onClick={async()=>{try{const p=await planning.mutateAsync(draft.declarationId);setPlanId(p.planId);}catch{}}}>Create exact plan</Button><ExactPlanLauncher key={planId ?? draft.declarationId} kind={draft.kind} planId={planId} destructive /></CardContent></Card> : null}
   </section>;
 }

@@ -817,8 +817,8 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 			}
 		}
 	}
-	if available != 56 || planned != 21 {
-		t.Fatalf("command availability = (%d available, %d planned), want (56, 21)", available, planned)
+	if available != 60 || planned != 21 {
+		t.Fatalf("command availability = (%d available, %d planned), want (60, 21)", available, planned)
 	}
 	// #102's 17 available/38 planned baseline remains the arithmetic base:
 	// #104 promoted four exact gate commands and added one exact profile draft;

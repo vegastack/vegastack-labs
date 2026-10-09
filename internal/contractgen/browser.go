@@ -70,6 +70,7 @@ func browserSchemaGraph(registry metadata.Registry, endpoints []metadata.Endpoin
 	for _, endpoint := range endpoints {
 		if endpoint.ID == "api.v1.host-actions.draft" {
 			wanted["vegastack-labs.dev/debian-baseline-input"] = true
+			wanted["vegastack-labs.dev/linux-role-input"] = true
 			wanted["vegastack-labs.dev/access-probe-input"] = true
 			wanted["vegastack-labs.dev/volume-recovery-input"] = true
 		}
