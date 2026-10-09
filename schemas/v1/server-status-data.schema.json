@@ -3,6 +3,10 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
+    "instanceId": {
+      "maxLength": 128,
+      "type": "string"
+    },
     "mutationAvailable": {
       "type": "boolean"
     },

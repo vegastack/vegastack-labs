@@ -953,6 +953,7 @@ func currentSchemas() []SchemaDefinition {
 			Version:      "1.1.0",
 			ArtifactPath: "schemas/v1/server-status-data.schema.json",
 			Fields: []FieldDefinition{
+				{JSONName: "instanceId", GoName: "InstanceID", Kind: ValueString, OmitEmpty: true, MaxLength: intPointer(128)},
 				{JSONName: "state", GoName: "State", Kind: ValueString, Required: true, Enum: []string{"starting", "ready", "safe-mode", "stopping", "unavailable"}},
 				{JSONName: "readAvailable", GoName: "ReadAvailable", Kind: ValueBoolean, Required: true},
 				{JSONName: "mutationAvailable", GoName: "MutationAvailable", Kind: ValueBoolean, Required: true},

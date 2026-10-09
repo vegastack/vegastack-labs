@@ -1,4 +1,67 @@
 {
+  "$defs": {
+    "host-role-foundation": {
+      "additionalProperties": false,
+      "properties": {
+        "blockers": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "roleBindingDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "roleId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-role-foundation"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "serviceState": {
+          "enum": [
+            "not-applicable",
+            "pending-handoff",
+            "unverified",
+            "active"
+          ],
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "unconfigured",
+            "pending",
+            "installed",
+            "partial",
+            "recovery-required"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "roleId",
+        "status",
+        "serviceState",
+        "blockers"
+      ],
+      "type": "object"
+    }
+  },
   "$id": "vegastack-labs.dev/managed-host",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
@@ -25,6 +88,16 @@
     "recoveryEpoch": {
       "minimum": 0,
       "type": "integer"
+    },
+    "roleFoundation": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/host-role-foundation"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "schema": {
       "enum": [

@@ -185,6 +185,7 @@ const (
 	SchemaIDHostProfile                            = "vegastack-labs.dev/host-profile"
 	SchemaIDHostRole                               = "vegastack-labs.dev/host-role"
 	SchemaIDHostRoleAlias                          = "vegastack-labs.dev/host-role-alias"
+	SchemaIDHostRoleFoundation                     = "vegastack-labs.dev/host-role-foundation"
 	SchemaIDHostRoleScope                          = "vegastack-labs.dev/host-role-scope"
 	SchemaIDHostVolumeBinding                      = "vegastack-labs.dev/host-volume-binding"
 	SchemaIDInventoryDiffCounts                    = "vegastack-labs.dev/inventory-diff-counts"
@@ -2566,6 +2567,16 @@ type HostRoleAlias struct {
 	Value         string `json:"value"`
 }
 
+type HostRoleFoundation struct {
+	Schema            string   `json:"schema"`
+	SchemaVersion     string   `json:"schemaVersion"`
+	RoleID            string   `json:"roleId"`
+	RoleBindingDigest string   `json:"roleBindingDigest,omitempty"`
+	Status            string   `json:"status"`
+	ServiceState      string   `json:"serviceState"`
+	Blockers          []string `json:"blockers"`
+}
+
 type HostRoleScope struct {
 	Schema                     string   `json:"schema"`
 	SchemaVersion              string   `json:"schemaVersion"`
@@ -2860,11 +2871,12 @@ type LinuxRoleInput struct {
 	RoleID                     string               `json:"roleId"`
 	ControlIDs                 []string             `json:"controlIds"`
 	AffectedBaselineControlIDs []string             `json:"affectedBaselineControlIds"`
-	BaselineSnapshotDigest     string               `json:"baselineSnapshotDigest"`
+	BaselineSnapshotDigest     string               `json:"baselineSnapshotDigest,omitempty"`
 	CurrentRoleBindingDigest   string               `json:"currentRoleBindingDigest,omitempty"`
 	RoleBindingDigest          string               `json:"roleBindingDigest"`
 	NetworkingRequired         bool                 `json:"networkingRequired"`
 	StandbyRequired            bool                 `json:"standbyRequired"`
+	NetworkAccess              *DebianAccessInput   `json:"networkAccess,omitempty"`
 	ProfileLock                DebianProfileLock    `json:"profileLock"`
 	ActionVersion              string               `json:"actionVersion"`
 	AutomationUID              int64                `json:"automationUid"`
@@ -2876,6 +2888,7 @@ type LinuxRoleInput struct {
 	ConfigDigest               string               `json:"configDigest"`
 	ExpectedServiceState       string               `json:"expectedServiceState"`
 	ExpectedUnitDigest         string               `json:"expectedUnitDigest,omitempty"`
+	ExpectedTmpfilesDigest     string               `json:"expectedTmpfilesDigest,omitempty"`
 	Handoff                    *ControlHandoffInput `json:"handoff,omitempty"`
 }
 
@@ -2974,16 +2987,17 @@ type LocalSetupReviewRequest struct {
 }
 
 type ManagedHost struct {
-	Schema        string `json:"schema"`
-	SchemaVersion string `json:"schemaVersion"`
-	HostID        string `json:"hostId"`
-	TargetID      string `json:"targetId"`
-	ObservationID string `json:"observationId"`
-	ProfileID     string `json:"profileId"`
-	IdentityClass string `json:"identityClass"`
-	Status        string `json:"status"`
-	StateRevision int64  `json:"stateRevision"`
-	RecoveryEpoch int64  `json:"recoveryEpoch"`
+	Schema         string              `json:"schema"`
+	SchemaVersion  string              `json:"schemaVersion"`
+	RoleFoundation *HostRoleFoundation `json:"roleFoundation,omitempty"`
+	HostID         string              `json:"hostId"`
+	TargetID       string              `json:"targetId"`
+	ObservationID  string              `json:"observationId"`
+	ProfileID      string              `json:"profileId"`
+	IdentityClass  string              `json:"identityClass"`
+	Status         string              `json:"status"`
+	StateRevision  int64               `json:"stateRevision"`
+	RecoveryEpoch  int64               `json:"recoveryEpoch"`
 }
 
 type NativeRestartPresentation struct {
@@ -3730,6 +3744,7 @@ type ServerProfile struct {
 }
 
 type ServerStatusData struct {
+	InstanceID        string `json:"instanceId,omitempty"`
 	State             string `json:"state"`
 	ReadAvailable     bool   `json:"readAvailable"`
 	MutationAvailable bool   `json:"mutationAvailable"`

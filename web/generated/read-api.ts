@@ -955,6 +955,7 @@ export interface RunReferenceRequest {
 }
 
 export interface ServerStatusData {
+  readonly "instanceId"?: string;
   readonly "state": "starting" | "ready" | "safe-mode" | "stopping" | "unavailable";
   readonly "readAvailable": boolean;
   readonly "mutationAvailable": boolean;
@@ -6607,6 +6608,13 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
   {
     "id": "vegastack-labs.dev/server-status-data",
     "fields": [
+      {
+        "name": "instanceId",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "maxLength": 128
+      },
       {
         "name": "state",
         "kind": "string",

@@ -12,7 +12,9 @@
   ],
   "affectedBaselineControlIds": [
     "linux.resource-health",
-    "debian.host-firewall"
+    "debian.host-firewall",
+    "debian.accounts",
+    "debian.ssh"
   ],
   "baselineSnapshotDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "roleBindingDigest": "sha256:d19cd8a59cb9de528fc0bc57e091b4a2911920a7510a49db3700c39c6abd3b82",

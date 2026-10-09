@@ -30,3 +30,18 @@ func TestPreparationHasNoEffects(t *testing.T) {
 		t.Fatal("tampered preparation accepted")
 	}
 }
+
+func TestInertPreparationNeedsNoBaselineProof(t *testing.T) {
+	in := fixture()
+	in.BaselineSnapshotDigest = ""
+	p, e := Prepare(in)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if p.Input.BaselineSnapshotDigest != "" {
+		t.Fatal("preparation invented baseline proof")
+	}
+	if ValidateInput(p.Input) == nil {
+		t.Fatal("unsealed preparation executable")
+	}
+}

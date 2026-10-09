@@ -46,6 +46,20 @@ func (app *App) runRolePrepare(ctx context.Context, mode outputMode, p parsedArg
 		if _, err = fmt.Fprintf(app.stdout, "Preparation only: %s role on %s\nPolicy digest: %s\n", data.Input.RoleID, data.Input.HostID, data.PolicyDigest); err != nil {
 			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
 		}
+		for _, account := range data.Input.Accounts {
+			if _, err = fmt.Fprintf(app.stdout, "Account %s: UID %d, GID %d; existing=%t\n", account.Selector, account.UID, account.GID, account.Existing); err != nil {
+				return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+			}
+		}
+		resources := data.Input.Resources
+		if _, err = fmt.Fprintf(app.stdout, "Limits: memory %d bytes; CPU %d%%; tasks %d; minimum free %d bytes (%d%%)\n", resources.MemoryMaxBytes, resources.CPUQuotaPercent, resources.TasksMax, resources.MinimumFreeBytes, resources.MinimumFreePercent); err != nil {
+			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+		}
+		for _, directory := range data.Input.Directories {
+			if _, err = fmt.Fprintf(app.stdout, "Directory /%s: UID %d, GID %d, mode %s\n", linuxrole.DirectoryPath(data.Input.RoleID, directory.Selector), directory.UID, directory.GID, directory.Mode); err != nil {
+				return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+			}
+		}
 		for _, file := range data.Files {
 			if _, err = fmt.Fprintf(app.stdout, "Prepared /%s (%s)\n", file.Path, file.Digest); err != nil {
 				return exitCodeFor(generated.ErrorCodeIntegrityFailure)

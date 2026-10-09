@@ -76,6 +76,17 @@ func DirectoryPath(role, selector string) string {
 	}
 	return ""
 }
+func TmpfilesPath(role string) string {
+	switch role {
+	case "application":
+		return "etc/tmpfiles.d/vsk-application.conf"
+	case "ci":
+		return "etc/tmpfiles.d/vsk-ci.conf"
+	case "reserve", "recovery-spare":
+		return "etc/tmpfiles.d/vsk-standby.conf"
+	}
+	return ""
+}
 func DesiredFiles(in generated.LinuxRoleInput) map[string][]byte {
 	files := map[string][]byte{}
 	unit := UnitName(in.RoleID)
@@ -88,16 +99,28 @@ func DesiredFiles(in generated.LinuxRoleInput) map[string][]byte {
 		a := in.Accounts[0]
 		files["etc/systemd/system/"+unit] = []byte(fmt.Sprintf("[Unit]\nDescription=VegaStack Labs control service\nAfter=network.target\n[Service]\nType=simple\nUser=%d\nGroup=%d\nExecStart=/usr/local/bin/vsk-labs server run --config /etc/vsk-labs/control/server.json\nWorkingDirectory=/var/lib/vsk-labs/control\nRuntimeDirectory=vsk-labs-control\nRuntimeDirectoryMode=0700\nUMask=0077\nNoNewPrivileges=yes\nPrivateTmp=yes\nProtectSystem=strict\nProtectHome=yes\nReadWritePaths=/var/lib/vsk-labs/control /run/vsk-labs-control\n%sRestart=no\n[Install]\nWantedBy=multi-user.target\n", a.UID, a.GID, limits))
 	} else {
-		files["etc/systemd/system/"+unit] = []byte("[Unit]\nDescription=VegaStack Labs role resource boundary\n[Slice]\n" + limits)
+		files["etc/systemd/system/"+unit] = []byte("[Unit]\nDescription=VegaStack Labs role resource boundary\n[Slice]\n" + limits + "[Install]\nWantedBy=multi-user.target\n")
+		for _, d := range in.Directories {
+			if d.Selector == "runtime" {
+				files[TmpfilesPath(in.RoleID)] = []byte(fmt.Sprintf("d /%s %s %d %d -\n", DirectoryPath(in.RoleID, "runtime"), d.Mode, d.UID, d.GID))
+			}
+		}
 	}
 	return files
 }
 func PolicyDigest(in generated.LinuxRoleInput) string { return hostaction.Digest(DesiredFiles(in)) }
 func Prepare(in generated.LinuxRoleInput) (RolePreparation, error) {
-	if e := ValidateInput(in); e != nil {
+	in.RenderedPolicyDigest = PolicyDigest(in)
+	in.RoleBindingDigest = RoleBindingDigest(in)
+	if e := ValidateDesiredInput(in); e != nil {
 		return RolePreparation{}, e
 	}
 	p := RolePreparation{Schema: generated.SchemaIDRolePreparation, SchemaVersion: "1.0.0", Input: in, Files: preparedFiles(in), PolicyDigest: PolicyDigest(in), Steps: []string{"Administrator verifies the exact existing account UID/GID, protected paths and public-key trust; conflicting identities or unknown data must be preserved.", "Use the existing server, exact role plan and human acknowledgement to install these inert files; preparation performs no filesystem or database writes.", "Recollect the affected baseline and role observations before requesting workload admission; provider enrollment and native qualification remain separate."}}
+	a := in.Accounts[0]
+	p.Steps = append(p.Steps, fmt.Sprintf("Administrator prerequisite: establish or verify account %s with UID %d and GID %d; refuse conflicting names, IDs or supplementary privileges.", AccountName(a.Selector), a.UID, a.GID))
+	for _, d := range in.Directories {
+		p.Steps = append(p.Steps, fmt.Sprintf("Verify /%s has exact owner UID %d/GID %d and mode %s, with protected parent directories; refuse symlinks and unknown data instead of recursive ownership changes.", DirectoryPath(in.RoleID, d.Selector), d.UID, d.GID, d.Mode))
+	}
 	if in.RoleID == "control" {
 		p.Steps = append(p.Steps, "Run foreground server setup as the same non-root service UID with the verified executable and protected configuration; only the server creates SQLite.", "A separately acknowledged exact control handoff and fresh acknowledged verification are required; installing the unit does not start or stop the foreground server.")
 	}

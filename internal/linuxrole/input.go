@@ -42,7 +42,7 @@ func DecodeDesiredInput(raw []byte) (generated.LinuxRoleInput, error) {
 	return in, ValidateDesiredInput(in)
 }
 func ValidateInput(in generated.LinuxRoleInput) error {
-	if in.RenderedPolicyDigest != PolicyDigest(in) || in.RoleBindingDigest != RoleBindingDigest(in) {
+	if in.BaselineSnapshotDigest == "" || in.RenderedPolicyDigest != PolicyDigest(in) || in.RoleBindingDigest != RoleBindingDigest(in) {
 		return errInput
 	}
 	return ValidateDesiredInput(in)
@@ -68,6 +68,14 @@ func ValidateDesiredInput(in generated.LinuxRoleInput) error {
 	if !packages["systemd"] {
 		return errInput
 	}
+	if in.NetworkingRequired != (in.NetworkAccess != nil) {
+		return errInput
+	}
+	if net := in.NetworkAccess; net != nil {
+		if debianaccess.ValidateInput(*net) != nil || net.HostID != in.HostID || net.HostIdentityDigest != in.HostIdentityDigest || net.ProfileID != in.ProfileID || net.ProfileLockDigest != in.ProfileLockDigest || net.AutomationUID != in.AutomationUID {
+			return errInput
+		}
+	}
 	account := in.RoleID
 	if account == "reserve" || account == "recovery-spare" {
 		account = "standby"
@@ -83,6 +91,9 @@ func ValidateDesiredInput(in generated.LinuxRoleInput) error {
 		return errInput
 	}
 	if in.RoleID != "control" && a.UID == in.AutomationUID {
+		return errInput
+	}
+	if account != "standby" && !in.NetworkingRequired {
 		return errInput
 	}
 	if in.StandbyRequired != (account == "standby") {
@@ -122,12 +133,15 @@ func ValidateDesiredInput(in generated.LinuxRoleInput) error {
 	}
 	affected := map[string]bool{}
 	for _, c := range in.AffectedBaselineControlIDs {
-		if affected[c] || !slices.Contains([]string{"debian.automation-account", "debian.ssh-effective", "debian.host-firewall", "debian.container-firewall", "linux.fail2ban-sshd", "linux.audit-bounded", "linux.apparmor-enforcing", "linux.aide-integrity", "linux.update-health", "linux.time-sync", "linux.resource-health", "linux.kernel-settings"}, c) {
+		if affected[c] || !slices.Contains([]string{"debian.accounts", "debian.ssh", "debian.host-firewall", "debian.container-firewall", "linux.fail2ban-sshd", "linux.audit-bounded", "linux.apparmor-enforcing", "linux.aide-integrity", "linux.update-health", "linux.time-sync", "linux.resource-health", "linux.kernel-settings"}, c) {
 			return errInput
 		}
 		affected[c] = true
 	}
-	if len(affected) == 0 || !affected["linux.resource-health"] || in.NetworkingRequired && !affected["debian.host-firewall"] {
+	if !affected["debian.accounts"] || !affected["debian.ssh"] || !affected["linux.resource-health"] || in.NetworkingRequired && !affected["debian.host-firewall"] {
+		return errInput
+	}
+	if in.RoleID == "control" && in.ExpectedTmpfilesDigest != "" {
 		return errInput
 	}
 	if (in.ExpectedServiceState == "absent") != (in.ExpectedUnitDigest == "") {
@@ -176,6 +190,7 @@ func RoleBindingDigest(in generated.LinuxRoleInput) string {
 	in.Handoff = nil
 	in.ExpectedServiceState = ""
 	in.ExpectedUnitDigest = ""
+	in.ExpectedTmpfilesDigest = ""
 	in.RenderedPolicyDigest = ""
 	in.ControlIDs = nil
 	in.AffectedBaselineControlIDs = nil

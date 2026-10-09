@@ -5272,6 +5272,11 @@
       "artifactPath": "schemas/v1/host-role-alias.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/host-role-foundation",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-role-foundation.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/host-role-scope",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/host-role-scope.schema.json"
