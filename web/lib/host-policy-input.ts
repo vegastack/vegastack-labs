@@ -9,11 +9,13 @@ export function readHostPolicy(kind: "access" | "baseline", raw: string): Loaded
   const value: unknown = JSON.parse(raw);
   if (kind === "access") {
     const request = decodePhase4Contract("vegastack-labs.dev/host-access-draft-request", value) as unknown as HostAccessDraftRequest;
-    decodePhase4Contract("vegastack-labs.dev/debian-access-input", JSON.parse(request.subject.actionInput));
+    decodePhase4Contract("vegastack-labs.dev/debian-access-input", request.input);
+    if (request.subject.actionId !== "debian.access.apply" || request.subject.hostId !== request.input.hostId || request.subject.consoleConfirmation.hostIdentityDigest !== request.input.hostIdentityDigest || request.subject.callerUid !== request.input.automationUid) throw new Error("Access subject does not match the policy.");
+    validateCompiledAccessInput(request.subject.actionInput);
     // Probe requests are parsed and fixed by the existing server access compiler.
     for (const step of request.probes) {
-      const schema = step.kind === "collect" ? "vegastack-labs.dev/debian-access-input" : "vegastack-labs.dev/access-probe-input";
-      decodePhase4Contract(schema, JSON.parse(step.request.actionInput));
+      if (step.kind === "collect") validateCompiledAccessInput(step.request.actionInput);
+      else decodePhase4Contract("vegastack-labs.dev/access-probe-input", JSON.parse(step.request.actionInput));
     }
     return { kind, request };
   }
@@ -26,4 +28,11 @@ export function hostPolicySummary(policy: LoadedHostPolicy) {
   const request = policy.kind === "access" ? policy.request.subject : policy.request;
   const input = policy.kind === "access" ? policy.request.input : JSON.parse(request.actionInput) as DebianBaselineInput;
   return { hostId: request.hostId, targetDigest: request.targetDigest, targetRevision: request.targetRevision, action: policy.kind === "access" ? "Apply access policy, probe, then confirm" : request.actionId, profileId: input.profileId, profileLockDigest: input.profileLockDigest, stateRevision: request.expectedStateRevision, recoveryEpoch: request.recoveryEpoch, auxiliaryHosts: policy.kind === "access" ? [...new Set(policy.request.probes.map(p => p.request.hostId))] : [] };
+}
+
+function validateCompiledAccessInput(raw: string) {
+  const input: unknown = JSON.parse(raw);
+  // The server compiler replaces this placeholder with the typed Input policy.
+  if (input && typeof input === "object" && !Array.isArray(input) && Object.keys(input).length === 0) return;
+  decodePhase4Contract("vegastack-labs.dev/debian-access-input", input);
 }

@@ -58,7 +58,7 @@ func (client *client) PrepareHostTarget(ctx context.Context, profile serverconfi
 	digest := "sha256:" + hex.EncodeToString(sum[:])
 	id := "discovery-draft-" + digest[7:39]
 	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodPost, "/api/v1/host-discovery-targets/draft", "api.v1.host-discovery-targets.draft", maxOperationResponseBodyBytes, operationTimeout, false}, input, func(data generated.HostDiscoveryTargetDraftSubmission, r generated.RunResult) bool {
-		return validGateData(data, generated.SchemaIDHostDiscoveryTargetDraftSubmission) && data.DraftID == id && data.DeclarationID == id && data.ContentDigest == digest && data.RecoveryEpoch == input.Target.RecoveryEpoch && data.RecoveryEpoch == r.RecoveryEpoch && data.StateRevision == r.StateRevision
+		return validGateData(data, generated.SchemaIDHostDiscoveryTargetDraftSubmission) && data.DraftID == id && data.DeclarationID == id && data.ContentDigest == digest && data.RecoveryEpoch == input.Target.RecoveryEpoch && data.RecoveryEpoch == r.RecoveryEpoch && data.StateRevision == r.StateRevision && data.StateRevision >= input.ExpectedStateRevision
 	})
 }
 
@@ -72,7 +72,7 @@ func (client *client) SubmitHostAction(ctx context.Context, profile serverconfig
 			return false
 		}
 		id := "host-action-" + data.ContentDigest[7:39]
-		return data.DraftID == id && data.DeclarationID == id && data.RecoveryEpoch == input.RecoveryEpoch && data.RecoveryEpoch == r.RecoveryEpoch && data.StateRevision == r.StateRevision
+		return data.DraftID == id && data.DeclarationID == id && data.RecoveryEpoch == input.RecoveryEpoch && data.RecoveryEpoch == r.RecoveryEpoch && data.StateRevision == r.StateRevision && data.StateRevision >= input.ExpectedStateRevision
 	})
 }
 
@@ -86,6 +86,6 @@ func (client *client) SubmitHostAccess(ctx context.Context, profile serverconfig
 			return false
 		}
 		id := "host-access-" + data.ContentDigest[7:39]
-		return data.DraftID == id && data.DeclarationID == id && data.RecoveryEpoch == input.Subject.RecoveryEpoch && data.RecoveryEpoch == r.RecoveryEpoch && data.StateRevision == r.StateRevision
+		return data.DraftID == id && data.DeclarationID == id && data.RecoveryEpoch == input.Subject.RecoveryEpoch && data.RecoveryEpoch == r.RecoveryEpoch && data.StateRevision == r.StateRevision && data.StateRevision >= input.Subject.ExpectedStateRevision
 	})
 }
