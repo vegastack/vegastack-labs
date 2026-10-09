@@ -105,35 +105,119 @@ func (n *nativeRuntime) restore(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if record.HostID == "" || record.State == "confirmed" || record.State == "restored" {
+	if record.HostID == "" {
 		return nil
 	}
-	// Both timer and boot invoke restoration, never confirmation. Same-boot early
-	// invocation may restore safely; it cannot extend the risky configuration.
-	return restoreWith(ctx, n.root, record.Digest(), func(r RollbackRecord) error {
-		for _, fw := range r.Firewall {
-			got, e := n.inspectChain(ctx, fw.Family, fw.Chain)
-			if e != nil {
-				return e
-			}
-			d := hostaction.Digest(got)
-			if d != hostaction.Digest(fw.Before) && d != hostaction.Digest(fw.After) {
+	bootBytes, err := os.ReadFile(n.root + "/proc/sys/kernel/random/boot_id")
+	if err != nil {
+		return err
+	}
+	boot := strings.TrimSpace(string(bootBytes))
+	if boot == "" {
+		return errAccess
+	}
+	previousBoot := record.BootID
+	if record.ReconciledBootID != "" {
+		previousBoot = record.ReconciledBootID
+	}
+	newBoot := boot != previousBoot
+	if record.State == "uncertain" {
+		return errAccess
+	}
+	if record.State == "confirmed" || record.State == "restored" {
+		if !newBoot {
+			return nil
+		}
+		return withRollback(ctx, n.root, func(fs *os.Root) error {
+			current, e := readRollback(fs)
+			if e != nil || current.Digest() != record.Digest() || current.State != record.State {
 				return errAccess
 			}
-		}
-		for _, fw := range r.Firewall {
-			if e := n.replaceChain(ctx, fw.Family, fw.Chain, fw.Before); e != nil {
+			for _, f := range current.Files {
+				b, mode, e := readProtected(fs, f.Path)
+				if current.State == "confirmed" {
+					if e != nil || digestBytes(b) != f.AfterDigest || mode != f.AfterMode {
+						return errAccess
+					}
+				} else if !f.BeforePresent {
+					if !os.IsNotExist(e) {
+						return errAccess
+					}
+				} else if e != nil || digestBytes(b) != digestBytes(f.Before) || mode != f.BeforeMode {
+					return errAccess
+				}
+			}
+			if e = n.restoreFirewall(ctx, current, true, current.State == "confirmed"); e != nil {
 				return e
 			}
+			current.ReconciledBootID = boot
+			return saveRollback(fs, current)
+		})
+	}
+	// Armed records restore before-state; only a new boot permits an empty kernel
+	// ruleset. Repeated same-boot calls retain strict external-drift detection.
+	err = restoreWith(ctx, n.root, record.Digest(), func(r RollbackRecord) error {
+		if e := n.restoreFirewall(ctx, r, newBoot, false); e != nil {
+			return e
 		}
 		if _, e := n.run(ctx, "/usr/sbin/sshd", []string{"-t"}, nil); e != nil {
 			return e
 		}
-		// Boot recovery runs before ssh starts; only reload a currently active service.
 		if _, e := n.run(ctx, "/usr/bin/systemctl", []string{"is-active", "ssh.service"}, nil); e == nil {
 			_, e = n.run(ctx, "/usr/bin/systemctl", []string{"reload", "ssh.service"}, nil)
 			return e
 		}
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+	return withRollback(ctx, n.root, func(fs *os.Root) error {
+		current, e := readRollback(fs)
+		if e != nil || current.Digest() != record.Digest() || current.State != "restored" {
+			return errAccess
+		}
+		current.ReconciledBootID = boot
+		return saveRollback(fs, current)
+	})
+}
+
+func (n *nativeRuntime) restoreFirewall(ctx context.Context, r RollbackRecord, newBoot, confirmed bool) error {
+	// Validate every owned chain before any mutation. Foreign chains/rules are
+	// neither flushed nor accepted as an empty kernel after reboot.
+	for _, fw := range r.Firewall {
+		got, e := n.inspectChain(ctx, fw.Family, fw.Chain)
+		if e != nil {
+			return e
+		}
+		d := hostaction.Digest(got)
+		empty := !got.Present && !got.JumpPresent && len(got.Rules) == 0
+		if d != hostaction.Digest(fw.Before) && d != hostaction.Digest(fw.After) && !(newBoot && empty) {
+			return errAccess
+		}
+	}
+	for _, fw := range r.Firewall {
+		desired := fw.Before
+		if confirmed {
+			desired = fw.After
+		}
+		got, e := n.inspectChain(ctx, fw.Family, fw.Chain)
+		if e != nil {
+			return e
+		}
+		if !got.ParentPresent && desired.ParentPresent && fw.Chain == "VSK-ACCESS-DKR" {
+			if !newBoot || got.Present || got.JumpPresent || len(got.Rules) != 0 {
+				return errAccess
+			}
+			// Docker preserves user rules in this standard parent. Create only a
+			// missing parent previously present in the protected record; never flush it.
+			if _, e = n.run(ctx, firewallBinary(fw.Family), []string{"--wait", "5", "-N", "DOCKER-USER"}, nil); e != nil {
+				return e
+			}
+		}
+		if e = n.replaceChain(ctx, fw.Family, fw.Chain, desired); e != nil {
+			return e
+		}
+	}
+	return nil
 }

@@ -42,9 +42,10 @@ type RollbackRecord struct {
 	Deadline            time.Time      `json:"deadline"`
 	Files               []RollbackFile `json:"files"`
 	// Firewall snapshots contain only the finite owned chain, never shared tables.
-	Firewall    []RollbackFirewall `json:"firewall,omitempty"`
-	State       string             `json:"state"`
-	ProbeDigest string             `json:"probeDigest,omitempty"`
+	Firewall         []RollbackFirewall `json:"firewall,omitempty"`
+	State            string             `json:"state"`
+	ProbeDigest      string             `json:"probeDigest,omitempty"`
+	ReconciledBootID string             `json:"reconciledBootId,omitempty"`
 }
 type FirewallState struct {
 	ParentPresent bool       `json:"parentPresent"`
@@ -62,6 +63,7 @@ type RollbackFirewall struct {
 func (r RollbackRecord) Digest() string {
 	r.State = ""
 	r.ProbeDigest = ""
+	r.ReconciledBootID = ""
 	b, _ := json.Marshal(r)
 	return digestBytes(b)
 }
@@ -69,7 +71,7 @@ func ownedFile(path string) bool {
 	return path == "etc/vsk-labs/service_authorized_keys/root" || path == "etc/ssh/sshd_config.d/70-vsk-access.conf" || (strings.HasPrefix(path, "etc/vsk-labs/authorized_keys/") && accessName.MatchString(strings.TrimPrefix(path, "etc/vsk-labs/authorized_keys/")))
 }
 func validRollback(r RollbackRecord) bool {
-	if r.HostID == "" || r.PlanID == "" || r.BootID == "" || len(r.BootID) > 128 || !digestRE.MatchString(r.HostIdentityDigest) || !digestRE.MatchString(r.InputDigest) || !digestRE.MatchString(r.AuthorizationDigest) || !digestRE.MatchString(r.BundleDigest) || r.ArmedAt.IsZero() || r.Deadline.Sub(r.ArmedAt) != 600*time.Second || len(r.Files) == 0 || len(r.Files) > 40 || len(r.Firewall) > 4 {
+	if r.HostID == "" || r.PlanID == "" || r.BootID == "" || len(r.BootID) > 128 || len(r.ReconciledBootID) > 128 || !digestRE.MatchString(r.HostIdentityDigest) || !digestRE.MatchString(r.InputDigest) || !digestRE.MatchString(r.AuthorizationDigest) || !digestRE.MatchString(r.BundleDigest) || r.ArmedAt.IsZero() || r.Deadline.Sub(r.ArmedAt) != 600*time.Second || len(r.Files) == 0 || len(r.Files) > 40 || len(r.Firewall) > 4 {
 		return false
 	}
 	seen := map[string]bool{}
