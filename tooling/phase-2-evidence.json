@@ -458,6 +458,15 @@
         ],
         "imports": [],
         "mutationBoundaryDigest": "sha256:abf4f0c3f9291923d94f7d46c4853c0c84b5cfc7e59311d2712f624403e388ad"
+      },
+      {
+        "id": "phase6-issue247-v1",
+        "issue": 247,
+        "commands": [
+          "authorization grants draft"
+        ],
+        "imports": [],
+        "mutationBoundaryDigest": "sha256:388380f58d57e7479aa867d95a016e29d0a560c1d254893f813459b5c9336020"
       }
     ]
   },
