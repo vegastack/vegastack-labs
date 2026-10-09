@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { installReadFixture } from "./api-fixture";
-import { hostRequestDigest } from "../generated/read-api";
+import { hostRequestDigest, type HostDiscoveryTargetDraftRequest, type HostAdoptionRequest, type HostActionRequest } from "../generated/read-api";
 const fixture=JSON.parse(readFileSync(__dirname+"/../../internal/localapi/testdata/host-target.json","utf8"));
 const digest=`sha256:${"a".repeat(64)}`;
 function envelope(command:string,data:unknown,code?:string){return {schema:"vegastack-labs.dev/browser-run-result",schemaVersion:"1.0.0",toolVersion:"test",command,runId:null,status:code?"failed":"succeeded",changed:false,recoveryEpoch:0,stateRevision:3,snapshotDigest:null,releaseBuildId:"test",sourceRevision:null,planId:null,errors:code?[{code,message:"Current authority required.",retryable:false}]:[],data};}
@@ -12,7 +12,7 @@ async function fillTarget(page:Page){
  return form;
 }
 test("preloaded target remains inert and stale plan clears prior forms",async({page},info)=>{
- await installReadFixture(page); let captured:any; let preparations=0;
+ await installReadFixture(page); let captured!: HostDiscoveryTargetDraftRequest; let preparations=0;
  await page.route("**/api/v1/host-discovery-targets/draft",async route=>{captured=route.request().postDataJSON();preparations++;const contentDigest=await hostRequestDigest("vegastack-labs.dev/host-discovery-target-draft-request",captured);const draftId="discovery-draft-"+contentDigest.slice(7,39);await route.fulfill({json:envelope("api.v1.host-discovery-targets.draft",{schema:"vegastack-labs.dev/host-discovery-target-draft-submission",schemaVersion:"1.0.0",draftId,declarationId:draftId,contentDigest,stateRevision:3,recoveryEpoch:0})});});
  await page.route("**/api/v1/declarations/**/plan-preparation",route=>route.fulfill({status:409,json:envelope("api.v1.plans.prepare",null,"PLAN_STALE")}));
  await page.goto("/nodes");const form=await fillTarget(page);
@@ -20,7 +20,7 @@ test("preloaded target remains inert and stale plan clears prior forms",async({p
  await form.getByLabel("Preloaded public key digest").fill(digest);await form.getByLabel("Administrator-confirmed exact target digest").fill(digest);
  await form.getByRole("button",{name:"Prepare target draft",exact:true}).click();
  await expect(page.getByText("No host action has been applied.")).toBeVisible();
- expect(captured.target.credentialMode).toBe("preloaded-discovery");expect(captured.consoleConfirmation.targetDigest).toBe(digest);expect(preparations).toBe(1);
+ expect(captured.target.credentialMode).toBe("preloaded-discovery");expect(captured.consoleConfirmation?.targetDigest).toBe(digest);expect(preparations).toBe(1);
  await expect(page.getByRole("button",{name:"Execute exact plan"})).toHaveCount(0);
  await page.getByText("No host action has been applied.").scrollIntoViewIfNeeded();
  await page.screenshot({path:info.outputPath("host-target-inert.png"),fullPage:true});
@@ -57,7 +57,7 @@ test("revoked host read clears unsaved values and inspection state",async({page}
  await expect(page.getByRole("button",{name:"Create exact plan",exact:true})).toHaveCount(0);
 });
 test("registration submits bounded identity enums and seconds-only confirmation",async({page})=>{
- await installReadFixture(page);let captured:any;
+ await installReadFixture(page);let captured!: HostAdoptionRequest;
  await page.route("**/api/v1/host-observations/observation-a",route=>route.fulfill({json:envelope("api.v1.host-observations.get",{schema:"vegastack-labs.dev/host-observation",schemaVersion:"1.0.0",observationId:"observation-a",targetId:"target-a",targetRevision:1,targetDigest:digest,collector:"collector-a",collectorVersion:"1.0.0",observedAt:"2026-10-08T00:00:00Z",expiresAt:"2026-10-08T00:15:00Z",status:"incomplete",facts:[],blockers:["hardening-unverified"],contentDigest:digest,stateRevision:3,recoveryEpoch:0})}));
  await page.route("**/api/v1/host-adoptions/draft",route=>{captured=route.request().postDataJSON();return route.fulfill({status:403,json:envelope("api.v1.host-adoptions.draft",null,"AUTHORIZATION_DENIED")});});
  await page.goto("/nodes");await page.getByLabel("Saved observation ID",{exact:true}).fill("observation-a");await page.getByRole("button",{name:"Inspect observation",exact:true}).click();
@@ -70,7 +70,7 @@ test("registration submits bounded identity enums and seconds-only confirmation"
 });
 
 test("role import stays inert and shows independent admission prerequisites",async({page})=>{
- await installReadFixture(page);let captured:any;let mutations=0;
+ await installReadFixture(page);let captured!: HostActionRequest;let mutations=0;
  const input=JSON.parse(readFileSync(__dirname+"/../../internal/linuxrole/testdata/role-input.json","utf8"));
  const request=JSON.parse(readFileSync(__dirname+"/../../internal/localapi/testdata/host-action.json","utf8"));
  Object.assign(request,{actionId:"debian.role.apply",hostId:input.hostId,callerUid:input.automationUid,actionInput:JSON.stringify(input)});request.consoleConfirmation.hostIdentityDigest=input.hostIdentityDigest;

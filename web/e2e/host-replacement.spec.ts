@@ -6,7 +6,7 @@ const fixture=JSON.parse(readFileSync(__dirname+"/../test/fixtures/host-replacem
 function envelope(command:string,data:unknown,code?:string){return {schema:"vegastack-labs.dev/browser-run-result",schemaVersion:"1.0.0",toolVersion:"test",command,runId:null,status:code?"failed":"succeeded",changed:false,recoveryEpoch:0,stateRevision:3,snapshotDigest:null,releaseBuildId:"test",sourceRevision:null,planId:null,errors:code?[{code,message:"Current authority required.",retryable:false}]:[],data};}
 
 test("replacement preview preserves both identities and needs separate impact confirmation",async({page})=>{
- await installReadFixture(page);let calls=0;let captured:any;const contentDigest=await hostRequestDigest("vegastack-labs.dev/host-replacement-request",fixture);const draftId="host-replacement-"+contentDigest.slice(7,39);
+ await installReadFixture(page);let calls=0;let captured: unknown;const contentDigest=await hostRequestDigest("vegastack-labs.dev/host-replacement-request",fixture);const draftId="host-replacement-"+contentDigest.slice(7,39);
  await page.route("**/api/v1/host-replacements",route=>{calls++;captured=route.request().postDataJSON();return route.fulfill({json:envelope("api.v1.host-replacements.prepare",{schema:"vegastack-labs.dev/host-replacement-submission",schemaVersion:"1.0.0",replacementId:"replacement-a",draftId,declarationId:draftId,contentDigest,stateRevision:3,recoveryEpoch:0})});});
  await page.goto("/nodes");
  await page.getByLabel("Prepared replacement request file").setInputFiles({name:"replacement.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify(fixture))});
