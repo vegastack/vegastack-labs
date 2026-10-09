@@ -248,6 +248,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/browser-scheduled-job-policy.schema.json",
 		"schemas/v1/browser-scheduled-job.schema.json",
 		"schemas/v1/cloudflare-access-profile.schema.json",
+		"schemas/v1/control-handoff-input.schema.json",
 		"schemas/v1/credential-import-request.schema.json",
 		"schemas/v1/credential-import-submission.schema.json",
 		"schemas/v1/credential-lifecycle-request.schema.json",
@@ -315,6 +316,8 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/host-observation.schema.json",
 		"schemas/v1/host-profile.schema.json",
 		"schemas/v1/host-role-alias.schema.json",
+		"schemas/v1/host-role-foundation.schema.json",
+		"schemas/v1/host-role-scope.schema.json",
 		"schemas/v1/host-role.schema.json",
 		"schemas/v1/host-volume-binding.schema.json",
 		"schemas/v1/inventory-diff-data.schema.json",
@@ -327,6 +330,10 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/inventory-export-request.schema.json",
 		"schemas/v1/inventory-import-data.schema.json",
 		"schemas/v1/inventory-import-request.schema.json",
+		"schemas/v1/linux-role-account.schema.json",
+		"schemas/v1/linux-role-directory.schema.json",
+		"schemas/v1/linux-role-input.schema.json",
+		"schemas/v1/linux-role-resources.schema.json",
 		"schemas/v1/local-retention-lock-catalog.schema.json",
 		"schemas/v1/local-setup-effective-grant.schema.json",
 		"schemas/v1/local-setup-read-grant.schema.json",
@@ -359,6 +366,8 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/restore-verification.schema.json",
 		"schemas/v1/restore-verify-request.schema.json",
 		"schemas/v1/role-observation.schema.json",
+		"schemas/v1/role-preparation.schema.json",
+		"schemas/v1/role-prepared-file.schema.json",
 		"schemas/v1/run-presentation.schema.json",
 		"schemas/v1/run-reference-request.schema.json",
 		"schemas/v1/run-result.schema.json",
@@ -800,13 +809,14 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 			}
 		}
 	}
-	if available != 54 || planned != 21 {
-		t.Fatalf("command availability = (%d available, %d planned), want (54, 21)", available, planned)
+	if available != 56 || planned != 21 {
+		t.Fatalf("command availability = (%d available, %d planned), want (56, 21)", available, planned)
 	}
 	// #102's 17 available/38 planned baseline remains the arithmetic base:
 	// #104 promoted four exact gate commands and added one exact profile draft;
 	// #124 promoted one exact local-only credential import command;
 	// #107 promoted two exact audit read commands.
+	// #230 adds node role prepare and server prepare as two available inert commands.
 	if !reflect.DeepEqual(availablePhase5, []string{"audit checkpoints", "audit verify", "backup offsite-retirement dry-run", "backup offsite-retirement stage", "backup policy draft", "backup retention-locks draft", "backup retirement draft", "backup run", "backup status", "backup verify", "credential activate", "credential import", "credential recover", "credential revoke", "credential rotate", "credential stage", "database backup", "database export", "database restore", "database verify", "gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft", "recovery witness collect", "restore plan", "restore run", "restore verify", "schedule cancel", "schedule dispatch", "schedule inspect", "schedule list", "schedule policy draft"}) {
 		t.Fatalf("unexpected available Phase 5 commands: %v", availablePhase5)
 	}
