@@ -23,7 +23,8 @@ func browserReadEndpoints(registry metadata.Registry) ([]metadata.EndpointDefini
 		}
 		contractedPhase4Or5 := endpoint.OwnerPhase == "4" || endpoint.OwnerPhase == "5"
 		availableRead := endpoint.Availability == metadata.AvailabilityAvailable && endpoint.Method == "GET"
-		if !browser || (!contractedPhase4Or5 && !availableRead) {
+		hostWorkflow := endpoint.Availability == metadata.AvailabilityAvailable && hostBrowserMutation(endpoint.ID)
+		if !browser || (!contractedPhase4Or5 && !availableRead && !hostWorkflow) {
 			continue
 		}
 		if !strings.HasPrefix(endpoint.Path, "/api/v1/") || strings.Contains(endpoint.Path, "://") || (endpoint.Method != "GET" && endpoint.Method != "POST") {
@@ -33,6 +34,14 @@ func browserReadEndpoints(registry metadata.Registry) ([]metadata.EndpointDefini
 	}
 	sort.Slice(endpoints, func(left, right int) bool { return endpoints[left].ID < endpoints[right].ID })
 	return endpoints, nil
+}
+
+func hostBrowserMutation(id string) bool {
+	switch id {
+	case "api.v1.host-discovery-targets.draft", "api.v1.host-observations.create", "api.v1.host-adoptions.draft", "api.v1.host-actions.draft", "api.v1.host-access.draft":
+		return true
+	}
+	return false
 }
 
 func browserSchemaGraph(registry metadata.Registry, endpoints []metadata.EndpointDefinition) ([]metadata.SchemaDefinition, error) {
@@ -59,6 +68,11 @@ func browserSchemaGraph(registry metadata.Registry, endpoints []metadata.Endpoin
 		wanted[identifier] = true
 	}
 	for _, endpoint := range endpoints {
+		if endpoint.ID == "api.v1.host-actions.draft" {
+			wanted["vegastack-labs.dev/debian-baseline-input"] = true
+			wanted["vegastack-labs.dev/access-probe-input"] = true
+			wanted["vegastack-labs.dev/volume-recovery-input"] = true
+		}
 		wanted[endpoint.DataSchema] = true
 		if endpoint.QuerySchema != "" {
 			wanted[endpoint.QuerySchema] = true
@@ -677,6 +691,7 @@ async function* streamSSE<T>(fetchTransport: FetchTransport, url: string, option
 	renderFiniteReadClient(&output, endpoints)
 	renderChangeClient(&output, endpoints)
 	renderPhase5Client(&output, endpoints)
+	renderHostClient(&output, endpoints)
 	return output.Bytes()
 }
 
@@ -733,6 +748,23 @@ func renderPhase5Client(output *bytes.Buffer, endpoints []metadata.EndpointDefin
 	output.WriteString("};\n\nexport function createPhase5Client(fetchTransport: FetchTransport): Phase5Client {\n  return {\n")
 	for _, endpoint := range endpoints {
 		if endpoint.OwnerPhase == "5" && endpoint.Availability == metadata.AvailabilityAvailable {
+			renderFiniteMethod(output, endpoint)
+		}
+	}
+	output.WriteString("  };\n}\n")
+}
+
+func renderHostClient(output *bytes.Buffer, endpoints []metadata.EndpointDefinition) {
+	output.WriteString("\n// Browser-authorized host lifecycle operations.\n")
+	output.WriteString("export type HostClient = {\n")
+	for _, endpoint := range endpoints {
+		if endpoint.OwnerPhase == "6" && endpoint.Availability == metadata.AvailabilityAvailable {
+			fmt.Fprintf(output, "  readonly %s: %s;\n", browserMethodName(endpoint), browserMethodType(endpoint))
+		}
+	}
+	output.WriteString("};\n\nexport function createHostClient(fetchTransport: FetchTransport): HostClient {\n  return {\n")
+	for _, endpoint := range endpoints {
+		if endpoint.OwnerPhase == "6" && endpoint.Availability == metadata.AvailabilityAvailable {
 			renderFiniteMethod(output, endpoint)
 		}
 	}
@@ -834,6 +866,17 @@ func browserPathParameters(path string) []string {
 
 func browserMethodName(endpoint metadata.EndpointDefinition) string {
 	switch endpoint.ID {
+	case "api.v1.host-discovery-targets.draft":
+		return "prepareHostTarget"
+	case "api.v1.host-observations.create":
+		return "discoverHost"
+	case "api.v1.host-adoptions.draft":
+		return "prepareHostAdoption"
+	case "api.v1.host-actions.draft":
+		return "prepareHostAction"
+	case "api.v1.host-access.draft":
+		return "prepareHostAccess"
+
 	case "api.v1.audit-checkpoints.list":
 		return "listAuditCheckpoints"
 	case "api.v1.audit-history.verification":

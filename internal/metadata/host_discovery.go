@@ -59,9 +59,9 @@ func hostDiscoverySchemas() []SchemaDefinition {
 }
 func hostDiscoveryEndpoints() []EndpointDefinition {
 	result := []EndpointDefinition{
-		phase5Endpoint("api.v1.host-discovery-targets.draft", "POST", "/api/v1/host-discovery-targets/draft", discoveryDraftID, discoveryDraftSubmissionID, false),
-		phase5Endpoint("api.v1.host-observations.create", "POST", "/api/v1/host-observations", discoveryRequestID, discoverySubmissionID, false),
-		phase5Endpoint("api.v1.host-observations.get", "GET", "/api/v1/host-observations/{observationID}", "", discoveryObservationID, false),
+		phase5Endpoint("api.v1.host-discovery-targets.draft", "POST", "/api/v1/host-discovery-targets/draft", discoveryDraftID, discoveryDraftSubmissionID, true),
+		phase5Endpoint("api.v1.host-observations.create", "POST", "/api/v1/host-observations", discoveryRequestID, discoverySubmissionID, true),
+		phase5Endpoint("api.v1.host-observations.get", "GET", "/api/v1/host-observations/{observationID}", "", discoveryObservationID, true),
 	}
 	for i := range result {
 		result[i].OwnerPhase = "6"

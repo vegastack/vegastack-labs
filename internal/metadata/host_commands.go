@@ -1,5 +1,7 @@
 package metadata
 
+import "strings"
+
 func hostCommands() []CommandDefinition {
 	commands := []CommandDefinition{}
 	for _, item := range []struct {
@@ -20,6 +22,29 @@ func hostCommands() []CommandDefinition {
 			args = append(args, "--file", "fixture/node-"+item.action+".json")
 		}
 		c := phase5GateCommand([]string{"node", item.action}, item.summary, item.request, item.data, item.risk, flags, append(args, "--output", "json"))
+		c.OwnerPhase = "6"
+		commands = append(commands, c)
+	}
+
+	for _, item := range []struct{ path, summary, request, data string }{
+		{"node target prepare", "Prepare an inert discovery target draft.", discoveryDraftID, discoveryDraftSubmissionID},
+		{"node action prepare", "Prepare an inert typed host action draft.", hostActionRequestID, hostActionSubmissionID},
+		{"node access prepare", "Prepare an inert access policy and probe sequence.", "vegastack-labs.dev/host-access-draft-request", hostActionSubmissionID},
+		{"node observation inspect", "Read an existing discovery observation without contacting the host.", "", discoveryObservationID},
+	} {
+		path := strings.Split(item.path, " ")
+		flags := []FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected server profile."}}
+		args := append(append([]string{}, path...), "--config", "fixture/server-profile.json")
+		risk := RiskMutation
+		if item.request == "" {
+			risk = RiskReadOnly
+			flags = append(flags, FlagDefinition{Name: "--observation-id", Kind: FlagValue, ValueName: "id", Required: true, Summary: "Select one saved observation."})
+			args = append(args, "--observation-id", "observation-a")
+		} else {
+			flags = append(flags, FlagDefinition{Name: "--file", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one bounded typed request JSON file."})
+			args = append(args, "--file", "fixture/host-request.json")
+		}
+		c := phase5GateCommand(path, item.summary, item.request, item.data, risk, flags, append(args, "--output", "json"))
 		c.OwnerPhase = "6"
 		commands = append(commands, c)
 	}

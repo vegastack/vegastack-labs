@@ -74,6 +74,10 @@ type CredentialLifecycleControlOperations interface {
 }
 
 type HostControlOperations interface {
+	PrepareHostTarget(context.Context, string, generated.HostDiscoveryTargetDraftRequest) (localapi.TypedResponse[generated.HostDiscoveryTargetDraftSubmission], error)
+	SubmitHostAction(context.Context, string, generated.HostActionRequest) (localapi.TypedResponse[generated.HostActionSubmission], error)
+	SubmitHostAccess(context.Context, string, generated.HostAccessDraftRequest) (localapi.TypedResponse[generated.HostActionSubmission], error)
+	GetHostObservation(context.Context, string, string) (localapi.TypedResponse[generated.HostObservation], error)
 	DiscoverHost(context.Context, string, generated.HostDiscoveryRequest) (localapi.TypedResponse[generated.HostDiscoverySubmission], error)
 	SubmitHostAdoption(context.Context, string, generated.HostAdoptionRequest) (localapi.TypedResponse[generated.HostAdoptionSubmission], error)
 	GetManagedHost(context.Context, string, string) (localapi.TypedResponse[generated.ManagedHost], error)
@@ -454,6 +458,8 @@ func (app *App) Run(ctx context.Context, args []string) int {
 		return app.handlePlanResponse(mode, response)
 	case generated.CommandNameNodeRolePrepare, generated.CommandNameServerPrepare:
 		return app.runRolePrepare(ctx, mode, parsed)
+	case generated.CommandNameNodeTargetPrepare, generated.CommandNameNodeActionPrepare, generated.CommandNameNodeAccessPrepare, generated.CommandNameNodeObservationInspect:
+		return app.runHostLifecycleCommand(ctx, mode, parsed)
 	case generated.CommandNameNodeDiscover, generated.CommandNameNodeAdd, generated.CommandNameNodeInspect:
 		return app.runHostCommand(ctx, mode, parsed)
 	case generated.CommandNameGateList, generated.CommandNameGateInspect, generated.CommandNameGateCheck, generated.CommandNameGateEvidence, generated.CommandNameGateProfileDraft:

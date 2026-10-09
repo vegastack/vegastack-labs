@@ -28,10 +28,34 @@ func (operations *Operations) GetManagedHost(ctx context.Context, configPath str
 	return client.GetManagedHost(ctx, profile, input)
 }
 
+func (operations *Operations) PrepareHostTarget(ctx context.Context, configPath string, input generated.HostDiscoveryTargetDraftRequest) (localapi.TypedResponse[generated.HostDiscoveryTargetDraftSubmission], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.HostDiscoveryTargetDraftSubmission]{}, err
+	}
+	return client.PrepareHostTarget(ctx, profile, input)
+}
+
 func (operations *Operations) SubmitHostAction(ctx context.Context, configPath string, input generated.HostActionRequest) (localapi.TypedResponse[generated.HostActionSubmission], error) {
 	client, profile, err := operations.controlClient(ctx, configPath)
 	if err != nil {
 		return localapi.TypedResponse[generated.HostActionSubmission]{}, err
 	}
 	return client.SubmitHostAction(ctx, profile, input)
+}
+
+func (operations *Operations) SubmitHostAccess(ctx context.Context, configPath string, input generated.HostAccessDraftRequest) (localapi.TypedResponse[generated.HostActionSubmission], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.HostActionSubmission]{}, err
+	}
+	return client.SubmitHostAccess(ctx, profile, input)
+}
+
+func (operations *Operations) GetHostObservation(ctx context.Context, configPath string, input string) (localapi.TypedResponse[generated.HostObservation], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.HostObservation]{}, err
+	}
+	return client.GetHostObservation(ctx, profile, input)
 }

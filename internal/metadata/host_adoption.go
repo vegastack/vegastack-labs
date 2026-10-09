@@ -17,8 +17,8 @@ func hostAdoptionSchemas() []SchemaDefinition {
 }
 func hostAdoptionEndpoints() []EndpointDefinition {
 	result := []EndpointDefinition{
-		phase5Endpoint("api.v1.host-adoptions.draft", "POST", "/api/v1/host-adoptions/draft", adoptionRequestID, adoptionSubmissionID, false),
-		phase5Endpoint("api.v1.hosts.get", "GET", "/api/v1/hosts/{hostID}", "", managedHostID, false),
+		phase5Endpoint("api.v1.host-adoptions.draft", "POST", "/api/v1/host-adoptions/draft", adoptionRequestID, adoptionSubmissionID, true),
+		phase5Endpoint("api.v1.hosts.get", "GET", "/api/v1/hosts/{hostID}", "", managedHostID, true),
 	}
 	for i := range result {
 		result[i].OwnerPhase = "6"

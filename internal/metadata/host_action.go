@@ -41,7 +41,7 @@ func hostActionSchemas() []SchemaDefinition {
 }
 
 func hostActionEndpoints() []EndpointDefinition {
-	e := phase5Endpoint("api.v1.host-actions.draft", "POST", "/api/v1/host-actions/draft", hostActionRequestID, hostActionSubmissionID, false)
+	e := phase5Endpoint("api.v1.host-actions.draft", "POST", "/api/v1/host-actions/draft", hostActionRequestID, hostActionSubmissionID, true)
 	e.OwnerPhase = "6"
 	e.Availability = AvailabilityAvailable
 	return []EndpointDefinition{e}
