@@ -127,6 +127,13 @@ const (
 	SchemaIDGateProfileDraftRequest                = "vegastack-labs.dev/gate-profile-draft-request"
 	SchemaIDGateProfileDraftSubmission             = "vegastack-labs.dev/gate-profile-draft-submission"
 	SchemaIDGateView                               = "vegastack-labs.dev/gate-view"
+	SchemaIDHostActionAuthorization                = "vegastack-labs.dev/host-action-authorization"
+	SchemaIDHostActionBundle                       = "vegastack-labs.dev/host-action-bundle"
+	SchemaIDHostActionChallenge                    = "vegastack-labs.dev/host-action-challenge"
+	SchemaIDHostActionConsoleConfirmation          = "vegastack-labs.dev/host-action-console-confirmation"
+	SchemaIDHostActionEnvelope                     = "vegastack-labs.dev/host-action-envelope"
+	SchemaIDHostActionRequest                      = "vegastack-labs.dev/host-action-request"
+	SchemaIDHostActionResult                       = "vegastack-labs.dev/host-action-result"
 	SchemaIDHostAdoptionRequest                    = "vegastack-labs.dev/host-adoption-request"
 	SchemaIDHostAdoptionSubmission                 = "vegastack-labs.dev/host-adoption-submission"
 	SchemaIDHostDiscoveryConsoleConfirmation       = "vegastack-labs.dev/host-discovery-console-confirmation"
@@ -1776,6 +1783,103 @@ type GateView struct {
 	Definition              GateDefinition `json:"definition"`
 	Evaluation              GateEvaluation `json:"evaluation"`
 	ApplicabilityReasonCode string         `json:"applicabilityReasonCode"`
+}
+
+type HostActionAuthorization struct {
+	Schema          string `json:"schema"`
+	SchemaVersion   string `json:"schemaVersion"`
+	BundleDigest    string `json:"bundleDigest"`
+	ChallengeDigest string `json:"challengeDigest"`
+	KeyID           string `json:"keyId"`
+	AuthorizedAt    string `json:"authorizedAt"`
+	ExpiresAt       string `json:"expiresAt"`
+	StateRevision   int64  `json:"stateRevision"`
+	RecoveryEpoch   int64  `json:"recoveryEpoch"`
+	Signature       string `json:"signature"`
+}
+
+type HostActionBundle struct {
+	Schema                    string `json:"schema"`
+	SchemaVersion             string `json:"schemaVersion"`
+	ActionID                  string `json:"actionId"`
+	ActionVersion             string `json:"actionVersion"`
+	ActionInputDigest         string `json:"actionInputDigest"`
+	ActionInput               string `json:"actionInput"`
+	BundleID                  string `json:"bundleId"`
+	PlanID                    string `json:"planId"`
+	RunID                     string `json:"runId"`
+	StepID                    string `json:"stepId"`
+	LeaseID                   string `json:"leaseId"`
+	HostID                    string `json:"hostId"`
+	DeclarationID             string `json:"declarationId"`
+	AutomationPrincipalID     string `json:"automationPrincipalId"`
+	CredentialReferenceID     string `json:"credentialReferenceId"`
+	CredentialMaterialVersion string `json:"credentialMaterialVersion"`
+	PlanDigest                string `json:"planDigest"`
+	HostIdentityDigest        string `json:"hostIdentityDigest"`
+	ConsoleConfirmationDigest string `json:"consoleConfirmationDigest"`
+	DeclarationRevision       int64  `json:"declarationRevision"`
+	StateRevision             int64  `json:"stateRevision"`
+	RecoveryEpoch             int64  `json:"recoveryEpoch"`
+	CallerUID                 int64  `json:"callerUid"`
+	IssuedAt                  string `json:"issuedAt"`
+	ExpiresAt                 string `json:"expiresAt"`
+}
+
+type HostActionChallenge struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	BundleDigest  string `json:"bundleDigest"`
+	Nonce         string `json:"nonce"`
+	HostID        string `json:"hostId"`
+	StartedAt     string `json:"startedAt"`
+}
+
+type HostActionConsoleConfirmation struct {
+	Schema             string `json:"schema"`
+	SchemaVersion      string `json:"schemaVersion"`
+	Method             string `json:"method"`
+	TargetDigest       string `json:"targetDigest"`
+	HostIdentityDigest string `json:"hostIdentityDigest"`
+}
+
+type HostActionEnvelope struct {
+	Schema        string           `json:"schema"`
+	SchemaVersion string           `json:"schemaVersion"`
+	Bundle        HostActionBundle `json:"bundle"`
+	KeyID         string           `json:"keyId"`
+	Signature     string           `json:"signature"`
+}
+
+type HostActionRequest struct {
+	Schema                    string                        `json:"schema"`
+	SchemaVersion             string                        `json:"schemaVersion"`
+	ActionID                  string                        `json:"actionId"`
+	ActionVersion             string                        `json:"actionVersion"`
+	ActionInputDigest         string                        `json:"actionInputDigest"`
+	ActionInput               string                        `json:"actionInput"`
+	HostID                    string                        `json:"hostId"`
+	TargetRevision            int64                         `json:"targetRevision"`
+	TargetDigest              string                        `json:"targetDigest"`
+	AutomationPrincipalID     string                        `json:"automationPrincipalId"`
+	CallerUID                 int64                         `json:"callerUid"`
+	CredentialReferenceID     string                        `json:"credentialReferenceId"`
+	CredentialMaterialVersion string                        `json:"credentialMaterialVersion"`
+	ConsoleConfirmation       HostActionConsoleConfirmation `json:"consoleConfirmation"`
+	ExpectedStateRevision     int64                         `json:"expectedStateRevision"`
+	RecoveryEpoch             int64                         `json:"recoveryEpoch"`
+	IdempotencyKey            string                        `json:"idempotencyKey"`
+}
+
+type HostActionResult struct {
+	Schema         string `json:"schema"`
+	SchemaVersion  string `json:"schemaVersion"`
+	BundleDigest   string `json:"bundleDigest"`
+	ResultDigest   string `json:"resultDigest"`
+	Status         string `json:"status"`
+	Changed        bool   `json:"changed"`
+	EffectObserved bool   `json:"effectObserved"`
+	Reason         string `json:"reason"`
 }
 
 type HostAdoptionRequest struct {

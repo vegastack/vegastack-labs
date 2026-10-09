@@ -367,6 +367,19 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 - `recoveryEpoch`
 - `extensions`
 
+### `vegastack-labs.dev/host-action-authorization`
+
+- `schema`: `vegastack-labs.dev/host-action-authorization`
+- `schemaVersion`: `1.0.0`
+- `bundleDigest`
+- `challengeDigest`
+- `keyId`
+- `authorizedAt`
+- `expiresAt`
+- `stateRevision`
+- `recoveryEpoch`
+- `signature`
+
 ### `vegastack-labs.dev/plan`
 
 - `schema`: `vegastack-labs.dev/plan`
