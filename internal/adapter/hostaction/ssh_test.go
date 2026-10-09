@@ -30,7 +30,7 @@ type targetFixture struct {
 	changed bool
 }
 
-func (s *targetFixture) Resolve(context.Context, string) (Target, error) {
+func (s *targetFixture) Resolve(context.Context, generated.HostActionBundle) (Target, error) {
 	s.calls++
 	v := s.target
 	if s.changed && s.calls > 1 {

@@ -26,7 +26,7 @@ type Target struct {
 // TargetSource must resolve current, independently bound identity and apply the
 // site's physical-host exclusions before returning. Aliases alone are not identity.
 type TargetSource interface {
-	Resolve(context.Context, string) (Target, error)
+	Resolve(context.Context, generated.HostActionBundle) (Target, error)
 }
 type BundleSource interface {
 	Issue(context.Context, adapter.Operation, adapter.ExactExecutionBinding) (generated.HostActionEnvelope, error)
@@ -98,7 +98,7 @@ func (a *Adapter) ExecuteBoundWithCredentials(ctx context.Context, op adapter.Op
 	if err != nil || digestErr != nil || len(raw) > protocol.MaximumEnvelope || generated.ValidateContractJSON(generated.SchemaIDHostActionEnvelope, raw, generated.ContractExact) != nil || b.PlanID != binding.PlanID || b.PlanDigest != binding.PlanDigest || b.RunID != binding.RunID || b.StepID != binding.StepID || b.LeaseID != binding.LeaseID || b.StateRevision != binding.StateRevision || b.RecoveryEpoch != binding.RecoveryEpoch || b.HostID != op.TargetID || b.CredentialReferenceID != op.SecretReferences[0].ID || expiryErr != nil || !time.Now().Before(expiry) || expiry.After(deadline) {
 		return adapter.Effect{}, denied()
 	}
-	target, err := a.targets.Resolve(ctx, b.HostID)
+	target, err := a.targets.Resolve(ctx, b)
 	if err != nil || !validTarget(target, b) {
 		return adapter.Effect{}, denied()
 	}

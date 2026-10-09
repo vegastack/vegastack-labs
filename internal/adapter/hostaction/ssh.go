@@ -83,7 +83,7 @@ func (a *Adapter) exchange(ctx context.Context, target Target, envelope generate
 	if err != nil || len(nonce) != 32 || timeErr != nil || started.After(now) || now.Sub(started) > protocol.AuthorizationWindow {
 		return fail(false)
 	}
-	current, err := a.targets.Resolve(ctx, target.HostID)
+	current, err := a.targets.Resolve(ctx, envelope.Bundle)
 	if err != nil || current != target {
 		return fail(false)
 	}
