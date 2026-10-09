@@ -114,3 +114,17 @@ func matchVolumeGeometry(mapping volumeMapping, metadata volumeMetadata) error {
 	}
 	return nil
 }
+
+// dm-crypt reports max(backing logical size, encryption sector size). Requiring
+// a 512-byte backing logical size makes the active queue value unambiguous;
+// larger backing sectors need a separately supported observation method.
+func volumeKernelSector(raw []byte, backing int) (int64, error) {
+	if backing != 512 {
+		return 0, errVolume
+	}
+	value, err := strconv.ParseInt(strings.TrimSpace(string(raw)), 10, 64)
+	if err != nil || (value != 512 && value != 4096) {
+		return 0, errVolume
+	}
+	return value, nil
+}

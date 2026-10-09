@@ -150,12 +150,30 @@ func observeVolume(ctx context.Context, b generated.HostVolumeBinding) (string, 
 	if e != nil {
 		return "", e
 	}
+	// cryptsetup's sector-size field comes from the header. Read the active
+	// kernel queue instead, without requesting a device-mapper key table.
+	sectorRaw, e := volumeReadFile(sys+"/queue/logical_block_size", 32)
+	if e != nil {
+		return "", e
+	}
+	backingSector, e := unix.IoctlGetInt(fd, unix.BLKSSZGET)
+	if e != nil {
+		return "", errVolume
+	}
+	kernelSector, e := volumeKernelSector(sectorRaw, backingSector)
+	if e != nil {
+		return "", e
+	}
 	status, e := volumeCommand(ctx, tool, []string{"status", "--header", "/proc/self/fd/3", b.MapperName}, []*os.File{sealed}, 8192)
 	if e != nil {
 		return "", e
 	}
 	mapping, statusDevice, e := parseVolumeStatus(status, b.MapperName, b.DeviceMajor, b.DeviceMinor)
-	if e != nil || volumeMappingDigest(mapping) != b.MappingDigest {
+	if e != nil {
+		return "", errVolume
+	}
+	mapping.SectorSize = kernelSector
+	if volumeMappingDigest(mapping) != b.MappingDigest {
 		return "", errVolume
 	}
 	var statusStat unix.Stat_t
@@ -177,6 +195,14 @@ func observeVolume(ctx context.Context, b generated.HostVolumeBinding) (string, 
 	}
 	status2, e := volumeCommand(ctx, tool, []string{"status", "--header", "/proc/self/fd/3", b.MapperName}, []*os.File{sealed}, 8192)
 	if e != nil || string(status2) != string(status) {
+		return "", errVolume
+	}
+	sectorAfter, e := volumeReadFile(sys+"/queue/logical_block_size", 32)
+	if e != nil || string(sectorAfter) != string(sectorRaw) {
+		return "", errVolume
+	}
+	backingAfter, e := unix.IoctlGetInt(fd, unix.BLKSSZGET)
+	if e != nil || backingAfter != backingSector {
 		return "", errVolume
 	}
 	mounts2, e := volumeReadFile("/proc/self/mountinfo", 2<<20)

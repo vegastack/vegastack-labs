@@ -68,3 +68,22 @@ func TestVolumeGeometryJoinsHeaderToActiveMapping(t *testing.T) {
 		t.Fatal("matching fixed geometry denied")
 	}
 }
+
+func TestVolumeGeometryUsesKernelSectorInsteadOfHeaderStatus(t *testing.T) {
+	meta, err := parseVolumeMetadata(volumeMetadataFixture(t), 0, 16<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mapping := volumeMapping{Offset: 32768, Size: 8192, SectorSize: 512, Cipher: "aes-xts-plain64"}
+	kernel, err := volumeKernelSector([]byte("4096\n"), 512)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mapping.SectorSize = kernel
+	if matchVolumeGeometry(mapping, meta) == nil {
+		t.Fatal("kernel4096/header512 mismatch accepted")
+	}
+	if _, err := volumeKernelSector([]byte("4096\n"), 4096); err == nil {
+		t.Fatal("ambiguous backing maximum accepted as crypto sector")
+	}
+}
