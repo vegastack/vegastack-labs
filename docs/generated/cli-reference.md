@@ -461,6 +461,19 @@ Owner phase: `6` · risk: `read-only` · availability: `available`
 
 - Read a registered host without contacting it.: `vsk-labs node inspect --config fixture/server-profile.json --host-id host-a --output json`
 
+### `vsk-labs node role prepare`
+
+Prepare an inert role action draft; exact approval and apply remain separate.
+
+Owner phase: `6` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected server profile.
+- `--file <path>` — Read one exact host-action request JSON file (128 KiB max).
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Prepare an inert role action draft; exact approval and apply remain separate.: `vsk-labs node role prepare --config fixture/server-profile.json --file fixture/role-action.json --output json`
+
 ### `vsk-labs plan`
 
 Create an immutable plan from one exact inert declaration revision.
@@ -670,6 +683,18 @@ Owner phase: `4` · risk: `local-service` · availability: `available`
 - `--ssh-principal-id <id>` — Bind the server-configured forced command to this verified SSH principal.
 
 - Serve one frame from an SSH forced-command configuration.: `vsk-labs server api-ssh --config fixture/server-profile.json --ssh-principal-id ssh-principal.operator --device-id device.operator`
+
+### `vsk-labs server prepare`
+
+Render inert Linux role prerequisites without filesystem or database mutation.
+
+Owner phase: `6` · risk: `read-only` · availability: `available`
+
+- `--file <path>` — Read one bounded Linux role input JSON file (32 KiB max).
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Render inert Linux role prerequisites without filesystem or database mutation.: `vsk-labs server prepare --file fixture/role-input.json --output json`
 
 ### `vsk-labs server run`
 
@@ -1163,6 +1188,7 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 - `nativeRestart`
 - `hostActionNativeUnit`
 - `hostActionConsole`
+- `hostRoleScope`
 - `hostBaselineScope`
 - `hostAccessSequence`
 - `hostAction`

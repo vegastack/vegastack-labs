@@ -313,7 +313,9 @@
         "control",
         "application",
         "ci",
-        "host"
+        "host",
+        "recovery-spare",
+        "reserve"
       ],
       "type": "string"
     },

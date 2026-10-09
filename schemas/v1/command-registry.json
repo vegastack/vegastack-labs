@@ -2704,6 +2704,79 @@
     },
     {
       "path": [
+        "node",
+        "role",
+        "prepare"
+      ],
+      "summary": "Prepare an inert role action draft; exact approval and apply remain separate.",
+      "availability": "available",
+      "ownerPhase": "6",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one exact host-action request JSON file (128 KiB max).",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/host-action-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/host-action-submission",
+      "examples": [
+        {
+          "summary": "Prepare an inert role action draft; exact approval and apply remain separate.",
+          "arguments": [
+            "node",
+            "role",
+            "prepare",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/role-action.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
         "plan"
       ],
       "summary": "Create an immutable plan from one exact inert declaration revision.",
@@ -3854,6 +3927,66 @@
     {
       "path": [
         "server",
+        "prepare"
+      ],
+      "summary": "Render inert Linux role prerequisites without filesystem or database mutation.",
+      "availability": "available",
+      "ownerPhase": "6",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one bounded Linux role input JSON file (32 KiB max).",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/linux-role-input",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/role-preparation",
+      "examples": [
+        {
+          "summary": "Render inert Linux role prerequisites without filesystem or database mutation.",
+          "arguments": [
+            "server",
+            "prepare",
+            "--file",
+            "fixture/role-input.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "server",
         "run"
       ],
       "summary": "Run the persistent control service in the foreground.",
@@ -4790,6 +4923,11 @@
       "version": "1.0.0"
     },
     {
+      "id": "vegastack-labs.dev/control-handoff-input",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/control-handoff-input.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/credential-import-request",
       "version": "1.1.0",
       "artifactPath": "schemas/v1/credential-import-request.schema.json"
@@ -5134,6 +5272,11 @@
       "artifactPath": "schemas/v1/host-role-alias.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/host-role-scope",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-role-scope.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/host-volume-binding",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/host-volume-binding.schema.json"
@@ -5247,6 +5390,26 @@
       "id": "vegastack-labs.dev/inventory-import-request",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/inventory-import-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/linux-role-account",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/linux-role-account.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/linux-role-directory",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/linux-role-directory.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/linux-role-input",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/linux-role-input.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/linux-role-resources",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/linux-role-resources.schema.json"
     },
     {
       "id": "vegastack-labs.dev/local-principal-binding",
@@ -5439,6 +5602,16 @@
       "id": "vegastack-labs.dev/role-observation",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/role-observation.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/role-preparation",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/role-preparation.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/role-prepared-file",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/role-prepared-file.schema.json"
     },
     {
       "id": "vegastack-labs.dev/run",

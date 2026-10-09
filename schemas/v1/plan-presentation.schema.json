@@ -790,6 +790,109 @@
       ],
       "type": "object"
     },
+    "host-role-scope": {
+      "additionalProperties": false,
+      "properties": {
+        "affectedBaselineControlIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 16,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "baselineSnapshotDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "controlIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 6,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "currentRoleBindingDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "executionHostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "executionIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "networkingRequired": {
+          "type": "boolean"
+        },
+        "profileId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "profileLockDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "roleBindingDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "roleId": {
+          "enum": [
+            "control",
+            "application",
+            "ci",
+            "recovery-spare",
+            "reserve"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-role-scope"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "standbyRequired": {
+          "type": "boolean"
+        },
+        "subjectHostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "subjectIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "subjectHostId",
+        "subjectIdentityDigest",
+        "executionHostId",
+        "executionIdentityDigest",
+        "profileId",
+        "profileLockDigest",
+        "roleId",
+        "controlIds",
+        "affectedBaselineControlIds",
+        "baselineSnapshotDigest",
+        "roleBindingDigest",
+        "networkingRequired",
+        "standbyRequired"
+      ],
+      "type": "object"
+    },
     "native-restart-presentation": {
       "additionalProperties": false,
       "properties": {
@@ -936,6 +1039,16 @@
           "anyOf": [
             {
               "$ref": "#/$defs/host-discovery-target-draft-request"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hostRoleScope": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/host-role-scope"
             },
             {
               "type": "null"
