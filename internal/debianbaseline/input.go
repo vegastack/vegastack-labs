@@ -253,7 +253,7 @@ func ScopeForRequest(r generated.HostActionRequest) (*generated.HostBaselineScop
 		}
 	}
 	if strings.HasPrefix(r.ActionID, "debian.aide.") {
-		if len(in.ControlIDs) != 1 || in.ControlIDs[0] != "linux.aide-integrity" || in.RoleID != "control" || r.ActionID == "debian.aide.initialize" && in.AIDE.PreviousDigest != "" || r.ActionID == "debian.aide.refresh" && (in.AIDE.PreviousDigest == "" || in.AIDE.ApprovedChangeDigest == "") {
+		if len(in.ControlIDs) != 1 || in.ControlIDs[0] != "linux.aide-integrity" || in.RoleID != "control" || in.AIDE.ApprovedChangeDigest == "" || r.ActionID == "debian.aide.initialize" && in.AIDE.PreviousDigest != "" || r.ActionID == "debian.aide.refresh" && (in.AIDE.PreviousDigest == "" || in.AIDE.ApprovedChangeDigest == "") {
 			return nil, errInput
 		}
 	}

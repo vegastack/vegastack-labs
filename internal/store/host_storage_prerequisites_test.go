@@ -58,7 +58,7 @@ func TestHostStorageRequiresExactTwoCurrentReceipts(t *testing.T) {
 				if e != nil {
 					t.Fatal(e)
 				}
-				p := generated.Plan{PlanID: "volume-plan-" + suffix, PlanDigest: hostaction.Digest(kind), HostAction: &req, HostBaselineScope: scope}
+				p := generated.Plan{PlanID: "volume-plan-" + suffix, PlanDigest: hostaction.Digest(suffix), HostAction: &req, HostBaselineScope: scope}
 				p.Binding.RecoveryEpoch = 0
 				at := now
 				if mode == "stale" {
@@ -79,7 +79,7 @@ func TestHostStorageRequiresExactTwoCurrentReceipts(t *testing.T) {
 				exec(`INSERT INTO immutable_plans VALUES(?,?,'fixture-declaration',1,1,0,?,?,?,?,?,?,'2026-01-01T00:00:00Z','2026-12-01T00:00:00Z')`, p.PlanID, p.PlanDigest, d, hostaction.Digest(p.PlanID), d, marshal(p), "fixture", d)
 				exec(`INSERT INTO plan_runs VALUES(?,?,?,'decision',NULL,'1.0.0','central','executor',?,'succeeded',0,'not-requested','verified',?,0,0,0,?,?,?,'now','now')`, runID, p.PlanID, p.PlanDigest, d, d, hostaction.Digest(runID), d, []byte(`{}`))
 				exec(`INSERT INTO plan_run_steps(step_id,run_id,sequence,operation_id,operation_type,adapter_id,executor_id,target_id,input_digest,artifact_digest,idempotent,status,effect_state,active_lease_id,result_digest,started_at,finished_at) VALUES(?,?,1,'volume','host.action.execute','host-action-ssh','executor',?,?,?,1,'succeeded',?,?,?,'now','now')`, stepID, runID, req.HostID, d, d, stepState, leaseID, result.ResultDigest)
-				exec(`INSERT INTO target_execution_leases(lease_id,run_id,step_id,target_id,binding_digest,nonce_digest,recovery_epoch,claimed_at,renew_after,expires_at,maximum_expires_at,status,canonical_bytes) VALUES(?,?,?,?,?,?,0,'now','later','later','later','active',?)`, leaseID, runID, stepID, req.HostID, d, d, []byte(`{}`))
+				exec(`INSERT INTO target_execution_leases(lease_id,run_id,step_id,target_id,binding_digest,nonce_digest,recovery_epoch,claimed_at,renew_after,expires_at,maximum_expires_at,status,canonical_bytes) VALUES(?,?,?,?,?,?,0,'now','later','later','later','released',?)`, leaseID, runID, stepID, req.HostID, d, d, []byte(`{}`))
 				exec(`INSERT INTO execution_receipts VALUES(?,?,?,?,'succeeded',?,?,'now')`, receipt.ReceiptID, leaseID, runID, stepID, result.ResultDigest, rr)
 				exec(`INSERT INTO host_control_results VALUES(?,?,?,0,?,?,?,?,?,?,?,0,?,?,?,?,?,?,?,?,?)`, runID, stepID, result.ResultDigest, p.PlanID, p.PlanDigest, d, "volume", req.HostID, binding.HostID, binding.HostIdentityDigest, receipt.ReceiptID, hostaction.BytesDigest(rr), m.ControlID, status, m.ObservedAt, m.MeasurementDigest, marshal(m), []byte(`{}`), marshal(result))
 				return hostaction.BytesDigest(rr)

@@ -69,3 +69,25 @@ func TestDesiredBaselineCannotBypassClosedInput(t *testing.T) {
 		})
 	}
 }
+
+func TestAIDEInitializeRequiresReviewedCurrentFiles(t *testing.T) {
+	in := baselineInputFixture()
+	in.ControlIDs = []string{"linux.aide-integrity"}
+	in.ProfileLock.Packages[0].Name = "aide"
+	in.ProfileLockDigest = hostaction.Digest(in.ProfileLock)
+	in.AIDE.ScopePaths = []string{"/etc/passwd"}
+	in.AIDE.ScopeDigest = hostaction.Digest(in.AIDE.ScopePaths)
+	in.RenderedPolicyDigest = PolicyDigest(in)
+	request := generated.HostActionRequest{ActionID: "debian.aide.initialize", HostID: in.HostID, CallerUID: in.AutomationUID, ConsoleConfirmation: generated.HostActionConsoleConfirmation{HostIdentityDigest: in.HostIdentityDigest}}
+	raw, _ := json.Marshal(in)
+	request.ActionInput = string(raw)
+	if _, e := ScopeForRequest(request); e == nil {
+		t.Fatal("unreviewed AIDE initialization accepted")
+	}
+	in.AIDE.ApprovedChangeDigest = hostaction.Digest(map[string]string{"/etc/passwd": hostaction.Digest("fixture-file")})
+	raw, _ = json.Marshal(in)
+	request.ActionInput = string(raw)
+	if _, e := ScopeForRequest(request); e != nil {
+		t.Fatal(e)
+	}
+}
