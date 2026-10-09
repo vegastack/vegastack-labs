@@ -1,0 +1,7 @@
+---
+- name: Render acknowledged Debian access intentions locally
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  roles:
+    - debian_access

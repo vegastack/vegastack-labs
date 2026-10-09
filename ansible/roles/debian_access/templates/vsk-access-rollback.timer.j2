@@ -1,0 +1,9 @@
+[Unit]
+Description=Ten-minute VegaStack access safety deadline
+[Timer]
+OnActiveSec=600s
+OnCalendar={{ vsk_access_deadline_utc }}
+AccuracySec=1s
+RandomizedDelaySec=0
+Persistent=true
+Unit=vsk-access-rollback.service
