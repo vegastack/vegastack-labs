@@ -517,6 +517,31 @@
       ]
     },
     {
+      "id": "api.v1.host-replacements.create",
+      "method": "POST",
+      "path": "/api/v1/host-replacements",
+      "availability": "available",
+      "ownerPhase": "6",
+      "requestSchema": "vegastack-labs.dev/host-replacement-request",
+      "dataSchema": "vegastack-labs.dev/host-replacement-submission",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.host-replacements.get",
+      "method": "GET",
+      "path": "/api/v1/host-replacements/{replacementId}",
+      "availability": "available",
+      "ownerPhase": "6",
+      "dataSchema": "vegastack-labs.dev/host-replacement-state",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
       "id": "api.v1.hosts.get",
       "method": "GET",
       "path": "/api/v1/hosts/{hostID}",

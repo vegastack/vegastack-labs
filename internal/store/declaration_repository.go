@@ -10,6 +10,8 @@ import (
 
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/hostaction"
+	"github.com/vegastack/vegastack-labs/internal/hostreplacement"
 )
 
 type DeclarationRevisionRequest struct {
@@ -126,7 +128,7 @@ func decodeStoredDeclaration(raw []byte, reasonDigest string, document *generate
 }
 
 func validDeclarationContent(document generated.DeclarationRevision, reasonDigest string) bool {
-	return validOffsiteDeclarationShape(document) && document.ContentDigest == declarationContentDigest(document, reasonDigest)
+	return validAliasClaimDeclarationShape(document, reasonDigest) && validOffsiteDeclarationShape(document) && document.ContentDigest == declarationContentDigest(document, reasonDigest)
 }
 
 func validOffsiteDeclarationShape(document generated.DeclarationRevision) bool {
@@ -148,12 +150,13 @@ func validOffsiteDeclarationShape(document generated.DeclarationRevision) bool {
 
 func declarationContentDigest(document generated.DeclarationRevision, reasonDigest string) string {
 	semantic := struct {
+		HostAliasClaim  *generated.HostAliasClaimRequest `json:"hostAliasClaim,omitempty"`
 		DeclarationID   string                           `json:"declarationId"`
 		DeclarationType string                           `json:"declarationType"`
 		Operations      []generated.DeclarationOperation `json:"operations"`
 		ReasonDigest    string                           `json:"reasonDigest"`
 		Extensions      []generated.ContractExtension    `json:"extensions"`
-	}{document.DeclarationID, document.DeclarationType, document.Operations, reasonDigest, document.Extensions}
+	}{document.HostAliasClaim, document.DeclarationID, document.DeclarationType, document.Operations, reasonDigest, document.Extensions}
 	encoded, err := json.Marshal(semantic)
 	if err != nil {
 		return ""
@@ -171,4 +174,23 @@ func (repository *DeclarationRepository) GetReasonDigest(ctx context.Context, de
 		return "", newStoreError(generated.ErrorCodeResourceNotFound, "declaration-revision", false, nil)
 	}
 	return result, err
+}
+
+func validAliasClaimDeclarationShape(d generated.DeclarationRevision, reason string) bool {
+	present := d.HostAliasClaim != nil || d.DeclarationType == "host.alias-claim"
+	for _, op := range d.Operations {
+		present = present || op.OperationType == hostreplacement.AliasClaimOperation
+	}
+	for _, e := range d.Extensions {
+		present = present || e.Name == hostreplacement.AliasClaimExtension
+	}
+	if !present {
+		return true
+	}
+	if d.HostAliasClaim == nil || hostreplacement.ValidateAliasClaim(*d.HostAliasClaim) != nil || d.DeclarationType != "host.alias-claim" || len(d.Operations) != 1 || len(d.Extensions) != 1 || (d.Status == "draft" && d.HostAliasClaim.ExpectedStateRevision+1 != d.StateRevision || d.Status != "draft" && d.HostAliasClaim.ExpectedStateRevision >= d.StateRevision) || d.HostAliasClaim.RecoveryEpoch != d.RecoveryEpoch {
+		return false
+	}
+	digest := hostaction.Digest(d.HostAliasClaim)
+	op := d.Operations[0]
+	return op.OperationType == hostreplacement.AliasClaimOperation && op.AdapterID == hostreplacement.AdapterID && op.TargetID == d.DeclarationID && op.Idempotent && op.InputDigest == digest && op.ArtifactDigest == digest && d.Extensions[0].Name == hostreplacement.AliasClaimExtension && d.Extensions[0].ValueDigest == digest && reason == digest
 }

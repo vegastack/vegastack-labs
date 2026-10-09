@@ -151,7 +151,7 @@ func isCredentialLifecycleOperation(kind string) bool {
 }
 
 func isCoreOperation(adapterID, kind string) bool {
-	return adapterID == "core.host-adoption" && kind == "host.adopt" || adapterID == "core.host-discovery-target" && (kind == "host.discovery-target.activate" || kind == "host.discovery-target.revoke") ||
+	return adapterID == "core.host-replacement" && (kind == "host.alias.claim" || kind == "host.replacement.freeze" || kind == "host.replacement.commit") || adapterID == "core.host-adoption" && kind == "host.adopt" || adapterID == "core.host-discovery-target" && (kind == "host.discovery-target.activate" || kind == "host.discovery-target.revoke") ||
 		adapterID == "core.gate" && isGateOperation(kind) ||
 		adapterID == "core.audit" && kind == "audit.checkpoint.anchor" ||
 		adapterID == "core.recovery" && kind == "recovery.canary.noop" ||

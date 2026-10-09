@@ -315,6 +315,9 @@ func (repository *RunRepository) AcquireTargetLease(ctx context.Context, lease g
 		if generated.ValidateExecutorLeaseBinding(plan, run, lease) != nil || run.Status != "running" || lease.Status != "active" {
 			return newStoreError(generated.ErrorCodeStateConflict, "target-lease", false, nil)
 		}
+		if err := validateReplacementReservation(ctx, transaction, plan); err != nil {
+			return err
+		}
 		if err := repository.validateRoleReservation(ctx, transaction, plan, lease.RunID, roleSnapshot); err != nil {
 			return err
 		}
@@ -379,6 +382,9 @@ func (repository *RunRepository) BeginStep(ctx context.Context, request StepBegi
 		}
 		_, plan, err := runAndPlanInTx(ctx, transaction, request.RunID)
 		if err != nil {
+			return err
+		}
+		if err := validateReplacementReservation(ctx, transaction, plan); err != nil {
 			return err
 		}
 		if err = repository.validateRoleReservation(ctx, transaction, plan, request.RunID, roleSnapshot); err != nil {

@@ -254,3 +254,7 @@ Omitting `credentialMode` preserves the existing qualified-reference path. There
 ## Linux role foundation workflow
 
 [Role preparation and installation](development/linux-role-installation.md) use the existing server-owned database and exact plan/acknowledgement path. Preparation is inert; current baseline admission precedes role installation, and fresh post-install controls precede workload admission. First control-service setup retains the same non-root foreground authority through an explicit handoff. Native qualification and later-provider enrollment remain separate requirements.
+
+## Linux replacement ownership
+
+The [host replacement procedure](development/host-replacement.md) defines initial alias claims, durable freeze, supported restore, current qualification and atomic reassignment through the existing plan/acknowledgement flow. Registration and alias metadata do not confer workload admission; unknown provider ownership and missing native qualification remain blockers.

@@ -39,16 +39,17 @@ type RestoreCanaryRunner interface {
 }
 
 type OperationsConfig struct {
-	Sources              SourceVerifier
-	Continuity           ContinuityResolver
-	Fences               RestoreFenceCoordinator
-	Plans                RestorePlanner
-	Sessions             RestoreSessionCoordinator
-	Candidates           RestoreCandidateStager
-	Canary               RestoreCanaryRunner
-	TargetReleaseBuildID string
-	TargetToolVersion    string
-	TargetSchemaVersion  string
+	ReplacementContinuity ReplacementContinuityGuard
+	Sources               SourceVerifier
+	Continuity            ContinuityResolver
+	Fences                RestoreFenceCoordinator
+	Plans                 RestorePlanner
+	Sessions              RestoreSessionCoordinator
+	Candidates            RestoreCandidateStager
+	Canary                RestoreCanaryRunner
+	TargetReleaseBuildID  string
+	TargetToolVersion     string
+	TargetSchemaVersion   string
 }
 
 type OperationsService struct{ config OperationsConfig }
@@ -67,6 +68,15 @@ func (service *OperationsService) Plan(ctx context.Context, request generated.Re
 	source, fences, continuity, err := service.qualifyPlan(ctx, request)
 	if err != nil {
 		return generated.RestoreBinding{}, err
+	}
+	if service.config.ReplacementContinuity != nil {
+		ref, guardErr := service.config.ReplacementContinuity.PrepareReplacementContinuity(ctx, request, source)
+		if guardErr != nil {
+			return generated.RestoreBinding{}, guardErr
+		}
+		request.ReplacementContinuity = ref
+	} else if request.ReplacementContinuity != nil {
+		return generated.RestoreBinding{}, failure.New(generated.ErrorCodePrerequisiteBlocked, "replacement-continuity", false)
 	}
 	return service.config.Plans.CreateRestorePlan(ctx, request, source, fences, continuity, principal)
 }
@@ -120,6 +130,7 @@ func (service *OperationsService) Run(ctx context.Context, request generated.Res
 	if status != "verification-required" {
 		return generated.RestoreBinding{}, failure.New(generated.ErrorCodeStateConflict, "restore-run", false)
 	}
+	executionBinding.Status = status
 	return executionBinding, nil
 }
 
@@ -172,6 +183,17 @@ func (service *OperationsService) qualifyRun(ctx context.Context, request genera
 	source, continuity, err := service.qualifyBase(ctx, request)
 	if err != nil {
 		return VerifiedSource{}, FenceResult{}, AuditContinuity{}, err
+	}
+	if service.config.ReplacementContinuity != nil {
+		ref, guardErr := service.config.ReplacementContinuity.PrepareReplacementContinuity(ctx, request, source)
+		if guardErr != nil {
+			return VerifiedSource{}, FenceResult{}, AuditContinuity{}, guardErr
+		}
+		if !sameJSONValue(ref, request.ReplacementContinuity) || !sameJSONValue(ref, binding.ReplacementContinuity) {
+			return VerifiedSource{}, FenceResult{}, AuditContinuity{}, failure.New(generated.ErrorCodePlanStale, "replacement-continuity", false)
+		}
+	} else if request.ReplacementContinuity != nil || binding.ReplacementContinuity != nil {
+		return VerifiedSource{}, FenceResult{}, AuditContinuity{}, failure.New(generated.ErrorCodePrerequisiteBlocked, "replacement-continuity", false)
 	}
 	planned, err := service.config.Fences.QualifyPlan(ctx, source, request)
 	if err != nil || !sameJSONValue(planned.Items, request.Fences) || planned.FenceSetDigest != request.FenceSetDigest {

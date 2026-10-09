@@ -34,3 +34,22 @@ func validRestoreDraftInput() (generated.RestoreRequest, generated.RestoreSource
 	request.CanaryBindingDigest, _ = RestoreCanaryBindingDigest(request)
 	return request, source, fences, decision
 }
+
+func TestRestoreDeclarationUsesOrdinaryDeclarationContentBinding(t *testing.T) {
+	request, source, fences, decision := validRestoreDraftInput()
+	restored, err := BuildRestoreChange(context.Background(), request, source, fences, decision)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service, err := NewService(&fakeRepository{}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ordinary, err := service.Revise(context.Background(), AuthorScope{PrincipalID: "restore-human", PrincipalMethod: "local-os-peer", AgentSessionID: "restore-test"}, generated.DeclarationRevisionRequest{Schema: generated.SchemaIDDeclarationRevisionRequest, SchemaVersion: "1.0.0", DeclarationID: restored.DeclarationID, DeclarationType: restored.DeclarationType, ExpectedRevision: 1, ExpectedStateRevision: request.ExpectedStateRevision, RecoveryEpoch: request.RecoveryEpoch, Operations: restored.Operations, ReasonDigest: request.AuditDecisionDigest, Extensions: restored.Extensions})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if restored.ContentDigest != ordinary.Document.ContentDigest {
+		t.Fatal("restore declaration cannot use the shared persisted declaration content binding")
+	}
+}

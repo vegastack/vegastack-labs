@@ -1,5 +1,57 @@
 {
   "$defs": {
+    "host-replacement-continuity-reference": {
+      "additionalProperties": false,
+      "properties": {
+        "currentAliasHighWatermark": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "replacementId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-replacement-continuity-reference"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "sourceAliasHighWatermark": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "sourceBindingDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "sourcePointId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "replacementId",
+        "sourcePointId",
+        "digest",
+        "sourceBindingDigest",
+        "sourceAliasHighWatermark",
+        "currentAliasHighWatermark"
+      ],
+      "type": "object"
+    },
     "restore-dependency-binding": {
       "additionalProperties": false,
       "properties": {
@@ -260,6 +312,16 @@
     "recoveryStepId": {
       "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
       "type": "string"
+    },
+    "replacementContinuity": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/host-replacement-continuity-reference"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "replacementHostId": {
       "pattern": "^[a-z][a-z0-9._:-]{0,127}$",

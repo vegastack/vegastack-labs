@@ -38,6 +38,18 @@ func readablePlan(plan generated.Plan) string {
 	for _, operation := range plan.Operations {
 		fmt.Fprintf(&body, "%d. %s %s via %s/%s on %s input=%s artifact=%s idempotent=%t\n", operation.Sequence, operation.OperationID, operation.OperationType, operation.AdapterID, operation.ExecutorID, operation.TargetID, operation.InputDigest, operation.ArtifactDigest, operation.Idempotent)
 	}
+	if plan.ReplacementContinuity != nil {
+		raw, _, _ := stateexport.CanonicalJSON(plan.ReplacementContinuity)
+		fmt.Fprintf(&body, "Preserve current host and alias ownership history across this restore: %s\n", raw)
+	}
+	if plan.HostReplacement != nil {
+		raw, _, _ := stateexport.CanonicalJSON(plan.HostReplacement)
+		fmt.Fprintf(&body, "Host replacement exact intent: %s\nFreeze prevents new authority on the former host. Commit moves only the named aliases after current denial and qualification; no disk reset, workload move or automatic rollback.\n", raw)
+	}
+	if plan.HostAliasClaim != nil {
+		raw, _, _ := stateexport.CanonicalJSON(plan.HostAliasClaim)
+		fmt.Fprintf(&body, "Initial alias ownership claim: %s\nOnly unowned aliases may be claimed; registration alone does not qualify this host.\n", raw)
+	}
 	if plan.NativeRestart != nil {
 		raw, _, _ := stateexport.CanonicalJSON(plan.NativeRestart)
 		fmt.Fprintf(&body, "Complete prior interrupted native credential restart: %s\nThis new approval verifies the exact current invocation and credential readers without repeating the restart. The prior partial run remains historical.\n", raw)

@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 09-10-2026 — Replacement preserves host ownership through recovery ([#233](https://github.com/vegastack/vegastack-labs/issues/233))
+
+- **What:** Operators can claim an unowned host alias, freeze its former machine and prepare a separately approved transfer to a qualified replacement. Control recovery carries newer alias history into an older database snapshot so recovery cannot silently restore an obsolete owner.
+- **Why:** A new machine or a restored database must not gain authority merely by reusing a familiar host name.
+- **How it went:** Persisted Linux integration exposed joins between role evidence, volume recovery, ownership and the actual execution actor. Recovery tests also caught an absent optional SQL value and a returned stage that disagreed with the durable journal. Independent review required a connected older-snapshot restore test; it exposed inconsistent declaration hashing and a recovered revision below the approved plan, both corrected before shipping.
+- **Changed:** Exact alias claims · immutable replacement drafts · former-host freeze · fresh signed denial · atomic ownership transfer · bounded recovery continuity · equivalent operator procedure. OS preparation remains a human prerequisite; native qualification and workload admission remain separate checks.
+- **Decisions:** none.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/6.11-host-replacement
+
 ## 09-10-2026 — Linux roles gain an approved installation path ([#230](https://github.com/vegastack/vegastack-labs/issues/230))
 
 - **What:** Operators can prepare an inert Linux role policy and stage its installation through the existing plan and human-acknowledgement flow. The control role can hand the foreground server to its OS service while preserving the same account and database; application, CI and reserve roles receive bounded account, directory and resource foundations.

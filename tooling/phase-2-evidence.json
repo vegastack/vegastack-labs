@@ -435,6 +435,15 @@
           "github.com/vegastack/vegastack-labs/internal/linuxrole"
         ],
         "mutationBoundaryDigest": "sha256:e677914fa02a8774fe05cfaa4ca272ad9cfc03b3b9a96c4e08b5b105ec2945e2"
+      },
+      {
+        "id": "phase6-issue233-v1",
+        "issue": 233,
+        "commands": [],
+        "imports": [
+          "github.com/vegastack/vegastack-labs/internal/hostreplacement"
+        ],
+        "mutationBoundaryDigest": "sha256:29075937b18f6c2ced724240d556863714fe03ddf4bf6e2cd177aac7005097ed"
       }
     ]
   },

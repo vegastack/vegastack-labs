@@ -216,3 +216,24 @@ test(`the reviewed ${family} draft requires its complete exact endpoint metadata
   }
 });
 }
+
+for (const action of ["create", "get"]) {
+  test(`the #233 replacement ${action} endpoint stays exact and operator-only`, async (t) => {
+    const registry = JSON.parse(await readFile(path.join(process.cwd(), "schemas/v1/endpoint-registry.json"), "utf8"));
+    assert.equal((await verifyReadAPI()).status, "pass");
+    const id = `api.v1.host-replacements.${action}`;
+    for (const mutation of ["remove", "id", "method", "path", "availability", "ownerPhase", "requestSchema", "dataSchema", "stream", "audiences", "extra-field", "duplicate", "direct-execute", "alias-claim", "historical-route"]) {
+      const copy = structuredClone(registry);
+      const endpoint = copy.endpoints.find(value => value.id === id);
+      if (mutation === "remove") copy.endpoints = copy.endpoints.filter(value => value.id !== id);
+      else if (mutation === "extra-field") endpoint.allowDirectExecution = true;
+      else if (mutation === "duplicate") copy.endpoints.push({...endpoint});
+      else if (mutation === "direct-execute") copy.endpoints.push({...endpoint, id: "api.v1.host-replacements.execute", path: "/api/v1/host-replacements/execute"});
+      else if (mutation === "alias-claim") copy.endpoints.push({...endpoint, id: "api.v1.host-aliases.claim", path: "/api/v1/host-aliases/claim"});
+      else if (mutation === "historical-route") copy.endpoints = copy.endpoints.filter(value => value.id !== "api.v1.summary.get");
+      else endpoint[mutation] = mutation === "audiences" ? ["operator", "browser"] : "unreviewed";
+      const root = await fixtureRepo(t, {"schemas/v1/endpoint-registry.json": JSON.stringify(copy)});
+      assert.ok((await verifyReadAPI(root)).codes.includes("READ_API_ENDPOINT_DRIFT"), mutation);
+    }
+  });
+}

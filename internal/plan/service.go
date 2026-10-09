@@ -57,6 +57,7 @@ type HostActionLifecycleReader interface {
 	LookupLifecycleDraft(context.Context, string, int64, string) (credentialref.LifecycleBinding, error)
 }
 type Config struct {
+	HostReplacements      HostReplacementDraftReader
 	HostActionCredentials HostActionLifecycleReader
 	HostActions           HostActionDraftReader
 	HostDiscoveryTargets  HostDiscoveryDraftReader
@@ -235,6 +236,16 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 		action = &draft.Request
 		risk = string(authorization.RiskInfrastructure)
 	}
+	replacement, aliasClaim, err := service.replacementPlan(ctx, declaration, operations)
+	if err != nil {
+		return store.PlanCommitResult{}, err
+	}
+	if replacement != nil || aliasClaim != nil {
+		risk = string(authorization.RiskInfrastructure)
+		if replacement != nil && replacement.RestorationClass == "control-database" {
+			risk = string(authorization.RiskControlPlane)
+		}
+	}
 	var adoption *generated.HostAdoptionRequest
 	var discovery *generated.HostDiscoveryTargetDraftRequest
 	for _, op := range operations {
@@ -315,6 +326,7 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 	desired.Operations = declarationOperations
 	desired.Extensions = append(make([]generated.ContractExtension, 0, len(declaration.Extensions)), declaration.Extensions...)
 	candidate := generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", DeclarationID: declaration.DeclarationID, Binding: generated.PlanBinding{RecoveryEpoch: current.RecoveryEpoch, PriorStateRevision: current.StateRevision, StateRevision: current.StateRevision + 1, DeclarationRevision: desired.Revision, ObservationFingerprint: fingerprint, TargetDigest: targets, ReasonDigest: reason, PolicyVersion: service.config.PolicyVersion, ToolVersion: service.config.ToolVersion, ContractVersion: service.config.ContractVersion}, Operations: operations, Status: "planned", Risk: risk, AuthorizationBranch: service.config.AuthorizationBranch, ExecutorMode: service.config.ExecutorMode, ExecutorID: service.config.ExecutorID, CreatedAt: created.Format(time.RFC3339), ExpiresAt: created.Add(time.Duration(generated.PlanValiditySeconds) * time.Second).Format(time.RFC3339), Extensions: extensions}
+	candidate.HostReplacement, candidate.HostAliasClaim = replacement, aliasClaim
 	if service.config.HostActionCredentials != nil && len(operations) == 1 && (operations[0].OperationType == "credential.activate" || operations[0].OperationType == "credential.rotate") {
 		lifecycle, err := service.config.HostActionCredentials.LookupLifecycleDraft(ctx, declaration.DeclarationID, declaration.Revision, operations[0].OperationID)
 		if err != nil {
@@ -528,7 +540,7 @@ func (service *Service) ValidateCurrent(ctx context.Context, candidate generated
 // the secret-resolution binding manifest and the lifecycle binding are declared
 // facts a plan cannot invent, omit, or replace.
 func credentialBindingExtensionsEqual(left, right []generated.ContractExtension) bool {
-	for _, name := range []string{"x-credential-bindings", "x-credential-lifecycle", "x-audit-checkpoint", "x-backup-policy", "x-backup-retention-lock-catalog", "x-backup-local-retirement", "x-offsite-generation"} {
+	for _, name := range []string{"x-host-replacement", "x-host-alias-claim", "x-credential-bindings", "x-credential-lifecycle", "x-audit-checkpoint", "x-backup-policy", "x-backup-retention-lock-catalog", "x-backup-local-retirement", "x-offsite-generation"} {
 		var leftDigest, rightDigest string
 		for _, item := range left {
 			if item.Name == name {

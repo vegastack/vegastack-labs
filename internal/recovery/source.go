@@ -42,6 +42,12 @@ type SnapshotReader interface {
 	Restore(context.Context, CandidateTarget, generated.RestoreBinding) (SnapshotReceipt, error)
 }
 
+// SnapshotAliasWatermarkReader inspects the actual verified snapshot, never a
+// live database revision. Absence is unsupported for replacement continuity.
+type SnapshotAliasWatermarkReader interface {
+	InspectHostAliasWatermark(context.Context) (int64, error)
+}
+
 type LocalSourceReader interface {
 	CurrentLocalRecoverySource(context.Context, string) (store.LocalRecoverySource, error)
 }
@@ -281,4 +287,18 @@ func localPointDigest(record store.LocalRecoverySource) (string, error) {
 	}
 	sum := sha256.Sum256(raw)
 	return "sha256:" + hex.EncodeToString(sum[:]), nil
+}
+
+// InspectVerifiedSourceAliasWatermark requires the actual resolved snapshot
+// capability. Unsupported sources cannot assert an empty ownership history.
+func InspectVerifiedSourceAliasWatermark(ctx context.Context, source VerifiedSource) (int64, error) {
+	reader, ok := source.Snapshot.(SnapshotAliasWatermarkReader)
+	if ctx == nil || ctx.Err() != nil || !ok || !restoreDigest.MatchString(source.DatabaseDigest) || source.Binding.PointID == "" {
+		return 0, ErrWitnessUnavailable
+	}
+	watermark, err := reader.InspectHostAliasWatermark(ctx)
+	if err != nil || watermark < 0 {
+		return 0, ErrWitnessUnavailable
+	}
+	return watermark, nil
 }

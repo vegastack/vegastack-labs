@@ -423,3 +423,67 @@ func readRestoredAuditPosition(ctx context.Context, path string) (recovery.Audit
 	}
 	return recovery.AuditContinuity{LocalLastEventID: local, IndependentLastEventID: checkpoint.LastEventID, IndependentCheckpointDigest: *checkpoint.IndependentReadDigest}, nil
 }
+
+// InspectHostAliasWatermark reads the same bounded, fully verified restored
+// bytes as audit inspection. It never infers ownership history from revision.
+func (reader *recoverySnapshotReader) InspectHostAliasWatermark(ctx context.Context) (int64, error) {
+	var watermark int64
+	err := reader.withRestored(ctx, "restore-preflight-"+reader.source.Verification.VerificationID, reader.source.Verification.ProofDigest, "preflight-run-"+reader.source.Point.PointID, "alias-watermark", "preflight-lease-"+randomHex(12), func(path string) error {
+		var err error
+		watermark, err = readRestoredAliasWatermark(ctx, path)
+		return err
+	})
+	return watermark, err
+}
+func readRestoredAliasWatermark(ctx context.Context, path string) (int64, error) {
+	u := url.URL{Scheme: "file", Path: path}
+	q := u.Query()
+	q.Set("mode", "ro")
+	q.Set("immutable", "1")
+	u.RawQuery = q.Encode()
+	db, err := sql.Open("sqlite3", u.String())
+	if err != nil {
+		return 0, err
+	}
+	defer db.Close()
+	var schema int64
+	if err = db.QueryRowContext(ctx, `SELECT COALESCE(MAX(id),0) FROM schema_migrations`).Scan(&schema); err != nil || schema < 1 {
+		return 0, errors.New("invalid verified snapshot schema")
+	}
+	var exists int
+	if err = db.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='host_alias_history'`).Scan(&exists); err != nil {
+		return 0, err
+	}
+	if exists == 0 {
+		if schema < 33 {
+			return 0, nil
+		}
+		return 0, errors.New("snapshot alias history missing")
+	}
+	if schema < 33 {
+		return 0, errors.New("unexpected snapshot alias history")
+	}
+	var watermark int64
+	if err = db.QueryRowContext(ctx, `SELECT COALESCE(MAX(event_ordinal),0) FROM host_alias_history`).Scan(&watermark); err != nil {
+		return 0, err
+	}
+	if watermark < 0 {
+		return 0, errors.New("invalid snapshot alias watermark")
+	}
+	return watermark, nil
+}
+
+// InspectSnapshotBytes uses the same authenticated restore and SQLite
+// inspection as source verification. No caller-proposed size is accepted.
+func (reader *recoverySnapshotReader) InspectSnapshotBytes(ctx context.Context) (int64, error) {
+	var size int64
+	err := reader.withRestored(ctx, "restore-size-"+reader.source.Verification.VerificationID, reader.source.Verification.ProofDigest, "size-run-"+reader.source.Point.PointID, "size-step", "size-lease-"+randomHex(12), func(path string) error {
+		info, err := os.Lstat(path)
+		if err != nil || !info.Mode().IsRegular() || info.Size() <= 0 {
+			return backupError(generated.ErrorCodeIntegrityFailure, "restore-snapshot-size")
+		}
+		size = info.Size()
+		return nil
+	})
+	return size, err
+}

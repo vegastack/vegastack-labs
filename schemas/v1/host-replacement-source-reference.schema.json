@@ -1,0 +1,51 @@
+{
+  "$id": "vegastack-labs.dev/host-replacement-source-reference",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "custodyBindingDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "custodyReferenceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "manifestDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "pointId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/host-replacement-source-reference"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "sourceBindingDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "pointId",
+    "custodyReferenceId",
+    "manifestDigest",
+    "sourceBindingDigest",
+    "custodyBindingDigest"
+  ],
+  "title": "VegaStack Labs host replacement source reference",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

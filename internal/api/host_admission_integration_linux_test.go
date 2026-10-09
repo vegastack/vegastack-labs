@@ -149,9 +149,14 @@ func (f admissionSQL) receipt(p generated.Plan, r generated.ExecutionReceipt) {
 	f.exec(`INSERT INTO execution_receipts VALUES(?,?,?,?,?,?,?,?)`, r.ReceiptID, r.LeaseID, r.RunID, r.StepID, r.Status, r.ResultDigest, f.bytes(r), r.RecordedAt)
 }
 
-func qualifiedHostSnapshot(t *testing.T, at time.Time) store.HostAdmissionSnapshot {
+func qualifiedHostSnapshot(t *testing.T, at time.Time, extraPackages ...string) store.HostAdmissionSnapshot {
 	t.Helper()
-	ops, requests := admissionAccessSequence(t)
+	ops, requests := admissionAccessSequence(t, extraPackages...)
+	return qualifiedHostSnapshotFromSequence(t, at, ops, requests)
+}
+
+func qualifiedHostSnapshotFromSequence(t *testing.T, at time.Time, ops []generated.PlanOperation, requests []generated.HostActionRequest) store.HostAdmissionSnapshot {
+	t.Helper()
 	seq, e := debianaccess.Sequence(ops, requests)
 	if e != nil {
 		t.Fatal(e)
@@ -283,7 +288,7 @@ func hostTestEvidence(s *store.HostAdmissionSnapshot, id, gate string, b generat
 	s.AppliedBindings[id] = store.HostAppliedBinding{DeclarationID: e.DeclarationID, DeclarationRevision: e.DeclarationRevision, ArtifactDigest: e.ArtifactDigest, BundleDigest: e.BundleDigest, StateRevision: e.StateRevision, ReleaseBuildID: e.ReleaseBuildID, ToolVersion: e.ToolVersion}
 }
 
-func admissionAccessInput(t *testing.T) generated.DebianAccessInput {
+func admissionAccessInput(t *testing.T, extraPackages ...string) generated.DebianAccessInput {
 	t.Helper()
 	public, _, e := ed25519.GenerateKey(rand.Reader)
 	if e != nil {
@@ -297,18 +302,26 @@ func admissionAccessInput(t *testing.T) generated.DebianAccessInput {
 	d := hostaction.BytesDigest([]byte("synthetic-qualified-lock"))
 	a := generated.AccessAccount{Schema: generated.SchemaIDAccessAccount, SchemaVersion: "1.0.0", Name: "automation", UID: 1001, GID: 1001, Home: "/home/automation", Role: "automation", PublicKeys: []string{k}, PublicKeyDigests: []string{hostaction.BytesDigest([]byte(k))}}
 	lock := generated.DebianProfileLock{Schema: generated.SchemaIDDebianProfileLock, SchemaVersion: "1.0.0", ImageDigest: d, OSFamily: "debian", OSVersion: "13.6", Architecture: "amd64", PackageSourceDigest: d, Packages: []generated.AccessPackage{{Schema: generated.SchemaIDAccessPackage, SchemaVersion: "1.0.0", Name: "openssh-server", Version: "synthetic-test"}}, ExecutableVersion: "1.0.0", AnsibleVersion: "synthetic-test", AnsibleExecutableDigest: d, CollectionDigest: d, RoleDigest: d, Backend: "iptables-nft"}
-	for _, name := range []string{"fail2ban", "python3-systemd", "auditd", "apparmor", "apparmor-utils", "apt", "systemd", "procps"} {
+	for _, name := range append([]string{"fail2ban", "python3-systemd", "auditd", "apparmor", "apparmor-utils", "apt", "systemd", "procps"}, extraPackages...) {
 		lock.Packages = append(lock.Packages, generated.AccessPackage{Schema: generated.SchemaIDAccessPackage, SchemaVersion: "1.0.0", Name: name, Version: "synthetic-test"})
 	}
 	in := generated.DebianAccessInput{Schema: generated.SchemaIDDebianAccessInput, SchemaVersion: "1.0.0", HostID: "test-host", HostIdentityDigest: d, ProfileID: "test-profile", ProfileLock: lock, ProfileLockDigest: hostaction.Digest(lock), ActionVersion: "1.0.0", AutomationUID: 1001, Accounts: []generated.AccessAccount{a}, SSHUsers: []string{"automation"}, SSHSourcePrefixes: []string{"192.0.2.0/24"}, RecoverySourcePrefixes: []string{"192.0.2.1/32"}, PrivilegedServiceKeys: []generated.AccessServiceKey{}, Interfaces: []generated.AccessInterface{{Schema: generated.SchemaIDAccessInterface, SchemaVersion: "1.0.0", Name: "eth0", Index: 2, Addresses: []string{"192.0.2.2"}}}, HostFlows: []generated.AccessFlow{}, ContainerFlows: []generated.AccessFlow{}}
+	if len(extraPackages) > 0 {
+		in.ContainerFlows = []generated.AccessFlow{{Schema: generated.SchemaIDAccessFlow, SchemaVersion: "1.0.0", Interface: "eth0", SourcePrefix: "198.51.100.0/24", DestinationPrefix: "192.0.2.2/32", Protocol: "tcp", Port: 8080}}
+	}
 	in.RollbackSpecification = generated.AccessRollbackSpecification{Schema: generated.SchemaIDAccessRollbackSpecification, SchemaVersion: "1.0.0", HostID: in.HostID, HostIdentityDigest: d, ProfileLockDigest: in.ProfileLockDigest, DeadlineSeconds: 600, RecoverySourcePrefixes: in.RecoverySourcePrefixes, OwnedState: []generated.AccessOwnedState{{Schema: generated.SchemaIDAccessOwnedState, SchemaVersion: "1.0.0", ResourceID: "ssh-config", BeforeDigest: d, AfterDigest: d}}}
 	in.RollbackDigest = hostaction.Digest(in.RollbackSpecification)
 	in.RenderedAccess = generated.RenderedAccess{Schema: generated.SchemaIDRenderedAccess, SchemaVersion: "1.0.0", ProfileLockDigest: in.ProfileLockDigest, RendererDigest: d, Accounts: in.Accounts, SSHUsers: in.SSHUsers, SSHSourcePrefixes: in.SSHSourcePrefixes, RecoverySourcePrefixes: in.RecoverySourcePrefixes, PrivilegedServiceKeys: in.PrivilegedServiceKeys, Interfaces: in.Interfaces, HostFlows: in.HostFlows, ContainerFlows: in.ContainerFlows, RollbackUnitsDigest: d}
 	in.RenderedAccessDigest = hostaction.Digest(in.RenderedAccess)
 	return in
 }
-func admissionAccessSequence(t *testing.T) ([]generated.PlanOperation, []generated.HostActionRequest) {
-	in := admissionAccessInput(t)
+func admissionAccessSequence(t *testing.T, extraPackages ...string) ([]generated.PlanOperation, []generated.HostActionRequest) {
+	in := admissionAccessInput(t, extraPackages...)
+	return admissionAccessSequenceForInput(t, in, len(extraPackages) > 0)
+}
+
+func admissionAccessSequenceForInput(t *testing.T, in generated.DebianAccessInput, containers bool) ([]generated.PlanOperation, []generated.HostActionRequest) {
+	t.Helper()
 	raw, _ := json.Marshal(in)
 	d := hostaction.Digest(admissionTargetDraft(in, in.HostID))
 	apply := generated.HostActionRequest{Schema: generated.SchemaIDHostActionRequest, SchemaVersion: "1.0.0", ActionID: "debian.access.apply", ActionVersion: "1.0.0", ActionInput: string(raw), ActionInputDigest: hostaction.BytesDigest(raw), HostID: in.HostID, TargetRevision: 1, TargetDigest: d, AutomationPrincipalID: "automation", CallerUID: 1001, CredentialReferenceID: "action-key", CredentialMaterialVersion: "version-a", ConsoleConfirmation: generated.HostActionConsoleConfirmation{Schema: generated.SchemaIDHostActionConsoleConfirmation, SchemaVersion: "1.0.0", Method: "administrator-verified-console", TargetDigest: d, HostIdentityDigest: in.HostIdentityDigest}, ExpectedStateRevision: 1, RecoveryEpoch: 0, IdempotencyKey: "apply-a"}
@@ -336,10 +349,26 @@ func admissionAccessSequence(t *testing.T) ([]generated.PlanOperation, []generat
 	local.ActionInputDigest = hostaction.BytesDigest(raw)
 	local.IdempotencyKey = "local-a"
 	probe.Source.HostID = "source-host"
-	probe.Source.IdentityDigest = hostaction.Digest("source-host")
+	if in.HostID != "test-host" {
+		probe.Source.HostID = in.HostID + "-source"
+	}
+	probe.Source.IdentityDigest = hostaction.Digest(probe.Source.HostID)
 	probe.Source.Kind = "network-namespace"
 	probe.Source.Address = "198.51.100.2"
 	probe.Cases = []generated.AccessProbeCase{{Schema: generated.SchemaIDAccessProbeCase, SchemaVersion: "1.0.0", ProbeID: "probe-source", Kind: "ssh-source", Expected: "denied", Destination: tuple, Witness: tuple}}
+	if containers {
+		probe.Source.Kind = "container"
+		for i, kind := range []string{"container-published", "container-unpublished", "container-east-west", "container-east-west"} {
+			dest := tuple
+			dest.Port = 8080
+			expected := "allowed"
+			if i == 1 || i == 3 {
+				dest.Port = 8081
+				expected = "denied"
+			}
+			probe.Cases = append(probe.Cases, generated.AccessProbeCase{Schema: generated.SchemaIDAccessProbeCase, SchemaVersion: "1.0.0", ProbeID: fmt.Sprintf("container-%d", i), Kind: kind, Expected: expected, Destination: dest, Witness: tuple})
+		}
+	}
 	remote := apply
 	remote.HostID = probe.Source.HostID
 	remote.TargetDigest = hostaction.Digest(admissionTargetDraft(in, remote.HostID))
@@ -396,10 +425,14 @@ func validAppliedFixture(at time.Time) generated.GateEvidence {
 
 func admissionTargetDraft(in generated.DebianAccessInput, host string) generated.HostDiscoveryTargetDraftRequest {
 	address := "192.0.2.2"
-	if host != "test-host" {
+	if host != in.HostID {
 		address = "198.51.100.2"
 	}
 	target := generated.HostDiscoveryTarget{Schema: generated.SchemaIDHostDiscoveryTarget, SchemaVersion: "1.0.0", TargetID: "target-" + host, Revision: 1, Address: address, Port: 22, User: "inspect", HostKey: in.Accounts[0].PublicKeys[0], ProfileID: in.ProfileID, CredentialReferenceID: "credential-a", MaterialVersion: "version-a", ExpectedOS: "debian", ExpectedVersion: "13.6", ExpectedArchitecture: "amd64"}
+	// Full role fixtures model separately scoped discovery credentials per target.
+	if len(in.ContainerFlows) > 0 {
+		target.CredentialReferenceID = "credential-" + host
+	}
 	return generated.HostDiscoveryTargetDraftRequest{Schema: generated.SchemaIDHostDiscoveryTargetDraftRequest, SchemaVersion: "1.0.0", Target: target, Action: "activate", IdempotencyKey: "target-" + host}
 }
 
@@ -655,7 +688,7 @@ func admissionCanonicalPlan(p generated.Plan) generated.Plan {
 	return p
 }
 
-func (f admissionSQL) host(in generated.DebianAccessInput, host, identityDigest string) {
+func (f admissionSQL) host(in generated.DebianAccessInput, host, identityDigest string, observation ...generated.HostObservation) {
 	draft := admissionTargetDraft(in, host)
 	d := hostaction.Digest(draft)
 	p := admissionCanonicalPlan(generated.Plan{DeclarationID: "registration-" + host, Binding: generated.PlanBinding{StateRevision: 1, DeclarationRevision: 1}, Operations: []generated.PlanOperation{{Sequence: 1, OperationID: "register", OperationType: "host.adopt", AdapterID: "core.host-adoption", TargetID: host, InputDigest: d, ArtifactDigest: d}}})
@@ -664,7 +697,12 @@ func (f admissionSQL) host(in generated.DebianAccessInput, host, identityDigest 
 	f.exec(`INSERT INTO host_discovery_targets VALUES(?,1,?,'active',?,0)`, draft.Target.TargetID, draft.Target.TargetID, p.PlanID)
 	obs := "observation-" + host
 	f.exec(`INSERT INTO host_discovery_attempts VALUES(?,'human-a',?,?,?,1,?,1,0,0,'later',?)`, obs, d, d, draft.Target.TargetID, d, []byte(`{}`))
-	f.exec(`INSERT INTO host_observations VALUES(?,?,1,?,?,0,0)`, obs, draft.Target.TargetID, []byte(`{}`), d)
+	obsRaw, obsDigest := []byte(`{}`), d
+	if len(observation) > 0 {
+		obsRaw = f.bytes(observation[0])
+		obsDigest = hostaction.Digest(observation[0])
+	}
+	f.exec(`INSERT INTO host_observations VALUES(?,?,1,?,?,0,0)`, obs, draft.Target.TargetID, obsRaw, obsDigest)
 	f.exec(`INSERT INTO host_adoption_drafts VALUES(?, ?,?,'human-a',1,0)`, "adoption-"+host, d, []byte(`{}`))
 	f.exec(`INSERT INTO acknowledgement_requests VALUES(?,?,?,?,?,'human-a','fixture-authority',?,1,0,'later','approved',?,?,'now','now','now')`, "ack-"+host, p.PlanID, p.PlanDigest, d, d, d, []byte(`{}`), []byte(`{}`))
 	f.exec(`INSERT INTO managed_hosts VALUES(?,?,?,'product-serial','qualified-virtual',?,?,?,?,'human-a',?,1,0)`, host, draft.Target.TargetID, identityDigest, obs, in.ProfileID, "adoption-"+host, p.PlanID, "ack-"+host)

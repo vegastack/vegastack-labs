@@ -20,7 +20,7 @@ func (app *Application) reviseDeclaration(config DeclarationPlanConfig) func(htt
 	return func(writer http.ResponseWriter, request *http.Request, _ authorization.ReadScope, params map[string]string) {
 		const operation = "api.v1.declarations.revise"
 		var input generated.DeclarationRevisionRequest
-		if err := decodeOperationRequest(request, config.MaxBodyBytes, []string{"schema", "schemaVersion", "declarationId", "declarationType", "expectedRevision", "expectedStateRevision", "recoveryEpoch", "operations", "reasonDigest", "extensions"}, &input); err != nil {
+		if err := decodeOperationRequest(request, config.MaxBodyBytes, []string{"schema", "schemaVersion", "declarationId", "declarationType", "expectedRevision", "expectedStateRevision", "recoveryEpoch", "operations", "reasonDigest", "extensions"}, &input, "hostAliasClaim"); err != nil {
 			app.failure(writer, operation, err)
 			return
 		}
@@ -31,6 +31,10 @@ func (app *Application) reviseDeclaration(config DeclarationPlanConfig) func(htt
 		principal, ok := identity.PrincipalFromContext(request.Context())
 		if !ok {
 			app.failure(writer, operation, apiFailure(generated.ErrorCodeAuthenticationRequired, "principal"))
+			return
+		}
+		if input.HostAliasClaim != nil && principal.Method != identity.LocalOSPeerMethod {
+			app.failure(writer, operation, apiFailure(generated.ErrorCodeAuthorizationDenied, "operator-local"))
 			return
 		}
 		if _, err := app.authorizeAction(request, authorization.ActionAuthor, authorization.Target{Capability: "declaration.author", ResourceKind: "declaration", ResourceID: input.DeclarationID}); err != nil {

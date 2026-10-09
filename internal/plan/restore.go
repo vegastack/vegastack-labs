@@ -35,6 +35,7 @@ func BuildRestorePlan(ctx context.Context, declaration generated.DeclarationRevi
 	plan := generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", DeclarationID: declaration.DeclarationID,
 		Binding:    generated.PlanBinding{RecoveryEpoch: declaration.RecoveryEpoch, PriorStateRevision: declaration.StateRevision, StateRevision: declaration.StateRevision + 1, DeclarationRevision: declaration.Revision + 1, ObservationFingerprint: source.VerificationDigest, TargetDigest: request.TargetDigest, ReasonDigest: request.AuditDecisionDigest, PolicyVersion: "1.0.0", ToolVersion: "1.0.0", ContractVersion: "1.0.0"},
 		Operations: []generated.PlanOperation{{Sequence: 1, OperationID: operation.OperationID, OperationType: operation.OperationType, AdapterID: operation.AdapterID, ExecutorID: "executor-central", TargetID: operation.TargetID, InputDigest: operation.InputDigest, ArtifactDigest: operation.ArtifactDigest, Idempotent: false}, {Sequence: 2, OperationID: canary.OperationID, OperationType: canary.OperationType, AdapterID: canary.AdapterID, ExecutorID: "executor-central", TargetID: canary.TargetID, InputDigest: canary.InputDigest, ArtifactDigest: canary.ArtifactDigest, Idempotent: true}}, Status: "planned", Risk: "control-plane", AuthorizationBranch: "human", ExecutorMode: "central", CreatedAt: created.UTC().Format(time.RFC3339), ExpiresAt: created.Add(time.Duration(generated.PlanValiditySeconds) * time.Second).UTC().Format(time.RFC3339), Extensions: declaration.Extensions}
+	plan.ReplacementContinuity = request.ReplacementContinuity
 	readable := readablePlan(plan)
 	plan.ReadableDigest = sha([]byte(readable))
 	plan.PlanDigest, err = planDigest(plan)
@@ -51,6 +52,7 @@ func BuildRestorePlan(ctx context.Context, declaration generated.DeclarationRevi
 		RecoveryRunID: request.RecoveryRunID, RecoveryStepID: request.RecoveryStepID, RecoveryLeaseID: request.RecoveryLeaseID, RecoveryChallengeID: request.RecoveryChallengeID, RecoveryReceiptID: request.RecoveryReceiptID,
 		CanaryRunID: request.CanaryRunID, CanaryStepID: request.CanaryStepID, CanaryLeaseID: request.CanaryLeaseID, CanaryChallengeID: request.CanaryChallengeID, CanaryReceiptID: request.CanaryReceiptID, CanaryBindingDigest: request.CanaryBindingDigest,
 		PriorInstanceID: request.PriorInstanceID, NewInstanceID: request.NewInstanceID, PriorRecoveryEpoch: request.PriorRecoveryEpoch, NextRecoveryEpoch: request.NextRecoveryEpoch, Status: "planned"}
+	binding.ReplacementContinuity = request.ReplacementContinuity
 	bindingRaw, err := json.Marshal(binding)
 	if err != nil || generated.ValidateContractJSON(generated.SchemaIDRestoreBinding, bindingRaw, generated.ContractExact) != nil {
 		return generated.Plan{}, generated.RestoreBinding{}, planError(generated.ErrorCodeInputInvalid)

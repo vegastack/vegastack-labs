@@ -5187,6 +5187,11 @@
       "artifactPath": "schemas/v1/host-adoption-submission.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/host-alias-claim-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-alias-claim-request.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/host-baseline-scope",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/host-baseline-scope.schema.json"
@@ -5260,6 +5265,41 @@
       "id": "vegastack-labs.dev/host-profile",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/host-profile.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/host-replacement-alias-binding",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-replacement-alias-binding.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/host-replacement-continuity-reference",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-replacement-continuity-reference.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/host-replacement-os-preparation",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-replacement-os-preparation.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/host-replacement-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-replacement-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/host-replacement-source-reference",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-replacement-source-reference.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/host-replacement-state",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-replacement-state.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/host-replacement-submission",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-replacement-submission.schema.json"
     },
     {
       "id": "vegastack-labs.dev/host-role",
