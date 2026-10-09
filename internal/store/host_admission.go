@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vegastack/vegastack-labs/internal/debianaccess"
 	"github.com/vegastack/vegastack-labs/internal/debianbaseline"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
@@ -493,6 +494,28 @@ func admissionCurrentControlIDs(ctx context.Context, tx ReadTx, out *HostAdmissi
 	var p generated.Plan
 	if json.Unmarshal(raw, &p) != nil {
 		return nil, actionError(generated.ErrorCodeIntegrityFailure)
+	}
+	if p.HostAction != nil && p.HostAction.ActionID == "debian.access.collect" {
+		// A standalone collection re-observes configuration; it does not replace
+		// the exact confirmed sequence that supplied the network observations.
+		collection := p.HostAction
+		e = tx.queryRow(ctx, `SELECT p.canonical_bytes FROM host_control_results c JOIN immutable_plans p ON p.plan_id=c.plan_id AND p.plan_digest=c.plan_digest JOIN execution_receipts e ON e.receipt_id=c.receipt_id AND e.result_digest=c.result_digest AND e.status='succeeded' JOIN plan_run_steps s ON s.run_id=c.run_id AND s.step_id=c.step_id AND s.status='succeeded' AND s.effect_state='verified' WHERE c.host_id=? AND c.host_identity_digest=? AND c.recovery_epoch=? AND c.control_id='debian-access-confirm' ORDER BY c.observed_at DESC,c.rowid DESC LIMIT 1`, out.Host.HostID, out.IdentityDigest, out.Revision.RecoveryEpoch).Scan(&raw)
+		if e == sql.ErrNoRows {
+			return ids, nil
+		}
+		if e != nil {
+			return nil, e
+		}
+		if json.Unmarshal(raw, &p) != nil {
+			return nil, actionError(generated.ErrorCodeIntegrityFailure)
+		}
+		if p.HostAccessSequence == nil || len(p.HostAccessSequence.Actions) == 0 || collection.ActionInputDigest != p.HostAccessSequence.Actions[0].ActionInputDigest || hostaction.BytesDigest([]byte(collection.ActionInput)) != collection.ActionInputDigest {
+			return ids, nil
+		}
+		input, err := debianaccess.DecodeInput([]byte(collection.ActionInput))
+		if err != nil || input.HostID != out.Host.HostID || input.HostIdentityDigest != out.IdentityDigest || input.ProfileLockDigest != p.HostAccessSequence.ProfileLockDigest {
+			return ids, nil
+		}
 	}
 	if p.HostAccessSequence != nil {
 		for _, a := range p.HostAccessSequence.Actions {

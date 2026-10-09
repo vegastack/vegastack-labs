@@ -502,6 +502,38 @@ func TestHostAdmissionAPICurrentProofAndInvalidation(t *testing.T) {
 			f.exec(`INSERT INTO host_control_results VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, receipt.RunID, receipt.StepID, r.ResultDigest, i, x.Plan.PlanID, x.Plan.PlanDigest, hostaction.Digest(x.Plan.HostAccessSequence), receipt.OperationID, receipt.TargetID, c.HostID, c.IdentityDigest, c.RecoveryEpoch, receipt.ReceiptID, c.ActionReceiptDigest, c.ControlID, c.Status, c.ObservedAt, c.MeasurementDigest, f.bytes(item.Measurement), f.bytes(c), f.bytes(r))
 		}
 	}
+	// A normal standalone recollection returns all three access observations
+	// together. Its own plan has no sequence; the prior exact confirmation
+	// must still select the existing finite probe records.
+	for _, group := range groups {
+		if group[0].Control.ControlID != "debian.accounts" {
+			continue
+		}
+		x := group[0]
+		request := x.Plan.HostAccessSequence.Actions[1]
+		op := x.Plan.Operations[1]
+		p := x.Plan
+		p.HostAccessSequence = nil
+		p.HostAction = &request
+		p.Operations = []generated.PlanOperation{op}
+		p = admissionCanonicalPlan(p)
+		result := x.Result
+		result.ControlMeasurements = nil
+		for _, item := range group {
+			result.ControlMeasurements = append(result.ControlMeasurements, item.Measurement)
+		}
+		result.ResultDigest = hostaction.ResultDigest(result)
+		receipt := x.Receipt
+		receipt.PlanID, receipt.PlanDigest = p.PlanID, p.PlanDigest
+		receipt.RunID, receipt.StepID, receipt.LeaseID, receipt.ReceiptID = "run-recollect", "step-recollect", "lease-recollect", "receipt-recollect"
+		receipt.ResultDigest = result.ResultDigest
+		f.receipt(p, receipt)
+		for i, item := range group {
+			c := item.Control
+			c.ActionReceiptDigest = hostaction.Digest(receipt)
+			f.exec(`INSERT INTO host_control_results VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, receipt.RunID, receipt.StepID, result.ResultDigest, i, p.PlanID, p.PlanDigest, hostaction.Digest(p.HostAccessSequence), receipt.OperationID, receipt.TargetID, c.HostID, c.IdentityDigest, c.RecoveryEpoch, receipt.ReceiptID, c.ActionReceiptDigest, c.ControlID, c.Status, c.ObservedAt, c.MeasurementDigest, f.bytes(item.Measurement), f.bytes(c), f.bytes(result))
+		}
+	}
 	proofs := admissionSyntheticProvenance{proofs: map[string]store.HostEvidenceProvenance{}}
 	repo := store.NewGateRepositoryWithHostProvenance(authority, proofs)
 	ctx := identity.WithVerifiedPrincipal(context.Background(), identity.Principal{ID: "human-a", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman})
