@@ -344,6 +344,32 @@ export interface AuditTarget {
   readonly "id": string;
 }
 
+export interface AuthorizationGrantBatchRequest {
+  readonly "schema": "vegastack-labs.dev/authorization-grant-batch-request";
+  readonly "schemaVersion": "1.0.0";
+  readonly "principalId": string;
+  readonly "expectedGrantRevision": number;
+  readonly "expectedDeclarationRevision": number;
+  readonly "expectedStateRevision": number;
+  readonly "recoveryEpoch": number;
+  readonly "idempotencyKey": string;
+  readonly "reasonDigest": string;
+  readonly "changes": ReadonlyArray<AuthorizationGrantChange>;
+}
+
+export interface AuthorizationGrantChange {
+  readonly "schema": "vegastack-labs.dev/authorization-grant-change";
+  readonly "schemaVersion": "1.0.0";
+  readonly "grantId": string;
+  readonly "change": "add" | "revoke";
+  readonly "roleId": "reader" | "author" | "maintainer" | "infrastructure-admin" | "control-plane-admin";
+  readonly "action": "read" | "author" | "acknowledge" | "execute";
+  readonly "capability": string;
+  readonly "resourceKind": string;
+  readonly "resourceId": string;
+  readonly "branch": "" | "human";
+}
+
 export interface BaselineAidePolicy {
   readonly "schema": "vegastack-labs.dev/baseline-aide-policy";
   readonly "schemaVersion": "1.0.0";
@@ -747,6 +773,7 @@ export interface DeclarationOperation {
 export interface DeclarationRevisionRequest {
   readonly "schema": "vegastack-labs.dev/declaration-revision-request";
   readonly "schemaVersion": "1.0.0";
+  readonly "grantBatch"?: AuthorizationGrantBatchRequest | null;
   readonly "hostAliasClaim"?: HostAliasClaimRequest | null;
   readonly "declarationId": string;
   readonly "declarationType": string;
@@ -1431,6 +1458,7 @@ export interface OffsiteRunSpec {
 export interface Plan {
   readonly "schema": "vegastack-labs.dev/plan";
   readonly "schemaVersion": "1.0.0";
+  readonly "grantBatch"?: AuthorizationGrantBatchRequest | null;
   readonly "planId": string;
   readonly "planDigest": string;
   readonly "declarationId": string;
@@ -3325,6 +3353,183 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "nullable": false,
         "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
         "maxLength": 128
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/authorization-grant-batch-request",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/authorization-grant-batch-request"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "principalId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "expectedGrantRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "expectedDeclarationRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "expectedStateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "idempotencyKey",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "reasonDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "changes",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/authorization-grant-change",
+        "minItems": 1,
+        "maxItems": 32
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/authorization-grant-change",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/authorization-grant-change"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "grantId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "change",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "add",
+          "revoke"
+        ]
+      },
+      {
+        "name": "roleId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "reader",
+          "author",
+          "maintainer",
+          "infrastructure-admin",
+          "control-plane-admin"
+        ]
+      },
+      {
+        "name": "action",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "read",
+          "author",
+          "acknowledge",
+          "execute"
+        ]
+      },
+      {
+        "name": "capability",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "resourceKind",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "resourceId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "branch",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "",
+          "human"
+        ]
       }
     ]
   },
@@ -5945,6 +6150,14 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "enum": [
           "1.0.0"
         ]
+      },
+      {
+        "name": "grantBatch",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "omitEmpty": true,
+        "ref": "vegastack-labs.dev/authorization-grant-batch-request"
       },
       {
         "name": "hostAliasClaim",
@@ -10308,6 +10521,14 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         ]
       },
       {
+        "name": "grantBatch",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "omitEmpty": true,
+        "ref": "vegastack-labs.dev/authorization-grant-batch-request"
+      },
+      {
         "name": "planId",
         "kind": "string",
         "required": true,
@@ -11592,6 +11813,14 @@ function decodeApprovalStatus(value: unknown): ApprovalStatus {
 
 function decodeAuditTarget(value: unknown): AuditTarget {
   return decodeSchema("vegastack-labs.dev/audit-target", value) as unknown as AuditTarget;
+}
+
+function decodeAuthorizationGrantBatchRequest(value: unknown): AuthorizationGrantBatchRequest {
+  return decodeSchema("vegastack-labs.dev/authorization-grant-batch-request", value) as unknown as AuthorizationGrantBatchRequest;
+}
+
+function decodeAuthorizationGrantChange(value: unknown): AuthorizationGrantChange {
+  return decodeSchema("vegastack-labs.dev/authorization-grant-change", value) as unknown as AuthorizationGrantChange;
 }
 
 function decodeBaselineAidePolicy(value: unknown): BaselineAidePolicy {

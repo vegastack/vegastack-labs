@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/vegastack/vegastack-labs/internal/audit"
+	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 )
 
@@ -154,6 +155,50 @@ func (repository *PlanRepository) CommitDeclarationAndPlan(ctx context.Context, 
 	}
 	result := PlanCommitResult{Plan: request.Plan, Canonical: append([]byte(nil), request.CanonicalBytes...), Readable: request.Readable}
 	intent, err := repository.store.writeIntent(ctx, intentRequest{Expected: &request.Expected, Idempotency: key, Event: event}, func(ctx context.Context, transaction *sql.Tx) error {
+		row := func(q string, a ...any) *sql.Row { return transaction.QueryRowContext(ctx, q, a...) }
+		var owners []authorization.Target
+		var err error
+		if q := request.RestoreQualification; q != nil {
+			if actor, e := adoptionGrant(ctx, row, q.Request.PointID, "recovery-point", "author", "recovery.restore.author", true); e == nil {
+				if actor != request.Attribution.AuthenticatedPrincipalID {
+					return actionError(generated.ErrorCodeAuthorizationDenied)
+				}
+			} else {
+				id, e := recoveryPointPolicy(row, q.Request.PointID)
+				if e != nil {
+					return e
+				}
+				owners = []authorization.Target{{Capability: "recovery.restore.author", ResourceKind: "backup-policy", ResourceID: id}}
+			}
+			for _, host := range []string{q.Request.FormerHostID, q.Request.ReplacementHostID} {
+				if host != "" {
+					owners = append(owners, authorization.Target{Capability: "host.read", ResourceKind: "host", ResourceID: host})
+				}
+			}
+		} else {
+			owners, err = workflowDeclarationTargets(row, request.DesiredDeclaration, authorization.ActionAuthor)
+		}
+		if err != nil {
+			return err
+		}
+		for _, owner := range owners {
+			actor, err := adoptionGrant(ctx, row, owner.ResourceID, owner.ResourceKind, string(authorization.WorkflowOwnerAction(authorization.ActionAuthor, owner)), owner.Capability, workflowAuthorRequiresAdministrator(owner) && owner.Capability != "host.read")
+			if err != nil {
+				return err
+			}
+			if actor != request.Attribution.AuthenticatedPrincipalID {
+				return actionError(generated.ErrorCodeAuthorizationDenied)
+			}
+		}
+		if b := request.DesiredDeclaration.AuthorizationGrantBatch; b != nil {
+			var revision int64
+			if row(`SELECT grant_revision FROM effective_authorization_principals WHERE principal_id=? AND status='active'`, b.PrincipalID).Scan(&revision) != nil || revision != b.ExpectedGrantRevision {
+				return actionError(generated.ErrorCodePlanStale)
+			}
+			if err := validateGrantBatchChanges(row, *b); err != nil {
+				return err
+			}
+		}
 		var contentDigest, reasonDigest, status string
 		if err := transaction.QueryRowContext(ctx, `SELECT content_digest,reason_digest,status FROM declaration_revisions WHERE declaration_id=? AND declaration_revision=?`, request.Plan.DeclarationID, request.SourceDeclarationRevision).Scan(&contentDigest, &reasonDigest, &status); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {

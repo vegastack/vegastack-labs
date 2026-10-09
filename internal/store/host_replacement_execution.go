@@ -58,11 +58,13 @@ func (r *HostReplacementRepository) execution(ctx context.Context, row discovery
 	if hostaction.Digest(attributed) != hostaction.Digest(x.Attribution) {
 		return p, replacementError(generated.ErrorCodeAuthorizationDenied)
 	}
-	if err := authorizeBaselinePrincipal(ctx, row, p, human, x.DraftID, authorization.ActionAcknowledge, "plan.acknowledge", "plan-target"); err != nil {
-		return p, err
-	}
-	if err := authorizeBaselinePrincipal(ctx, row, p, actor, x.DraftID, authorization.ActionExecute, operation, "execution-target"); err != nil {
-		return p, err
+	for _, id := range authorization.ExecutionResourceIDs(p, p.Operations[0]) {
+		if err := authorizeBaselinePrincipal(ctx, row, p, human, id, authorization.ActionAcknowledge, "plan.acknowledge", "plan-target"); err != nil {
+			return p, err
+		}
+		if err := authorizeBaselinePrincipal(ctx, row, p, actor, id, authorization.ActionExecute, operation, "execution-target"); err != nil {
+			return p, err
+		}
 	}
 	bound, e := hostRunReadContext(ctx, row, x.RunID)
 	if e != nil {

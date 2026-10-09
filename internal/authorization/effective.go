@@ -215,3 +215,26 @@ func validEffectiveGrant(grant EffectiveGrant) bool {
 	}
 	return grant.Branch != BranchPreauthorized
 }
+
+// WorkflowNavigation identifies only inert workflow access, never execution or acknowledgement.
+func WorkflowNavigation(action Action, t Target) bool {
+	switch t.ResourceKind {
+	case "recovery-point":
+		return action == ActionAuthor && t.Capability == "recovery.restore.author"
+	case "declaration":
+		return action == ActionAuthor && t.Capability == "plan.author" || action == ActionRead && t.Capability == "declaration.read"
+	case "plan":
+		return action == ActionAuthor && t.Capability == "plan.acknowledgement.request" || action == ActionRead && (t.Capability == "plan.read" || t.Capability == "plan.acknowledgement.read" || t.Capability == "run.read")
+	case "run":
+		return action == ActionRead && t.Capability == "run.read"
+	}
+	return false
+}
+
+// The only mixed navigation prerequisite is read access to a named host.
+func WorkflowOwnerAction(requested Action, owner Target) Action {
+	if owner.Capability == "host.read" && owner.ResourceKind == "host" {
+		return ActionRead
+	}
+	return requested
+}

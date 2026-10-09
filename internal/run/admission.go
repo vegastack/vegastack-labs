@@ -32,7 +32,7 @@ func (gate *AdmissionGate) Verify(_ context.Context, plan generated.Plan, decisi
 }
 
 func (gate *AdmissionGate) verify(plan generated.Plan, decision generated.AuthorizationDecision, acknowledgement *generated.Acknowledgement, requireFreshProof bool) error {
-	if gate == nil || !exactContract(generated.SchemaIDPlan, plan) || len(plan.Operations) == 0 || !exactContract(generated.SchemaIDAuthorizationDecision, decision) || !decision.Allowed || decision.Action != string(authorization.ActionExecute) || decision.TargetID != plan.Operations[0].TargetID || decision.PlanDigest != plan.PlanDigest || decision.RecoveryEpoch != plan.Binding.RecoveryEpoch || decision.Branch == nil || *decision.Branch != plan.AuthorizationBranch {
+	if gate == nil || !exactContract(generated.SchemaIDPlan, plan) || len(plan.Operations) == 0 || !exactContract(generated.SchemaIDAuthorizationDecision, decision) || !decision.Allowed || decision.Action != string(authorization.ActionExecute) || !authorization.FirstExecutionTarget(plan, decision.TargetID) || decision.PlanDigest != plan.PlanDigest || decision.RecoveryEpoch != plan.Binding.RecoveryEpoch || decision.Branch == nil || *decision.Branch != plan.AuthorizationBranch {
 		return runError(generated.ErrorCodeAuthorizationDenied, "run-admission")
 	}
 	for _, operation := range plan.Operations {
@@ -108,6 +108,9 @@ func (gate *AdmissionGate) VerifyRun(ctx context.Context, plan generated.Plan, c
 		return runError(generated.ErrorCodeAuthorizationDenied, "acknowledgement")
 	}
 	branch := plan.AuthorizationBranch
-	decision := generated.AuthorizationDecision{Schema: generated.SchemaIDAuthorizationDecision, SchemaVersion: "1.0.0", DecisionID: current.AuthorizationDecisionID, PrincipalID: acknowledgement.HumanID, Action: string(authorization.ActionExecute), TargetID: plan.Operations[0].TargetID, Allowed: true, Branch: &branch, ReasonCode: authorization.ReasonAllowed, GrantRevision: 1, RecoveryEpoch: current.RecoveryEpoch, PlanDigest: current.PlanDigest, DecidedAt: current.CreatedAt, Extensions: []generated.ContractExtension{}}
+	if len(plan.Operations) == 0 {
+		return runError(generated.ErrorCodePlanStale, "run-admission")
+	}
+	decision := generated.AuthorizationDecision{Schema: generated.SchemaIDAuthorizationDecision, SchemaVersion: "1.0.0", DecisionID: current.AuthorizationDecisionID, PrincipalID: acknowledgement.HumanID, Action: string(authorization.ActionExecute), TargetID: authorization.ExecutionResourceIDs(plan, plan.Operations[0])[0], Allowed: true, Branch: &branch, ReasonCode: authorization.ReasonAllowed, GrantRevision: 1, RecoveryEpoch: current.RecoveryEpoch, PlanDigest: current.PlanDigest, DecidedAt: current.CreatedAt, Extensions: []generated.ContractExtension{}}
 	return gate.Verify(ctx, plan, decision, &acknowledgement)
 }

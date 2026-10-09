@@ -111,6 +111,9 @@ func (repository *RunRepository) Create(ctx context.Context, request RunCreateRe
 	event := audit.EventDraft{Type: "run.created", CorrelationID: request.Run.RunID, Attribution: request.Attribution, Target: audit.Target{Kind: "run", ID: request.Run.RunID}, After: &fingerprint}
 	expected := RevisionToken{StateRevision: request.Run.StateRevision, RecoveryEpoch: request.Run.RecoveryEpoch}
 	intent, err := repository.store.executeAuditIntent(ctx, intentRequest{Expected: &expected, Idempotency: audit.IntentKey{Scope: "run-submit", KeyDigest: request.SubmitKeyDigest, RequestDigest: request.RequestDigest}, Event: event}, false, func(ctx context.Context, transaction *sql.Tx) error {
+		if err := verifyWorkflowRunAuthorization(ctx, func(q string, a ...any) *sql.Row { return transaction.QueryRowContext(ctx, q, a...) }, request.Run, request.Attribution); err != nil {
+			return err
+		}
 		if err := verifyPlanBindingInTx(ctx, transaction, request.Run); err != nil {
 			return err
 		}

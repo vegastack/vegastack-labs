@@ -225,6 +225,7 @@ func Current() Registry {
 		auditCheckpointsCommand(), auditVerifyCommand(),
 	}
 	commands = append(commands, hostCommands()...)
+	commands = append(commands, authorizationGrantCommand())
 	commands = append(commands, linuxRoleCommands()...)
 	for _, command := range plannedCommands {
 		if command.path == "node discover" || command.path == "node add" || command.path == "node inspect" || command.path == "status" || strings.HasPrefix(command.path, "database ") || strings.HasPrefix(command.path, "inventory ") || strings.HasPrefix(command.path, "gate ") || strings.HasPrefix(command.path, "backup ") || strings.HasPrefix(command.path, "restore ") || command.path == "credential import" || command.path == "audit checkpoints" || command.path == "audit verify" || isAvailablePhase4Command(command.path) {
@@ -243,9 +244,9 @@ func Current() Registry {
 	}
 
 	return Registry{
-		SchemaVersion:   "1.25.0",
+		SchemaVersion:   "1.26.0",
 		Commands:        commands,
-		Endpoints:       append(append(append(readEndpoints(), phase4Endpoints()...), phase5Endpoints()...), append(append(hostDiscoveryEndpoints(), hostAdoptionEndpoints()...), append(append(hostActionEndpoints(), accessEndpoints()...), hostReplacementEndpoints()...)...)...),
+		Endpoints:       append([]EndpointDefinition{authorizationGrantEndpoint()}, append(append(append(readEndpoints(), phase4Endpoints()...), phase5Endpoints()...), append(append(hostDiscoveryEndpoints(), hostAdoptionEndpoints()...), append(append(hostActionEndpoints(), accessEndpoints()...), hostReplacementEndpoints()...)...)...)...),
 		GateDefinitions: CurrentGateDefinitions(),
 		Errors:          append([]ErrorDefinition(nil), requiredErrors...),
 		Exits:           append([]ExitDefinition(nil), requiredExits...),
@@ -982,6 +983,7 @@ func currentSchemas() []SchemaDefinition {
 	schemas = append(schemas, baselineSchemas()...)
 	schemas = append(schemas, linuxRoleSchemas()...)
 	schemas = append(schemas, hostReplacementSchemas()...)
+	schemas = append(schemas, authorizationGrantSchemas()...)
 	schemas = append(schemas, localSetupSchemas()...)
 	return append(schemas, apiSshSchemas()...)
 }

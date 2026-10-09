@@ -65,7 +65,7 @@ func TestRoleReservationRechecksInsideWriterTransaction(t *testing.T) {
 			if _, err = f.s.conn.ExecContext(f.ctx, `INSERT INTO effective_authorization_grants VALUES('role-execute','operator-a','infrastructure-admin','execute','host.action.execute','execution-target',?,'human',1,'active','now','now')`, request.HostID); err != nil {
 				t.Fatal(err)
 			}
-			if _, err = f.s.conn.ExecContext(f.ctx, `INSERT INTO effective_authorization_grants VALUES('role-ack','operator-a','control-plane-admin','acknowledge','plan.acknowledge','plan-target',?,'human',1,'active','now','now')`, request.HostID); err != nil {
+			if _, err = f.s.conn.ExecContext(f.ctx, `INSERT OR IGNORE INTO effective_authorization_grants VALUES('role-ack','operator-a','control-plane-admin','acknowledge','plan.acknowledge','plan-target',?,'human',1,'active','now','now')`, request.HostID); err != nil {
 				t.Fatal(err)
 			}
 			repo := NewRunRepository(f.s)

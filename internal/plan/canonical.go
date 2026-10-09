@@ -46,6 +46,10 @@ func readablePlan(plan generated.Plan) string {
 		raw, _, _ := stateexport.CanonicalJSON(plan.HostReplacement)
 		fmt.Fprintf(&body, "Host replacement exact intent: %s\nFreeze prevents new authority on the former host. Commit moves only the named aliases after current denial and qualification; no disk reset, workload move or automatic rollback.\n", raw)
 	}
+	if plan.AuthorizationGrantBatch != nil {
+		raw, _, _ := stateexport.CanonicalJSON(plan.AuthorizationGrantBatch)
+		fmt.Fprintf(&body, "Exact authorization grant changes for existing principal: %s\nEffective only after this plan receives human acknowledgement and executes.\n", raw)
+	}
 	if plan.HostAliasClaim != nil {
 		raw, _, _ := stateexport.CanonicalJSON(plan.HostAliasClaim)
 		fmt.Fprintf(&body, "Initial alias ownership claim: %s\nOnly unowned aliases may be claimed; registration alone does not qualify this host.\n", raw)

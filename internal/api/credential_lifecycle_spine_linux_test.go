@@ -78,7 +78,7 @@ func (fixture *lifecyclePublicFixture) applyDraft(t *testing.T, submission gener
 
 func (fixture *lifecyclePublicFixture) applyDraftWithExecutor(t *testing.T, submission generated.CredentialLifecycleSubmission, missingAck bool, executor identity.Principal) (generated.Run, error) {
 	t.Helper()
-	ctx := context.Background()
+	ctx := identity.WithVerifiedPrincipal(context.Background(), fixture.principal)
 	draft, err := store.NewDeclarationRepository(fixture.authority).GetRevision(ctx, submission.ChangeID, 1)
 	if err != nil {
 		t.Fatal(err)
@@ -161,7 +161,7 @@ func TestCredentialLifecyclePublicAgentExecutionConsumesSeparateHumanAcknowledge
 	fixture := newLifecyclePublicFixture(t)
 	imported := fixture.importDraft(t, "version-1")
 	request := fixture.stageRequest(t, imported)
-	submission, err := fixture.service.CreateDraft(context.Background(), request, fixture.principal)
+	submission, err := fixture.service.CreateDraft(identity.WithVerifiedPrincipal(context.Background(), fixture.principal), request, fixture.principal)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,7 +178,7 @@ func TestCredentialLifecyclePublicDraftPlanAckApplySpine(t *testing.T) {
 			fixture := newLifecyclePublicFixture(t)
 			imported := fixture.importDraft(t, "version-1")
 			request := fixture.stageRequest(t, imported)
-			submission, err := fixture.service.CreateDraft(context.Background(), request, fixture.principal)
+			submission, err := fixture.service.CreateDraft(identity.WithVerifiedPrincipal(context.Background(), fixture.principal), request, fixture.principal)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -259,7 +259,7 @@ func (fixture *lifecyclePublicFixture) submitAndApply(t *testing.T, input genera
 		input.NativeConsumers, input.NativeDeniedReaders = nil, nil
 	}
 	input.TargetDigest = credentialref.LifecycleTargetDigest(input)
-	submission, err := fixture.service.CreateDraft(context.Background(), input, fixture.principal)
+	submission, err := fixture.service.CreateDraft(identity.WithVerifiedPrincipal(context.Background(), fixture.principal), input, fixture.principal)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -142,3 +142,10 @@ Issue #233 owns exact initial alias claims, old-host authority freeze, independe
 Issue #239 completes the CLI and Console path over the existing discovery, registration, hardening, role/admission and replacement interfaces. Policy imports and draft preparation remain inert; effectful work still needs the exact server plan, current authorization and Slack acknowledgement. The Nodes screen distinguishes installation results, current gate evaluation and persisted replacement stages, and directs incomplete restore work to the existing recovery view and server-provided safe next action. See the [operator procedure](../host-lifecycle-workflow.md).
 
 Generated-client and browser fixtures verify the software boundary, not actual hardware, external credentials or native controls. The connected API/store tests use temporary databases and synthetic external peers. Native qualification remains #228, aggregate Linux acceptance remains #234, Mac/iMac remain pending, and development grants no fleet access or real Slack configuration. Nodes04/05 remain excluded.
+
+
+## Resource authorization completion — 10-10-2026
+
+Issue #247 adds bounded approved grant batches and stored resource owner resolution needed by a fresh Linux setup. It reuses the current executable, API, desired/effective/read grant tables, plan/Slack acknowledgement and run engine. It adds no service, database table, signer or trust registry. See [approved resource grants](../../platform-lifecycle.md#approved-resource-grants--10-10-2026).
+
+The remaining Linux sequence is #247 authorization completion, #228 actual native Debian qualification, then #234 integrated Linux acceptance. Source and synthetic Linux checks do not pass native qualification. Mac/iMac and full-v1 acceptance remain pending; nodes04/05 remain excluded and no code merge grants deployment authority.

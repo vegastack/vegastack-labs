@@ -16,6 +16,7 @@ import (
 )
 
 type stubControlOperations struct {
+	grantResponse             localapi.TypedResponse[generated.DeclarationRevision]
 	gateListResponse          localapi.TypedResponse[generated.GateListData]
 	gateViewResponse          localapi.TypedResponse[generated.GateView]
 	gateCheckResponse         localapi.TypedResponse[generated.GateEvaluation]
@@ -248,6 +249,7 @@ func successfulControlOperations(t *testing.T) *stubControlOperations {
 	browserPolicy := generated.BrowserScheduledJobPolicy{Schema: generated.SchemaIDBrowserScheduledJobPolicy, SchemaVersion: "1.0.0", PolicyID: schedulePolicy.PolicyID, Revision: schedulePolicy.Revision, ActionKind: schedulePolicy.ActionKind, Enabled: true, Status: "active", ReasonCode: "active", TargetDigest: "sha256:" + strings.Repeat("e", 64), StateRevision: schedulePolicy.StateRevision, RecoveryEpoch: schedulePolicy.RecoveryEpoch}
 	browserPolicies := generated.BrowserScheduledJobPolicyListData{Schema: generated.SchemaIDBrowserScheduledJobPolicyListData, SchemaVersion: "1.0.0", Items: []generated.BrowserScheduledJobPolicy{browserPolicy}, StateRevision: schedulePolicy.StateRevision, RecoveryEpoch: schedulePolicy.RecoveryEpoch}
 	return &stubControlOperations{
+		grantResponse:             operationResponse(t, "api.v1.authorization.grant-batches.create", true, 0, 1, generated.DeclarationRevision{DeclarationID: "synthetic-grant-draft", Revision: 1}),
 		gateListResponse:          operationResponse(t, "api.v1.gates.list", false, 2, 7, list),
 		gateViewResponse:          operationResponse(t, "api.v1.gates.get", false, 2, 7, view),
 		gateCheckResponse:         operationResponse(t, "api.v1.gates.check", false, 2, 7, evaluation),
@@ -442,4 +444,8 @@ func TestOffsiteRetirementDryRunRendersExactInspectableArtifact(t *testing.T) {
 	if code != 0 || stderr != "" {
 		t.Fatalf("JSON dry-run = code %d stderr %q stdout %q", code, stderr, stdout)
 	}
+}
+
+func (s *stubControlOperations) DraftAuthorizationGrants(context.Context, string, generated.AuthorizationGrantBatchRequest) (localapi.TypedResponse[generated.DeclarationRevision], error) {
+	return s.grantResponse, s.err
 }

@@ -104,6 +104,14 @@ func (repository *CredentialRepository) PutLifecycleDraft(ctx context.Context, r
 	created := repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339)
 	id := credentialBindingID(request.DeclarationID, request.DeclarationRevision, digest)
 	_, err = repository.store.writeIntent(ctx, intentRequest{Expected: &request.Expected, Idempotency: key, Event: event}, func(ctx context.Context, tx *sql.Tx) error {
+		row := func(q string, a ...any) *sql.Row { return tx.QueryRowContext(ctx, q, a...) }
+		actor, err := adoptionGrant(ctx, row, binding.ReferenceID, "credential-reference", "author", "credential.lifecycle.author", false)
+		if err != nil {
+			return err
+		}
+		if actor != request.Attribution.AuthenticatedPrincipalID {
+			return actionError(generated.ErrorCodeAuthorizationDenied)
+		}
 		_, executeErr := tx.ExecContext(ctx, `INSERT INTO credential_lifecycle_bindings(binding_id,declaration_id,declaration_revision,operation_id,action,reference_id,binding_digest,binding_bytes,recovery_epoch,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, id, request.DeclarationID, request.DeclarationRevision, binding.OperationID, string(binding.Action), binding.ReferenceID, digest, body, binding.RecoveryEpoch, created)
 		return executeErr
 	})

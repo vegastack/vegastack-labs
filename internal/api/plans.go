@@ -46,10 +46,10 @@ func RegisterDeclarationPlanOperations(app *Application, config DeclarationPlanC
 	previous := app.effective
 	app.effective = config.Authorization
 	app.routes = append(app.routes,
-		route{id: "api.v1.declarations.revise", method: http.MethodPost, pattern: "/api/v1/declarations/{declarationId}/revisions", capability: "declaration.author", kind: "declaration", action: authorization.ActionAuthor, handler: app.reviseDeclaration(config)},
+		route{id: "api.v1.declarations.revise", method: http.MethodPost, pattern: "/api/v1/declarations/{declarationId}/revisions", deferredAuthorization: true, handler: app.reviseDeclaration(config)},
 		route{id: "api.v1.declarations.get", method: http.MethodGet, pattern: "/api/v1/declarations/{declarationId}/revisions/{revision}", capability: "declaration.read", kind: "declaration", handler: app.getDeclaration(config)},
 		route{id: "api.v1.declarations.plan-preparation.get", method: http.MethodGet, pattern: "/api/v1/declarations/{declarationId}/revisions/{revision}/plan-preparation", capability: "declaration.read", kind: "declaration", handler: app.preparePlan(config)},
-		route{id: "api.v1.plans.create", method: http.MethodPost, pattern: "/api/v1/declarations/{declarationId}/plans", capability: "plan.author", kind: "declaration", action: authorization.ActionAuthor, handler: app.createPlan(config)},
+		route{id: "api.v1.plans.create", method: http.MethodPost, pattern: "/api/v1/declarations/{declarationId}/plans", deferredAuthorization: true, handler: app.createPlan(config)},
 		route{id: "api.v1.plans.get", method: http.MethodGet, pattern: "/api/v1/plans/{planId}", capability: "plan.read", kind: "plan", handler: app.getPlan(config)},
 	)
 	if !routesAreGeneratedSubset(app.routes) {
@@ -106,7 +106,7 @@ func (app *Application) createPlan(config DeclarationPlanConfig) func(http.Respo
 			app.failure(writer, operation, apiFailure(generated.ErrorCodeAuthenticationRequired, "principal"))
 			return
 		}
-		if _, err := app.authorizeAction(request, authorization.ActionAuthor, authorization.Target{Capability: "plan.author", ResourceKind: "declaration", ResourceID: input.DeclarationID}); err != nil {
+		if _, err := app.authorize(request, authorization.Request{DeclarationRevision: input.DeclarationRevision, Action: authorization.ActionAuthor, Target: authorization.Target{Capability: "plan.author", ResourceKind: "declaration", ResourceID: input.DeclarationID}}); err != nil {
 			app.failure(writer, operation, err)
 			return
 		}

@@ -19,10 +19,15 @@ type EffectiveAuthorizer interface {
 	Authorize(context.Context, identity.Principal, authorization.Request) (authorization.Decision, error)
 }
 
+type WorkflowOwnerResolver interface {
+	WorkflowAuthorizationTargets(context.Context, authorization.Request) ([]authorization.Target, error)
+}
+
 type EffectiveAuthorizationConfig struct {
-	Authorizer EffectiveAuthorizer
-	Recorder   authorization.DecisionRecorder
-	Clock      func() time.Time
+	WorkflowOwners WorkflowOwnerResolver
+	Authorizer     EffectiveAuthorizer
+	Recorder       authorization.DecisionRecorder
+	Clock          func() time.Time
 }
 
 type PlanAuthorization struct {
@@ -99,6 +104,33 @@ func (app *Application) authorizePrincipal(ctx context.Context, principal identi
 	if evaluationErr != nil || decision.PrincipalID != principal.ID || decision.Action != policyRequest.Action || decision.Target != policyRequest.Target {
 		decision = unavailableAuthorizationDecision(principal, policyRequest, decision)
 	}
+	if evaluationErr == nil && !decision.Allowed {
+		if app.effective.WorkflowOwners != nil && authorization.WorkflowNavigation(policyRequest.Action, policyRequest.Target) && policyRequest.Plan == nil && len(policyRequest.Branches) == 0 {
+			owners, e := app.effective.WorkflowOwners.WorkflowAuthorizationTargets(ctx, policyRequest)
+			if e == nil && len(owners) > 0 && len(owners) <= 64 {
+				var first authorizationOutcome
+				for i, owner := range owners {
+					if owner == policyRequest.Target || owner.ResourceKind == "declaration" || owner.ResourceKind == "plan" || owner.ResourceKind == "run" {
+						return authorizationOutcome{}, authorizationDecisionFailure(decision.ReasonCode)
+					}
+					mapped := policyRequest
+					mapped.Target = owner
+					mapped.Action = authorization.WorkflowOwnerAction(policyRequest.Action, owner)
+					next, e := app.authorizePrincipal(ctx, principal, mapped)
+					if e != nil {
+						return next, e
+					}
+					if i == 0 {
+						first = next
+					} else if next.Scope.StateRevision != first.Scope.StateRevision || next.Scope.RecoveryEpoch != first.Scope.RecoveryEpoch || next.Scope.GrantRevision != first.Scope.GrantRevision {
+						return authorizationOutcome{}, apiFailure(generated.ErrorCodePlanStale, "workflow-owners")
+					}
+				}
+				return first, nil
+			}
+		}
+	}
+
 	record, err := app.recordAuthorizationDecision(ctx, principal, decision)
 	if err != nil {
 		if apiErrorCode(err) != "" {
@@ -110,6 +142,7 @@ func (app *Application) authorizePrincipal(ctx context.Context, principal identi
 		return authorizationOutcome{Record: record}, apiFailure(generated.ErrorCodeDependencyUnavailable, "effective-authorization")
 	}
 	if !decision.Allowed {
+
 		return authorizationOutcome{Record: record}, authorizationDecisionFailure(decision.ReasonCode)
 	}
 	return authorizationOutcome{Scope: decision.Scope, Record: record}, nil

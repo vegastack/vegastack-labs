@@ -64,6 +64,21 @@ func (authorizer *ReadAuthorizer) AuthorizeRead(ctx context.Context, principal i
 		return nil
 	})
 	if err != nil {
+		owners, resolveErr := authorizer.store.WorkflowAuthorizationTargets(ctx, authorization.Request{Action: authorization.ActionRead, Target: authorization.Target{Capability: target.Capability, ResourceKind: target.ResourceKind, ResourceID: target.ResourceID}})
+		if resolveErr == nil && len(owners) > 0 && len(owners) <= 64 {
+			revision := int64(0)
+			for _, owner := range owners {
+				if owner.ResourceKind == "declaration" || owner.ResourceKind == "plan" || owner.ResourceKind == "run" {
+					return authorization.ReadScope{}, newStoreError(generated.ErrorCodeAuthorizationDenied, "read", false, nil)
+				}
+				parent, e := authorizer.AuthorizeRead(ctx, principal, authorization.ReadTarget{Capability: owner.Capability, ResourceKind: owner.ResourceKind, ResourceID: owner.ResourceID})
+				if e != nil || (revision != 0 && revision != parent.GrantRevision) {
+					return authorization.ReadScope{}, newStoreError(generated.ErrorCodeAuthorizationDenied, "read", false, e)
+				}
+				revision = parent.GrantRevision
+			}
+			return authorization.ReadScope{PrincipalID: principal.ID, Capability: target.Capability, ResourceKind: target.ResourceKind, GrantRevision: revision, ScopeDigest: scopeDigest(principal.ID, target.Capability, target.ResourceKind, revision, []string{target.ResourceID})}, nil
+		}
 		return authorization.ReadScope{}, newStoreError(generated.ErrorCodeAuthorizationDenied, "read", false, err)
 	}
 	return scope, nil

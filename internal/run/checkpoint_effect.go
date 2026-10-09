@@ -145,9 +145,12 @@ func checkpointDigest(data []byte) audit.Fingerprint {
 	return audit.Fingerprint("sha256:" + hex.EncodeToString(sum[:]))
 }
 
-type CoreRouter struct{ Gate, Checkpoint, Recovery, Schedule, ScheduleObserve, DiscoveryTarget, Adoption, HostReplacement CoreEffect }
+type CoreRouter struct{ Gate, Checkpoint, Recovery, Schedule, ScheduleObserve, DiscoveryTarget, Adoption, HostReplacement, Authorization CoreEffect }
 
 func (router CoreRouter) Execute(ctx context.Context, binding ExactStepBinding) (adapter.Effect, error) {
+	if binding.Step.AdapterID == "core.authorization" && router.Authorization != nil {
+		return router.Authorization.Execute(ctx, binding)
+	}
 	if binding.Step.AdapterID == "core.host-replacement" && router.HostReplacement != nil {
 		return router.HostReplacement.Execute(ctx, binding)
 	}
@@ -176,6 +179,9 @@ func (router CoreRouter) Execute(ctx context.Context, binding ExactStepBinding) 
 }
 
 func (router CoreRouter) Verify(ctx context.Context, binding ExactStepBinding, result adapter.Effect) (adapter.Verification, error) {
+	if binding.Step.AdapterID == "core.authorization" && router.Authorization != nil {
+		return router.Authorization.Verify(ctx, binding, result)
+	}
 	if binding.Step.AdapterID == "core.host-replacement" && router.HostReplacement != nil {
 		return router.HostReplacement.Verify(ctx, binding, result)
 	}

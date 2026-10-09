@@ -37,9 +37,33 @@ func (app *Application) reviseDeclaration(config DeclarationPlanConfig) func(htt
 			app.failure(writer, operation, apiFailure(generated.ErrorCodeAuthorizationDenied, "operator-local"))
 			return
 		}
-		if _, err := app.authorizeAction(request, authorization.ActionAuthor, authorization.Target{Capability: "declaration.author", ResourceKind: "declaration", ResourceID: input.DeclarationID}); err != nil {
-			app.failure(writer, operation, err)
-			return
+		targets := []authorization.Target{{Capability: "declaration.author", ResourceKind: "declaration", ResourceID: input.DeclarationID}}
+		if claim := input.HostAliasClaim; claim != nil {
+			targets = []authorization.Target{{Capability: "host.replacement.prepare", ResourceKind: "host", ResourceID: claim.HostID}}
+			for _, id := range claim.AliasIDs {
+				targets = append(targets, authorization.Target{Capability: "host.alias.claim", ResourceKind: "host-alias", ResourceID: id})
+			}
+		}
+		if input.HostAliasClaim == nil && len(input.Operations) == 1 && input.Operations[0].AdapterID == "local.backup" {
+			resolver, ok := app.effective.WorkflowOwners.(interface {
+				DraftBackupAuthorizationTargets(context.Context, generated.DeclarationRevisionRequest) ([]authorization.Target, error)
+			})
+			if !ok {
+				app.failure(writer, operation, apiFailure(generated.ErrorCodeAuthorizationDenied, "backup-declaration"))
+				return
+			}
+			var err error
+			targets, err = resolver.DraftBackupAuthorizationTargets(request.Context(), input)
+			if err != nil {
+				app.failure(writer, operation, err)
+				return
+			}
+		}
+		for _, target := range targets {
+			if _, err := app.authorizeAction(request, authorization.ActionAuthor, target); err != nil {
+				app.failure(writer, operation, err)
+				return
+			}
 		}
 		requestID, err := config.Results.RequestID()
 		if err != nil {

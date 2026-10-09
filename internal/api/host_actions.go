@@ -107,10 +107,6 @@ func (app *Application) hostActionDraft(c HostActionOperations) func(http.Respon
 			}
 		}
 		id := hostaction.DraftID(input)
-		if _, err := app.authorizeAction(r, authorization.ActionAuthor, authorization.Target{Capability: "declaration.author", ResourceKind: "declaration", ResourceID: id}); err != nil {
-			app.failure(w, operation, err)
-			return
-		}
 		principal, ok := identity.PrincipalFromContext(r.Context())
 		if !ok {
 			app.failure(w, operation, apiFailure(generated.ErrorCodeAuthenticationRequired, "principal"))

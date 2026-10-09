@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 10-10-2026 — A fresh operator can grant resource access through an approved plan ([#247](https://github.com/vegastack/vegastack-labs/issues/247))
+
+- **What:** The operator can draft a bounded set of exact permission additions or revocations for an existing principal, then acknowledge and apply its plan. Host workflow navigation uses the underlying resources, so the operator does not have to predict generated plan IDs.
+- **Why:** Native Linux qualification exposed a bootstrap gap: initial grants were bounded, and no product workflow could activate the later grants needed by the next step.
+- **How it went:** The real setup-to-acknowledgement test exposed an existing core-operation digest assumption. Resource scopes also required updating fixtures that had inserted permissions for future IDs.
+- **Changed:** Grant draft command and API · atomic effective/read updates · current grant checks at reservation and mutation · exact stored owner navigation.
+- **Decisions:** None; extends the existing working-first paths.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/6.13-authorization-workflows
+
 ## 09-10-2026 — Linux host work has one operator path ([#239](https://github.com/vegastack/vegastack-labs/issues/239))
 
 - **What:** The CLI and Nodes screen now guide target preparation, discovery, registration, hardening, role setup and replacement through the existing server plans and Slack acknowledgement. Operators can inspect current admission separately from a successful run, and see the server’s next recovery action without treating a partial restore as a completed ownership transfer.
@@ -887,3 +897,5 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 - **Decisions:** none; no live infrastructure, provider, credential, host, restore, or deployment authority was added.
 
 — approved by (omkarmohanta09) · built by Codex · branch feat/110-phase5-operator-surfaces
+
+The critical authorization review of issue #247 found omitted nested owners, alias host execution/acknowledgement scope, an incompatible resume target and a missing grant recovery precheck. Corrections use all sealed subject/probe owners, host plus alias projection, matching resume projection, and the existing SQLite snapshot/isolated-restore methods. Local recovery preimages are private and do not qualify node-loss recovery.

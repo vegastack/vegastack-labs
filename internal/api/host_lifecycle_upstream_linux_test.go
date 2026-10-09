@@ -72,6 +72,9 @@ func (c lifecycleCollector) Collect(context.Context, hostdiscovery.Target) (host
 }
 
 func lifecycleAdoptedFixture(t *testing.T, at *time.Time, transport lifecycleBrowserTransport, gate lifecycleDiscoveryGate, parent ...roleAdmissionFixture) (roleAdmissionFixture, generated.HostDiscoveryTargetDraftRequest) {
+	return lifecycleAdoptedFixtureWithGrants(t, at, transport, gate, false, parent...)
+}
+func lifecycleAdoptedFixtureWithGrants(t *testing.T, at *time.Time, transport lifecycleBrowserTransport, gate lifecycleDiscoveryGate, productGrants bool, parent ...roleAdmissionFixture) (roleAdmissionFixture, generated.HostDiscoveryTargetDraftRequest) {
 	t.Helper()
 	clock := func() time.Time { return *at }
 	var authority *store.Store
@@ -99,7 +102,9 @@ func lifecycleAdoptedFixture(t *testing.T, at *time.Time, transport lifecycleBro
 
 	}
 	seed := admissionSQL{t, db}
-	seed.exec(`INSERT OR IGNORE INTO effective_authorization_principals VALUES('human-a','human','active',1,'now','now')`)
+	if !productGrants {
+		seed.exec(`INSERT OR IGNORE INTO effective_authorization_principals VALUES('human-a','human','active',1,'now','now')`)
+	}
 	ctx := identity.WithVerifiedPrincipal(context.Background(), identity.Principal{ID: "human-a", Kind: identity.PrincipalHuman, Method: identity.LocalOSPeerMethod})
 	input := admissionAccessInput(t, "aide", "cryptsetup-bin")
 	input.ProfileID = "debian-13-amd64"
@@ -114,7 +119,10 @@ func lifecycleAdoptedFixture(t *testing.T, at *time.Time, transport lifecycleBro
 	input.RollbackDigest = hostaction.Digest(input.RollbackSpecification)
 	f := roleAdmissionFixture{authority: authority, db: db, seed: seed, ctx: ctx, input: input, proofs: admissionSyntheticProvenance{proofs: map[string]store.HostEvidenceProvenance{}}}
 	grant := func(id, action, cap, kind, target string, branch any) {
-		seed.exec(`INSERT INTO effective_authorization_grants VALUES(?,'human-a','control-plane-admin',?,?,?,?,?,1,'active','now','now')`, "upstream-"+input.HostID+"-"+id, action, cap, kind, target, branch)
+		if productGrants {
+			return
+		}
+		seed.exec(`INSERT OR IGNORE INTO effective_authorization_grants VALUES(?,'human-a','control-plane-admin',?,?,?,?,?,1,'active','now','now')`, "upstream-"+input.HostID+"-"+id, action, cap, kind, target, branch)
 	}
 	policy := store.NewEffectiveAuthorizationRepository(authority)
 	evaluator := authorization.NewEvaluator(policy)
@@ -124,7 +132,7 @@ func lifecycleAdoptedFixture(t *testing.T, at *time.Time, transport lifecycleBro
 	if err != nil {
 		t.Fatal(err)
 	}
-	auth := EffectiveAuthorizationConfig{Authorizer: evaluator, Recorder: policy, Clock: clock}
+	auth := EffectiveAuthorizationConfig{WorkflowOwners: authority, Authorizer: evaluator, Recorder: policy, Clock: clock}
 	app.effective = auth
 	serve := transport(app, authority, db, *at)
 	declarations, err := change.NewService(store.NewDeclarationRepository(authority), clock)
@@ -182,7 +190,6 @@ func lifecycleAdoptedFixture(t *testing.T, at *time.Time, transport lifecycleBro
 		if e != nil {
 			t.Fatal(e)
 		}
-		grant("plan-"+id, "author", "plan.author", "declaration", id, nil)
 		var presentation struct {
 			Plan generated.Plan `json:"plan"`
 		}
@@ -191,9 +198,12 @@ func lifecycleAdoptedFixture(t *testing.T, at *time.Time, transport lifecycleBro
 		if p.PlanID == "" {
 			t.Fatal("missing upstream plan")
 		}
-		grant("execute-"+id, "execute", p.Operations[0].OperationType, "execution-target", p.Operations[0].TargetID, "human")
-		grant("ack-"+id, "acknowledge", "plan.acknowledge", "plan-target", p.Operations[0].TargetID, "human")
-		requestLifecycleBrowserApproval(t, serve, seed, p, at)
+		for i, target := range authorization.ExecutionResourceIDs(p, p.Operations[0]) {
+			grant(fmt.Sprintf("execute-%s-%d", id, i), "execute", p.Operations[0].OperationType, "execution-target", target, "human")
+			grant(fmt.Sprintf("ack-%s-%d", id, i), "acknowledge", "plan.acknowledge", "plan-target", target, "human")
+		}
+		var approval generated.ApprovalStatus
+		post("/api/v1/plans/"+p.PlanID+"/approval-request", generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: p.PlanID, PlanDigest: p.PlanDigest, RecoveryEpoch: p.Binding.RecoveryEpoch, IdempotencyKey: "approve-" + id, Extensions: []generated.ContractExtension{}}, &approval)
 		var presentationRun generated.RunPresentation
 		post("/api/v1/plans/"+p.PlanID+"/execute", generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: p.PlanID, PlanDigest: p.PlanDigest, RecoveryEpoch: p.Binding.RecoveryEpoch, IdempotencyKey: "run-" + id, Extensions: []generated.ContractExtension{}}, &presentationRun)
 		assertLifecycleDurableRun(t, db, p, presentationRun.Run)
@@ -213,8 +223,6 @@ func lifecycleAdoptedFixture(t *testing.T, at *time.Time, transport lifecycleBro
 	draft.Target.CredentialPublicKeyDigest = &fingerprint
 	draft.ConsoleConfirmation = &generated.HostDiscoveryConsoleConfirmation{Schema: generated.SchemaIDHostDiscoveryConsoleConfirmation, SchemaVersion: "1.0.0", Method: "administrator-verified-console", TargetDigest: hostaction.Digest(draft.Target)}
 	grant("target", "author", "host.discovery.target.prepare", "host-discovery-target", draft.Target.TargetID, nil)
-	draftID := "discovery-draft-" + hostaction.Digest(draft)[7:39]
-	grant("target-declaration", "author", "declaration.author", "declaration", draftID, nil)
 	var submitted generated.HostDiscoveryTargetDraftSubmission
 	post("/api/v1/host-discovery-targets/draft", draft, &submitted)
 	execute(submitted.DeclarationID)
@@ -239,7 +247,6 @@ func lifecycleAdoptedFixture(t *testing.T, at *time.Time, transport lifecycleBro
 	}
 	adoption := generated.HostAdoptionRequest{Schema: generated.SchemaIDHostAdoptionRequest, SchemaVersion: "1.0.0", HostID: input.HostID, ObservationID: observed.Observation.ObservationID, ObservationDigest: observed.Observation.ContentDigest, ExpectedStateRevision: rev.StateRevision, RecoveryEpoch: rev.RecoveryEpoch, IdempotencyKey: "adopt-upstream-" + input.HostID, Confirmation: generated.HostIdentityConfirmation{Schema: generated.SchemaIDHostIdentityConfirmation, SchemaVersion: "1.0.0", TargetDigest: observed.Observation.TargetDigest, TargetRevision: 1, IdentityDigest: input.HostIdentityDigest, IdentityClass: "qualified-virtual", IdentityKind: "product-uuid", ConfirmedAt: at.Format(time.RFC3339)}}
 	grant("adopt", "author", "host.adoption.prepare", "host-discovery-target", draft.Target.TargetID, nil)
-	grant("adoption-declaration", "author", "declaration.author", "declaration", "host-adoption-"+hostaction.Digest(adoption)[7:39], nil)
 	var adopted generated.HostAdoptionSubmission
 	post("/api/v1/host-adoptions/draft", adoption, &adopted)
 	execute(adopted.DeclarationID)

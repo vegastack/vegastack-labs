@@ -38,6 +38,21 @@ func gateAPIFixture(t *testing.T) (*Application, *store.GateRepository, *store.P
 			t.Error(err)
 		}
 	})
+	db, err := sql.Open("sqlite3", "file:"+databasePath+"?mode=rw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.Exec(`INSERT INTO effective_authorization_principals VALUES('human-a','human','active',1,'now','now')`); err != nil {
+		t.Fatal(err)
+	}
+	for _, grant := range [][4]string{{"profile-author", "gate.profile.author", "profile", "profile-drafts"}, {"gate-author", "gate.evidence.author", "gate", "g-008"}} {
+		if _, err = db.Exec(`INSERT INTO effective_authorization_grants VALUES(?,'human-a','author','author',?,?,?,NULL,1,'active','now','now')`, grant[0], grant[1], grant[2], grant[3]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err = db.Close(); err != nil {
+		t.Fatal(err)
+	}
 	factory := result.NewFactory(result.BuildInfo{ToolVersion: "0.0.0-test", ReleaseBuildID: "build-test"}, func() (string, error) { return "request-gate-integration", nil })
 	app, err := NewApplication(Config{Authority: authority, Authorizer: allowOperationAuthorizer(), Reads: testReads{}, Results: factory, Cursors: testCursor{}})
 	if err != nil {

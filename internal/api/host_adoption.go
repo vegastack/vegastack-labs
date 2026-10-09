@@ -57,10 +57,6 @@ func (app *Application) adoptionDraft(c HostAdoptionOperations) func(http.Respon
 		}
 		// StageDraft resolves the private observation target and checks the exact current preparation grant.
 		declarationID := "host-adoption-" + hostdiscovery.Digest(input)[7:39]
-		if _, err := app.authorizeAction(r, authorization.ActionAuthor, authorization.Target{Capability: "declaration.author", ResourceKind: "declaration", ResourceID: declarationID}); err != nil {
-			app.failure(w, op, err)
-			return
-		}
 		principal, ok := identity.PrincipalFromContext(r.Context())
 		if !ok {
 			app.failure(w, op, apiFailure(generated.ErrorCodeAuthenticationRequired, "principal"))

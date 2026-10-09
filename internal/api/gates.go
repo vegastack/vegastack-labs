@@ -346,10 +346,6 @@ func (app *Application) profileDraft(config GateOperations) func(http.ResponseWr
 			app.failure(w, op, apiFailure(generated.ErrorCodePlanStale, "profile-draft"))
 			return
 		}
-		if _, err = app.authorizeAction(r, authorization.ActionAuthor, authorization.Target{Capability: "declaration.author", ResourceKind: "declaration", ResourceID: "gate-profile-" + input.BindingID}); err != nil {
-			app.failure(w, op, err)
-			return
-		}
 		requestID, err := config.Results.RequestID()
 		if err != nil {
 			app.failure(w, op, err)
@@ -410,10 +406,6 @@ func (app *Application) gateEvidenceDraft(config GateOperations) func(http.Respo
 		}
 		if token.StateRevision != input.ExpectedStateRevision || token.RecoveryEpoch != input.RecoveryEpoch {
 			app.failure(w, op, apiFailure(generated.ErrorCodePlanStale, "gate-evidence"))
-			return
-		}
-		if _, err = app.authorizeAction(r, authorization.ActionAuthor, authorization.Target{Capability: "declaration.author", ResourceKind: "declaration", ResourceID: "gate-evidence-" + input.EvidenceID}); err != nil {
-			app.failure(w, op, err)
 			return
 		}
 		requestID, err := config.Results.RequestID()

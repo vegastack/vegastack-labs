@@ -9,6 +9,7 @@ import (
 	"errors"
 
 	"github.com/vegastack/vegastack-labs/internal/audit"
+	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"github.com/vegastack/vegastack-labs/internal/hostreplacement"
@@ -54,6 +55,31 @@ func (repository *DeclarationRepository) CreateRevision(ctx context.Context, req
 	}
 	result := DeclarationRevisionResult{Document: request.Document}
 	intent, err := repository.store.writeIntent(ctx, intentRequest{Expected: &request.Expected, Idempotency: key, Event: event}, func(ctx context.Context, transaction *sql.Tx) error {
+		if request.Document.AuthorizationGrantBatch != nil {
+			if err := stageGrantBatchRows(ctx, transaction, *request.Document.AuthorizationGrantBatch, request.Attribution.AuthenticatedPrincipalID, request.Document.CreatedAt); err != nil {
+				return err
+			}
+		}
+		row := func(q string, a ...any) *sql.Row { return transaction.QueryRowContext(ctx, q, a...) }
+		var owners []authorization.Target
+		// Credential bindings are sealed immediately after this inert declaration;
+		// their own writer rechecks the actual reference grant.
+		var err error
+		if request.Document.DeclarationType != "credential.lifecycle" {
+			owners, err = workflowDeclarationTargets(row, request.Document, authorization.ActionAuthor)
+		}
+		if err != nil {
+			return err
+		}
+		for _, owner := range owners {
+			actor, err := adoptionGrant(ctx, row, owner.ResourceID, owner.ResourceKind, string(authorization.WorkflowOwnerAction(authorization.ActionAuthor, owner)), owner.Capability, workflowAuthorRequiresAdministrator(owner) && owner.Capability != "host.read")
+			if err != nil {
+				return err
+			}
+			if actor != request.Attribution.AuthenticatedPrincipalID {
+				return actionError(generated.ErrorCodeAuthorizationDenied)
+			}
+		}
 		var latest int64
 		if err := transaction.QueryRowContext(ctx, `SELECT COALESCE(MAX(declaration_revision),0) FROM declaration_revisions WHERE declaration_id=?`, request.Document.DeclarationID).Scan(&latest); err != nil {
 			return err
@@ -61,7 +87,7 @@ func (repository *DeclarationRepository) CreateRevision(ctx context.Context, req
 		if request.Document.Revision != latest+1 {
 			return newStoreError(generated.ErrorCodeStateConflict, "declaration-revision", false, nil)
 		}
-		_, err := transaction.ExecContext(ctx, `INSERT INTO declaration_revisions(declaration_id,declaration_revision,declaration_type,state_revision,recovery_epoch,content_digest,reason_digest,status,canonical_bytes,created_at,created_by,agent_session_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, request.Document.DeclarationID, request.Document.Revision, request.Document.DeclarationType, request.Document.StateRevision, request.Document.RecoveryEpoch, request.Document.ContentDigest, request.ReasonDigest, request.Document.Status, canonical, request.Document.CreatedAt, request.Document.CreatedBy, request.Document.AgentSessionID)
+		_, err = transaction.ExecContext(ctx, `INSERT INTO declaration_revisions(declaration_id,declaration_revision,declaration_type,state_revision,recovery_epoch,content_digest,reason_digest,status,canonical_bytes,created_at,created_by,agent_session_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, request.Document.DeclarationID, request.Document.Revision, request.Document.DeclarationType, request.Document.StateRevision, request.Document.RecoveryEpoch, request.Document.ContentDigest, request.ReasonDigest, request.Document.Status, canonical, request.Document.CreatedAt, request.Document.CreatedBy, request.Document.AgentSessionID)
 		return err
 	})
 	if err != nil {
@@ -128,7 +154,7 @@ func decodeStoredDeclaration(raw []byte, reasonDigest string, document *generate
 }
 
 func validDeclarationContent(document generated.DeclarationRevision, reasonDigest string) bool {
-	return validAliasClaimDeclarationShape(document, reasonDigest) && validOffsiteDeclarationShape(document) && document.ContentDigest == declarationContentDigest(document, reasonDigest)
+	return ValidateGrantBatchDeclaration(document) && validAliasClaimDeclarationShape(document, reasonDigest) && validOffsiteDeclarationShape(document) && document.ContentDigest == declarationContentDigest(document, reasonDigest)
 }
 
 func validOffsiteDeclarationShape(document generated.DeclarationRevision) bool {
@@ -150,13 +176,14 @@ func validOffsiteDeclarationShape(document generated.DeclarationRevision) bool {
 
 func declarationContentDigest(document generated.DeclarationRevision, reasonDigest string) string {
 	semantic := struct {
-		HostAliasClaim  *generated.HostAliasClaimRequest `json:"hostAliasClaim,omitempty"`
-		DeclarationID   string                           `json:"declarationId"`
-		DeclarationType string                           `json:"declarationType"`
-		Operations      []generated.DeclarationOperation `json:"operations"`
-		ReasonDigest    string                           `json:"reasonDigest"`
-		Extensions      []generated.ContractExtension    `json:"extensions"`
-	}{document.HostAliasClaim, document.DeclarationID, document.DeclarationType, document.Operations, reasonDigest, document.Extensions}
+		HostAliasClaim          *generated.HostAliasClaimRequest          `json:"hostAliasClaim,omitempty"`
+		AuthorizationGrantBatch *generated.AuthorizationGrantBatchRequest `json:"grantBatch,omitempty"`
+		DeclarationID           string                                    `json:"declarationId"`
+		DeclarationType         string                                    `json:"declarationType"`
+		Operations              []generated.DeclarationOperation          `json:"operations"`
+		ReasonDigest            string                                    `json:"reasonDigest"`
+		Extensions              []generated.ContractExtension             `json:"extensions"`
+	}{document.HostAliasClaim, document.AuthorizationGrantBatch, document.DeclarationID, document.DeclarationType, document.Operations, reasonDigest, document.Extensions}
 	encoded, err := json.Marshal(semantic)
 	if err != nil {
 		return ""

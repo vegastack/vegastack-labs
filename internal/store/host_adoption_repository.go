@@ -41,7 +41,7 @@ func adoptionPrincipalGrant(p identity.Principal, row discoveryRow, resource, ki
 		return "", adoptionError(generated.ErrorCodeAuthenticationRequired)
 	}
 	var count int
-	err := row(`SELECT COUNT(*) FROM effective_authorization_principals p JOIN effective_authorization_grants g ON g.principal_id=p.principal_id AND g.grant_revision=p.grant_revision WHERE p.principal_id=? AND p.principal_kind=? AND p.status='active' AND g.status='active' AND g.action=? AND g.capability=? AND g.resource_kind=? AND g.resource_id=? AND (g.action!='execute' OR (g.branch='human' AND g.role_id='control-plane-admin')) AND (?=0 OR g.role_id IN ('infrastructure-admin','control-plane-admin'))`, p.ID, string(identity.EffectivePrincipalKind(p)), action, capability, kind, resource, admin).Scan(&count)
+	err := row(`SELECT COUNT(*) FROM effective_authorization_principals p JOIN effective_authorization_grants g ON g.principal_id=p.principal_id AND g.grant_revision=p.grant_revision WHERE p.principal_id=? AND p.principal_kind=? AND p.status='active' AND g.status='active' AND g.action=? AND g.capability=? AND g.resource_kind=? AND g.resource_id=? AND (g.action!='author' OR g.role_id IN ('author','maintainer','infrastructure-admin','control-plane-admin')) AND (g.action!='execute' OR (g.branch='human' AND g.role_id='control-plane-admin')) AND (?=0 OR g.role_id IN ('infrastructure-admin','control-plane-admin'))`, p.ID, string(identity.EffectivePrincipalKind(p)), action, capability, kind, resource, admin).Scan(&count)
 	if err != nil || count == 0 {
 		return "", adoptionError(generated.ErrorCodeAuthorizationDenied)
 	}
@@ -105,6 +105,9 @@ func (r *HostAdoptionRepository) validatePrincipal(principal identity.Principal,
 	return target.Binding, nil
 }
 func (r *HostAdoptionRepository) StageDraft(ctx context.Context, req generated.HostAdoptionRequest, a audit.Attribution) (_ HostAdoptionDraft, outcome error) {
+	if r == nil || r.store == nil {
+		return HostAdoptionDraft{}, adoptionError(generated.ErrorCodeAuthorizationDenied)
+	}
 	defer r.adoptionPreparationFailure(ctx, req, &outcome)
 	if err := r.store.Read(ctx, func(tx ReadTx) error {
 		_, err := r.validate(ctx, func(q string, args ...any) *sql.Row { return tx.queryRow(ctx, q, args...) }, req, a)
@@ -225,7 +228,7 @@ func (r *HostAdoptionRepository) applyBinding(ctx context.Context, row discovery
 	if err != nil {
 		return generated.HostDiscoveryTarget{}, RevisionToken{}, "", "", err
 	}
-	if _, err := adoptionPrincipalGrant(principal, row, d.ID, "execution-target", "execute", "host.adopt", true); err != nil {
+	if _, err := adoptionPrincipalGrant(principal, row, d.Request.HostID, "execution-target", "execute", "host.adopt", true); err != nil {
 		return generated.HostDiscoveryTarget{}, RevisionToken{}, "", "", err
 	}
 	var raw []byte
@@ -255,7 +258,7 @@ func (r *HostAdoptionRepository) applyBinding(ctx context.Context, row discovery
 	}
 	// A stored approval cannot outlive the human's effective control-plane grant.
 	var count int
-	if err := row(`SELECT COUNT(*) FROM effective_authorization_principals p JOIN effective_authorization_grants g ON g.principal_id=p.principal_id AND g.grant_revision=p.grant_revision WHERE p.principal_id=? AND p.principal_kind='human' AND p.status='active' AND g.status='active' AND g.role_id='control-plane-admin' AND g.action='acknowledge' AND g.branch='human' AND g.capability='plan.acknowledge' AND g.resource_kind='plan-target' AND g.resource_id=?`, human, d.ID).Scan(&count); err != nil || count == 0 {
+	if err := row(`SELECT COUNT(*) FROM effective_authorization_principals p JOIN effective_authorization_grants g ON g.principal_id=p.principal_id AND g.grant_revision=p.grant_revision WHERE p.principal_id=? AND p.principal_kind='human' AND p.status='active' AND g.status='active' AND g.role_id='control-plane-admin' AND g.action='acknowledge' AND g.branch='human' AND g.capability='plan.acknowledge' AND g.resource_kind='plan-target' AND g.resource_id=?`, human, d.Request.HostID).Scan(&count); err != nil || count == 0 {
 		return generated.HostDiscoveryTarget{}, RevisionToken{}, "", "", adoptionError(generated.ErrorCodeAuthorizationDenied)
 	}
 	if req.Attribution.ResponsibleHumanPrincipalID == nil || *req.Attribution.ResponsibleHumanPrincipalID != human {

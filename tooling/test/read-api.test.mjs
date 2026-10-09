@@ -237,3 +237,19 @@ for (const action of ["create", "get"]) {
     }
   });
 }
+
+
+test("the reviewed #247 grants route remains an exact inert operator draft", async (t) => {
+  const registry = JSON.parse(await readFile(path.join(process.cwd(), "schemas/v1/endpoint-registry.json"), "utf8"));
+  for (const variant of ["missing", "extra-apply", "browser", "wrong-method", "wrong-schema"]) {
+    const copy = structuredClone(registry);
+    const endpoint = copy.endpoints.find(({id}) => id === "api.v1.authorization.grant-batches.create");
+    if (variant === "missing") copy.endpoints = copy.endpoints.filter((item) => item !== endpoint);
+    if (variant === "extra-apply") copy.endpoints.push({...endpoint, id: "api.v1.authorization.grant-batches.apply"});
+    if (variant === "browser") endpoint.audiences.push("browser");
+    if (variant === "wrong-method") endpoint.method = "PUT";
+    if (variant === "wrong-schema") endpoint.requestSchema = "vegastack-labs.dev/plan-reference-request";
+    const root = await fixtureRepo(t, {"schemas/v1/endpoint-registry.json": JSON.stringify(copy)});
+    assert.ok((await verifyReadAPI(root)).codes.includes("READ_API_ENDPOINT_DRIFT"), variant);
+  }
+});

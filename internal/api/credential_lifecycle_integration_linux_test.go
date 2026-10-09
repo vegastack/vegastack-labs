@@ -158,7 +158,7 @@ func TestCredentialLifecyclePublicDraftIsInertAndOriginSealed(t *testing.T) {
 	fixture := newLifecyclePublicFixture(t)
 	imported := fixture.importDraft(t, "version-1")
 	request := fixture.stageRequest(t, imported)
-	submission, err := fixture.service.CreateDraft(context.Background(), request, fixture.principal)
+	submission, err := fixture.service.CreateDraft(identity.WithVerifiedPrincipal(context.Background(), fixture.principal), request, fixture.principal)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -183,7 +183,7 @@ func TestCredentialLifecyclePublicDraftIsInertAndOriginSealed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	replayed, err := fixture.service.CreateDraft(context.Background(), request, fixture.principal)
+	replayed, err := fixture.service.CreateDraft(identity.WithVerifiedPrincipal(context.Background(), fixture.principal), request, fixture.principal)
 	if err != nil || replayed != submission {
 		t.Fatalf("exact replay: %+v err=%v", replayed, err)
 	}
@@ -194,7 +194,7 @@ func TestCredentialLifecyclePublicDraftIsInertAndOriginSealed(t *testing.T) {
 	substituted := request
 	substituted.TargetID = "target-other"
 	substituted.TargetDigest = credentialref.LifecycleTargetDigest(substituted)
-	if _, err := fixture.service.CreateDraft(context.Background(), substituted, fixture.principal); err == nil {
+	if _, err := fixture.service.CreateDraft(identity.WithVerifiedPrincipal(context.Background(), fixture.principal), substituted, fixture.principal); err == nil {
 		t.Fatal("same key allowed substituted request")
 	}
 }
@@ -235,7 +235,7 @@ func TestCredentialLifecyclePublicDraftRejectsUnsafeMetadataWithoutMutation(t *t
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := fixture.service.CreateDraft(context.Background(), input, principal); err == nil {
+			if _, err := fixture.service.CreateDraft(identity.WithVerifiedPrincipal(context.Background(), fixture.principal), input, principal); err == nil {
 				t.Fatal("unsafe metadata was accepted")
 			}
 			after, err := fixture.revisions.CurrentRevision(context.Background())
@@ -289,7 +289,7 @@ func TestLifecycleRotateAndRecoverDraftsRejectOriginSubstitution(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if _, err := fixture.service.CreateDraft(context.Background(), input, fixture.principal); err == nil {
+				if _, err := fixture.service.CreateDraft(identity.WithVerifiedPrincipal(context.Background(), fixture.principal), input, fixture.principal); err == nil {
 					t.Fatal("substituted draft origin accepted")
 				}
 				after, err := fixture.revisions.CurrentRevision(context.Background())
