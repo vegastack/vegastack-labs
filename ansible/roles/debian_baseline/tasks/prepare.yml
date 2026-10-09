@@ -1,0 +1,50 @@
+---
+# Separate administrator preparation; never invoked by collect or by central render.
+- name: Require exact initial preparation authority and independent console
+  ansible.builtin.assert:
+    that:
+      - vsk_baseline_initial_administrator | default(false) | bool
+      - vsk_baseline_console_verified | default(false) | bool
+      - vsk_baseline_packages is sequence
+      - vsk_baseline_packages | length > 0
+      - vsk_baseline_packages | length <= 64
+      - vsk_baseline_package_soak_verified | default(false) | bool
+    fail_msg: Separate administrator scope and actual package provenance are required.
+- name: Validate exact package version selectors
+  ansible.builtin.assert:
+    that:
+      - item is match('^[a-z0-9][a-z0-9+.-]*=[A-Za-z0-9+.:~_-]+$')
+  loop: "{{ vsk_baseline_packages }}"
+- name: Install only exact reviewed baseline package versions
+  ansible.builtin.apt:
+    name: "{{ vsk_baseline_packages }}"
+    state: present
+    update_cache: false
+    install_recommends: false
+    allow_downgrade: false
+    policy_rc_d: 101
+- name: Inspect protected baseline directories
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    follow: false
+  loop:
+    - /etc/vsk-labs
+    - /etc/vsk-labs/baseline
+    - /var/lib/vsk-labs
+    - /var/lib/vsk-labs/baseline
+  register: baseline_directories
+- name: Refuse conflicting directory ownership
+  ansible.builtin.assert:
+    that:
+      - not item.stat.exists or (item.stat.isdir and not item.stat.islnk and item.stat.uid == 0 and item.stat.mode in ['0700', '0750', '0755'])
+  loop: "{{ baseline_directories.results }}"
+- name: Create missing private baseline directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+  loop:
+    - /etc/vsk-labs/baseline
+    - /var/lib/vsk-labs/baseline

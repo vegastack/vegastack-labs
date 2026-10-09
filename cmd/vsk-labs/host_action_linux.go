@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/rand"
 	"github.com/vegastack/vegastack-labs/internal/debianaccess"
+	"github.com/vegastack/vegastack-labs/internal/debianbaseline"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"os"
 	"strconv"
@@ -32,8 +33,17 @@ func runHostActionOnce(ctx context.Context, args []string) (bool, int) {
 		return true, 1
 	}
 	defer receipts.Close()
-	if hostaction.RunOnce(ctx, os.Stdin, os.Stdout, policy, receipts, debianaccess.NewDispatcher(debianaccess.NewNativeRuntime(toolVersion)), time.Now, rand.Reader) != nil {
+	if hostaction.RunOnce(ctx, os.Stdin, os.Stdout, policy, receipts, nativeHostDispatcher{access: debianaccess.NewDispatcher(debianaccess.NewNativeRuntime(toolVersion)), baseline: debianbaseline.NewDispatcher(debianbaseline.NewNativeRuntime(toolVersion))}, time.Now, rand.Reader) != nil {
 		return true, 1
 	}
 	return true, 0
+}
+
+type nativeHostDispatcher struct{ access, baseline hostaction.Dispatcher }
+
+func (d nativeHostDispatcher) Lookup(id, version string) (hostaction.Handler, bool) {
+	if h, ok := d.access.Lookup(id, version); ok {
+		return h, true
+	}
+	return d.baseline.Lookup(id, version)
 }

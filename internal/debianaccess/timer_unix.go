@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -159,6 +160,40 @@ func (n *nativeRuntime) restore(ctx context.Context) error {
 	err = restoreWith(ctx, n.root, record.Digest(), func(r RollbackRecord) error {
 		if e := n.restoreFirewall(ctx, r, newBoot, false); e != nil {
 			return e
+		}
+		if len(r.BaselineServices) > 0 {
+			for _, service := range r.BaselineServices {
+				if service == "auditd.service" {
+					if r.BaselineAudit == nil {
+						return errAccess
+					}
+					if _, e := n.run(ctx, "/usr/sbin/auditctl", []string{"-D", "-k", "vsk-security"}, nil); e != nil {
+						return e
+					}
+					for _, f := range r.Files {
+						if f.Path == "etc/audit/rules.d/70-vsk-security.rules" && f.BeforePresent {
+							if _, e := n.run(ctx, "/usr/sbin/auditctl", []string{"-R", "/etc/audit/rules.d/70-vsk-security.rules"}, nil); e != nil {
+								return e
+							}
+						}
+					}
+					for flag, value := range map[string]int64{"-b": r.BaselineAudit.BacklogLimit, "-r": r.BaselineAudit.RateLimit, "-f": r.BaselineAudit.FailureMode} {
+						if _, e := n.run(ctx, "/usr/sbin/auditctl", []string{flag, strconv.FormatInt(value, 10)}, nil); e != nil {
+							return e
+						}
+					}
+				}
+				op := "reload"
+				if r.BaselineServiceStates[service] == "inactive" {
+					op = "stop"
+				} else if r.BaselineServiceStates[service] != "active" {
+					return errAccess
+				}
+				if _, e := n.run(ctx, "/usr/bin/systemctl", []string{op, service}, nil); e != nil {
+					return e
+				}
+			}
+			return nil
 		}
 		if _, e := n.run(ctx, "/usr/sbin/sshd", []string{"-t"}, nil); e != nil {
 			return e
