@@ -410,7 +410,7 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	if err := api.RegisterHostActionOperations(application, api.HostActionOperations{RolePreparer: roleComposition, BaselineRenderer: hostAccessComposition{}, Hosts: store.NewHostActionRepository(authority), Declarations: declarations, Credentials: credentialRepository, Results: factory}); err != nil {
+	if err := api.RegisterHostActionOperations(application, api.HostActionOperations{RecoveryReceivePreparer: NewRecoveryReceivePreparer(authority, gateRepository, operations.databasePath, profile.SocketOwnerUID, time.Now), RolePreparer: roleComposition, BaselineRenderer: hostAccessComposition{}, Hosts: store.NewHostActionRepository(authority), Declarations: declarations, Credentials: credentialRepository, Results: factory}); err != nil {
 		return err
 	}
 	if err := api.RegisterHostAccessOperations(application, api.HostAccessOperations{Hosts: store.NewHostActionRepository(authority), Declarations: declarations, Credentials: credentialRepository, Renderer: hostAccessComposition{}, Results: factory}); err != nil {
@@ -644,6 +644,12 @@ func (operations *Operations) openAuthorityWithPromotion(ctx context.Context, pr
 			_ = authority.Close()
 			return nil, err
 		}
+		return authority, nil
+	}
+	// A distinct-host replacement is staged here only for authenticated transfer.
+	// Restarting the source must never promote it onto the original machine.
+	// The replacement receiver independently verifies and cold-promotes its copy.
+	if pending.Binding.ReplacementContinuity != nil {
 		return authority, nil
 	}
 	if err := authority.Close(); err != nil {

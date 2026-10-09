@@ -47,6 +47,7 @@ type HostNativeProducerBinding struct {
 // canonical action result, including expected denials. Scenario validators must
 // derive their expectations from the fixed catalog rather than caller flags.
 type NativeProducerExecution struct {
+	Credential            *NativeCredentialEvidence
 	Reference             generated.NativeProducerReference
 	Plan                  generated.Plan
 	Receipt               generated.ExecutionReceipt

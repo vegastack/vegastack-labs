@@ -16,6 +16,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/gate"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
+	"github.com/vegastack/vegastack-labs/internal/hostadoption"
 	"github.com/vegastack/vegastack-labs/internal/hostreplacement"
 	"github.com/vegastack/vegastack-labs/internal/identity"
 	"github.com/vegastack/vegastack-labs/internal/linuxrole"
@@ -25,6 +26,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/store"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -552,14 +554,27 @@ func RunReplacementBrowserAcceptance(t *testing.T, transport lifecycleBrowserTra
 	runReplacementPipeline(t, transport, gate)
 }
 
-func runReplacementPipeline(t *testing.T, transport lifecycleBrowserTransport, discoveryGate lifecycleDiscoveryGate) {
+// The optional control-transfer fixture reuses actual alias claim/freeze approvals.
+// Ordinary application/browser acceptance retains its original path.
+type replacementControlTransferFixture struct {
+	SSHHostKey   string
+	BeforeFreeze func(roleAdmissionFixture, *time.Time, *generated.HostReplacementRequest)
+	AfterFreeze  func(roleAdmissionFixture, *time.Time, generated.HostReplacementRequest, generated.LinuxRoleInput, *Application, *change.Service, *planengine.Service, *acknowledgement.Service)
+}
+
+func runReplacementPipeline(t *testing.T, transport lifecycleBrowserTransport, discoveryGate lifecycleDiscoveryGate, transferOption ...replacementControlTransferFixture) {
+	var transfer *replacementControlTransferFixture
+	if len(transferOption) > 0 {
+		transfer = &transferOption[0]
+	}
+
 	at := time.Now().UTC().Truncate(time.Second)
 	clock := func() time.Time { return at }
 	var f roleAdmissionFixture
 	var upstreamTarget *generated.HostDiscoveryTargetDraftRequest
 	var upstreamRole *generated.Plan
 	if transport == nil {
-		f = replacementPersistedRoleFixture(t, &at, true)
+		f = replacementPersistedRoleFixture(t, &at, transfer == nil)
 	} else {
 		existing, target := lifecycleAdoptedFixture(t, &at, transport, discoveryGate)
 		upstreamTarget = &target
@@ -822,6 +837,15 @@ func runReplacementPipeline(t *testing.T, transport lifecycleBrowserTransport, d
 	newInput.HostID = "replacement-host"
 	newInput.ProfileID = f.input.ProfileID
 	newInput.HostIdentityDigest = hostaction.Digest("replacement-machine")
+	if transfer != nil {
+		newInput.HostIdentityDigest = hostadoption.IdentityDigest("product-serial", "replacement-machine")
+	}
+	if transfer != nil && transfer.SSHHostKey != "" {
+		newInput.Accounts[0].PublicKeys = []string{transfer.SSHHostKey}
+		newInput.Accounts[0].PublicKeyDigests = []string{hostaction.BytesDigest([]byte(transfer.SSHHostKey))}
+		newInput.RenderedAccess.Accounts = newInput.Accounts
+		newInput.RenderedAccessDigest = hostaction.Digest(newInput.RenderedAccess)
+	}
 	newInput.RollbackSpecification.HostID = newInput.HostID
 	newInput.RollbackSpecification.HostIdentityDigest = newInput.HostIdentityDigest
 	newInput.RollbackDigest = hostaction.Digest(newInput.RollbackSpecification)
@@ -849,6 +873,9 @@ func runReplacementPipeline(t *testing.T, transport lifecycleBrowserTransport, d
 	}
 	obs := generated.HostObservation{Schema: generated.SchemaIDHostObservation, SchemaVersion: "1.0.0", ObservationID: "observation-" + newInput.HostID, TargetID: newTarget.Target.TargetID, TargetRevision: 1, TargetDigest: hostaction.Digest(newTarget), Collector: "ssh", CollectorVersion: "1.0.0", ObservedAt: at.Format(time.RFC3339), ExpiresAt: at.Add(time.Hour).Format(time.RFC3339), Status: "untrusted", Facts: []generated.HostDiscoveryFact{}, Blockers: []string{}}
 	obs.ContentDigest = hostaction.Digest("observed-new-host")
+	if transfer != nil {
+		obs.Facts = []generated.HostDiscoveryFact{{Schema: generated.SchemaIDHostDiscoveryFact, SchemaVersion: "1.0.0", Name: "product-serial", Value: "replacement-machine", Operation: "hardware", CapturedAt: at.Format(time.RFC3339)}}
+	}
 	if transport == nil {
 		f.seed.host(newInput, newInput.HostID, newInput.HostIdentityDigest, obs)
 	} else {
@@ -879,7 +906,29 @@ func runReplacementPipeline(t *testing.T, transport lifecycleBrowserTransport, d
 		f.seed.exec(`INSERT INTO credential_reference_versions VALUES('new-role-action','new-role-action','host-action','host-action-ssh',?,'native-systemd','version-a',?,'active',1,0,?,?,'fixture-declaration',1,'fixture-plan',?,'fixture-run','fixture-step','fixture-lease','human-a','now')`, newInput.HostID, keyDigest, at.Format(time.RFC3339), []byte(`["host-action"]`), keyDigest)
 	}
 	role := roleTestInput(t, newInput)
-	replacementApplicationRole(&role)
+	if transfer == nil {
+		replacementApplicationRole(&role)
+	} else {
+		role.AutomationUID = int64(os.Geteuid())
+		networkRaw, _ := json.Marshal(role.NetworkAccess)
+		var network generated.DebianAccessInput
+		_ = json.Unmarshal(networkRaw, &network)
+		role.NetworkAccess = &network
+		role.NetworkAccess.AutomationUID = role.AutomationUID
+		for i := range role.NetworkAccess.Accounts {
+			if role.NetworkAccess.Accounts[i].Role == "automation" {
+				role.NetworkAccess.Accounts[i].UID = role.AutomationUID
+			}
+		}
+		role.NetworkAccess.RenderedAccess.Accounts = role.NetworkAccess.Accounts
+		role.NetworkAccess.RenderedAccessDigest = hostaction.Digest(role.NetworkAccess.RenderedAccess)
+		role.Accounts[0].UID = int64(os.Geteuid())
+		role.Accounts[0].GID = int64(os.Getegid())
+		for i := range role.Directories {
+			role.Directories[i].UID = int64(os.Geteuid())
+			role.Directories[i].GID = int64(os.Getegid())
+		}
+	}
 	role.BaselineSnapshotDigest = hostaction.Digest("replacement-current-baseline")
 	role.RenderedPolicyDigest = linuxrole.PolicyDigest(role)
 	role.RoleBindingDigest = linuxrole.RoleBindingDigest(role)
@@ -890,6 +939,9 @@ func runReplacementPipeline(t *testing.T, transport lifecycleBrowserTransport, d
 		if err != nil {
 			t.Fatal("new role prepare", err)
 		}
+	}
+	if err := linuxrole.ValidateInput(role); err != nil {
+		t.Fatal("exact proposed role input", err)
 	}
 	roleRaw, _ := json.Marshal(role)
 	roleDeclRevision, e := revisions.CurrentRevision(f.ctx)
@@ -983,12 +1035,21 @@ func runReplacementPipeline(t *testing.T, transport lifecycleBrowserTransport, d
 		assertLifecycleDurableRun(t, f.db, rolePlan.Plan, response.Data.Run)
 	}
 
-	newExpected := replacementQualifiedRoleSnapshotForInput(t, at, newInput, "application", newTarget)
-	offset := rolePlan.Plan.Binding.StateRevision - 1
-	namespaceReplacementSnapshot(&newExpected, newInput.HostID, offset)
-	f.seed.exec(`UPDATE system_meta SET state_revision=? WHERE id=1`, offset+100)
-	replacementPersistRoleSnapshot(t, &at, newExpected, roleID, rolePlan.Plan.Binding.StateRevision, &f, rolePlan.Plan)
-	browserRoleAdmission(newInput.HostID)
+	if transfer != nil {
+		ops, requests := admissionAccessSequenceForInput(t, newInput, true, newTarget)
+		baseline := qualifiedHostSnapshotFromSequence(t, at, ops, requests)
+		offset := rolePlan.Plan.Binding.StateRevision - 1
+		namespaceReplacementSnapshot(&baseline, newInput.HostID, offset)
+		f.seed.exec(`UPDATE system_meta SET state_revision=? WHERE id=1`, offset+100)
+		seedHostAdmissionFixture(t, &at, baseline, nil, f.authority, f.db, f.proofs, false)
+	} else {
+		newExpected := replacementQualifiedRoleSnapshotForInput(t, at, newInput, "application", newTarget)
+		offset := rolePlan.Plan.Binding.StateRevision - 1
+		namespaceReplacementSnapshot(&newExpected, newInput.HostID, offset)
+		f.seed.exec(`UPDATE system_meta SET state_revision=? WHERE id=1`, offset+100)
+		replacementPersistRoleSnapshot(t, &at, newExpected, roleID, rolePlan.Plan.Binding.StateRevision, &f, rolePlan.Plan)
+		browserRoleAdmission(newInput.HostID)
+	}
 	rev, e = revisions.CurrentRevision(f.ctx)
 	if e != nil {
 		t.Fatal(e)
@@ -1038,6 +1099,9 @@ func runReplacementPipeline(t *testing.T, transport lifecycleBrowserTransport, d
 	for _, id := range []string{req.NewHostID} {
 		grant("prepare-"+id, "author", "host.replacement.prepare", "host", id, nil)
 	}
+	if transfer != nil {
+		transfer.BeforeFreeze(f, &at, &req)
+	}
 	draftID := "host-replacement-" + hostaction.Digest(req)[7:39]
 	grant("replace-author", "author", "declaration.author", "declaration", draftID, nil)
 	w = serve(http.MethodPost, "/api/v1/host-replacements", req)
@@ -1056,6 +1120,10 @@ func runReplacementPipeline(t *testing.T, transport lifecycleBrowserTransport, d
 	var revision int64
 	if e = f.db.QueryRow(`SELECT owner_host_id,owner_revision FROM host_alias_owners WHERE alias_id='control-alias'`).Scan(&owner, &revision); e != nil || owner != req.OldHostID || revision != 2 {
 		t.Fatal("freeze reassigned or lost owner", owner, revision, e)
+	}
+	if transfer != nil {
+		transfer.AfterFreeze(f, &at, req, role, app, declarations, plans, ack)
+		return
 	}
 	// A continuation cannot rewrite the frozen identity or owner preconditions.
 	for name, mutate := range map[string]func(*generated.HostReplacementRequest){

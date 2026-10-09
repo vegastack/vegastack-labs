@@ -17,7 +17,7 @@ import (
 func TestNativeProducerResolutionRequiresExactStoredReceipt(t *testing.T) {
 	now := time.Now().UTC().Truncate(time.Second)
 	f := replacementPersistedRoleFixture(t, &now, true)
-	for _, g := range []struct{ id, op, kind, target string }{{"native-role-author", "gate.evidence.author", "gate", "native.role"}, {"native-role-declaration", "declaration.author", "declaration", "gate-evidence-native-role"}} {
+	for _, g := range []struct{ id, op, kind, target string }{{"native-role-author", "gate.evidence.author", "gate", "native.role"}, {"native-role-declaration", "declaration.author", "declaration", "gate-evidence-native-role-resolution"}} {
 		f.seed.exec(`INSERT INTO effective_authorization_grants VALUES(?,'human-a','control-plane-admin','author',?,?,?,NULL,1,'active','now','now')`, g.id, g.op, g.kind, g.target)
 	}
 	var receipt generated.ExecutionReceipt
@@ -53,13 +53,67 @@ func TestNativeProducerResolutionRequiresExactStoredReceipt(t *testing.T) {
 		t.Fatal(err)
 	}
 	ref := generated.NativeProducerReference{Schema: generated.SchemaIDNativeProducerReference, SchemaVersion: "1.0.0", ScenarioID: "role-application", HostID: f.input.HostID, PlanID: receipt.PlanID, PlanDigest: receipt.PlanDigest, RunID: receipt.RunID, StepID: receipt.StepID, LeaseID: receipt.LeaseID}
-	in := generated.NativeCollectRequest{Schema: generated.SchemaIDNativeCollectRequest, SchemaVersion: "1.0.0", ScopeDigest: hostaction.Digest("synthetic-scope"), Stage: "role", EvidenceID: "native-role", ProfileID: f.input.ProfileID, Producers: []generated.NativeProducerReference{ref}, ExpectedStateRevision: rev.StateRevision, RecoveryEpoch: rev.RecoveryEpoch, IdempotencyKey: "native-role"}
+	in := generated.NativeCollectRequest{Schema: generated.SchemaIDNativeCollectRequest, SchemaVersion: "1.0.0", ScopeDigest: hostaction.Digest("synthetic-scope"), Stage: "role", EvidenceID: "native-role-resolution", ProfileID: f.input.ProfileID, Producers: []generated.NativeProducerReference{ref}, ExpectedStateRevision: rev.StateRevision, RecoveryEpoch: rev.RecoveryEpoch, IdempotencyKey: "native-role"}
 	got, err := f.repo.ResolveNativeProducers(f.ctx, in)
 	if err != nil || len(got.Executions) != 1 || got.Executions[0].Result == nil || len(got.Measurements) == 0 {
 		t.Fatalf("exact producer: executions=%d measurements=%d err=%v", len(got.Executions), len(got.Measurements), err)
 	}
 	if got.Producers[0].ReceiptDigest != hostaction.BytesDigest(raw) || got.Producers[0].HostIdentityDigest != f.input.HostIdentityDigest {
 		t.Fatal("producer binding differs")
+	}
+	// A caller can discover the real lease through the finite scoped read; it
+	// cannot choose one or obtain another run's receipt without current grants.
+	f.seed.exec(`INSERT INTO effective_authorization_grants VALUES('native-lookup-run','human-a','reader','read','run.read','run',?,NULL,1,'active','now','now')`, ref.RunID)
+	lookup := generated.NativeProducerLookupRequest{Schema: generated.SchemaIDNativeProducerLookupRequest, SchemaVersion: "1.0.0", ScopeDigest: in.ScopeDigest, ScenarioID: ref.ScenarioID, HostID: ref.HostID, PlanID: ref.PlanID, PlanDigest: ref.PlanDigest, RunID: ref.RunID, StepID: ref.StepID, RecoveryEpoch: in.RecoveryEpoch}
+	scope := generated.QualificationScope{ControllerInstanceID: got.ControllerInstanceID, IssuedAt: now.Add(-time.Minute).Format(time.RFC3339), ExpiresAt: now.Add(time.Hour).Format(time.RFC3339), Guests: []generated.QualificationGuest{{HostID: ref.HostID, HostIdentityDigest: f.input.HostIdentityDigest}}}
+	lookup.ScopeDigest = hostaction.Digest(scope)
+	resolved, lookupErr := f.repo.LookupNativeProducerReference(f.ctx, lookup, scope)
+	if lookupErr != nil || hostaction.Digest(resolved) != hostaction.Digest(ref) {
+		t.Fatalf("actual producer lookup: %v %+v", lookupErr, resolved)
+	}
+	for _, variant := range []string{"other-run", "other-step", "other-plan", "old-epoch", "other-host"} {
+		t.Run("lookup-"+variant, func(t *testing.T) {
+			bad := lookup
+			switch variant {
+			case "other-run":
+				bad.RunID = "private-run"
+			case "other-step":
+				bad.StepID = "different-step"
+			case "other-plan":
+				bad.PlanDigest = hostaction.Digest("other-plan")
+			case "old-epoch":
+				bad.RecoveryEpoch++
+			case "other-host":
+				bad.HostID = "private-host"
+			}
+			result, e := f.repo.LookupNativeProducerReference(f.ctx, bad, scope)
+			if e == nil || result.LeaseID != "" {
+				t.Fatal("unbound tuple disclosed", e, result)
+			}
+		})
+	}
+
+	for _, variant := range []string{"expired", "future", "controller", "identity"} {
+		t.Run("lookup-scope-"+variant, func(t *testing.T) {
+			badScope := scope
+			badScope.Guests = append([]generated.QualificationGuest(nil), scope.Guests...)
+			switch variant {
+			case "expired":
+				badScope.ExpiresAt = now.Format(time.RFC3339)
+			case "future":
+				badScope.IssuedAt = now.Add(time.Minute).Format(time.RFC3339)
+			case "controller":
+				badScope.ControllerInstanceID = "unrelated"
+			case "identity":
+				badScope.Guests[0].HostIdentityDigest = hostaction.Digest("other-machine")
+			}
+			bad := lookup
+			bad.ScopeDigest = hostaction.Digest(badScope)
+			result, e := f.repo.LookupNativeProducerReference(f.ctx, bad, badScope)
+			if e == nil || result.LeaseID != "" {
+				t.Fatal("unbound scope disclosed tuple", e, result)
+			}
+		})
 	}
 	payload := generated.NativeQualification{Schema: generated.SchemaIDNativeQualification, SchemaVersion: "1.0.0", Stage: in.Stage, ScopeDigest: in.ScopeDigest, ProfileID: in.ProfileID, ProfileLockDigest: f.input.ProfileLockDigest, SourceCommit: strings.Repeat("a", 40), SourceDigest: hostaction.Digest("source"), ExecutableDigest: hostaction.Digest("executable"), ControllerInstanceID: got.ControllerInstanceID, RecoveryEpoch: in.RecoveryEpoch, ObservedAt: now.Format(time.RFC3339), ExpiresAt: now.Add(time.Hour).Format(time.RFC3339), ObserverDigest: hostaction.Digest("synthetic-never-authoritative"), Producers: got.Producers}
 	bundle := generated.GateEvidenceBundle{Schema: generated.SchemaIDGateEvidenceBundle, SchemaVersion: "1.1.0", CollectorID: "native-debian-228", ObservedAt: payload.ObservedAt, NativeQualification: &payload, Attachments: []generated.GateEvidenceAttachment{}, Facts: []generated.GateEvidenceFact{{Schema: generated.SchemaIDGateEvidenceFact, SchemaVersion: "1.1.0", FactID: "native.profile-lock", ValueDigest: payload.ProfileLockDigest}, {Schema: generated.SchemaIDGateEvidenceFact, SchemaVersion: "1.1.0", FactID: "native.source", ValueDigest: payload.SourceDigest}}, Checks: []generated.GateEvidenceCheck{{Schema: generated.SchemaIDGateEvidenceCheck, SchemaVersion: "1.1.0", CheckID: "native.role", VerifierVersion: "1.0.0", Result: "passed", ResultDigest: payload.SourceDigest}}}

@@ -17,6 +17,29 @@ func TestNativeReportRejectsFixtureAndMissingScenario(t *testing.T) {
 	if ValidateNativeReport(report) != nil {
 		t.Fatal("complete diagnostic shape refused")
 	}
+	// Read-only scenarios may omit nonexistent before/after samples. A partial
+	// pair and an omitted owning comparison must still fail.
+	report.Scenarios[0].BeforeStateDigest = ""
+	report.Scenarios[0].AfterStateDigest = ""
+	if ValidateNativeReport(report) != nil {
+		t.Fatal("truthful omitted state pair rejected")
+	}
+	report.Scenarios[0].BeforeStateDigest = d
+	if ValidateNativeReport(report) == nil {
+		t.Fatal("one-sided state pair accepted")
+	}
+	report.Scenarios[0].BeforeStateDigest = ""
+	for i := range report.Scenarios {
+		if report.Scenarios[i].ScenarioID == "access-idempotence" {
+			report.Scenarios[i].BeforeStateDigest = ""
+			report.Scenarios[i].AfterStateDigest = ""
+			if ValidateNativeReport(report) == nil {
+				t.Fatal("missing idempotence comparison accepted")
+			}
+			report.Scenarios[i].BeforeStateDigest = d
+			report.Scenarios[i].AfterStateDigest = d
+		}
+	}
 	report.Scenarios[0].QualificationClass = "fixture"
 	if ValidateNativeReport(report) == nil {
 		t.Fatal("fixture report qualified")

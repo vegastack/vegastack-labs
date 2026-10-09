@@ -1,8 +1,11 @@
 package authorization
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"github.com/vegastack/vegastack-labs/internal/hostaction"
 
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/identity"
@@ -235,6 +238,26 @@ func validPreauthorized(principal identity.Principal, request Request, risk Risk
 }
 
 func planContainsTarget(plan generated.Plan, targetID string) bool {
+	// The receive effect also suspends its exact frozen source. This recognizes
+	// only the subjects already sealed into the immutable action input; current
+	// grants and the authoritative pending restore are checked independently.
+	if a := plan.HostAction; a != nil && a.ActionID == hostaction.RecoveryReceiveAction && a.ActionVersion == "1.0.0" {
+		raw := []byte(a.ActionInput)
+		var d generated.ControlRecoveryReceiveInput
+		decoder := json.NewDecoder(bytes.NewReader(raw))
+		decoder.DisallowUnknownFields()
+		if hostaction.BytesDigest(raw) == a.ActionInputDigest && decoder.Decode(&d) == nil {
+			canonical, err := json.Marshal(d)
+			if err == nil && bytes.Equal(canonical, raw) && d.Schema == generated.SchemaIDControlRecoveryReceiveInput && d.SchemaVersion == "1.0.0" && d.Replacement.OldHostID != "" && d.Replacement.OldHostID != d.Replacement.NewHostID && d.Binding.FormerHostID == d.Replacement.OldHostID && d.Binding.ReplacementHostID == d.Replacement.NewHostID && a.HostID == d.Replacement.NewHostID && targetID == d.Replacement.OldHostID {
+				for _, op := range plan.Operations {
+					if op.OperationType == hostaction.OperationType && op.TargetID == a.HostID {
+						return true
+					}
+				}
+			}
+		}
+	}
+
 	if p := plan.HostBaselineScope; p != nil && (p.SubjectHostID == targetID || p.ExecutionHostID == targetID) {
 		return true
 	}

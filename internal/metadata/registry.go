@@ -244,10 +244,15 @@ func Current() Registry {
 		})
 	}
 
+	endpoints := []EndpointDefinition{authorizationGrantEndpoint()}
+	for _, family := range [][]EndpointDefinition{readEndpoints(), phase4Endpoints(), phase5Endpoints(), hostDiscoveryEndpoints(), hostAdoptionEndpoints(), hostActionEndpoints(), accessEndpoints(), hostReplacementEndpoints(), qualificationEndpoints()} {
+		endpoints = append(endpoints, family...)
+	}
+
 	return Registry{
 		SchemaVersion:   "1.26.0",
 		Commands:        commands,
-		Endpoints:       append([]EndpointDefinition{authorizationGrantEndpoint()}, append(append(append(readEndpoints(), phase4Endpoints()...), phase5Endpoints()...), append(append(hostDiscoveryEndpoints(), hostAdoptionEndpoints()...), append(append(hostActionEndpoints(), accessEndpoints()...), append(hostReplacementEndpoints(), qualificationEndpoints()...)...)...)...)),
+		Endpoints:       endpoints,
 		GateDefinitions: CurrentGateDefinitions(),
 		Errors:          append([]ErrorDefinition(nil), requiredErrors...),
 		Exits:           append([]ExitDefinition(nil), requiredExits...),
@@ -987,6 +992,9 @@ func currentSchemas() []SchemaDefinition {
 	schemas = append(schemas, authorizationGrantSchemas()...)
 	schemas = append(schemas, qualificationSchemas()...)
 	schemas = append(schemas, nativeWitnessSchemas()...)
+	schemas = append(schemas, nativePreparationSchemas()...)
+	schemas = append(schemas, controlRecoveryReceiveSchemas()...)
+	schemas = append(schemas, nativeReplacementWitnessSchemas()...)
 	schemas = append(schemas, nativeSlackFixtureSchemas()...)
 	schemas = append(schemas, localSetupSchemas()...)
 	return append(schemas, apiSshSchemas()...)

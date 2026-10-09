@@ -119,8 +119,14 @@ func RunOnce(ctx context.Context, input io.Reader, output io.Writer, policy Poli
 	if err != nil || ctx.Err() != nil || VerifyAuthorization(raw, challenge, bundle, policy, now()) != nil {
 		return blocked()
 	}
-	// The sender closes stdin after the one authorization; extra frames deny.
-	if _, err = reader.ReadByte(); err != io.EOF || ctx.Err() != nil {
+	// Only the finite recovery receiver carries binary bytes after fresh
+	// authorization. Every other action still requires immediate EOF.
+	recoveryPayload := bundle.ActionID == RecoveryReceiveAction
+	if recoveryPayload {
+		if _, ok := handler.(RecoveryPayloadHandler); !ok {
+			return blocked()
+		}
+	} else if _, err = reader.ReadByte(); err != io.EOF || ctx.Err() != nil {
 		return blocked()
 	}
 	if VerifyAuthorization(raw, challenge, bundle, policy, now()) != nil {
@@ -162,7 +168,17 @@ func RunOnce(ctx context.Context, input io.Reader, output io.Writer, policy Poli
 	defer actionStop()
 	ctx = actionContext
 	denial.Phase = "handler"
-	result, err := handler.Execute(ctx, bundle)
+	var result generated.HostActionResult
+	if recoveryPayload {
+		result, err = handler.(RecoveryPayloadHandler).ExecuteRecoveryPayload(ctx, bundle, reader)
+		if err == nil {
+			if _, e := reader.ReadByte(); e != io.EOF {
+				return blocked()
+			}
+		}
+	} else {
+		result, err = handler.Execute(ctx, bundle)
+	}
 	if err != nil || ctx.Err() != nil || result.BundleDigest != digest || handler.Verify(ctx, bundle, result) != nil {
 		return blocked()
 	}

@@ -8,7 +8,6 @@ import (
 
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
-	"github.com/vegastack/vegastack-labs/internal/qualification"
 	"github.com/vegastack/vegastack-labs/internal/store"
 )
 
@@ -20,9 +19,9 @@ func nativeProvenanceFixture(t *testing.T, now time.Time) (store.HostAdmissionSn
 	e.GateID, e.SubjectID, e.CollectorID = "native.role", "test-profile", "native-debian-228"
 	q := generated.NativeQualification{Schema: generated.SchemaIDNativeQualification, SchemaVersion: "1.0.0", Stage: "role", ScopeDigest: d, ProfileID: e.SubjectID, ProfileLockDigest: d, SourceCommit: strings.Repeat("a", 40), ExecutableDigest: d, ControllerInstanceID: "controller-a", ObservedAt: e.ObservedAt, ExpiresAt: e.ExpiresAt, ObserverDigest: d, Producers: []generated.NativeQualificationProducer{}}
 	q.Prerequisites = []generated.NativeQualificationPrerequisite{{Schema: generated.SchemaIDNativeQualificationPrerequisite, SchemaVersion: "1.0.0", Stage: "baseline", EvidenceID: "baseline-evidence", BundleDigest: d, ArtifactDigest: d}}
-	q.SourceDigest = qualification.SourceDigest(generated.QualificationScope{SourceCommit: q.SourceCommit, ExecutableDigest: d})
+	q.SourceDigest = nativeSourceDigest(q.SourceCommit, d)
 	joined := store.HostNativeProducerBinding{CurrentControllerInstanceID: q.ControllerInstanceID}
-	for i, scenario := range qualification.StageScenarios(q.Stage) {
+	for i, scenario := range generated.NativeQualificationScenarios(q.Stage) {
 		id := fmt.Sprintf("producer-%d", i)
 		r := generated.NativeProducerReference{Schema: generated.SchemaIDNativeProducerReference, SchemaVersion: "1.0.0", ScenarioID: scenario, HostID: "fixture-host", PlanID: id, PlanDigest: d, RunID: id, StepID: "step-a", LeaseID: id}
 		x := store.NativeProducerExecution{Reference: r, Plan: generated.Plan{PlanID: id, PlanDigest: d}, Receipt: generated.ExecutionReceipt{PlanID: id, PlanDigest: d, RunID: id, StepID: r.StepID, LeaseID: id}}

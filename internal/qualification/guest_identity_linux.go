@@ -26,7 +26,9 @@ func verifyLocalGuest(guest generated.QualificationGuest) error {
 	if serial != guest.InstanceID || hostadoption.IdentityDigest("product-serial", serial) != guest.HostIdentityDigest {
 		return ErrUnavailable
 	}
-	path := "/etc/ssh/ssh_host_ed25519_key.pub"
+	return verifyGuestSSHKey(guest, "/etc/ssh/ssh_host_ed25519_key.pub")
+}
+func verifyGuestSSHKey(guest generated.QualificationGuest, path string) error {
 	info, err := os.Lstat(path)
 	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0022 != 0 || info.Size() > 4096 {
 		return ErrUnavailable

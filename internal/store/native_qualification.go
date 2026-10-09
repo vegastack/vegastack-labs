@@ -111,6 +111,11 @@ func (r *GateRepository) resolveNativeProducers(ctx context.Context, q nativeQue
 			} else if p.HostBaselineScope != nil {
 				subjectID, subjectIdentity = p.HostBaselineScope.SubjectHostID, p.HostBaselineScope.SubjectIdentityDigest
 			}
+		} else if ref.ScenarioID == "native-credential-lifecycle" && x.AdapterID == "core.credential" {
+			execution.Credential, err = r.nativeCredentialEvidence(ctx, q, execution, identity)
+			if err != nil {
+				return out, err
+			}
 		} else if p.HostReplacement != nil && in.Stage == "recovery" {
 			execution.ReplacementRecovery, err = r.nativeReplacementRecoveryEvidence(ctx, q, execution)
 			if err != nil {
@@ -198,6 +203,12 @@ func (r *GateRepository) PutNativeGateDraft(ctx context.Context, in NativeGateDr
 	if e != nil || x != nil || observed.After(now.Add(time.Second)) || now.Sub(observed) > time.Minute || !expires.After(now) || expires.Sub(observed) > 24*time.Hour {
 		return zero, nativeError()
 	}
+	if c := in.Payload.ControllerIdentity; c != nil && (c.ControllerInstanceID != in.Payload.ControllerInstanceID || c.ScopeDigest != in.Payload.ScopeDigest || c.ExecutableDigest != in.Payload.ExecutableDigest) {
+		return zero, nativeError()
+	}
+	if hostaction.Digest(r.nativeController) != hostaction.Digest(in.Payload.ControllerIdentity) {
+		return zero, nativeError()
+	}
 	snapshot, e := r.ResolveNativeProducers(ctx, in.Request)
 	if e != nil {
 		return zero, e
@@ -262,7 +273,14 @@ func (r *GateRepository) resolveNativeApplied(ctx context.Context, tx ReadTx, s 
 	if err != nil || !nativePrerequisitesEqual(p.Prerequisites, prerequisites) {
 		return zero, nativeError()
 	}
-	resolved, err := r.resolveNativeProducers(ctx, query, in, false)
+	resolver := r
+	if p.ControllerIdentity != nil {
+		if p.ControllerIdentity.ControllerInstanceID != p.ControllerInstanceID || p.ControllerIdentity.ScopeDigest != p.ScopeDigest || p.ControllerIdentity.ExecutableDigest != p.ExecutableDigest {
+			return zero, nativeError()
+		}
+		resolver = r.WithNativeControllerIdentity(*p.ControllerIdentity)
+	}
+	resolved, err := resolver.resolveNativeProducers(ctx, query, in, false)
 	if err != nil || resolved.ControllerInstanceID != p.ControllerInstanceID || hostaction.Digest(resolved.Producers) != hostaction.Digest(p.Producers) {
 		return zero, nativeError()
 	}
@@ -278,6 +296,14 @@ func (r *GateRepository) resolveNativeApplied(ctx context.Context, tx ReadTx, s 
 // qualification profile, independently of a caller's report or gate facts.
 func NativeExecutionProfileMatches(e NativeProducerExecution, profile, lock string) bool {
 	p := e.Plan
+	if e.Credential != nil {
+		for _, v := range e.Credential.Verifications {
+			if v.Result == "verified" && v.ProfileID != profile {
+				return false
+			}
+		}
+		return e.Credential.Controller.HostID == e.Reference.HostID
+	}
 	if e.ReplacementRecovery != nil {
 		return e.ReplacementRecovery.CurrentProfileID == profile && e.ReplacementRecovery.CurrentProfileLockDigest == lock
 	}

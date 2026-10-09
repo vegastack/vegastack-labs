@@ -95,3 +95,50 @@ func TestFail2banWaitCancellationCannotProduceCompletedCycle(t *testing.T) {
 		t.Fatal("incomplete cancelled cycle exported")
 	}
 }
+
+func TestNativeCredentialSamplesRemainEpochAndGuestBound(t *testing.T) {
+	scope, err := validateScope(scopeFixture())
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := &ownedGuestLifecycle{scope: scope, witnesses: map[string]*nativeWitnessMemory{}}
+	in := generated.NativeStepRequest{ScopeDigest: scope.digest, ControllerInstanceID: scope.value.ControllerInstanceID, GuestID: "controller", ScenarioID: "native-credential-lifecycle", Operation: "witness", RunID: "first-run"}
+	sample := func(outcome, key string) generated.NativeStepResult {
+		return generated.NativeStepResult{Binding: in, Status: "completed", SSH: &generated.NativeSshObservation{HostKeyVerified: true, Outcomes: []string{outcome}, PublicKeyDigest: hostaction.Digest(key)}}
+	}
+	if d.captureWitness(in, sample("allowed", "previous")) != nil {
+		t.Fatal("initial denied")
+	}
+	in.RunID = "second-run"
+	if d.captureWitness(in, sample("denied", "different")) == nil {
+		t.Fatal("different old key accepted")
+	}
+	if d.captureWitness(in, sample("denied", "previous")) != nil {
+		t.Fatal("old denial rejected")
+	}
+	in.RunID = "third-run"
+	if d.captureWitness(in, sample("allowed", "previous")) == nil {
+		t.Fatal("unchanged key accepted")
+	}
+	if d.captureWitness(in, sample("allowed", "current")) != nil {
+		t.Fatal("current rejected")
+	}
+	b := generated.NativeObservationBinding{ScopeDigest: scope.digest, ControllerInstanceID: scope.value.ControllerInstanceID, GuestID: in.GuestID, ScenarioID: in.ScenarioID, RunID: "final-run"}
+	out := generated.NativeObservation{}
+	d.attachWitness(b, &out)
+	if out.Credential == nil {
+		t.Fatal("complete lifecycle absent")
+	}
+	for _, alter := range []func(*generated.NativeObservationBinding){func(b *generated.NativeObservationBinding) { b.RecoveryEpoch++ }, func(b *generated.NativeObservationBinding) { b.GuestID = "subject" }} {
+		changed := b
+		alter(&changed)
+		out = generated.NativeObservation{}
+		d.attachWitness(changed, &out)
+		if out.Credential != nil {
+			t.Fatal("cross-boundary sample reuse")
+		}
+	}
+	if d.captureWitness(in, sample("allowed", "current")) == nil {
+		t.Fatal("completed sequence overwritten")
+	}
+}

@@ -31,6 +31,9 @@ func RunNative(ctx context.Context, value generated.QualificationScope) (generat
 	}
 	ctx, cancel := context.WithDeadline(ctx, expires)
 	defer cancel()
+	if err = validateOuterPhysicalHost(scope); err != nil {
+		return report, err
+	}
 	if err = validateOuterConfinement(scope); err != nil {
 		return report, err
 	}
@@ -51,13 +54,16 @@ func RunNative(ctx context.Context, value generated.QualificationScope) (generat
 		driver.bootAt[id] = time.Now()
 	}
 	observerErrors := make(chan error, 1)
-	go func() { observerErrors <- driver.serveObserver(ctx) }()
+	observerNonces := map[string]bool{}
+	stopObserver := driver.startNativeObserver(ctx, observerErrors, observerNonces)
+	defer func() { stopObserver() }()
 	next := map[string]int64{}
 	for _, scenario := range scenarioCatalog {
 		next[scenario] = 1
 		report.Scenarios = append(report.Scenarios, generated.ScenarioResult{Schema: generated.SchemaIDScenarioResult, SchemaVersion: "1.0.0", ScenarioID: scenario, Status: "not-run", ProfileLockDigest: value.ProfileLockDigest, ExecutableDigest: value.ExecutableDigest, StartedAt: start.Format(time.RFC3339), FinishedAt: start.Format(time.RFC3339), PositiveObservationDigests: []string{}, NegativeObservationDigests: []string{}, RecoveryResult: "not-required", CleanupResult: "not-required", QualificationClass: "native", ProducerRunIDs: []string{}, ProducerReceiptDigests: []string{}, NativeObservationDigests: []string{}})
 		report.PendingRequirements = append(report.PendingRequirements, scenario)
 	}
+	progress := newNativeReportProgress()
 	runErr := error(nil)
 	terminal := false
 	for !terminal && ctx.Err() == nil && runErr == nil {
@@ -105,11 +111,59 @@ func RunNative(ctx context.Context, value generated.QualificationScope) (generat
 			if request.Operation == "execute" || request.Operation == "collect-native" {
 				report.Changed = true
 			}
-			output, e := driver.executeConsoleStep(ctx, request)
-			result.ArtifactDigest = hostaction.Digest(raw)
-			result.Status = "uncertain"
+			var output generated.NativeStepResult
+			if request.Operation == "reboot-native" {
+				controllerReboot := driver.activeController == request.GuestID
+				if controllerReboot {
+					stopObserver()
+					select {
+					case <-observerErrors:
+					case <-time.After(5 * time.Second):
+						runErr = ErrUnavailable
+					}
+				}
+				if runErr != nil {
+					break
+				}
+				output, e = driver.rebootSelectedGuest(ctx, request)
+				if e == nil && controllerReboot {
+					stopObserver = driver.startNativeObserver(ctx, observerErrors, observerNonces)
+				}
+			} else {
+				output, e = driver.executeConsoleStep(ctx, request)
+			}
+			if result.Status != "passed" {
+				result.ArtifactDigest = hostaction.Digest(raw)
+				result.Status = "uncertain"
+			}
 			if e != nil {
 				result.RecoveryResult = "uncertain"
+				runErr = e
+				break
+			}
+			if request.Operation == "select-controller" {
+				if output.ControllerIdentity == nil || output.RestoreBinding == nil || validateControllerSelection(scope, request, *output.ControllerIdentity, *output.RestoreBinding) != nil || driver.recoveredController != nil {
+					runErr = ErrUnavailable
+					break
+				}
+				stopObserver()
+				select {
+				case <-observerErrors:
+				case <-time.After(5 * time.Second):
+					runErr = ErrUnavailable
+				}
+				if runErr != nil {
+					break
+				}
+				driver.mu.Lock()
+				driver.activeController = request.GuestID
+				driver.recoveredController = output.ControllerIdentity
+				driver.recoveredBinding = output.RestoreBinding
+				progress.resetEpoch(request.RecoveryEpoch, &report)
+				driver.mu.Unlock()
+				stopObserver = driver.startNativeObserver(ctx, observerErrors, observerNonces)
+			}
+			if e = driver.captureReplacementOutput(request, output); e != nil {
 				runErr = e
 				break
 			}
@@ -122,8 +176,24 @@ func RunNative(ctx context.Context, value generated.QualificationScope) (generat
 				break
 			}
 			report.Changed = report.Changed || output.Changed
-			result.ProducerRunIDs = append(result.ProducerRunIDs, output.ProducerRunIDs...)
-			result.FinishedAt = time.Now().UTC().Truncate(time.Second).Format(time.RFC3339)
+			if result.Status != "passed" {
+				result.ProducerRunIDs = append(result.ProducerRunIDs, output.ProducerRunIDs...)
+				result.FinishedAt = time.Now().UTC().Truncate(time.Second).Format(time.RFC3339)
+			}
+			if output.Collection != nil {
+				raw, e := ownedFile(filepath.Join(value.OutputRoot, fmt.Sprintf("%s-%d.collect.json", scenario, ordinal)), uint32(os.Geteuid()), 32768)
+				var collected generated.NativeCollectRequest
+				if e != nil || json.Unmarshal(raw, &collected) != nil || progress.collect(collected, *output.Collection, &report) != nil {
+					runErr = ErrUnavailable
+					break
+				}
+			}
+			if output.Preparation != nil && output.Preparation.Gate != nil {
+				if output.Preparation.ExitCode != 0 || output.Preparation.Result.RecoveryEpoch != request.RecoveryEpoch || progress.gate(value.ProfileID, *output.Preparation.Gate, &report) != nil {
+					runErr = ErrUnavailable
+					break
+				}
+			}
 			next[scenario]++
 		}
 		if runErr != nil {
@@ -185,13 +255,8 @@ func (d *ownedGuestLifecycle) executeConsoleStep(ctx context.Context, in generat
 		d.bootAt[id] = time.Now()
 		d.mu.Unlock()
 	}
-	controller := ""
-	for id, g := range d.scope.guests {
-		if g.Role == "controller" {
-			controller = id
-		}
-	}
-	if in.Operation == "witness" {
+	controller := d.activeController
+	if in.Operation == "witness" || in.Operation == "select-controller" {
 		controller = in.GuestID
 	}
 	if d.checkProcess(controller) != nil {
@@ -213,6 +278,9 @@ func (d *ownedGuestLifecycle) executeConsoleStep(ctx context.Context, in generat
 	defer stop()
 	if d.authenticateConsole(conn) != nil {
 		return out, ErrUnavailable
+	}
+	if err = d.installConsoleStep(conn, in); err != nil {
+		return out, err
 	}
 	command := fmt.Sprintf("\x15/usr/local/bin/vsk-labs qualification step --config /etc/vsk-labs/native/client.json --file /run/vsk-labs-native/%s-%d.json --output json\n", in.ScenarioID, in.Ordinal)
 	if _, err = io.WriteString(conn, command); err != nil {

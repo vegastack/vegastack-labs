@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/vegastack/vegastack-labs/internal/debianaccess"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"github.com/vegastack/vegastack-labs/internal/hostdiscovery"
@@ -21,7 +22,7 @@ import (
 
 // Seed only synthetic pre-existing authoritative records. The caller performs
 // the actual snapshot, frozen history, candidate restore and canary workflow.
-func seedReplacementRestoreHosts(t *testing.T, db *sql.DB, source generated.RestoreSourceBinding) generated.HostReplacementRequest {
+func seedReplacementRestoreHosts(t *testing.T, db *sql.DB, source generated.RestoreSourceBinding, owner ...int64) generated.HostReplacementRequest {
 	t.Helper()
 	ex := func(q string, a ...any) { t.Helper(); replacementRestoreExec(t, db, q, a...) }
 	enc := replacementRestoreJSON
@@ -39,6 +40,26 @@ func seedReplacementRestoreHosts(t *testing.T, db *sql.DB, source generated.Rest
 	for _, host := range []string{q.OldHostID, q.NewHostID} {
 		var in generated.LinuxRoleInput
 		_ = json.Unmarshal(raw, &in)
+		if len(owner) == 2 {
+			in.AutomationUID = owner[0]
+			in.NetworkAccess.AutomationUID = owner[0]
+			for i := range in.NetworkAccess.Accounts {
+				if in.NetworkAccess.Accounts[i].Role == "automation" {
+					in.NetworkAccess.Accounts[i].UID = owner[0]
+					in.NetworkAccess.Accounts[i].GID = owner[1]
+				}
+			}
+			for i := range in.Accounts {
+				in.Accounts[i].UID = owner[0]
+				in.Accounts[i].GID = owner[1]
+			}
+			for i := range in.Directories {
+				in.Directories[i].UID = owner[0]
+				in.Directories[i].GID = owner[1]
+			}
+		}
+		in.NetworkAccess.RenderedAccess.Accounts = append([]generated.AccessAccount(nil), in.NetworkAccess.Accounts...)
+		in.NetworkAccess.RenderedAccessDigest = hostaction.Digest(in.NetworkAccess.RenderedAccess)
 		in.HostID = host
 		in.HostIdentityDigest = digest(host)
 		in.NetworkAccess.HostID = host
@@ -49,7 +70,8 @@ func seedReplacementRestoreHosts(t *testing.T, db *sql.DB, source generated.Rest
 		in.RenderedPolicyDigest = linuxrole.PolicyDigest(in)
 		in.RoleBindingDigest = linuxrole.RoleBindingDigest(in)
 		if err := linuxrole.ValidateInput(in); err != nil {
-			t.Fatal(err)
+			rawRole, _ := json.Marshal(in)
+			t.Fatalf("role fixture uid=%d gid=%d roleAccount=%+v desired=%v schema=%v access=%v policy=%v binding=%v: %v", os.Geteuid(), os.Getegid(), in.Accounts, linuxrole.ValidateDesiredInput(in), generated.ValidateContractJSON(generated.SchemaIDLinuxRoleInput, rawRole, generated.ContractExact), debianaccess.ValidateInput(*in.NetworkAccess), in.RenderedPolicyDigest == linuxrole.PolicyDigest(in), in.RoleBindingDigest == linuxrole.RoleBindingDigest(in), err)
 		}
 		public, _, err := ed25519.GenerateKey(rand.Reader)
 		if err != nil {

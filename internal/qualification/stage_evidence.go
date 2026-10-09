@@ -19,6 +19,7 @@ type ProducerExecution struct {
 	Result                *generated.HostActionResult
 	ReplacementRecovery   *ReplacementRecoveryEvidence
 	ControlSetupAuthority *ControlSetupAuthority
+	Credential            *NativeCredentialEvidence
 }
 
 func SourceDigest(scope generated.QualificationScope) string {
@@ -93,6 +94,10 @@ func validateScenarioEvidence(scenario string, executions []ProducerExecution, o
 		return validateVolumeCaseExecutions(scenario, executions, observations)
 	}
 	switch scenario {
+	case "baseline-access", "baseline-controls", "access-idempotence", "container-network":
+		return validateBaselineScenarioEvidence(scenario, executions, observations)
+	case "native-credential-lifecycle":
+		return validateCredentialScenarioEvidence(executions, observations)
 	case "action-replay", "action-concurrency":
 		return ValidateActionProtocolEvidence(scenario, executions, observations)
 	case "control-setup", "control-handoff", "role-application", "role-ci", "role-reserve", "replacement-recovery":

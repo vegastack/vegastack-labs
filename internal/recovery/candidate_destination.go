@@ -61,14 +61,10 @@ func (m CandidateManager) preflightReplacementDestination(ctx context.Context, b
 	if err != nil {
 		return err
 	}
-	// These bindings were resolved from the current server-owned registration and
-	// role declarations above; none come from the requesting browser's preview.
-	observed.HostID = in.NewHostID
-	observed.IdentityDigest = in.NewIdentityDigest
-	observed.TargetDigest = in.NewTargetDigest
-	observed.ProfileLockDigest = in.ProfileLockDigest
-	observed.PreservedPreimageDigest = in.PreservedPreimageDigest
-	if hostreplacement.ValidateDestination(in, observed) != nil {
+	// This is source-side staging capacity only. It makes no assertion that
+	// this filesystem belongs to the replacement. The cold receiver independently
+	// measures destination identity and role preimages before promotion.
+	if observed.CapacityBytes <= 0 || observed.SnapshotBytes != size || observed.PreservedBytes < 0 || observed.PreservedBytes > observed.CapacityBytes || size > (observed.CapacityBytes-observed.PreservedBytes)/2 || observed.FilesystemObservationDigest == "" || observed.CandidatePreimageDigest == "" {
 		return deny()
 	}
 	return nil

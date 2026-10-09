@@ -15,10 +15,10 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/store"
 )
 
-func (s *nativeQualificationService) CollectDraft(ctx context.Context, in generated.NativeCollectRequest, a audit.Attribution) (store.GateDraft, error) {
+func (s *nativeQualificationService) CollectDraft(ctx context.Context, in generated.NativeCollectRequest, a audit.Attribution) (store.GateDraft, []generated.ScenarioResult, error) {
 	var zero store.GateDraft
-	deny := func() (store.GateDraft, error) {
-		return zero, failure.New(generated.ErrorCodePrerequisiteBlocked, "native-qualification", false)
+	deny := func() (store.GateDraft, []generated.ScenarioResult, error) {
+		return zero, nil, failure.New(generated.ErrorCodePrerequisiteBlocked, "native-qualification", false)
 	}
 	if s == nil || s.authority == nil || s.gates == nil {
 		return deny()
@@ -28,9 +28,25 @@ func (s *nativeQualificationService) CollectDraft(ctx context.Context, in genera
 		return deny()
 	}
 	gates := s.gates
+	var controller *generated.NativeControllerIdentity
+	for _, ref := range in.Producers {
+		if ref.ScenarioID == "native-credential-lifecycle" {
+			authority, err := s.authority.CurrentAuthority(ctx)
+			if err != nil {
+				return deny()
+			}
+			measured, err := qualification.MeasureControllerIdentity(ctx, scope, authority.InstanceID)
+			if err != nil {
+				return deny()
+			}
+			controller = &measured
+			gates = gates.WithNativeControllerIdentity(measured)
+			break
+		}
+	}
 	snapshot, err := gates.ResolveNativeProducers(ctx, in)
 	if err != nil {
-		return zero, err
+		return zero, nil, err
 	}
 	if !nativeCollectorAuthority(scope, snapshot) || snapshot.Revision.StateRevision != in.ExpectedStateRevision || snapshot.Revision.RecoveryEpoch != in.RecoveryEpoch || snapshot.Digest == "" || len(snapshot.Producers) != len(in.Producers) || len(snapshot.Executions) != len(in.Producers) {
 		return deny()
@@ -54,6 +70,9 @@ func (s *nativeQualificationService) CollectDraft(ctx context.Context, in genera
 			return deny()
 		}
 		projected := qualification.ProducerExecution{Reference: execution.Reference, Plan: execution.Plan, Receipt: execution.Receipt, Result: execution.Result}
+		if v := execution.Credential; v != nil {
+			projected.Credential = &qualification.NativeCredentialEvidence{Controller: v.Controller, Binding: v.Binding, VersionID: v.VersionID, Status: v.Status, Verifications: v.Verifications}
+		}
 		if v := execution.ReplacementRecovery; v != nil {
 			projected.ReplacementRecovery = &qualification.ReplacementRecoveryEvidence{CurrentProfileID: v.CurrentProfileID, CurrentProfileLockDigest: v.CurrentProfileLockDigest, Binding: v.Binding, Replacement: v.Replacement, Continuity: v.Continuity, CanaryDigest: v.CanaryDigest, CanaryRunID: v.CanaryRunID, CanaryEventID: v.CanaryEventID, VerifiedAt: v.VerifiedAt}
 		}
@@ -73,7 +92,7 @@ func (s *nativeQualificationService) CollectDraft(ctx context.Context, in genera
 		}
 		var nonce [32]byte
 		if _, err = rand.Read(nonce[:]); err != nil {
-			return zero, failure.New(generated.ErrorCodeIntegrityFailure, "native-nonce", false)
+			return zero, nil, failure.New(generated.ErrorCodeIntegrityFailure, "native-nonce", false)
 		}
 		binding := generated.NativeObservationBinding{Schema: generated.SchemaIDNativeObservationBinding, SchemaVersion: "1.0.0", ScopeDigest: in.ScopeDigest, GuestID: guest.GuestID, ScenarioID: reference.ScenarioID, Ordinal: int64(ordinal), ControllerInstanceID: scope.ControllerInstanceID, RecoveryEpoch: in.RecoveryEpoch, PlanID: reference.PlanID, PlanDigest: reference.PlanDigest, RunID: reference.RunID, StepID: reference.StepID, LeaseID: reference.LeaseID, Nonce: "sha256:" + hex.EncodeToString(nonce[:]), Deadline: time.Now().UTC().Add(30 * time.Second).Truncate(time.Second).Format(time.RFC3339)}
 		// The concrete observer performs fresh channel I/O here, after the repository
@@ -107,28 +126,24 @@ func (s *nativeQualificationService) CollectDraft(ctx context.Context, in genera
 	}
 	observedAt := time.Now().UTC().Truncate(time.Second)
 	sourceDigest := qualification.SourceDigest(scope)
-	payload := generated.NativeQualification{Schema: generated.SchemaIDNativeQualification, SchemaVersion: "1.0.0", Stage: in.Stage, ScopeDigest: in.ScopeDigest, ProfileID: scope.ProfileID, ProfileLockDigest: scope.ProfileLockDigest, SourceCommit: scope.SourceCommit, SourceDigest: sourceDigest, ExecutableDigest: scope.ExecutableDigest, ControllerInstanceID: snapshot.ControllerInstanceID, RecoveryEpoch: in.RecoveryEpoch, ObservedAt: observedAt.Format(time.RFC3339), ExpiresAt: observedAt.Add(24 * time.Hour).Format(time.RFC3339), ObserverDigest: hostaction.Digest(observations), Producers: snapshot.Producers}
+	payload := generated.NativeQualification{Schema: generated.SchemaIDNativeQualification, SchemaVersion: "1.0.0", ControllerIdentity: controller, Stage: in.Stage, ScopeDigest: in.ScopeDigest, ProfileID: scope.ProfileID, ProfileLockDigest: scope.ProfileLockDigest, SourceCommit: scope.SourceCommit, SourceDigest: sourceDigest, ExecutableDigest: scope.ExecutableDigest, ControllerInstanceID: snapshot.ControllerInstanceID, RecoveryEpoch: in.RecoveryEpoch, ObservedAt: observedAt.Format(time.RFC3339), ExpiresAt: observedAt.Add(24 * time.Hour).Format(time.RFC3339), ObserverDigest: hostaction.Digest(observations), Producers: snapshot.Producers}
 	bundle := generated.GateEvidenceBundle{Schema: generated.SchemaIDGateEvidenceBundle, SchemaVersion: "1.1.0", CollectorID: "native-debian-228", ObservedAt: payload.ObservedAt, NativeQualification: &payload, Attachments: []generated.GateEvidenceAttachment{}, Facts: []generated.GateEvidenceFact{{Schema: generated.SchemaIDGateEvidenceFact, SchemaVersion: "1.1.0", FactID: "native.profile-lock", ValueDigest: scope.ProfileLockDigest}, {Schema: generated.SchemaIDGateEvidenceFact, SchemaVersion: "1.1.0", FactID: "native.source", ValueDigest: sourceDigest}}, Checks: []generated.GateEvidenceCheck{{Schema: generated.SchemaIDGateEvidenceCheck, SchemaVersion: "1.1.0", CheckID: "native." + in.Stage, VerifierVersion: "1.0.0", Result: "passed", ResultDigest: sourceDigest}}}
 	// The repository re-resolves the same production joins, current grants and
 	// revision atomically; it alone fixes draft provenance to local/live.
-	return gates.PutNativeGateDraft(ctx, store.NativeGateDraftRequest{Request: in, Payload: payload, Bundle: bundle, ResolvedDigest: snapshot.Digest, Attribution: a})
+	draft, err := gates.PutNativeGateDraft(ctx, store.NativeGateDraftRequest{Request: in, Payload: payload, Bundle: bundle, ResolvedDigest: snapshot.Digest, Attribution: a})
+	if err != nil {
+		return zero, nil, err
+	}
+	scenarios, err := qualification.SummarizeStageEvidence(in.Stage, executions, observations, scope.ProfileLockDigest, draft.BundleDigest)
+	if err != nil {
+		return zero, nil, err
+	}
+	return draft, scenarios, nil
 }
 
 // The launch remains pinned to its original controller and absolute window.
 // Only a verified persisted restore transition can explain a new authority;
 // producer resolution still rejects every prior-epoch baseline/role receipt.
 func nativeCollectorAuthority(scope generated.QualificationScope, s store.NativeProducerSnapshot) bool {
-	if scope.ControllerInstanceID == s.ControllerInstanceID {
-		return true
-	}
-	b := s.VerifiedRestoreBinding
-	if b == nil || b.PriorInstanceID != scope.ControllerInstanceID || b.NewInstanceID != s.ControllerInstanceID || b.NextRecoveryEpoch != s.Revision.RecoveryEpoch || b.NextRecoveryEpoch != b.PriorRecoveryEpoch+1 {
-		return false
-	}
-	former, replacement := false, false
-	for _, g := range scope.Guests {
-		former = former || g.HostID == b.FormerHostID
-		replacement = replacement || g.HostID == b.ReplacementHostID
-	}
-	return former && replacement
+	return store.NativeScopeAuthority(scope, s)
 }

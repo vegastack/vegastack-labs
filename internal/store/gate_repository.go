@@ -16,8 +16,9 @@ import (
 )
 
 type GateRepository struct {
-	store          *Store
-	hostProvenance HostAdmissionProvenance
+	store            *Store
+	hostProvenance   HostAdmissionProvenance
+	nativeController *generated.NativeControllerIdentity
 }
 
 func NewGateRepository(authority *Store) *GateRepository { return &GateRepository{store: authority} }

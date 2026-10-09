@@ -35,6 +35,10 @@
           "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
           "type": "string"
         },
+        "machineId": {
+          "pattern": "^[0-9a-f]{32}$",
+          "type": "string"
+        },
         "memoryBytes": {
           "minimum": 1,
           "type": "integer"
@@ -178,6 +182,10 @@
       "minLength": 1,
       "type": "string"
     },
+    "physicalHostBootId": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "type": "string"
+    },
     "physicalHostId": {
       "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
       "type": "string"
@@ -233,6 +241,7 @@
     "controlServiceUid",
     "controlServiceGid",
     "physicalHostId",
+    "physicalHostBootId",
     "physicalHostIdentityDigest",
     "sourceCommit",
     "executableDigest",

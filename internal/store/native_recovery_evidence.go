@@ -37,6 +37,11 @@ func (r *GateRepository) nativeReplacementRecoveryEvidence(ctx context.Context, 
 		return deny()
 	}
 	state := event.State
+	var freezeDigest string
+	if q.row(`SELECT event_digest FROM host_replacement_events WHERE replacement_id=? AND event_type='frozen'`, request.ReplacementID).Scan(&freezeDigest) != nil || !restoreDigest(freezeDigest) || state.FreezeEventDigest != "" && state.FreezeEventDigest != freezeDigest {
+		return deny()
+	}
+	state.FreezeEventDigest = freezeDigest
 	if state.OldHostID != request.OldHostID || state.NewHostID != request.NewHostID || state.OldIdentityDigest != request.OldIdentityDigest || state.NewIdentityDigest != request.NewIdentityDigest || state.RecoveryEpoch != p.Binding.RecoveryEpoch {
 		return deny()
 	}

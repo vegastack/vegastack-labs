@@ -23,6 +23,9 @@ func executeWitness(ctx context.Context, scope validatedNativeScope, in generate
 	if err != nil || generated.ValidateContractJSON(generated.SchemaIDNativeWitnessRequest, raw, generated.ContractExact) != nil || json.Unmarshal(raw, &request) != nil || hostaction.Digest(request.Binding) != hostaction.Digest(in) {
 		return out, ErrUnavailable
 	}
+	if (in.Operation == "select-controller") != (request.Kind == "controller-selection") || (request.Kind != "controller-selection" && request.RestoreBinding != nil) || (request.Kind != "replacement-negative" && request.ReplacementRequest != nil) {
+		return out, ErrUnavailable
+	}
 	guest := scope.guests[in.GuestID]
 	if request.Kind != "action-receipt" && request.ActionBundle != nil {
 		return out, ErrUnavailable
@@ -31,6 +34,39 @@ func executeWitness(ctx context.Context, scope validatedNativeScope, in generate
 		return out, ErrUnavailable
 	}
 	switch request.Kind {
+	case "controller-selection":
+		selected := generated.NativeWitnessRequest{Schema: request.Schema, SchemaVersion: request.SchemaVersion, Binding: request.Binding, Kind: request.Kind, RestoreBinding: request.RestoreBinding}
+		if hostaction.Digest(selected) != hostaction.Digest(request) {
+			return out, ErrUnavailable
+		}
+		if request.RestoreBinding == nil || request.ReplacementRequest != nil || in.ScenarioID != "replacement-recovery" || guest.Role != "replacement" {
+			return out, ErrUnavailable
+		}
+		reply, e := callNativeAPI(ctx, scope, nativeAPIPacket{Step: in, Kind: "status"})
+		status := reply.Status
+		if e != nil || status == nil || !status.ReadAvailable || status.InstanceID != request.RestoreBinding.NewInstanceID || status.RecoveryEpoch != request.RestoreBinding.NextRecoveryEpoch {
+			return out, ErrUnavailable
+		}
+		identity, e := MeasureControllerIdentity(ctx, scope.value, status.InstanceID)
+		if e != nil || validateControllerSelection(scope, in, identity, *request.RestoreBinding) != nil {
+			return out, ErrUnavailable
+		}
+		out.ControllerIdentity = &identity
+		out.RestoreBinding = request.RestoreBinding
+	case "replacement-negative":
+		selected := generated.NativeWitnessRequest{Schema: request.Schema, SchemaVersion: request.SchemaVersion, Binding: request.Binding, Kind: request.Kind, ReplacementRequest: request.ReplacementRequest}
+		if hostaction.Digest(selected) != hostaction.Digest(request) {
+			return out, ErrUnavailable
+		}
+		if request.ReplacementRequest == nil || in.ScenarioID != "replacement-recovery" || (guest.Role != "controller" && guest.Role != "replacement") {
+			return out, ErrUnavailable
+		}
+		reply, e := callNativeAPI(ctx, scope, nativeAPIPacket{Step: in, Kind: "replacement-negative", Replacement: request.ReplacementRequest})
+		if e != nil || reply.Attempt == nil {
+			return out, ErrUnavailable
+		}
+		out.ReplacementRecovery = &generated.NativeReplacementRecoveryWitness{Schema: generated.SchemaIDNativeReplacementRecoveryWitness, SchemaVersion: "1.0.0", ReplacementID: request.ReplacementRequest.ReplacementID, BindingDigest: request.ReplacementRequest.BindingDigest, Attempts: []generated.NativeReplacementRecoveryAttempt{*reply.Attempt}}
+
 	case "rollback":
 		if !strings.HasPrefix(in.ScenarioID, "access-rollback-") || request.Fail2banInput != nil || request.VolumeInput != nil || request.RollbackRecordDigest == "" {
 			return out, ErrUnavailable
@@ -66,14 +102,21 @@ func executeWitness(ctx context.Context, scope validatedNativeScope, in generate
 		value.Schema = generated.SchemaIDNativeFail2banState
 		value.SchemaVersion = "1.0.0"
 		out.Fail2banState = &value
-	case "ssh-failures", "ssh-admin":
-		if in.ScenarioID != "fail2ban-window" || request.Fail2banInput == nil || request.VolumeInput != nil || request.RollbackRecordDigest != "" || request.Fail2banInput.Source.HostID != guest.HostID || request.Fail2banInput.Source.IdentityDigest != guest.HostIdentityDigest {
+	case "ssh-failures", "ssh-admin", "ssh-previous-key", "ssh-current-key":
+		credentialSSH := request.Kind == "ssh-previous-key" || request.Kind == "ssh-current-key"
+		if (credentialSSH && in.ScenarioID != "native-credential-lifecycle" || !credentialSSH && in.ScenarioID != "fail2ban-window") || request.Fail2banInput == nil || request.VolumeInput != nil || request.RollbackRecordDigest != "" || request.Fail2banInput.Source.HostID != guest.HostID || request.Fail2banInput.Source.IdentityDigest != guest.HostIdentityDigest {
 			return out, ErrUnavailable
 		}
 		input := NativeFail2banInput{request.Fail2banInput.Target, request.Fail2banInput.Source, request.Fail2banInput.Destination}
 		var measured NativeSSHObservation
 		var e error
-		if request.Kind == "ssh-admin" {
+		if credentialSSH {
+			keyName := "previous-ssh.key"
+			if request.Kind == "ssh-current-key" {
+				keyName = "current-ssh.key"
+			}
+			measured, e = observeNativeSSH(ctx, scope.value, input, keyName)
+		} else if request.Kind == "ssh-admin" {
 			measured, e = ObserveNativeSSHAdmin(ctx, scope.value, input)
 		} else {
 			measured, e = ObserveNativeSSHFailures(ctx, scope.value, input)

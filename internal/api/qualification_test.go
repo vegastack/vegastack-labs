@@ -15,13 +15,17 @@ import (
 
 type qualificationServiceTest struct{ calls int }
 
+func (s *qualificationServiceTest) LookupNativeProducerReference(context.Context, generated.NativeProducerLookupRequest) (generated.NativeProducerReference, error) {
+	s.calls++
+	return generated.NativeProducerReference{}, apiFailure(generated.ErrorCodePrerequisiteBlocked, "fixture")
+}
 func (s *qualificationServiceTest) Inspect(context.Context, generated.QualificationInspectRequest) (generated.QualificationInspectData, error) {
 	s.calls++
 	return generated.QualificationInspectData{}, apiFailure(generated.ErrorCodePrerequisiteBlocked, "fixture")
 }
-func (s *qualificationServiceTest) CollectDraft(context.Context, generated.NativeCollectRequest, audit.Attribution) (store.GateDraft, error) {
+func (s *qualificationServiceTest) CollectDraft(context.Context, generated.NativeCollectRequest, audit.Attribution) (store.GateDraft, []generated.ScenarioResult, error) {
 	s.calls++
-	return store.GateDraft{}, apiFailure(generated.ErrorCodePrerequisiteBlocked, "fixture")
+	return store.GateDraft{}, nil, apiFailure(generated.ErrorCodePrerequisiteBlocked, "fixture")
 }
 func TestNativeCollectorRejectsUploadAndRequiresExactLocalGrants(t *testing.T) {
 	in := generated.NativeCollectRequest{Schema: generated.SchemaIDNativeCollectRequest, SchemaVersion: "1.0.0", ScopeDigest: hostaction.BytesDigest([]byte("scope")), Stage: "baseline", EvidenceID: "evidence-a", ProfileID: "profile-a", Producers: []generated.NativeProducerReference{{Schema: generated.SchemaIDNativeProducerReference, SchemaVersion: "1.0.0", ScenarioID: "baseline-access", HostID: "host-a", PlanID: "plan-a", PlanDigest: hostaction.BytesDigest([]byte("plan")), RunID: "run-a", StepID: "step-a", LeaseID: "lease-a"}}, ExpectedStateRevision: 1, RecoveryEpoch: 0, IdempotencyKey: "collect-a"}

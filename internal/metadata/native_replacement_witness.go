@@ -1,0 +1,10 @@
+package metadata
+
+func nativeReplacementWitnessSchemas() []SchemaDefinition {
+	return []SchemaDefinition{
+		phase5Schema("vegastack-labs.dev/native-finite-response", discoveryText("responseCommand", "ResponseCommand", 256), phase5ID("responseRequestId", "ResponseRequestID"), nativeSetupOptionalText("errorCode", "ErrorCode", 64), nativeSetupOptionalText("errorTarget", "ErrorTarget", 128), phase5Nonnegative("exitCode", "ExitCode"), accessBool("changed", "Changed")),
+		phase5Schema("vegastack-labs.dev/native-replacement-recovery-request", phase5Enum("kind", "Kind", "old-host-return", "concurrent-replacement"), phase5ID("replacementId", "ReplacementID"), phase5Digest("bindingDigest", "BindingDigest"), nativeOptionalRef("action", "Action", "host-action-request"), nativeOptionalRef("replacement", "Replacement", "host-replacement-request")),
+		phase5Schema("vegastack-labs.dev/native-replacement-recovery-attempt", phase5Enum("kind", "Kind", "old-host-return", "concurrent-replacement", "interrupted-transition"), discoveryRef("before", "Before", "vegastack-labs.dev/host-replacement-state"), discoveryRef("after", "After", "vegastack-labs.dev/host-replacement-state"), nativeOptionalRef("request", "Request", "native-replacement-recovery-request"), nativeOptionalRef("response", "Response", "native-finite-response"), nativeOptionalRef("competingLookup", "CompetingLookup", "native-finite-response"), nativeWitnessTimestamp("observedAt", "ObservedAt"), nativeSetupOptionalText("beforeBootId", "BeforeBootID", 128), nativeSetupOptionalText("afterBootId", "AfterBootID", 128), nativeOptionalInteger("beforePid", "BeforePID"), nativeOptionalInteger("afterPid", "AfterPID"), nativeSetupOptionalText("beforeStartIdentity", "BeforeStartIdentity", 256), nativeSetupOptionalText("afterStartIdentity", "AfterStartIdentity", 256)),
+		phase5Schema("vegastack-labs.dev/native-replacement-recovery-witness", phase5ID("replacementId", "ReplacementID"), phase5Digest("bindingDigest", "BindingDigest"), accessList("attempts", "Attempts", "vegastack-labs.dev/native-replacement-recovery-attempt", 3)),
+	}
+}

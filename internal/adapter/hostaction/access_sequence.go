@@ -27,17 +27,20 @@ type completedAccess struct {
 
 // NewWithAccess extends the same exact executor; dependencies are explicit and
 // no global transport, result registry or arbitrary result upload is installed.
-func NewWithAccess(targets TargetSource, bundles BundleSource, authority Authority, sequences AccessSequenceSource, probe AccessLocalProbe, recorder ControlResultRecorder) (*Adapter, error) {
+func NewWithAccess(targets TargetSource, bundles BundleSource, authority Authority, sequences AccessSequenceSource, probe AccessLocalProbe, recorder ControlResultRecorder, nativeSelectors ...NativeProbeSelector) (*Adapter, error) {
 	a, err := New(targets, bundles, authority)
 	if err != nil {
 		return nil, err
 	}
-	if sequences == nil || probe == nil || recorder == nil {
+	if sequences == nil || probe == nil || recorder == nil || len(nativeSelectors) > 1 {
 		return nil, denied()
 	}
 	a.sequences = sequences
 	a.probe = probe
 	a.recorder = recorder
+	if len(nativeSelectors) == 1 {
+		a.nativeProbe = nativeSelectors[0]
+	}
 	return a, nil
 }
 func (a *Adapter) executeLocalProbe(ctx context.Context, op adapter.Operation, binding adapter.ExactExecutionBinding, values []*credentialref.Value) (adapter.Effect, error) {

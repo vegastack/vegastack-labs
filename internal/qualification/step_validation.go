@@ -30,7 +30,13 @@ func validateStep(s validatedNativeScope, in generated.NativeStepRequest, now ti
 	if !scopeCurrent(s, now) || deadline.After(expires) || err != nil || !deadline.After(now) || deadline.Sub(now) > time.Duration(s.value.MaximumDurationSeconds)*time.Second || in.ControllerInstanceID != s.value.ControllerInstanceID {
 		return ErrUnavailable
 	}
-	if in.Operation == "collect-native" || in.Operation == "cleanup-native" {
+	if in.Operation == "reboot-native" && !nativeRebootAllowed(s, in) {
+		return ErrUnavailable
+	}
+	if in.Operation == "select-controller" && (in.ScenarioID != "replacement-recovery" || s.guests[in.GuestID].Role != "replacement") {
+		return ErrUnavailable
+	}
+	if in.Operation == "select-controller" || in.Operation == "prepare" || in.Operation == "collect-native" || in.Operation == "cleanup-native" {
 		if in.PlanID != "" || in.PlanDigest != "" || in.RunID != "" || in.StepID != "" || in.LeaseID != "" {
 			return ErrUnavailable
 		}
@@ -50,19 +56,14 @@ func validateStep(s validatedNativeScope, in generated.NativeStepRequest, now ti
 }
 
 // StageScenarios returns a copy of the closed native scenario catalog.
-func StageScenarios(stage string) []string {
-	var out []string
-	for _, scenario := range scenarioCatalog {
-		group := "baseline"
-		switch scenario {
-		case "control-setup", "control-handoff", "role-application", "role-ci", "role-reserve":
-			group = "role"
-		case "replacement-recovery":
-			group = "recovery"
-		}
-		if group == stage {
-			out = append(out, scenario)
-		}
+func StageScenarios(stage string) []string { return generated.NativeQualificationScenarios(stage) }
+
+// Reboot is an outer fixture operation, limited to the two scenarios that need
+// a real boot transition. It never resets an image or changes the launch scope.
+func nativeRebootAllowed(s validatedNativeScope, in generated.NativeStepRequest) bool {
+	g, ok := s.guests[in.GuestID]
+	if !ok {
+		return false
 	}
-	return out
+	return in.ScenarioID == "access-rollback-reboot" && g.Role == "subject" || in.ScenarioID == "replacement-recovery" && (g.Role == "controller" || g.Role == "replacement")
 }

@@ -54,3 +54,35 @@ func TestControlSetupRequiresAllMeasuredAttempts(t *testing.T) {
 		})
 	}
 }
+
+func TestRecoveredSetupUsesOriginalCollectorChannelAndCurrentEpoch(t *testing.T) {
+	// This is the binding made by CollectDraft: the original immutable scope's
+	// instance ID plus the current producer recovery epoch.
+	scope := scopeFixture()
+	b := generated.RestoreBinding{PriorInstanceID: scope.ControllerInstanceID, NewInstanceID: "new-controller", PriorRecoveryEpoch: 0, NextRecoveryEpoch: 1, ReplacementHostID: "replacement-host"}
+	observation := generated.NativeObservationBinding{ControllerInstanceID: scope.ControllerInstanceID, RecoveryEpoch: 1}
+	if !setupRestoreObservationMatches(b, scope.ControllerInstanceID, 0, "replacement-host", 1, observation) {
+		t.Fatal("actual collector binding rejected")
+	}
+	for _, variant := range []string{"new-channel", "old-epoch", "wrong-host", "same-instance", "unrelated-origin"} {
+		t.Run(variant, func(t *testing.T) {
+			bad := b
+			o := observation
+			switch variant {
+			case "new-channel":
+				o.ControllerInstanceID = b.NewInstanceID
+			case "old-epoch":
+				o.RecoveryEpoch = 0
+			case "wrong-host":
+				bad.ReplacementHostID = "outside"
+			case "same-instance":
+				bad.NewInstanceID = bad.PriorInstanceID
+			case "unrelated-origin":
+				bad.PriorInstanceID = "other"
+			}
+			if setupRestoreObservationMatches(bad, scope.ControllerInstanceID, 0, "replacement-host", 1, o) {
+				t.Fatal("unbound recovered setup accepted")
+			}
+		})
+	}
+}

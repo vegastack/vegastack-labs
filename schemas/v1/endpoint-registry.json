@@ -884,6 +884,21 @@
       ]
     },
     {
+      "id": "api.v1.qualification.producer",
+      "method": "POST",
+      "path": "/api/v1/qualification/native/producer",
+      "availability": "available",
+      "ownerPhase": "6",
+      "requestSchema": "vegastack-labs.dev/native-producer-lookup-request",
+      "dataSchema": "vegastack-labs.dev/native-producer-reference",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ],
+      "transportScope": "local",
+      "maxRequestBytes": 8192
+    },
+    {
       "id": "api.v1.recovery-points.list",
       "method": "GET",
       "path": "/api/v1/recovery-points",

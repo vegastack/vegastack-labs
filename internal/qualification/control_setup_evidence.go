@@ -35,7 +35,7 @@ func ValidateControlSetupEvidence(e ProducerExecution, a ControlSetupAuthority, 
 		}
 	} else {
 		b := a.VerifiedRestoreBinding
-		if b.PriorInstanceID != w.InstanceID || b.PriorRecoveryEpoch != w.RecoveryEpoch || b.NewInstanceID != o.Binding.ControllerInstanceID || b.NextRecoveryEpoch != e.Plan.Binding.RecoveryEpoch || b.NextRecoveryEpoch != b.PriorRecoveryEpoch+1 || b.ReplacementHostID != in.HostID {
+		if !setupRestoreObservationMatches(*b, w.InstanceID, w.RecoveryEpoch, in.HostID, e.Plan.Binding.RecoveryEpoch, o.Binding) {
 			return ErrUnavailable
 		}
 	}
@@ -74,4 +74,11 @@ func validateSetupAttempts(w generated.NativeControlSetupWitness, issued, observ
 		return ErrUnavailable
 	}
 	return nil
+}
+
+// Observation channels retain the original scope controller after recovery.
+// The store separately resolves the current authority and verified new instance;
+// changing the channel binding would invalidate the immutable launch scope.
+func setupRestoreObservationMatches(b generated.RestoreBinding, initial string, initialEpoch int64, currentHost string, currentEpoch int64, observation generated.NativeObservationBinding) bool {
+	return b.PriorInstanceID == initial && b.PriorRecoveryEpoch == initialEpoch && b.PriorInstanceID == observation.ControllerInstanceID && b.NewInstanceID != "" && b.NewInstanceID != b.PriorInstanceID && b.NextRecoveryEpoch == currentEpoch && observation.RecoveryEpoch == currentEpoch && b.NextRecoveryEpoch == b.PriorRecoveryEpoch+1 && b.ReplacementHostID == currentHost
 }

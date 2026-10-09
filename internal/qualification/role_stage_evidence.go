@@ -68,14 +68,10 @@ func validateRoleScenarioEvidence(scenario string, executions []ProducerExecutio
 	case "role-application", "role-ci", "role-reserve":
 		return validateRoleInstallMeasurements(scenario, executions)
 	case "replacement-recovery":
-		// A complete restored authority and CAS is necessary, but cannot stand
-		// in for measured old-host/concurrent/interrupted-transition denials.
-		for _, e := range executions {
-			if e.ReplacementRecovery == nil || ValidateReplacementRecoveryEvidence(e, *e.ReplacementRecovery) != nil {
-				return ErrUnavailable
-			}
+		if len(executions) != 1 || executions[0].ReplacementRecovery == nil || observations[0].ReplacementRecovery == nil || ValidateReplacementRecoveryEvidence(executions[0], *executions[0].ReplacementRecovery) != nil {
+			return ErrUnavailable
 		}
-		return ErrUnavailable
+		return validateReplacementRecoveryNegatives(executions[0], *observations[0].ReplacementRecovery, observations[0])
 	}
 	return ErrUnavailable
 }

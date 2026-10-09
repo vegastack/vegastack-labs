@@ -5,12 +5,14 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	protocol "github.com/vegastack/vegastack-labs/internal/hostaction"
-	"github.com/vegastack/vegastack-labs/internal/qualification"
 	"time"
 )
 
 func (a *Adapter) exchange(ctx context.Context, target Target, envelope generated.HostActionEnvelope, digest string, value *credentialref.Value) (generated.HostActionResult, bool, error) {
-	scenario, err := qualification.NativeTransportProbe(ctx, envelope.Bundle)
+	if a.nativeProbe == nil {
+		return a.exchangeOne(ctx, target, envelope, digest, value, nil, nil, nil, "")
+	}
+	scenario, err := a.nativeProbe(ctx, envelope.Bundle)
 	if err != nil {
 		return generated.HostActionResult{}, false, err
 	}

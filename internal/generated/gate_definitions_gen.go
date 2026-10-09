@@ -65,3 +65,15 @@ var GeneratedHostControlRequirements = []HostControlRequirement{
 	{ControlID: "linux.control-service", ProducerID: "linux-role", ProducerControlIDs: []string{"linux.control-service"}, Stage: "role", Roles: []string{"control"}, Applicability: "always"},
 	{ControlID: "linux.reserve-no-workloads", ProducerID: "linux-role", ProducerControlIDs: []string{"linux.reserve-no-workloads"}, Stage: "role", Roles: []string{"recovery-spare", "reserve"}, Applicability: "always"},
 }
+
+func NativeQualificationScenarios(stage string) []string {
+	switch stage {
+	case "baseline":
+		return []string{"baseline-access", "baseline-controls", "access-idempotence", "access-rollback-timeout", "access-rollback-reboot", "action-replay", "action-concurrency", "fail2ban-window", "container-network", "volume-effective-mapping", "volume-recovery-positive", "volume-wrong-key", "volume-wrong-header", "volume-wrong-slot", "volume-wrong-mapping", "volume-revoked-binding", "volume-unchanged-after-verification", "volume-inconsistent-redundant-header", "volume-status-no-original-repair", "volume-sealed-copy-write-refused", "native-credential-lifecycle"}
+	case "role":
+		return []string{"control-setup", "control-handoff", "role-application", "role-ci", "role-reserve"}
+	case "recovery":
+		return []string{"replacement-recovery"}
+	}
+	return nil
+}

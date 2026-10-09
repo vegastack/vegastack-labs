@@ -21,7 +21,7 @@ func (o *Operations) RunNativeQualification(ctx context.Context, in generated.Qu
 	return out, nativeOperationError(err)
 }
 func (o *Operations) ExecuteQualificationStep(ctx context.Context, path string, in generated.NativeStepRequest) (generated.NativeStepResult, error) {
-	_, p, e := o.controlClient(ctx, path)
+	p, e := qualification.LoadStepClientProfile(ctx, path, in)
 	if e != nil {
 		return generated.NativeStepResult{}, e
 	}

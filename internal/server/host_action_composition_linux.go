@@ -14,6 +14,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
 	"github.com/vegastack/vegastack-labs/internal/debianaccess"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
+	"github.com/vegastack/vegastack-labs/internal/qualification"
 	"github.com/vegastack/vegastack-labs/internal/serverconfig"
 	"github.com/vegastack/vegastack-labs/internal/store"
 )
@@ -33,8 +34,11 @@ func composeHostActions(ctx context.Context, p serverconfig.Profile, databasePat
 		return noop, err
 	}
 	composition := hostAccessComposition{store: s, hosts: repository, gates: gates, allowed: slices.Clone(p.HostActionIdentityDigests)}
-	impl, err := transport.NewWithAccess(hostActionTargets{repository: repository, allowed: slices.Clone(p.HostActionIdentityDigests)}, &HostActionBundleIssuer{Repository: repository, Signer: signer, Clock: time.Now}, authority, composition, debianaccess.NewLocalProbe(debianaccess.LocalProbeRuntime{Sources: debianaccess.NewNativeSourceResolver()}), composition)
+	impl, err := transport.NewWithAccess(hostActionTargets{repository: repository, allowed: slices.Clone(p.HostActionIdentityDigests)}, &HostActionBundleIssuer{Repository: repository, Signer: signer, Clock: time.Now}, authority, composition, debianaccess.NewLocalProbe(debianaccess.LocalProbeRuntime{Sources: debianaccess.NewNativeSourceResolver()}), composition, qualification.NativeTransportProbe)
 	if err != nil {
+		return noop, err
+	}
+	if err = composeRecoveryTransfer(impl, s, databasePath, p.SocketOwnerUID, gates); err != nil {
 		return noop, err
 	}
 	references := store.NewCredentialRepository(s)

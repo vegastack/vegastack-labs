@@ -12,13 +12,8 @@ import (
 	"time"
 )
 
-func (d *ownedGuestLifecycle) serveObserver(ctx context.Context) error {
-	controller := ""
-	for id, g := range d.scope.guests {
-		if g.Role == "controller" {
-			controller = id
-		}
-	}
+func (d *ownedGuestLifecycle) serveObserver(ctx context.Context, seen map[string]bool) error {
+	controller := d.activeController
 	if d.checkProcess(controller) != nil {
 		return ErrUnavailable
 	}
@@ -31,7 +26,6 @@ func (d *ownedGuestLifecycle) serveObserver(ctx context.Context) error {
 	defer stop()
 	scanner := bufio.NewScanner(io.LimitReader(conn, 4*1024*1024))
 	scanner.Buffer(make([]byte, 1024), 16384)
-	seen := map[string]bool{}
 	for scanner.Scan() {
 		var b generated.NativeObservationBinding
 		raw := scanner.Bytes()
@@ -79,4 +73,12 @@ func (d *ownedGuestLifecycle) serveObserver(ctx context.Context) error {
 		return ctx.Err()
 	}
 	return ErrUnavailable
+}
+
+// Caller stops and joins the current observer before starting another. The
+// nonce set survives a controller reboot within this one scoped process.
+func (d *ownedGuestLifecycle) startNativeObserver(ctx context.Context, results chan<- error, seen map[string]bool) context.CancelFunc {
+	observerContext, cancel := context.WithCancel(ctx)
+	go func() { results <- d.serveObserver(observerContext, seen) }()
+	return cancel
 }

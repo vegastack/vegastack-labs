@@ -1427,6 +1427,17 @@ export interface ManagedHost {
   readonly "recoveryEpoch": number;
 }
 
+export interface NativeControllerIdentity {
+  readonly "schema": "vegastack-labs.dev/native-controller-identity";
+  readonly "schemaVersion": "1.0.0";
+  readonly "hostId": string;
+  readonly "hostIdentityDigest": string;
+  readonly "hostMachineId": string;
+  readonly "controllerInstanceId": string;
+  readonly "scopeDigest": string;
+  readonly "executableDigest": string;
+}
+
 export interface NativeProducerReference {
   readonly "schema": "vegastack-labs.dev/native-producer-reference";
   readonly "schemaVersion": "1.0.0";
@@ -1442,6 +1453,7 @@ export interface NativeProducerReference {
 export interface NativeQualification {
   readonly "schema": "vegastack-labs.dev/native-qualification";
   readonly "schemaVersion": "1.0.0";
+  readonly "controllerIdentity"?: NativeControllerIdentity | null;
   readonly "prerequisites"?: ReadonlyArray<NativeQualificationPrerequisite>;
   readonly "stage": "baseline" | "role" | "recovery";
   readonly "scopeDigest": string;
@@ -10378,6 +10390,71 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/native-controller-identity",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/native-controller-identity"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "hostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "hostIdentityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "hostMachineId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9a-f]{32}$"
+      },
+      {
+        "name": "controllerInstanceId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "scopeDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "executableDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/native-producer-reference",
     "fields": [
       {
@@ -10497,6 +10574,14 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "enum": [
           "1.0.0"
         ]
+      },
+      {
+        "name": "controllerIdentity",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "omitEmpty": true,
+        "ref": "vegastack-labs.dev/native-controller-identity"
       },
       {
         "name": "prerequisites",
@@ -12528,6 +12613,10 @@ function decodeLinuxRoleResources(value: unknown): LinuxRoleResources {
 
 function decodeManagedHost(value: unknown): ManagedHost {
   return decodeSchema("vegastack-labs.dev/managed-host", value) as unknown as ManagedHost;
+}
+
+function decodeNativeControllerIdentity(value: unknown): NativeControllerIdentity {
+  return decodeSchema("vegastack-labs.dev/native-controller-identity", value) as unknown as NativeControllerIdentity;
 }
 
 function decodeNativeProducerReference(value: unknown): NativeProducerReference {

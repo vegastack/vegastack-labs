@@ -20,7 +20,7 @@ func ValidateNativeReport(report generated.NativeReport) error {
 	}
 	seen := map[string]bool{}
 	for _, s := range report.Scenarios {
-		if !knownScenario(s.ScenarioID) || seen[s.ScenarioID] || s.Status != "passed" || s.QualificationClass != "native" || s.ExecutableDigest != report.ExecutableDigest || s.ProfileLockDigest != report.ProfileLockDigest || s.ArtifactDigest == "" || s.BeforeStateDigest == "" || s.AfterStateDigest == "" || len(s.PositiveObservationDigests) == 0 || len(s.NegativeObservationDigests) == 0 || len(s.ProducerRunIDs) == 0 || len(s.ProducerReceiptDigests) == 0 || len(s.NativeObservationDigests) == 0 || (s.RecoveryResult != "passed" && s.RecoveryResult != "not-required") || s.CleanupResult != "passed" {
+		if !knownScenario(s.ScenarioID) || seen[s.ScenarioID] || s.Status != "passed" || s.QualificationClass != "native" || s.ExecutableDigest != report.ExecutableDigest || s.ProfileLockDigest != report.ProfileLockDigest || s.ArtifactDigest == "" || (s.BeforeStateDigest == "") != (s.AfterStateDigest == "") || (ScenarioRequiresStatePair(s.ScenarioID) && s.BeforeStateDigest == "") || len(s.PositiveObservationDigests) == 0 || len(s.NegativeObservationDigests) == 0 || len(s.ProducerRunIDs) == 0 || len(s.ProducerReceiptDigests) == 0 || len(s.NativeObservationDigests) == 0 || (s.RecoveryResult != "passed" && s.RecoveryResult != "not-required") || s.CleanupResult != "passed" {
 			return ErrUnavailable
 		}
 		a, e := time.Parse(time.RFC3339, s.StartedAt)

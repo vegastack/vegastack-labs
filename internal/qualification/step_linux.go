@@ -7,13 +7,10 @@ import (
 	"encoding/json"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
-	"github.com/vegastack/vegastack-labs/internal/localapi"
-	"github.com/vegastack/vegastack-labs/internal/result"
 	"github.com/vegastack/vegastack-labs/internal/serverconfig"
 )
 
@@ -34,14 +31,18 @@ func ExecuteStep(ctx context.Context, profile serverconfig.Profile, in generated
 		return out, ErrUnavailable
 	}
 	localGuest := in.GuestID
-	if in.Operation != "witness" {
+	if in.Operation != "witness" && in.Operation != "select-controller" {
+		localGuest = ""
 		for id, g := range scope.guests {
-			if g.Role == "controller" {
+			if (g.Role == "controller" || g.Role == "replacement") && verifyLocalGuest(g) == nil {
+				if localGuest != "" {
+					return out, ErrUnavailable
+				}
 				localGuest = id
 			}
 		}
 	}
-	if verifyLocalGuest(scope.guests[localGuest]) != nil {
+	if localGuest == "" || verifyLocalGuest(scope.guests[localGuest]) != nil {
 		return out, ErrUnavailable
 	}
 	executable, err := fileDigest("/proc/self/exe", 256*1024*1024)
@@ -57,77 +58,27 @@ func ExecuteStep(ctx context.Context, profile serverconfig.Profile, in generated
 	deadline, _ := time.Parse(time.RFC3339, in.Deadline)
 	ctx, cancel := context.WithDeadline(ctx, deadline)
 	defer cancel()
-	if in.Operation == "witness" {
+	if in.Operation == "witness" || in.Operation == "select-controller" {
 		return executeWitness(ctx, scope, in, out)
 	}
 	if in.Operation == "cleanup-native" {
 		return out, ErrUnavailable
 	}
-	revision := scope.value.SourceCommit
-	client := localapi.NewClient(result.NewFactory(result.BuildInfo{ToolVersion: "native-qualification", ReleaseBuildID: scope.value.ExecutableDigest, SourceRevision: &revision}, func() (string, error) { return strings.TrimPrefix(in.Nonce, "sha256:"), nil }))
+	if in.Operation == "prepare" {
+		return executePreparation(ctx, scope, in, out)
+	}
+	packet := nativeAPIPacket{Step: in, Kind: in.Operation}
 	if in.Operation == "collect-native" {
 		raw, e := ownedFile(filepath.Join("/run/vsk-labs-native", in.ScenarioID+"-"+strconv.FormatInt(in.Ordinal, 10)+".collect.json"), 0, 32768)
 		var request generated.NativeCollectRequest
-		if e != nil || generated.ValidateContractJSON(generated.SchemaIDNativeCollectRequest, raw, generated.ContractExact) != nil || json.Unmarshal(raw, &request) != nil || request.ScopeDigest != scope.digest || request.ProfileID != scope.value.ProfileID || request.RecoveryEpoch != in.RecoveryEpoch {
+		if e != nil || !exactFixtureDecode(raw, generated.SchemaIDNativeCollectRequest, &request) {
 			return out, ErrUnavailable
 		}
-		allowed := map[string]bool{}
-		for _, scenario := range StageScenarios(request.Stage) {
-			allowed[scenario] = true
-		}
-		if !allowed[in.ScenarioID] {
-			return out, ErrUnavailable
-		}
-		for _, producer := range request.Producers {
-			if !allowed[producer.ScenarioID] {
-				return out, ErrUnavailable
-			}
-		}
-		response, e := client.CollectNativeQualification(ctx, profile, request)
-		if e != nil {
-			return out, e
-		}
-		if response.ExitCode != 0 {
-			return out, ErrUnavailable
-		}
-		out.Changed = response.Result.Changed
-		out.Collection = &response.Data
-		out.Status = "completed"
-		return out, nil
+		packet.Collection = &request
 	}
-	if in.Operation == "execute" {
-		response, err := client.ApplyBound(ctx, profile, generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: in.PlanID, PlanDigest: in.PlanDigest, RecoveryEpoch: in.RecoveryEpoch, IdempotencyKey: strings.TrimPrefix(in.Nonce, "sha256:"), Extensions: []generated.ContractExtension{}})
-		if err != nil {
-			return out, err
-		}
-		if response.ExitCode != 0 {
-			return out, ErrUnavailable
-		}
-		out.Changed = response.Result.Changed
-		out.ProducerRunIDs = []string{response.Data.Run.RunID}
-		out.Status = "awaiting-fixture"
-		return out, nil
+	reply, e := callNativeAPI(ctx, scope, packet)
+	if e != nil {
+		return out, e
 	}
-	response, err := client.InspectRun(ctx, profile, in.RunID)
-	if err != nil {
-		return out, err
-	}
-	run := response.Data.Run
-	if response.ExitCode != 0 || run.RunID != in.RunID || run.PlanID != in.PlanID || run.PlanDigest != in.PlanDigest || run.RecoveryEpoch != in.RecoveryEpoch {
-		return out, ErrUnavailable
-	}
-	found := false
-	for _, step := range run.Steps {
-		if step.StepID == in.StepID {
-			found = true
-		}
-	}
-	if !found {
-		return out, ErrUnavailable
-	}
-	out.ProducerRunIDs = []string{run.RunID}
-	// The collector independently joins the actual execution lease and receipts.
-	// A public run projection cannot establish either one.
-	out.Status = "awaiting-fixture"
-	return out, nil
+	return reply.Result, nil
 }

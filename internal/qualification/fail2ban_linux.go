@@ -69,12 +69,12 @@ func ObserveNativeFail2ban(ctx context.Context) (NativeFail2banState, error) {
 	return out, nil
 }
 func ObserveNativeSSHFailures(ctx context.Context, scope generated.QualificationScope, in NativeFail2banInput) (NativeSSHObservation, error) {
-	return observeNativeSSH(ctx, scope, in, false)
+	return observeNativeSSH(ctx, scope, in, "")
 }
 func ObserveNativeSSHAdmin(ctx context.Context, scope generated.QualificationScope, in NativeFail2banInput) (NativeSSHObservation, error) {
-	return observeNativeSSH(ctx, scope, in, true)
+	return observeNativeSSH(ctx, scope, in, "admin.key")
 }
-func observeNativeSSH(ctx context.Context, scope generated.QualificationScope, in NativeFail2banInput, admin bool) (NativeSSHObservation, error) {
+func observeNativeSSH(ctx context.Context, scope generated.QualificationScope, in NativeFail2banInput, keyName string) (NativeSSHObservation, error) {
 	out := NativeSSHObservation{Outcomes: []string{}}
 	s, err := validateScope(scope)
 	if err != nil || !scopeCurrent(s, time.Now().UTC()) || os.Geteuid() != 0 || hostdiscovery.ValidateTarget(in.Target) != nil || in.Source.Kind != "host-network" || in.Target.Address != in.Destination.Address || in.Target.Port != in.Destination.Port || in.Destination.Port != 22 || in.Source.HostID == in.Destination.HostID {
@@ -112,9 +112,12 @@ func observeNativeSSH(ctx context.Context, scope generated.QualificationScope, i
 	out.InputDigest = hostaction.Digest(generated.NativeFail2banInput{Schema: generated.SchemaIDNativeFail2banInput, SchemaVersion: "1.0.0", Target: in.Target, Source: in.Source, Destination: in.Destination})
 	var key []byte
 	kind, count := "ssh-invalid-key", 5
-	if admin {
+	if keyName != "" {
+		if keyName != "admin.key" && keyName != "previous-ssh.key" && keyName != "current-ssh.key" {
+			return out, ErrUnavailable
+		}
 		kind, count = "ssh-key", 1
-		key, e = ownedFile("/etc/vsk-labs/native/admin.key", 0, 16384)
+		key, e = ownedFile("/etc/vsk-labs/native/"+keyName, 0, 16384)
 		if e != nil {
 			return out, e
 		}

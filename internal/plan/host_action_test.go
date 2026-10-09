@@ -45,3 +45,13 @@ func TestHostActionCredentialPlanNamesBothMachinesAndRestartUnit(t *testing.T) {
 		t.Fatal("restart unit omitted from immutable plan")
 	}
 }
+
+func TestRecoveryReceiveReadablePlanDisclosesSourceSuspension(t *testing.T) {
+	p := generated.Plan{HostAction: &generated.HostActionRequest{ActionID: "debian.control.recovery-receive"}}
+	text := readablePlan(p)
+	for _, want := range []string{"suspends the former controller's mutation authority", "receiver remains recovery-required", "separately approved replacement commit"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("missing transfer effect %q", want)
+		}
+	}
+}

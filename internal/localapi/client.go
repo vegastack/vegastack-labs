@@ -66,6 +66,8 @@ type TypedResponse[T any] struct {
 
 type Client interface {
 	DraftAuthorizationGrants(context.Context, serverconfig.Profile, generated.AuthorizationGrantBatchRequest) (TypedResponse[generated.DeclarationRevision], error)
+	RequestPlanApproval(context.Context, serverconfig.Profile, generated.PlanReferenceRequest) (TypedResponse[generated.ApprovalStatus], error)
+	GetPlanApproval(context.Context, serverconfig.Profile, string) (TypedResponse[generated.ApprovalStatus], error)
 	PrepareHostTarget(context.Context, serverconfig.Profile, generated.HostDiscoveryTargetDraftRequest) (TypedResponse[generated.HostDiscoveryTargetDraftSubmission], error)
 	ApplyBound(context.Context, serverconfig.Profile, generated.PlanReferenceRequest) (TypedResponse[generated.RunPresentation], error)
 	InspectQualification(context.Context, serverconfig.Profile, generated.QualificationInspectRequest) (TypedResponse[generated.QualificationInspectData], error)
@@ -114,6 +116,8 @@ type Client interface {
 	ImportInventory(context.Context, serverconfig.Profile, generated.InventoryImportRequest) (TypedResponse[generated.InventoryImportData], error)
 	DiffInventory(context.Context, serverconfig.Profile, generated.InventoryDiffRequest) (TypedResponse[generated.InventoryDiffData], error)
 	ExportInventory(context.Context, serverconfig.Profile, generated.InventoryExportRequest) (TypedResponse[generated.InventoryExportData], error)
+	LookupNativeProducerReference(context.Context, serverconfig.Profile, generated.NativeProducerLookupRequest) (TypedResponse[generated.NativeProducerReference], error)
+	GetPlan(context.Context, serverconfig.Profile, string) (TypedResponse[generated.Plan], error)
 	Plan(context.Context, serverconfig.Profile, string, int64) (TypedResponse[generated.Plan], error)
 	Apply(context.Context, serverconfig.Profile, string) (TypedResponse[generated.RunPresentation], error)
 	InspectRun(context.Context, serverconfig.Profile, string) (TypedResponse[generated.RunPresentation], error)
@@ -250,6 +254,10 @@ func (client *client) mutateRun(ctx context.Context, profile serverconfig.Profil
 		return inspected, nil
 	}
 	return TypedResponse[generated.RunPresentation]{}, NewUncertainRunError(runID, err)
+}
+
+func (client *client) GetPlan(ctx context.Context, profile serverconfig.Profile, planID string) (TypedResponse[generated.Plan], error) {
+	return client.getPlan(ctx, profile, planID)
 }
 
 func (client *client) getPlan(ctx context.Context, profile serverconfig.Profile, planID string) (TypedResponse[generated.Plan], error) {

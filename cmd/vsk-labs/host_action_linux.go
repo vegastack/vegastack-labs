@@ -9,12 +9,26 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/debianbaseline"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"github.com/vegastack/vegastack-labs/internal/linuxrole"
+	"github.com/vegastack/vegastack-labs/internal/qualification"
+	"github.com/vegastack/vegastack-labs/internal/server"
 	"os"
 	"strconv"
 	"time"
 )
 
 func runHostActionOnce(ctx context.Context, args []string) (bool, int) {
+	if len(args) == 1 && args[0] == qualification.NativeAPIMode {
+		if qualification.RunNativeAPIOnce(ctx, os.Stdin, os.Stdout) != nil {
+			return true, 1
+		}
+		return true, 0
+	}
+	if len(args) == 1 && args[0] == server.RecoveryReceiveMode {
+		if server.RunRecoveryReceiveOnce(ctx, toolVersion, os.Stdout) != nil {
+			return true, 1
+		}
+		return true, 0
+	}
 	if len(args) == 2 && args[0] == linuxrole.BoundaryProbeMode {
 		pid, e := strconv.ParseInt(args[1], 10, 32)
 		if e != nil || linuxrole.RunBoundaryProbe(pid, os.Stdout) != nil {
@@ -53,13 +67,13 @@ func runHostActionOnce(ctx context.Context, args []string) (bool, int) {
 		return true, 1
 	}
 	defer receipts.Close()
-	if hostaction.RunOnce(ctx, os.Stdin, os.Stdout, policy, receipts, nativeHostDispatcher{access: debianaccess.NewDispatcher(debianaccess.NewNativeRuntime(toolVersion)), baseline: debianbaseline.NewDispatcher(debianbaseline.NewNativeRuntime(toolVersion)), role: linuxrole.NewDispatcher(linuxrole.NewNativeRuntime(toolVersion))}, time.Now, rand.Reader) != nil {
+	if hostaction.RunOnce(ctx, os.Stdin, os.Stdout, policy, receipts, nativeHostDispatcher{access: debianaccess.NewDispatcher(debianaccess.NewNativeRuntime(toolVersion)), baseline: debianbaseline.NewDispatcher(debianbaseline.NewNativeRuntime(toolVersion)), role: linuxrole.NewDispatcher(linuxrole.NewNativeRuntime(toolVersion)), recovery: server.RecoveryReceiveDispatcher(toolVersion)}, time.Now, rand.Reader) != nil {
 		return true, 1
 	}
 	return true, 0
 }
 
-type nativeHostDispatcher struct{ access, baseline, role hostaction.Dispatcher }
+type nativeHostDispatcher struct{ access, baseline, role, recovery hostaction.Dispatcher }
 
 func (d nativeHostDispatcher) Lookup(id, version string) (hostaction.Handler, bool) {
 	if h, ok := d.access.Lookup(id, version); ok {
@@ -67,6 +81,11 @@ func (d nativeHostDispatcher) Lookup(id, version string) (hostaction.Handler, bo
 	}
 	if h, ok := d.baseline.Lookup(id, version); ok {
 		return h, true
+	}
+	if d.recovery != nil {
+		if h, ok := d.recovery.Lookup(id, version); ok {
+			return h, true
+		}
 	}
 	if d.role != nil {
 		return d.role.Lookup(id, version)

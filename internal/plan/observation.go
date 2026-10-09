@@ -30,6 +30,12 @@ func (reader *StateObservationReader) CurrentFingerprint(ctx context.Context, de
 	if _, err := reader.revisions.CurrentRevision(ctx); err != nil {
 		return "", err
 	}
+	return declarationObservationFingerprint(declarationID, operations)
+}
+
+// declarationObservationFingerprint is shared by ordinary and restore plans.
+// Restore source verification stays sealed in the exact operation input digest.
+func declarationObservationFingerprint(declarationID string, operations []generated.DeclarationOperation) (string, error) {
 	ordered := append([]generated.DeclarationOperation(nil), operations...)
 	sort.Slice(ordered, func(i, j int) bool { return ordered[i].Sequence < ordered[j].Sequence })
 	value := struct {

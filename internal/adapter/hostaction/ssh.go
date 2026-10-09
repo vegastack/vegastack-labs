@@ -161,7 +161,15 @@ func (a *Adapter) exchangeOne(ctx context.Context, target Target, envelope gener
 		}
 	}
 	// From the first authorization byte onward the remote action may have started.
-	if protocol.WriteFrame(input, authorization, protocol.MaximumFrame) != nil || input.Close() != nil {
+	if protocol.WriteFrame(input, authorization, protocol.MaximumFrame) != nil {
+		return fail(true)
+	}
+	if envelope.Bundle.ActionID == protocol.RecoveryReceiveAction {
+		if err = a.writeRecoveryPayload(ctx, input, envelope.Bundle); err != nil {
+			return fail(true)
+		}
+	}
+	if input.Close() != nil {
 		return fail(true)
 	}
 	raw, err = protocol.ReadFrame(reader, protocol.MaximumResultFrame)

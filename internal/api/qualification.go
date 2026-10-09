@@ -18,8 +18,9 @@ import (
 // The constructor installs the concrete protected producer. HTTP input cannot
 // supply an observer, observations, a report, or evidence classification.
 type QualificationService interface {
+	LookupNativeProducerReference(context.Context, generated.NativeProducerLookupRequest) (generated.NativeProducerReference, error)
 	Inspect(context.Context, generated.QualificationInspectRequest) (generated.QualificationInspectData, error)
-	CollectDraft(context.Context, generated.NativeCollectRequest, audit.Attribution) (store.GateDraft, error)
+	CollectDraft(context.Context, generated.NativeCollectRequest, audit.Attribution) (store.GateDraft, []generated.ScenarioResult, error)
 }
 type QualificationOperations struct {
 	Service      QualificationService
@@ -32,9 +33,9 @@ func RegisterQualificationOperations(app *Application, c QualificationOperations
 	if app == nil || c.Service == nil || c.Revisions == nil || c.Declarations == nil || c.Results == nil || c.Results != app.config.Results {
 		return apiFailure(generated.ErrorCodeInputInvalid, "qualification-config")
 	}
-	app.routes = append(app.routes, route{id: "api.v1.qualification.inspect", method: http.MethodPost, pattern: "/api/v1/qualification/inspect", deferredAuthorization: true, handler: app.qualificationInspect(c)}, route{id: "api.v1.qualification.collect", method: http.MethodPost, pattern: "/api/v1/qualification/collect", deferredAuthorization: true, handler: app.qualificationCollect(c)})
+	app.routes = append(app.routes, route{id: "api.v1.qualification.producer", method: http.MethodPost, pattern: "/api/v1/qualification/native/producer", deferredAuthorization: true, handler: app.qualificationProducer(c)}, route{id: "api.v1.qualification.inspect", method: http.MethodPost, pattern: "/api/v1/qualification/inspect", deferredAuthorization: true, handler: app.qualificationInspect(c)}, route{id: "api.v1.qualification.collect", method: http.MethodPost, pattern: "/api/v1/qualification/collect", deferredAuthorization: true, handler: app.qualificationCollect(c)})
 	if !routesAreGeneratedSubset(app.routes) {
-		app.routes = app.routes[:len(app.routes)-2]
+		app.routes = app.routes[:len(app.routes)-3]
 		return apiFailure(generated.ErrorCodeIntegrityFailure, "endpoint-registry")
 	}
 	return nil
@@ -109,7 +110,7 @@ func (app *Application) qualificationCollect(c QualificationOperations) func(htt
 			app.failure(w, op, err)
 			return
 		}
-		draft, err := c.Service.CollectDraft(r.Context(), in, attribution)
+		draft, scenarios, err := c.Service.CollectDraft(r.Context(), in, attribution)
 		if err != nil {
 			app.operationFailure(w, op, requestID, err)
 			return
@@ -134,7 +135,7 @@ func (app *Application) qualificationCollect(c QualificationOperations) func(htt
 			return
 		}
 		submission := generated.GateEvidenceSubmission{Schema: generated.SchemaIDGateEvidenceSubmission, SchemaVersion: "1.1.0", DraftID: draft.DraftID, ChangeID: revised.Document.DeclarationID, EvidenceID: in.EvidenceID, Status: "draft", StateRevision: revised.Document.StateRevision, RecoveryEpoch: revised.Document.RecoveryEpoch}
-		out := generated.NativeCollectData{Schema: generated.SchemaIDNativeCollectData, SchemaVersion: "1.0.0", Submission: submission, RequestDigest: hostaction.Digest(in)}
+		out := generated.NativeCollectData{Schema: generated.SchemaIDNativeCollectData, SchemaVersion: "1.0.0", Submission: submission, RequestDigest: hostaction.Digest(in), BundleDigest: draft.BundleDigest, Scenarios: scenarios}
 		app.operationSuccess(w, op, requestID, true, submission.StateRevision, submission.RecoveryEpoch, out)
 	}
 }

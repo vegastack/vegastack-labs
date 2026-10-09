@@ -7,7 +7,6 @@ import (
 
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
-	"github.com/vegastack/vegastack-labs/internal/qualification"
 	"github.com/vegastack/vegastack-labs/internal/store"
 )
 
@@ -36,10 +35,10 @@ func (v nativeHostProvenance) VerifyHostEvidence(s store.HostAdmissionSnapshot, 
 	if q == nil || !exists || !validHostJSON(generated.SchemaIDNativeQualification, *q) || !validHostJSON(generated.SchemaIDGateEvidence, e) || !validHostJSON(generated.SchemaIDGateEvidenceBundle, b) {
 		return deny()
 	}
-	if e.GateID != "native."+q.Stage || len(qualification.StageScenarios(q.Stage)) == 0 || e.Status != "applied" || e.SourceKind != "local" || e.ProofClass != "live" || e.CollectorID != "native-debian-228" || b.CollectorID != e.CollectorID || e.SubjectID != q.ProfileID || e.DefinitionVersion != "1.0.0" || e.EvaluatorVersion != "1.0.0" {
+	if e.GateID != "native."+q.Stage || len(generated.NativeQualificationScenarios(q.Stage)) == 0 || e.Status != "applied" || e.SourceKind != "local" || e.ProofClass != "live" || e.CollectorID != "native-debian-228" || b.CollectorID != e.CollectorID || e.SubjectID != q.ProfileID || e.DefinitionVersion != "1.0.0" || e.EvaluatorVersion != "1.0.0" {
 		return deny()
 	}
-	if q.SourceCommit != v.source || q.ExecutableDigest != v.executable || q.SourceDigest != qualification.SourceDigest(generated.QualificationScope{SourceCommit: v.source, ExecutableDigest: v.executable}) || q.ProfileLockDigest != s.ProfileLockDigest || q.ControllerInstanceID != joined.CurrentControllerInstanceID || q.RecoveryEpoch != s.Revision.RecoveryEpoch || e.RecoveryEpoch != q.RecoveryEpoch || q.ObservedAt != e.ObservedAt || q.ExpiresAt != e.ExpiresAt || b.ObservedAt != e.ObservedAt || !hostEvidenceTime(e, v.clock().UTC()) {
+	if q.SourceCommit != v.source || q.ExecutableDigest != v.executable || q.SourceDigest != nativeSourceDigest(v.source, v.executable) || q.ProfileLockDigest != s.ProfileLockDigest || q.ControllerInstanceID != joined.CurrentControllerInstanceID || q.RecoveryEpoch != s.Revision.RecoveryEpoch || e.RecoveryEpoch != q.RecoveryEpoch || q.ObservedAt != e.ObservedAt || q.ExpiresAt != e.ExpiresAt || b.ObservedAt != e.ObservedAt || !hostEvidenceTime(e, v.clock().UTC()) {
 		return deny()
 	}
 	requiredStages := []string{}
@@ -72,10 +71,17 @@ func (v nativeHostProvenance) VerifyHostEvidence(s store.HostAdmissionSnapshot, 
 		}
 		seen[x.Reference.ScenarioID] = true
 	}
-	for _, id := range qualification.StageScenarios(q.Stage) {
+	for _, id := range generated.NativeQualificationScenarios(q.Stage) {
 		if !seen[id] {
 			return deny()
 		}
 	}
 	return store.HostEvidenceProvenance{Qualification: &store.HostNativeQualification{Stage: q.Stage, ProfileDigest: q.ProfileLockDigest, EvidenceID: e.EvidenceID, SourceDigest: q.SourceDigest, ObservedAt: q.ObservedAt, ExpiresAt: q.ExpiresAt, RecoveryEpoch: q.RecoveryEpoch}}, nil
+}
+
+func nativeSourceDigest(source, executable string) string {
+	return hostaction.Digest(struct {
+		SourceCommit     string `json:"sourceCommit"`
+		ExecutableDigest string `json:"executableDigest"`
+	}{source, executable})
 }

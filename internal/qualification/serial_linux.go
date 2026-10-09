@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"github.com/vegastack/vegastack-labs/internal/hostadoption"
 	"golang.org/x/sys/unix"
 	"io"
 	"net"
@@ -79,7 +80,7 @@ func (d *ownedGuestLifecycle) consoleBootID(ctx context.Context, id string) (str
 	marker := "VSKBOOT" + hex.EncodeToString(nonce)
 	// The fixed command contains only a cryptographically generated hex marker.
 	// A login prompt, echoed command, stale console text or malformed UUID fails.
-	command := "\x15printf '\\n" + marker + "\\n'; /usr/bin/cat /proc/sys/kernel/random/boot_id; printf '" + marker + "END\\n'\n"
+	command := "\x15printf '\\n" + marker + "\\n'; /usr/bin/cat /proc/sys/kernel/random/boot_id /sys/class/dmi/id/product_serial /etc/machine-id; printf '" + marker + "END\\n'\n"
 	if _, err = io.WriteString(conn, command); err != nil {
 		return "", err
 	}
@@ -87,6 +88,7 @@ func (d *ownedGuestLifecycle) consoleBootID(ctx context.Context, id string) (str
 	scanner.Buffer(make([]byte, 1024), 4096)
 	started := false
 	boot := ""
+	serial, machine := "", ""
 	count := 0
 	for scanner.Scan() {
 		count += len(scanner.Bytes()) + 1
@@ -105,6 +107,21 @@ func (d *ownedGuestLifecycle) consoleBootID(ctx context.Context, id string) (str
 				return "", ErrUnavailable
 			}
 			boot = line
+			continue
+		}
+		guest := d.scope.guests[id]
+		if serial == "" {
+			if line != guest.InstanceID || hostadoption.IdentityDigest("product-serial", line) != guest.HostIdentityDigest {
+				return "", ErrUnavailable
+			}
+			serial = line
+			continue
+		}
+		if machine == "" {
+			if !nativeMachineID(line) || line != guest.MachineID {
+				return "", ErrUnavailable
+			}
+			machine = line
 			continue
 		}
 		if line == marker+"END" {

@@ -19,14 +19,18 @@ import (
 )
 
 type ownedGuestLifecycle struct {
-	scope         validatedNativeScope
-	mu            sync.Mutex
-	launches      map[string]generated.NativeGuestLaunch
-	bootIDs       map[string]string
-	bootAt        map[string]time.Time
-	diskInfo      map[string]os.FileInfo
-	variablesInfo map[string]os.FileInfo
-	witnesses     map[string]*nativeWitnessMemory
+	activeController    string
+	recoveredController *generated.NativeControllerIdentity
+	recoveredBinding    *generated.RestoreBinding
+	replacement         *nativeReplacementMemory
+	scope               validatedNativeScope
+	mu                  sync.Mutex
+	launches            map[string]generated.NativeGuestLaunch
+	bootIDs             map[string]string
+	bootAt              map[string]time.Time
+	diskInfo            map[string]os.FileInfo
+	variablesInfo       map[string]os.FileInfo
+	witnesses           map[string]*nativeWitnessMemory
 }
 
 // QEMUArguments is the finite launch template shared with the private
@@ -74,6 +78,30 @@ func QEMUArguments(scope generated.QualificationScope, id string) ([]string, err
 		}
 		args = append(args, "-netdev", "socket,id=denied,udp=127.0.0.1:"+strconv.Itoa(peerPort)+",localaddr=127.0.0.1:"+strconv.Itoa(localPort), "-device", "virtio-net-pci,netdev=denied,mac=52:54:00:28:02:"+last)
 	}
+	// The recovered controller must reach the subject and custodian directly
+	// while the former controller is fenced. These are still finite UDP peers
+	// on container loopback, with no bridge, router or external network backend.
+	for _, pair := range []struct {
+		role, id, mac string
+		port          int
+	}{
+		{"subject", "recovery-subject", "05", 19285},
+		{"custodian", "recovery-custodian", "06", 19286},
+	} {
+		replacementPresent, peerPresent := false, false
+		for _, guest := range s.guests {
+			replacementPresent = replacementPresent || guest.Role == "replacement"
+			peerPresent = peerPresent || guest.Role == pair.role
+		}
+		if !replacementPresent || !peerPresent || (g.Role != "replacement" && g.Role != pair.role) {
+			continue
+		}
+		local, remote, last := pair.port, pair.port+100, "01"
+		if g.Role == pair.role {
+			local, remote, last = remote, local, "02"
+		}
+		args = append(args, "-netdev", "socket,id="+pair.id+",udp=127.0.0.1:"+strconv.Itoa(remote)+",localaddr=127.0.0.1:"+strconv.Itoa(local), "-device", "virtio-net-pci,netdev="+pair.id+",mac=52:54:00:28:"+pair.mac+":"+last)
+	}
 	return args, nil
 }
 func newOwnedGuestLifecycle(ctx context.Context, scope validatedNativeScope) (*ownedGuestLifecycle, error) {
@@ -82,6 +110,9 @@ func newOwnedGuestLifecycle(ctx context.Context, scope validatedNativeScope) (*o
 	}
 	d := &ownedGuestLifecycle{scope: scope, launches: map[string]generated.NativeGuestLaunch{}, bootIDs: map[string]string{}, bootAt: map[string]time.Time{}, diskInfo: map[string]os.FileInfo{}, variablesInfo: map[string]os.FileInfo{}, witnesses: map[string]*nativeWitnessMemory{}}
 	for id, g := range scope.guests {
+		if g.Role == "controller" {
+			d.activeController = id
+		}
 		if _, e := os.Lstat(filepath.Join(scope.value.OutputRoot, id+".reset-pending.json")); !os.IsNotExist(e) {
 			return nil, ErrUnavailable
 		}

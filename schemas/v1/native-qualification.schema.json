@@ -1,5 +1,57 @@
 {
   "$defs": {
+    "native-controller-identity": {
+      "additionalProperties": false,
+      "properties": {
+        "controllerInstanceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "executableDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "hostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "hostIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "hostMachineId": {
+          "pattern": "^[0-9a-f]{32}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/native-controller-identity"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "scopeDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "hostId",
+        "hostIdentityDigest",
+        "hostMachineId",
+        "controllerInstanceId",
+        "scopeDigest",
+        "executableDigest"
+      ],
+      "type": "object"
+    },
     "native-producer-reference": {
       "additionalProperties": false,
       "properties": {
@@ -171,6 +223,16 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
+    "controllerIdentity": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/native-controller-identity"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "controllerInstanceId": {
       "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
       "type": "string"

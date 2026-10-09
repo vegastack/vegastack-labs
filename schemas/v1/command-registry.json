@@ -5707,6 +5707,11 @@
       "artifactPath": "schemas/v1/control-handoff-input.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/control-recovery-receive-input",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/control-recovery-receive-input.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/credential-import-request",
       "version": "1.1.0",
       "artifactPath": "schemas/v1/credential-import-request.schema.json"
@@ -6320,6 +6325,16 @@
       "artifactPath": "schemas/v1/native-control-setup-witness.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/native-controller-identity",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-controller-identity.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-credential-witness",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-credential-witness.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/native-fail2ban-input",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/native-fail2ban-input.schema.json"
@@ -6335,6 +6350,11 @@
       "artifactPath": "schemas/v1/native-fail2ban-witness.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/native-finite-response",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-finite-response.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/native-guest-launch",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/native-guest-launch.schema.json"
@@ -6348,6 +6368,21 @@
       "id": "vegastack-labs.dev/native-observation-binding",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/native-observation-binding.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-preparation-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-preparation-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-preparation-result",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-preparation-result.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-producer-lookup-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-producer-lookup-request.schema.json"
     },
     {
       "id": "vegastack-labs.dev/native-producer-reference",
@@ -6368,6 +6403,21 @@
       "id": "vegastack-labs.dev/native-qualification-producer",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/native-qualification-producer.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-replacement-recovery-attempt",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-replacement-recovery-attempt.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-replacement-recovery-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-replacement-recovery-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-replacement-recovery-witness",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-replacement-recovery-witness.schema.json"
     },
     {
       "id": "vegastack-labs.dev/native-report",

@@ -14,6 +14,8 @@ import (
 
 type nativeWitnessMemory struct {
 	guest                     string
+	credential                *generated.NativeCredentialWitness
+	credentialSamples         int
 	before, after             *generated.NativeRollbackWitness
 	fail                      *generated.NativeFail2banWitness
 	phase                     int
@@ -26,6 +28,9 @@ type nativeWitnessMemory struct {
 }
 
 func witnessKey(in generated.NativeStepRequest) string {
+	if in.ScenarioID == "native-credential-lifecycle" {
+		return in.ScopeDigest + ":" + in.ControllerInstanceID + ":" + strconv.FormatInt(in.RecoveryEpoch, 10) + ":" + in.ScenarioID + ":" + in.GuestID
+	}
 	return in.ScopeDigest + ":" + in.ControllerInstanceID + ":" + strconv.FormatInt(in.RecoveryEpoch, 10) + ":" + in.PlanDigest + ":" + in.ScenarioID + ":" + in.PlanID + ":" + in.RunID + ":" + in.StepID + ":" + in.LeaseID
 }
 func (d *ownedGuestLifecycle) waitWitnessWindow(ctx context.Context, in generated.NativeStepRequest) error {
@@ -52,6 +57,9 @@ func (d *ownedGuestLifecycle) captureWitness(in generated.NativeStepRequest, out
 	if in.Operation != "witness" {
 		return nil
 	}
+	if in.ScenarioID == "replacement-recovery" && out.ReplacementRecovery != nil {
+		return nil
+	}
 	if out.Status != "completed" || hostaction.Digest(out.Binding) != hostaction.Digest(in) {
 		return ErrUnavailable
 	}
@@ -66,6 +74,36 @@ func (d *ownedGuestLifecycle) captureWitness(in generated.NativeStepRequest, out
 		w = &nativeWitnessMemory{guest: in.GuestID}
 		d.witnesses[key] = w
 	}
+	if in.ScenarioID == "native-credential-lifecycle" {
+		if w.guest != in.GuestID || out.SSH == nil || len(out.SSH.Outcomes) != 1 || !out.SSH.HostKeyVerified {
+			return ErrUnavailable
+		}
+		if w.credential == nil {
+			w.credential = &generated.NativeCredentialWitness{Schema: generated.SchemaIDNativeCredentialWitness, SchemaVersion: "1.0.0"}
+		}
+		switch w.credentialSamples {
+		case 0:
+			if out.SSH.Outcomes[0] != "allowed" {
+				return ErrUnavailable
+			}
+			w.credential.PreviousBefore = *out.SSH
+		case 1:
+			if out.SSH.Outcomes[0] != "denied" || out.SSH.PublicKeyDigest != w.credential.PreviousBefore.PublicKeyDigest {
+				return ErrUnavailable
+			}
+			w.credential.PreviousAfter = *out.SSH
+		case 2:
+			if out.SSH.Outcomes[0] != "allowed" || out.SSH.PublicKeyDigest == w.credential.PreviousBefore.PublicKeyDigest {
+				return ErrUnavailable
+			}
+			w.credential.CurrentAfter = *out.SSH
+		default:
+			return ErrUnavailable
+		}
+		w.credentialSamples++
+		return nil
+	}
+
 	if out.Rollback != nil {
 		if w.guest != in.GuestID {
 			return ErrUnavailable
@@ -195,10 +233,16 @@ func (d *ownedGuestLifecycle) attachWitness(b generated.NativeObservationBinding
 	if b.ScopeDigest != d.scope.digest || b.ControllerInstanceID != d.scope.value.ControllerInstanceID {
 		return
 	}
-	key := witnessKey(generated.NativeStepRequest{ScopeDigest: b.ScopeDigest, ControllerInstanceID: b.ControllerInstanceID, RecoveryEpoch: b.RecoveryEpoch, PlanDigest: b.PlanDigest, ScenarioID: b.ScenarioID, PlanID: b.PlanID, RunID: b.RunID, StepID: b.StepID, LeaseID: b.LeaseID})
+	if b.ScenarioID == "replacement-recovery" && d.replacement != nil && d.replacement.witness != nil && len(d.replacement.witness.Attempts) == 3 && b.GuestID == d.activeController && d.recoveredController != nil && d.recoveredBinding != nil && b.RecoveryEpoch == d.recoveredBinding.NextRecoveryEpoch {
+		out.ReplacementRecovery = d.replacement.witness
+	}
+	key := witnessKey(generated.NativeStepRequest{GuestID: b.GuestID, ScopeDigest: b.ScopeDigest, ControllerInstanceID: b.ControllerInstanceID, RecoveryEpoch: b.RecoveryEpoch, PlanDigest: b.PlanDigest, ScenarioID: b.ScenarioID, PlanID: b.PlanID, RunID: b.RunID, StepID: b.StepID, LeaseID: b.LeaseID})
 	w := d.witnesses[key]
 	if w == nil || w.guest != b.GuestID {
 		return
+	}
+	if w.credentialSamples == 3 {
+		out.Credential = w.credential
 	}
 	out.RollbackBefore = w.before
 	out.RollbackAfter = w.after
