@@ -219,3 +219,16 @@ test("the server verifier rejects a partial recovery authority composition", asy
   });
   assert.deepEqual((await verifyServer(root)).codes, ["SERVER_RECOVERY_AUTHORITY"]);
 });
+
+
+test("the server verifier confines #223 Unix syscalls to three reviewed helper files", async (t) => {
+  const source = 'package hostaction\nimport _ "golang.org/x/sys/unix"\n';
+  const accepted = await fixtureRepo(t, Object.fromEntries(
+    ["policy_unix.go", "receipt_unix.go", "pipe_unix.go"].map((name) => [`internal/hostaction/${name}`, source]),
+  ));
+  assert.deepEqual(await verifyServer(accepted), {status: "pass", codes: []});
+  for (const file of ["internal/hostaction/escape_unix.go", "internal/hostaction/pipe_linux.go", "internal/other/pipe_unix.go"]) {
+    const rejected = await fixtureRepo(t, {[file]: source});
+    assert.deepEqual((await verifyServer(rejected)).codes, ["SERVER_XSYS_SCOPE"], file);
+  }
+});

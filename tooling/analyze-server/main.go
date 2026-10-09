@@ -124,7 +124,10 @@ func analyze(root string) (analysis, error) {
 			// #106's guarded local adapter and #146's exact protected recovery
 			// files are separate reviewed Unix file-descriptor scopes.
 			approvedBackupAdapterFile := relative == "internal/adapter/localbackup/adapter.go"
-			if importPath == "golang.org/x/sys/unix" && !(approvedClientFile || approvedLinuxFile || approvedBackupAdapterFile || isReviewedRecoverySource) {
+			// #223 uses only these reviewed protected-file and cancellable-pipe
+			// helpers; sibling files gain no Unix syscall permission.
+			approvedHostActionFile := relative == "internal/hostaction/policy_unix.go" || relative == "internal/hostaction/receipt_unix.go" || relative == "internal/hostaction/pipe_unix.go"
+			if importPath == "golang.org/x/sys/unix" && !(approvedClientFile || approvedLinuxFile || approvedBackupAdapterFile || approvedHostActionFile || isReviewedRecoverySource) {
 				result.XSysOutsideScope = true
 			}
 		}
