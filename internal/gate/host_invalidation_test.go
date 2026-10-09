@@ -41,14 +41,6 @@ func TestHostAdmissionInvalidationAndNoOlderFallback(t *testing.T) {
 		"receipt": func(s *store.HostAdmissionSnapshot) {
 			s.Measurements[0].Receipt.ResultDigest = "sha256:" + strings.Repeat("b", 64)
 		},
-		"latest-failure": func(s *store.HostAdmissionSnapshot) {
-			s.Results[0].Status = "failed"
-			s.Measurements[0].Control.Status = "failed"
-		},
-		"latest-partial": func(s *store.HostAdmissionSnapshot) {
-			s.Results[0].Status = "partial"
-			s.Measurements[0].Control.Status = "partial"
-		},
 		"missing-denial-probe": func(s *store.HostAdmissionSnapshot) {
 			for i, c := range s.Results {
 				if c.ControlID == "probe-source" {
@@ -62,13 +54,6 @@ func TestHostAdmissionInvalidationAndNoOlderFallback(t *testing.T) {
 			e.EvidenceID = "new-revoked"
 			e.StateRevision = 99
 			e.Status = "revoked"
-			s.Evidence = append(s.Evidence, e)
-		},
-		"newest-expired": func(s *store.HostAdmissionSnapshot) {
-			e := s.Evidence[len(s.Evidence)-1]
-			e.EvidenceID = "new-expired"
-			e.StateRevision = 99
-			e.ExpiresAt = at.Format(time.RFC3339)
 			s.Evidence = append(s.Evidence, e)
 		},
 		"applied-binding": func(s *store.HostAdmissionSnapshot) { delete(s.AppliedBindings, "baseline-final") },
@@ -101,10 +86,21 @@ func TestHostAdmissionUnrelatedRevisionAndImmediateAge(t *testing.T) {
 	if e != nil || got.Outcome != "passed" {
 		t.Fatal("unrelated revision invalidated host", got, e)
 	}
-	got, e = EvaluateHostAdmission(context.Background(), s, scope, "host.hardening-baseline", at.Add(24*time.Hour+time.Second))
-	if e != nil || got.Outcome == "passed" {
-		t.Fatal("time alone did not expire host", got, e)
+	// Age only the actual control: qualification and prerequisite timestamps remain current.
+	for i := range s.Measurements {
+		if s.Measurements[i].Control.ControlID == "linux.audit-bounded" {
+			x := &s.Measurements[i]
+			x.Measurement.ObservedAt = at.Add(-24*time.Hour - time.Second).Format(time.RFC3339)
+			x.Control.ObservedAt = x.Measurement.ObservedAt
+			resealHostMeasurement(&s, x)
+			s.Results[i] = x.Control
+		}
 	}
+	got, e = EvaluateHostAdmission(context.Background(), s, scope, "host.hardening-baseline", at)
+	if e != nil || got.ReasonCode != "host-control-stale:linux.auditd-bounded" {
+		t.Fatal("control max age not isolated", got, e)
+	}
+
 }
 func TestHostAdmissionReportsExactMissingControl(t *testing.T) {
 	at := time.Date(2026, 10, 9, 0, 0, 0, 0, time.UTC)
@@ -163,5 +159,41 @@ func TestHostReadOnlyRecollectionReusesOnlyExactCurrentProbeSequence(t *testing.
 	got, e = EvaluateHostAdmission(context.Background(), s, scope, "host.hardening-baseline", at)
 	if e != nil || got.Outcome == "passed" {
 		t.Fatal("changed recollection inherited old probes", got, e)
+	}
+}
+
+func TestHostNewestNativeOutcomeSuppressesOldPositive(t *testing.T) {
+	at := time.Date(2026, 10, 9, 0, 0, 0, 0, time.UTC)
+	scope := hostScope("vegastack-labs")
+	scope.StateRevision = 100
+	for _, status := range []string{"failed", "partial", "revoked"} {
+		t.Run(status, func(t *testing.T) {
+			s := qualifiedHostSnapshot(t, at)
+			b := s.Bundles["native-baseline"]
+			b.Checks = append([]generated.GateEvidenceCheck{}, b.Checks...)
+			if status != "revoked" {
+				b.Checks[0].Result = status
+			}
+			hostTestEvidence(&s, "native-new-"+status, "native.baseline", b, at)
+			if status == "revoked" {
+				s.Evidence[len(s.Evidence)-1].Status = "revoked"
+			}
+			got, e := EvaluateHostAdmission(context.Background(), s, scope, "host.hardening-baseline", at)
+			if e != nil || got.ReasonCode != "host-qualification-missing:baseline" {
+				t.Fatal(got, e)
+			}
+		})
+	}
+}
+func TestHostNewestExpiredProofHasIntactProvenance(t *testing.T) {
+	at := time.Date(2026, 10, 9, 0, 0, 0, 0, time.UTC)
+	s := qualifiedHostSnapshot(t, at)
+	hostTestEvidence(&s, "baseline-expired", "host.hardening-baseline", s.Bundles["baseline-final"], at)
+	s.Evidence[len(s.Evidence)-1].ExpiresAt = at.Add(time.Second).Format(time.RFC3339)
+	scope := hostScope("vegastack-labs")
+	scope.StateRevision = 100
+	got, e := EvaluateHostAdmission(context.Background(), s, scope, "host.hardening-baseline", at.Add(time.Second))
+	if e != nil || got.ReasonCode != "host-evidence-stale" {
+		t.Fatal(got, e)
 	}
 }

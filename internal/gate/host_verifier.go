@@ -35,6 +35,9 @@ func EvaluateHostAdmission(ctx context.Context, snapshot store.HostAdmissionSnap
 	if e := ctx.Err(); e != nil {
 		return generated.GateEvaluation{}, e
 	}
+	if gateID == "host.role-admission" {
+		snapshot.Blockers = append(append([]string{}, snapshot.Blockers...), snapshot.RoleBlockers...)
+	}
 	v := &hostProofVerifier{snapshot: snapshot, scope: scope, at: at.UTC()}
 	registry := NewProofRegistry()
 	for _, id := range []string{"platform-safety", "host.hardening-baseline", "host.role-admission"} {
@@ -226,8 +229,35 @@ func (v *hostProofVerifier) currentEvidence(id string) (generated.GateEvidence, 
 	return got, true
 }
 func (v *hostProofVerifier) qualified(stage string) bool {
+	// Select the authoritative latest native proof before considering positive projections.
+	var latest *generated.GateEvidence
+	for i := range v.snapshot.Evidence {
+		e := &v.snapshot.Evidence[i]
+		b, ok := v.snapshot.Bundles[e.EvidenceID]
+		if !ok || e.SubjectID != v.snapshot.Host.HostID || e.RecoveryEpoch != v.snapshot.Revision.RecoveryEpoch || !hostFact(b, "native.profile-lock", v.snapshot.ProfileLockDigest) {
+			continue
+		}
+		matches := false
+		for _, check := range b.Checks {
+			if check.CheckID == "native."+stage {
+				matches = true
+			}
+		}
+		if !matches {
+			continue
+		}
+		if latest != nil && e.StateRevision == latest.StateRevision && e.AppliedAt == latest.AppliedAt && e.EvidenceID != latest.EvidenceID {
+			return false
+		}
+		if latest == nil || e.StateRevision > latest.StateRevision || e.StateRevision == latest.StateRevision && e.AppliedAt > latest.AppliedAt {
+			latest = e
+		}
+	}
+	if latest == nil {
+		return false
+	}
 	for _, q := range v.snapshot.Qualifications {
-		if q.Stage != stage || q.ProfileDigest != v.snapshot.ProfileLockDigest || q.RecoveryEpoch != v.snapshot.Revision.RecoveryEpoch || q.SourceDigest == "" {
+		if q.EvidenceID != latest.EvidenceID || q.Stage != stage || q.ProfileDigest != v.snapshot.ProfileLockDigest || q.RecoveryEpoch != v.snapshot.Revision.RecoveryEpoch || q.SourceDigest == "" {
 			continue
 		}
 		e, ok := v.currentEvidence(q.EvidenceID)
@@ -362,6 +392,26 @@ func (v *hostProofVerifier) validateMeasurement(x store.HostAdmissionMeasurement
 	if !opFound {
 		return "host-control-invalid"
 	}
+	if c.ProducerID == "linux-role" {
+		if m.Kind != "role" || m.Role == nil || m.Baseline != nil || m.Volume != nil || m.Probe != nil || m.Role.RoleID != s.Profile.RoleID || m.Role.RoleBindingDigest != s.RoleBindingDigest || m.Role.Verification == "unavailable" || p.HostAction == nil {
+			return "host-control-invalid"
+		}
+		a := p.HostAction
+		if (a.ActionID != "debian.role.collect" && a.ActionID != "debian.role.apply") || a.HostID != s.Host.HostID || a.ActionInputDigest != hostaction.BytesDigest([]byte(a.ActionInput)) || m.ConfigurationDigest != a.ActionInputDigest {
+			return "host-control-invalid"
+		}
+		matched := false
+		for _, op := range p.Operations {
+			if op.OperationID == receipt.OperationID && op.ArtifactDigest == hostaction.Digest(*a) {
+				matched = true
+			}
+		}
+		if !matched {
+			return "host-control-invalid"
+		}
+	} else if m.Role != nil {
+		return "host-control-invalid"
+	}
 	if c.ProducerID == "debian-baseline" {
 		if p.HostAction == nil || p.HostBaselineScope == nil {
 			return "host-control-invalid"
@@ -397,7 +447,7 @@ func (v *hostProofVerifier) controlDigest(req generated.HostControlRequirement) 
 				if reason != "" {
 					return "", reason
 				}
-				if x.Measurement.Volume == nil || x.Measurement.Volume.Binding.VolumeID != volume {
+				if x.Control.ProducerID != req.ProducerID || x.Measurement.Kind != "volume" || x.Measurement.Volume == nil || x.Measurement.Volume.Binding.VolumeID != volume {
 					return "", "host-control-invalid"
 				}
 				valid := s.Storage.VolumeEvidenceDigests
@@ -471,7 +521,7 @@ func (v *hostProofVerifier) accessProof(config store.HostAdmissionMeasurement) (
 		return nil, "host-probe-invalid"
 	}
 	input, e := debianaccess.DecodeInput([]byte(request.ActionInput))
-	if e != nil || hostaction.BytesDigest([]byte(request.ActionInput)) != request.ActionInputDigest || config.Measurement.ConfigurationDigest != input.RenderedAccessDigest {
+	if e != nil || hostaction.BytesDigest([]byte(request.ActionInput)) != request.ActionInputDigest || (config.Control.ControlID == "debian.container-firewall" && len(input.ContainerFlows) == 0) {
 		return nil, "host-probe-invalid"
 	}
 	digests := []string{confirm.Measurement.MeasurementDigest}

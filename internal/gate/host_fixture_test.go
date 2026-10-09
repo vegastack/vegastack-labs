@@ -29,10 +29,10 @@ func admissionAccessInput(t *testing.T) generated.DebianAccessInput {
 	d := hostaction.BytesDigest([]byte("synthetic-qualified-lock"))
 	a := generated.AccessAccount{Schema: generated.SchemaIDAccessAccount, SchemaVersion: "1.0.0", Name: "automation", UID: 1001, GID: 1001, Home: "/home/automation", Role: "automation", PublicKeys: []string{k}, PublicKeyDigests: []string{hostaction.BytesDigest([]byte(k))}}
 	lock := generated.DebianProfileLock{Schema: generated.SchemaIDDebianProfileLock, SchemaVersion: "1.0.0", ImageDigest: d, OSFamily: "debian", OSVersion: "13.6", Architecture: "amd64", PackageSourceDigest: d, Packages: []generated.AccessPackage{{Schema: generated.SchemaIDAccessPackage, SchemaVersion: "1.0.0", Name: "openssh-server", Version: "synthetic-test"}}, ExecutableVersion: "1.0.0", AnsibleVersion: "synthetic-test", AnsibleExecutableDigest: d, CollectionDigest: d, RoleDigest: d, Backend: "iptables-nft"}
-	for _, name := range []string{"fail2ban", "python3-systemd", "auditd", "apparmor", "apparmor-utils", "apt", "systemd", "procps"} {
+	for _, name := range []string{"fail2ban", "python3-systemd", "auditd", "apparmor", "apparmor-utils", "apt", "systemd", "procps", "aide", "cryptsetup-bin"} {
 		lock.Packages = append(lock.Packages, generated.AccessPackage{Schema: generated.SchemaIDAccessPackage, SchemaVersion: "1.0.0", Name: name, Version: "synthetic-test"})
 	}
-	in := generated.DebianAccessInput{Schema: generated.SchemaIDDebianAccessInput, SchemaVersion: "1.0.0", HostID: "test-host", HostIdentityDigest: d, ProfileID: "test-profile", ProfileLock: lock, ProfileLockDigest: hostaction.Digest(lock), ActionVersion: "1.0.0", AutomationUID: 1001, Accounts: []generated.AccessAccount{a}, SSHUsers: []string{"automation"}, SSHSourcePrefixes: []string{"192.0.2.0/24"}, RecoverySourcePrefixes: []string{"192.0.2.1/32"}, PrivilegedServiceKeys: []generated.AccessServiceKey{}, Interfaces: []generated.AccessInterface{{Schema: generated.SchemaIDAccessInterface, SchemaVersion: "1.0.0", Name: "eth0", Index: 2, Addresses: []string{"192.0.2.2"}}}, HostFlows: []generated.AccessFlow{}, ContainerFlows: []generated.AccessFlow{}}
+	in := generated.DebianAccessInput{Schema: generated.SchemaIDDebianAccessInput, SchemaVersion: "1.0.0", HostID: "test-host", HostIdentityDigest: d, ProfileID: "test-profile", ProfileLock: lock, ProfileLockDigest: hostaction.Digest(lock), ActionVersion: "1.0.0", AutomationUID: 1001, Accounts: []generated.AccessAccount{a}, SSHUsers: []string{"automation"}, SSHSourcePrefixes: []string{"192.0.2.0/24"}, RecoverySourcePrefixes: []string{"192.0.2.1/32"}, PrivilegedServiceKeys: []generated.AccessServiceKey{}, Interfaces: []generated.AccessInterface{{Schema: generated.SchemaIDAccessInterface, SchemaVersion: "1.0.0", Name: "eth0", Index: 2, Addresses: []string{"192.0.2.2"}}}, HostFlows: []generated.AccessFlow{}, ContainerFlows: []generated.AccessFlow{{Schema: generated.SchemaIDAccessFlow, SchemaVersion: "1.0.0", Interface: "eth0", SourcePrefix: "198.51.100.0/24", DestinationPrefix: "192.0.2.2/32", Protocol: "tcp", Port: 8080}}}
 	in.RollbackSpecification = generated.AccessRollbackSpecification{Schema: generated.SchemaIDAccessRollbackSpecification, SchemaVersion: "1.0.0", HostID: in.HostID, HostIdentityDigest: d, ProfileLockDigest: in.ProfileLockDigest, DeadlineSeconds: 600, RecoverySourcePrefixes: in.RecoverySourcePrefixes, OwnedState: []generated.AccessOwnedState{{Schema: generated.SchemaIDAccessOwnedState, SchemaVersion: "1.0.0", ResourceID: "ssh-config", BeforeDigest: d, AfterDigest: d}}}
 	in.RollbackDigest = hostaction.Digest(in.RollbackSpecification)
 	in.RenderedAccess = generated.RenderedAccess{Schema: generated.SchemaIDRenderedAccess, SchemaVersion: "1.0.0", ProfileLockDigest: in.ProfileLockDigest, RendererDigest: d, Accounts: in.Accounts, SSHUsers: in.SSHUsers, SSHSourcePrefixes: in.SSHSourcePrefixes, RecoverySourcePrefixes: in.RecoverySourcePrefixes, PrivilegedServiceKeys: in.PrivilegedServiceKeys, Interfaces: in.Interfaces, HostFlows: in.HostFlows, ContainerFlows: in.ContainerFlows, RollbackUnitsDigest: d}
@@ -69,9 +69,19 @@ func admissionAccessSequence(t *testing.T) ([]generated.PlanOperation, []generat
 	local.IdempotencyKey = "local-a"
 	probe.Source.HostID = "source-host"
 	probe.Source.IdentityDigest = hostaction.Digest("source-host")
-	probe.Source.Kind = "network-namespace"
+	probe.Source.Kind = "container"
 	probe.Source.Address = "198.51.100.2"
 	probe.Cases = []generated.AccessProbeCase{{Schema: generated.SchemaIDAccessProbeCase, SchemaVersion: "1.0.0", ProbeID: "probe-source", Kind: "ssh-source", Expected: "denied", Destination: tuple, Witness: tuple}}
+	for i, kind := range []string{"container-published", "container-unpublished", "container-east-west", "container-east-west"} {
+		dest := tuple
+		dest.Port = 8080
+		expected := "allowed"
+		if i == 1 || i == 3 {
+			dest.Port = 8081
+			expected = "denied"
+		}
+		probe.Cases = append(probe.Cases, generated.AccessProbeCase{Schema: generated.SchemaIDAccessProbeCase, SchemaVersion: "1.0.0", ProbeID: fmt.Sprintf("container-%d", i), Kind: kind, Expected: expected, Destination: dest, Witness: tuple})
+	}
 	remote := apply
 	remote.HostID = probe.Source.HostID
 	remote.ConsoleConfirmation.HostIdentityDigest = probe.Source.IdentityDigest

@@ -8,6 +8,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"github.com/vegastack/vegastack-labs/internal/store"
+	"strings"
 	"testing"
 	"time"
 )
@@ -59,7 +60,7 @@ func qualifiedHostSnapshot(t *testing.T, at time.Time) store.HostAdmissionSnapsh
 		s.ActionReceiptDigests = append(s.ActionReceiptDigests, c.ActionReceiptDigest)
 	}
 	for i, id := range []string{"debian.accounts", "debian.ssh", "debian.host-firewall"} {
-		add(id, "debian-access-native", []string{"account", "ssh", "host-flow"}[i], 1, nil, input.RenderedAccessDigest)
+		add(id, "debian-access-native", []string{"account", "ssh", "host-flow"}[i], 1, nil, hostaction.Digest(map[string]string{"ssh-config": hostaction.Digest("observed SSH bytes"), "host-rules-v4": hostaction.Digest("observed firewall state")}))
 	}
 	add("debian-access-confirm", "debian-access-native", "identity", 4, nil, requests[0].ActionInputDigest)
 	for i, r := range requests {
@@ -73,6 +74,9 @@ func qualifiedHostSnapshot(t *testing.T, at time.Time) store.HostAdmissionSnapsh
 			kind := "ssh"
 			if c.Kind == "host-flow" {
 				kind = "host-flow"
+			}
+			if strings.HasPrefix(c.Kind, "container-") {
+				kind = "container-flow"
 			}
 			add(c.ProbeID, "debian-access-probe", kind, i, o, in.ApplyInputDigest)
 		}
