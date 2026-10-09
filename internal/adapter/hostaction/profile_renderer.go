@@ -17,9 +17,22 @@ func DebianRendererDigest() string {
 	if err != nil {
 		return ""
 	}
+	role, err := assets.LinuxRoleRenderer.ReadFile("roles/linux_role_foundation/tasks/main.yml")
+	if err != nil {
+		return ""
+	}
+	defaults, err := assets.LinuxRoleRenderer.ReadFile("roles/linux_role_foundation/defaults/main.yml")
+	if err != nil {
+		return ""
+	}
+	template, err := assets.LinuxRoleRenderer.ReadFile("roles/linux_role_foundation/templates/control.service.j2")
+	if err != nil {
+		return ""
+	}
 	return protocol.Digest(map[string]string{
 		"accessRole": string(access), "accessPlaybook": renderPlaybook, "accessConfig": renderConfig,
 		"baselineRole": string(baseline), "baselinePlaybook": baselineRenderPlaybook, "baselineConfig": baselineRenderConfig,
+		"linuxRole": string(role), "linuxRoleDefaults": string(defaults), "linuxRoleTemplate": string(template), "linuxRolePlaybook": linuxRoleRenderPlaybook, "linuxRoleConfig": linuxRoleRenderConfig,
 		"rollbackUnits": debianaccess.RollbackUnitsDigest(),
 	})
 }
