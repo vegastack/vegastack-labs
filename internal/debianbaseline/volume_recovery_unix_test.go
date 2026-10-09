@@ -67,7 +67,7 @@ func TestVolumeRecoveryRejectsWrongHeaderBeforeKeyUse(t *testing.T) {
 	}
 	f.Close()
 	calls := 0
-	_, e := verifyVolumeRecoveryFiles(context.Background(), root, uint32(os.Getuid()), in, func(context.Context, *os.File, *os.File, int64) error { calls++; return nil }, time.Now())
+	_, e := verifyVolumeRecoveryFiles(context.Background(), root, uint32(os.Getuid()), in, func(context.Context, []byte, *os.File, *os.File, int64) error { calls++; return nil }, time.Now())
 	if e == nil || calls != 0 {
 		t.Fatal("wrong header reached recovery operation")
 	}
@@ -78,7 +78,7 @@ func TestVolumeRecoveryPrivateFilesAndObservedResult(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	rows, e := verifyVolumeRecoveryFiles(context.Background(), root, uint32(os.Getuid()), in, func(_ context.Context, h, k *os.File, slot int64) error {
+	rows, e := verifyVolumeRecoveryFiles(context.Background(), root, uint32(os.Getuid()), in, func(_ context.Context, _ []byte, h, k *os.File, slot int64) error {
 		key, e := readVolumeKey(k)
 		defer clear(key)
 		if e != nil || string(key) != "synthetic-key-canary" || slot != 0 {
@@ -108,7 +108,7 @@ func TestVolumeRecoveryPrivateFilesAndObservedResult(t *testing.T) {
 			}
 			defer os.Chmod(p, 0600)
 			called := false
-			_, e := verifyVolumeRecoveryFiles(context.Background(), root, uint32(os.Getuid()), in, func(context.Context, *os.File, *os.File, int64) error { called = true; return nil }, time.Now())
+			_, e := verifyVolumeRecoveryFiles(context.Background(), root, uint32(os.Getuid()), in, func(context.Context, []byte, *os.File, *os.File, int64) error { called = true; return nil }, time.Now())
 			if e == nil || called {
 				t.Fatal("public private-file reached key test")
 			}
@@ -118,7 +118,7 @@ func TestVolumeRecoveryPrivateFilesAndObservedResult(t *testing.T) {
 func TestVolumeRecoveryRejectsHeaderChangeAndFailedKey(t *testing.T) {
 	for _, change := range []bool{false, true} {
 		root, in := volumeRecoveryFixture(t)
-		_, e := verifyVolumeRecoveryFiles(context.Background(), root, uint32(os.Getuid()), in, func(context.Context, *os.File, *os.File, int64) error {
+		_, e := verifyVolumeRecoveryFiles(context.Background(), root, uint32(os.Getuid()), in, func(context.Context, []byte, *os.File, *os.File, int64) error {
 			if !change {
 				return errVolume
 			}
@@ -152,5 +152,30 @@ func TestVolumeProtectedFilesRejectLinkAndTraversal(t *testing.T) {
 	if f, e := openVolumeProtected(root, "hard", uint32(os.Getuid()), true); e == nil {
 		f.Close()
 		t.Fatal("hard link accepted")
+	}
+}
+
+func TestVolumeRecoveryUsesVerifiedToolSnapshotAfterReplacement(t *testing.T) {
+	root, in := volumeRecoveryFixture(t)
+	toolPath := filepath.Join(root, "usr/sbin/cryptsetup")
+	verified, e := os.ReadFile(toolPath)
+	if e != nil {
+		t.Fatal(e)
+	}
+	called := false
+	_, e = verifyVolumeRecoveryFiles(context.Background(), root, uint32(os.Getuid()), in, func(_ context.Context, tool []byte, _, _ *os.File, _ int64) error {
+		called = true
+		// Replacement after the digest check cannot change the bytes handed to
+		// the production sealed-executable runner (which never reopens this path).
+		if e := os.WriteFile(toolPath, []byte("unverified replacement"), 0700); e != nil {
+			return e
+		}
+		if hostaction.BytesDigest(tool) != hostaction.BytesDigest(verified) {
+			t.Fatal("unverified executable snapshot reached key boundary")
+		}
+		return nil
+	}, time.Now())
+	if e != nil || !called {
+		t.Fatal(e, called)
 	}
 }

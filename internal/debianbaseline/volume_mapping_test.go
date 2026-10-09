@@ -25,3 +25,46 @@ func TestVolumeMappingRejectsPlaintextOrAmbiguousMount(t *testing.T) {
 		}
 	}
 }
+
+func TestVolumeGeometryJoinsHeaderToActiveMapping(t *testing.T) {
+	meta, e := parseVolumeMetadata(volumeMetadataFixture(t), 0, 16<<20)
+	if e != nil {
+		t.Fatal(e)
+	}
+	base := volumeMapping{Offset: 32768, Size: 8192, SectorSize: 512, Cipher: "aes-xts-plain64"}
+	if matchVolumeGeometry(base, meta) != nil {
+		t.Fatal("matching dynamic geometry denied")
+	}
+	for _, mode := range []string{"offset", "size-overflow", "offset-overflow", "sector", "fixed-size"} {
+		t.Run(mode, func(t *testing.T) {
+			m := base
+			v, e := parseVolumeMetadata(volumeMetadataFixture(t), 0, 16<<20)
+			if e != nil {
+				t.Fatal(e)
+			}
+			switch mode {
+			case "offset":
+				m.Offset = 65536
+			case "size-overflow":
+				m.Size = 1 << 62
+			case "offset-overflow":
+				m.Offset = 1 << 62
+			case "sector":
+				m.SectorSize = 4096
+			case "fixed-size":
+				seg := v.Segments["0"]
+				seg.Size = "512"
+				v.Segments["0"] = seg
+			}
+			if matchVolumeGeometry(m, v) == nil {
+				t.Fatal("unbound active mapping accepted")
+			}
+		})
+	}
+	seg := meta.Segments["0"]
+	seg.Size = "4194304"
+	meta.Segments["0"] = seg
+	if matchVolumeGeometry(base, meta) != nil {
+		t.Fatal("matching fixed geometry denied")
+	}
+}

@@ -12,7 +12,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
 )
 
-type volumeRecoveryRunner func(context.Context, *os.File, *os.File, int64) error
+type volumeRecoveryRunner func(context.Context, []byte, *os.File, *os.File, int64) error
 
 // Private test seam; public Linux entry points always use / and root ownership.
 func verifyVolumeRecoveryFiles(ctx context.Context, root string, uid uint32, in generated.VolumeRecoveryInput, run volumeRecoveryRunner, at time.Time) ([]generated.AccessMeasurement, error) {
@@ -63,7 +63,7 @@ func verifyVolumeRecoveryFiles(ctx context.Context, root string, uid uint32, in 
 		return nil, errVolume
 	}
 	// Neither key bytes nor raw tool output are copied into measurements or errors.
-	if e = run(ctx, header, key, in.Binding.KeySlot); e != nil || ctx.Err() != nil {
+	if e = run(ctx, toolBytes, header, key, in.Binding.KeySlot); e != nil || ctx.Err() != nil {
 		return nil, errVolume
 	}
 	after, e := header.Stat()

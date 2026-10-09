@@ -125,18 +125,6 @@ func observeVolume(ctx context.Context, b generated.HostVolumeBinding) (string, 
 	if unix.Fstat(fd, &st) != nil || st.Mode&unix.S_IFMT != unix.S_IFBLK || st.Uid != 0 || int64(unix.Major(uint64(st.Rdev))) != b.DeviceMajor || int64(unix.Minor(uint64(st.Rdev))) != b.DeviceMinor {
 		return "", errVolume
 	}
-	status, e := volumeCommand(ctx, []string{"status", b.MapperName}, nil, 8192)
-	if e != nil {
-		return "", e
-	}
-	mapping, statusDevice, e := parseVolumeStatus(status, b.MapperName, b.DeviceMajor, b.DeviceMinor)
-	if e != nil || volumeMappingDigest(mapping) != b.MappingDigest {
-		return "", errVolume
-	}
-	var statusStat unix.Stat_t
-	if unix.Stat(statusDevice, &statusStat) != nil || statusStat.Rdev != st.Rdev || statusStat.Mode&unix.S_IFMT != unix.S_IFBLK {
-		return "", errVolume
-	}
 	var mountStat unix.Stat_t
 	if unix.Stat(b.MountPath, &mountStat) != nil || fmt.Sprintf("%d:%d", unix.Major(uint64(mountStat.Dev)), unix.Minor(uint64(mountStat.Dev))) != mount.Device {
 		return "", errVolume
@@ -153,19 +141,41 @@ func observeVolume(ctx context.Context, b generated.HostVolumeBinding) (string, 
 		return "", e
 	}
 	defer sealed.Close()
-	meta, e := volumeCommand(ctx, []string{"luksDump", "--dump-json-metadata", "/proc/self/fd/3"}, []*os.File{sealed}, 256<<10)
+	toolFile, e := openVolumeProtected("/", "usr/sbin/cryptsetup", 0, false)
 	if e != nil {
 		return "", e
 	}
-	if _, e = parseVolumeMetadata(meta, b.KeySlot, b.HeaderBytes); e != nil {
+	defer toolFile.Close()
+	tool, e := readVolumeBounded(toolFile, 32<<20)
+	if e != nil {
 		return "", e
+	}
+	status, e := volumeCommand(ctx, tool, []string{"status", "--header", "/proc/self/fd/3", b.MapperName}, []*os.File{sealed}, 8192)
+	if e != nil {
+		return "", e
+	}
+	mapping, statusDevice, e := parseVolumeStatus(status, b.MapperName, b.DeviceMajor, b.DeviceMinor)
+	if e != nil || volumeMappingDigest(mapping) != b.MappingDigest {
+		return "", errVolume
+	}
+	var statusStat unix.Stat_t
+	if unix.Stat(statusDevice, &statusStat) != nil || statusStat.Rdev != st.Rdev || statusStat.Mode&unix.S_IFMT != unix.S_IFBLK {
+		return "", errVolume
+	}
+	meta, e := volumeCommand(ctx, tool, []string{"luksDump", "--dump-json-metadata", "/proc/self/fd/3"}, []*os.File{sealed}, 256<<10)
+	if e != nil {
+		return "", e
+	}
+	metadata, e := parseVolumeMetadata(meta, b.KeySlot, b.HeaderBytes)
+	if e != nil || matchVolumeGeometry(mapping, metadata) != nil {
+		return "", errVolume
 	}
 	// Re-read bindings after observation, including device inode and volatile map.
 	current := make([]byte, b.HeaderBytes)
 	if _, e = device.ReadAt(current, 0); e != nil || hostaction.BytesDigest(current) != b.HeaderDigest {
 		return "", errVolume
 	}
-	status2, e := volumeCommand(ctx, []string{"status", b.MapperName}, nil, 8192)
+	status2, e := volumeCommand(ctx, tool, []string{"status", "--header", "/proc/self/fd/3", b.MapperName}, []*os.File{sealed}, 8192)
 	if e != nil || string(status2) != string(status) {
 		return "", errVolume
 	}

@@ -3,6 +3,7 @@
 package debianbaseline
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"os"
@@ -20,7 +21,7 @@ func VerifyVolumeRecovery(ctx context.Context, in generated.VolumeRecoveryInput)
 	}
 	return verifyVolumeRecoveryFiles(ctx, "/", 0, in, nativeVolumeRecovery, time.Now())
 }
-func nativeVolumeRecovery(ctx context.Context, header, key *os.File, slot int64) error {
+func nativeVolumeRecovery(ctx context.Context, tool []byte, header, key *os.File, slot int64) error {
 	if ctx == nil || slot < 0 || slot > 31 {
 		return errVolume
 	}
@@ -39,7 +40,7 @@ func nativeVolumeRecovery(ctx context.Context, header, key *os.File, slot int64)
 	}
 	defer sealed.Close()
 	// Validate metadata and selected slot before attempting the supplied key.
-	raw, e := volumeCommand(ctx, []string{"luksDump", "--dump-json-metadata", "/proc/self/fd/3"}, []*os.File{sealed}, 256<<10)
+	raw, e := volumeCommand(ctx, tool, []string{"luksDump", "--dump-json-metadata", "/proc/self/fd/3"}, []*os.File{sealed}, 256<<10)
 	info, statErr := header.Stat()
 	if e != nil || statErr != nil {
 		return errVolume
@@ -63,7 +64,7 @@ func nativeVolumeRecovery(ctx context.Context, header, key *os.File, slot int64)
 		return errVolume
 	}
 	write.Close()
-	_, e = volumeCommand(ctx, []string{"open", "--test-passphrase", "--type", "luks2", "--disable-external-tokens", "--disable-keyring", "--batch-mode", "--tries", "1", "--key-slot", strconv.FormatInt(slot, 10), "--key-file", "/proc/self/fd/4", "/proc/self/fd/3"}, []*os.File{sealed, read}, 8192)
+	_, e = volumeCommand(ctx, tool, []string{"open", "--test-passphrase", "--type", "luks2", "--disable-external-tokens", "--disable-keyring", "--batch-mode", "--tries", "1", "--key-slot", strconv.FormatInt(slot, 10), "--key-file", "/proc/self/fd/4", "/proc/self/fd/3"}, []*os.File{sealed, read}, 8192)
 	return e
 }
 
@@ -79,13 +80,23 @@ func (v *volumeOutput) Write(p []byte) (int, error) {
 	v.raw = append(v.raw, p...)
 	return len(p), nil
 }
-func volumeCommand(ctx context.Context, args []string, files []*os.File, maximum int) ([]byte, error) {
+func volumeCommand(ctx context.Context, tool []byte, args []string, files []*os.File, maximum int) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "/usr/sbin/cryptsetup", args...)
+	if len(tool) < 4 || !bytes.Equal(tool[:4], []byte{0x7f, 'E', 'L', 'F'}) {
+		return nil, errVolume
+	}
+	executable, e := sealedVolumeObject(tool, 32<<20)
+	if e != nil {
+		return nil, e
+	}
+	defer executable.Close()
+	// The child executes the sealed, verified ELF bytes, never a re-resolved path.
+	executableFD := 3 + len(files)
+	cmd := exec.CommandContext(ctx, "/proc/self/fd/"+strconv.Itoa(executableFD), args...)
 	cmd.Dir = "/"
 	cmd.Env = []string{"PATH=/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C", "LC_ALL=C"}
-	cmd.ExtraFiles = files
+	cmd.ExtraFiles = append(append([]*os.File(nil), files...), executable)
 	cmd.Stderr = io.Discard
 	cmd.WaitDelay = time.Second
 	out := volumeOutput{limit: maximum}
@@ -97,7 +108,13 @@ func volumeCommand(ctx context.Context, args []string, files []*os.File, maximum
 }
 
 func sealedVolumeHeader(raw []byte) (*os.File, error) {
-	if len(raw) < 4096 || len(raw) > maximumVolumeHeader {
+	if len(raw) < 4096 {
+		return nil, errVolume
+	}
+	return sealedVolumeObject(raw, maximumVolumeHeader)
+}
+func sealedVolumeObject(raw []byte, maximum int) (*os.File, error) {
+	if len(raw) < 4 || len(raw) > maximum {
 		return nil, errVolume
 	}
 	fd, e := unix.MemfdCreate("vsk-volume-header", unix.MFD_CLOEXEC|unix.MFD_ALLOW_SEALING)

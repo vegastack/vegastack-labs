@@ -2,6 +2,7 @@ package debianbaseline
 
 import (
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
+	"math"
 	"strconv"
 	"strings"
 )
@@ -93,3 +94,23 @@ func parseVolumeStatus(raw []byte, name string, major, minor int64) (volumeMappi
 	return m, device, nil
 }
 func volumeMappingDigest(m volumeMapping) string { return hostaction.Digest(m) }
+
+// cryptsetup status offset/size are always 512-byte sectors, independent of
+// the encryption sector size. Metadata segment offset/size use bytes.
+func matchVolumeGeometry(mapping volumeMapping, metadata volumeMetadata) error {
+	seg, ok := metadata.Segments["0"]
+	offset, e := strconv.ParseInt(seg.Offset, 10, 64)
+	if !ok || e != nil || (seg.SectorSize != 512 && seg.SectorSize != 4096) || mapping.Offset < 0 || mapping.Offset > math.MaxInt64/512 || mapping.Size <= 0 || mapping.Size > math.MaxInt64/512 || mapping.Offset*512 != offset || mapping.SectorSize != int64(seg.SectorSize) || mapping.Cipher != seg.Encryption {
+		return errVolume
+	}
+	if offset > math.MaxInt64-mapping.Size*512 || offset%int64(seg.SectorSize) != 0 || mapping.Size*512%int64(seg.SectorSize) != 0 {
+		return errVolume
+	}
+	if seg.Size != "dynamic" {
+		size, e := strconv.ParseInt(seg.Size, 10, 64)
+		if e != nil || size != mapping.Size*512 {
+			return errVolume
+		}
+	}
+	return nil
+}
