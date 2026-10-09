@@ -112,7 +112,9 @@ func TestHostAdmissionAPIRegistrationDoesNotAdmit(t *testing.T) {
 // current-row joins and evaluate every proof before returning a positive result.
 type admissionSQL struct {
 	t  *testing.T
-	db *sql.DB
+	db interface {
+		Exec(string, ...any) (sql.Result, error)
+	}
 }
 
 func (f admissionSQL) exec(q string, args ...any) {
@@ -197,7 +199,7 @@ func qualifiedHostSnapshot(t *testing.T, at time.Time) store.HostAdmissionSnapsh
 		s.ActionReceiptDigests = append(s.ActionReceiptDigests, c.ActionReceiptDigest)
 	}
 	for i, id := range []string{"debian.accounts", "debian.ssh", "debian.host-firewall"} {
-		add(id, "debian-access-native", []string{"account", "ssh", "host-flow"}[i], 1, nil, input.RenderedAccessDigest)
+		add(id, "debian-access-native", []string{"account", "ssh", "host-flow"}[i], 1, nil, hostaction.Digest(map[string]string{"ssh-config": hostaction.Digest("observed SSH bytes"), "host-rules-v4": hostaction.Digest("observed firewall state")}))
 	}
 	add("debian-access-confirm", "debian-access-native", "identity", 4, nil, requests[0].ActionInputDigest)
 	for i, r := range requests {
@@ -511,6 +513,7 @@ func TestHostAdmissionAPICurrentProofAndInvalidation(t *testing.T) {
 		t.Fatalf("producer fixture blocked: %v", snapshot.Blockers)
 	}
 	for _, e := range expected.Evidence {
+		e.StateRevision += 70
 		b := expected.Bundles[e.EvidenceID]
 		for i := range b.Facts {
 			if b.Facts[i].FactID == "host.binding" {
@@ -551,7 +554,7 @@ func TestHostAdmissionAPICurrentProofAndInvalidation(t *testing.T) {
 	if err := RegisterGateOperations(app, GateOperations{Gates: repo, Revisions: store.NewPlanRepository(authority), Declarations: declarations, Results: factory, Clock: func() time.Time { return at }}); err != nil {
 		t.Fatal(err)
 	}
-	check := func(want string) {
+	check := func(want string) generated.GateEvaluation {
 		t.Helper()
 		token, e := store.NewPlanRepository(authority).CurrentRevision(ctx)
 		if e != nil {
@@ -586,6 +589,7 @@ func TestHostAdmissionAPICurrentProofAndInvalidation(t *testing.T) {
 		if !found {
 			t.Fatal("host gate omitted")
 		}
+		return body.Data.Evaluation
 	}
 	check("passed")
 	savedNative := proofs.proofs["native-baseline"]
@@ -600,6 +604,146 @@ func TestHostAdmissionAPICurrentProofAndInvalidation(t *testing.T) {
 	check("passed")
 	f.exec(`UPDATE system_meta SET state_revision=101 WHERE id=1`)
 	check("passed")
+	// A current declared volume with no mapping/custody observation is a
+	// role blocker, while the independently proven baseline remains usable.
+	volumeDigest := hostaction.Digest("unverified-volume-binding")
+	volumeDoc := generated.DeclarationRevision{Schema: generated.SchemaIDDeclarationRevision, SchemaVersion: "1.0.0", DeclarationID: "pending-volume", DeclarationType: "host.volume", Revision: 1, StateRevision: 101, Status: "draft", Operations: []generated.DeclarationOperation{{Sequence: 1, OperationID: "volume", OperationType: "host.action.execute", AdapterID: "host-action-ssh", TargetID: input.HostID, InputDigest: volumeDigest, ArtifactDigest: volumeDigest}}, CreatedAt: at.Format(time.RFC3339), CreatedBy: "human-a", AgentSessionID: "volume-test", Extensions: []generated.ContractExtension{{Name: "x-host-volume-binding", ValueDigest: volumeDigest}}}
+	volumeSemantic := struct {
+		DeclarationID   string                           `json:"declarationId"`
+		DeclarationType string                           `json:"declarationType"`
+		Operations      []generated.DeclarationOperation `json:"operations"`
+		ReasonDigest    string                           `json:"reasonDigest"`
+		Extensions      []generated.ContractExtension    `json:"extensions"`
+	}{volumeDoc.DeclarationID, volumeDoc.DeclarationType, volumeDoc.Operations, volumeDigest, volumeDoc.Extensions}
+	volumeDoc.ContentDigest = hostaction.Digest(volumeSemantic)
+	f.exec(`INSERT INTO declaration_revisions VALUES('pending-volume',1,'host.volume',101,0,?,?,'draft',?,?,'human-a','volume-test')`, volumeDoc.ContentDigest, volumeDigest, f.bytes(volumeDoc), volumeDoc.CreatedAt)
+	check("passed")
+	roleResponse := serveGateRequest(t, app, http.MethodGet, "/api/v1/gates/host.role-admission?subjectId="+input.HostID, nil)
+	var roleBody struct{ Data generated.GateView }
+	if roleResponse.Code != http.StatusOK || json.Unmarshal(roleResponse.Body.Bytes(), &roleBody) != nil || roleBody.Data.Evaluation.Outcome == "passed" {
+		t.Fatalf("unqualified role admitted: %d %s", roleResponse.Code, roleResponse.Body.String())
+	}
+	// No role producer binding exists in this preparatory-host fixture. Exact
+	// storage-only denial with a qualified role is covered by the owner tests.
+
+	// More than 256 genuine old collections must not crowd out current proof.
+	tx, err := db.Begin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	history := admissionSQL{t, tx}
+	var timeSync store.HostAdmissionMeasurement
+	for _, x := range expected.Measurements {
+		if x.Control.ControlID == "linux.time-sync" {
+			timeSync = x
+			break
+		}
+	}
+	for i := 0; i < 257; i++ {
+		history.measurement(timeSync, fmt.Sprintf("history-%03d", i), at.Add(-time.Hour), "passed")
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	check("passed")
+
+	// Actual append-only native provenance: A passes, newer B passes, revoking
+	// B without a supersedes link must not revive A. A fresh C may qualify anew.
+	var native generated.GateEvidence
+	for _, e := range expected.Evidence {
+		if e.EvidenceID == "native-baseline" {
+			native = e
+			break
+		}
+	}
+	nativeB := native
+	nativeB.EvidenceID = "native-b"
+	nativeB.DeclarationID = "evidence-native-b"
+	nativeB.StateRevision = 90
+	nativeBundle := expected.Bundles[native.EvidenceID]
+	evidenceTx, err := db.Begin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	historicalEvidence := admissionSQL{t, evidenceTx}
+	for i := 0; i < 65; i++ {
+		old := native
+		old.EvidenceID = fmt.Sprintf("historical-native-%02d", i)
+		old.DeclarationID = "decl-" + old.EvidenceID
+		old.StateRevision = int64(i + 1)
+		old.ObservedAt = at.Add(-time.Hour).Format(time.RFC3339)
+		old.AppliedAt = old.ObservedAt
+		oldBundle := nativeBundle
+		oldBundle.ObservedAt = old.ObservedAt
+		historicalEvidence.evidence(old, oldBundle)
+	}
+	if err := evidenceTx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	check("passed")
+	f.evidence(nativeB, nativeBundle)
+	qb := expected.Qualifications[0]
+	qb.EvidenceID = nativeB.EvidenceID
+	proofs.proofs[nativeB.EvidenceID] = store.HostEvidenceProvenance{Qualification: &qb}
+	check("passed")
+	revoked := nativeB
+	revoked.EvidenceID = "native-b-revoked"
+	revoked.DeclarationID = "evidence-native-b-revoked"
+	revoked.StateRevision = 91
+	revoked.Status = "revoked"
+	revoked.RevokesEvidenceID = &nativeB.EvidenceID
+	f.evidence(revoked, nativeBundle)
+	check("blocked")
+	nativeC := native
+	nativeC.EvidenceID = "native-c"
+	nativeC.DeclarationID = "evidence-native-c"
+	nativeC.StateRevision = 92
+	f.evidence(nativeC, nativeBundle)
+	qc := expected.Qualifications[0]
+	qc.EvidenceID = nativeC.EvidenceID
+	proofs.proofs[nativeC.EvidenceID] = store.HostEvidenceProvenance{Qualification: &qc}
+	check("passed")
+
+	// A later failed measurement for the SAME current logical control overrides
+	// its older positive receipt, then a fresh successful collection restores it.
+	f.measurement(timeSync, "timesync-failed", at.Add(time.Second), "failed")
+	at = at.Add(time.Second)
+	if got := check("blocked"); got.ReasonCode != "host-control-failed:host.time-health" {
+		t.Fatalf("latest failed control ignored: %+v", got)
+	}
+	f.measurement(timeSync, "timesync-refreshed", at, "passed")
+	// Existing evidence references the old measurement digest, so recollection
+	// alone is not approval of a changed proof bundle.
+	check("blocked")
+
+	// A later uncertain apply on another declaration must invalidate its
+	// affected proof even though no replacement measurement was produced.
+	var mutation generated.Plan
+	for _, x := range expected.Measurements {
+		if x.Control.ControlID == "linux.time-sync" {
+			mutation = x.Plan
+			break
+		}
+	}
+	if mutation.HostAction == nil {
+		t.Fatal("time-sync fixture missing")
+	}
+	request := *mutation.HostAction
+	request.ActionID = "debian.baseline.apply"
+	request.ExpectedStateRevision = 102
+	mutation.HostAction = &request
+	mutation.DeclarationID = "later-timesync-change"
+	mutation.Binding.StateRevision = 102
+	mutation.Operations[0].ArtifactDigest = hostaction.Digest(request)
+	mutation = admissionCanonicalPlan(mutation)
+	f.plan(mutation)
+	md := hostaction.Digest("uncertain-time-sync")
+	f.exec(`INSERT INTO plan_runs VALUES('uncertain-run',?,?,'decision',NULL,'1.0.0','central','executor',?,'interrupted',0,'not-requested','incomplete',NULL,0,102,0,?,?,?,'now','now')`, mutation.PlanID, mutation.PlanDigest, md, md, md, []byte(`{}`))
+	f.exec(`INSERT INTO plan_run_steps(step_id,run_id,sequence,operation_id,operation_type,adapter_id,executor_id,target_id,input_digest,artifact_digest,idempotent,status,effect_state,started_at) VALUES('uncertain-step','uncertain-run',1,?,'host.action.execute','host-action-ssh','executor',?,?,?,1,'interrupted','effect-unknown','now')`, mutation.Operations[0].OperationID, input.HostID, mutation.Operations[0].InputDigest, mutation.Operations[0].ArtifactDigest)
+	f.exec(`UPDATE system_meta SET state_revision=102 WHERE id=1`)
+	if got := check("blocked"); got.ReasonCode != "host-binding-changed" {
+		t.Fatalf("uncertain mutation retained admission: %+v", got)
+	}
 	f.exec(`UPDATE system_meta SET recovery_epoch=1 WHERE id=1`)
 	check("unknown")
 
@@ -628,4 +772,48 @@ func (f admissionSQL) host(in generated.DebianAccessInput, host, identityDigest 
 	f.exec(`INSERT INTO host_adoption_drafts VALUES(?, ?,?,'human-a',1,0)`, "adoption-"+host, d, []byte(`{}`))
 	f.exec(`INSERT INTO acknowledgement_requests VALUES(?,?,?,?,?,'human-a','fixture-authority',?,1,0,'later','approved',?,?,'now','now','now')`, "ack-"+host, p.PlanID, p.PlanDigest, d, d, d, []byte(`{}`), []byte(`{}`))
 	f.exec(`INSERT INTO managed_hosts VALUES(?,?,?,'product-serial','qualified-virtual',?,?,?,?,'human-a',?,1,0)`, host, draft.Target.TargetID, identityDigest, obs, in.ProfileID, "adoption-"+host, p.PlanID, "ack-"+host)
+}
+
+func (f admissionSQL) measurement(x store.HostAdmissionMeasurement, id string, at time.Time, status string) {
+	p := admissionCanonicalPlan(x.Plan)
+	m := x.Measurement
+	m.ObservedAt = at.Format(time.RFC3339)
+	m.Status = status
+	m.MeasurementDigest = hostaction.MeasurementDigest(m)
+	result := x.Result
+	result.ControlMeasurements = []generated.AccessMeasurement{m}
+	result.ResultDigest = hostaction.ResultDigest(result)
+	r := x.Receipt
+	r.PlanID = p.PlanID
+	r.PlanDigest = p.PlanDigest
+	r.RunID = "run-" + id
+	r.StepID = "step-" + id
+	r.LeaseID = "lease-" + id
+	r.ReceiptID = "receipt-" + id
+	r.ResultDigest = result.ResultDigest
+	r.RecordedAt = at.Format(time.RFC3339)
+	f.receipt(p, r)
+	c := x.Control
+	c.ObservedAt = m.ObservedAt
+	c.Status = status
+	c.MeasurementDigest = m.MeasurementDigest
+	c.ActionReceiptDigest = hostaction.Digest(r)
+	f.exec(`INSERT INTO host_control_results VALUES(?,?,?,0,?,?,?,?,?,?,?,0,?,?,?,?,?,?,?,?,?)`, r.RunID, r.StepID, result.ResultDigest, p.PlanID, p.PlanDigest, hostaction.Digest(p.HostAccessSequence), r.OperationID, r.TargetID, c.HostID, c.IdentityDigest, r.ReceiptID, c.ActionReceiptDigest, c.ControlID, c.Status, c.ObservedAt, c.MeasurementDigest, f.bytes(m), f.bytes(c), f.bytes(result))
+}
+
+func (f admissionSQL) evidence(e generated.GateEvidence, b generated.GateEvidenceBundle) {
+	e.BundleDigest = hostaction.Digest(b)
+	typ := "gate.evidence.apply"
+	if e.Status == "revoked" {
+		typ = "gate.evidence.revoke"
+	}
+	op := generated.PlanOperation{Sequence: 1, OperationID: "apply-evidence", OperationType: typ, AdapterID: "core.gate", TargetID: e.SubjectID, InputDigest: e.BundleDigest, ArtifactDigest: e.BundleDigest}
+	p := admissionCanonicalPlan(generated.Plan{DeclarationID: e.DeclarationID, Binding: generated.PlanBinding{StateRevision: e.StateRevision, DeclarationRevision: 1}, Operations: []generated.PlanOperation{op}})
+	d := hostaction.Digest(e.EvidenceID)
+	r := generated.ExecutionReceipt{Schema: generated.SchemaIDExecutionReceipt, SchemaVersion: "1.0.0", ReceiptID: "receipt-" + e.EvidenceID, LeaseID: "lease-" + e.EvidenceID, RunID: "run-" + e.EvidenceID, StepID: "step-" + e.EvidenceID, PlanID: p.PlanID, PlanDigest: p.PlanDigest, OperationID: op.OperationID, ExecutorID: "executor-central", AdapterID: "core.gate", TargetID: e.SubjectID, ArtifactDigest: e.BundleDigest, BindingDigest: d, NonceDigest: d, Status: "succeeded", ResultDigest: d, RecordedAt: e.AppliedAt, Extensions: []generated.ContractExtension{}}
+	f.receipt(p, r)
+	f.exec(`INSERT INTO acknowledgement_requests VALUES(?,?,?,?,?,'human-a','fixture-authority',?,?,0,'later','approved',?,?,'now','now','now')`, "ack-"+e.EvidenceID, p.PlanID, p.PlanDigest, d, d, d, e.StateRevision, []byte(`{}`), []byte(`{}`))
+	f.exec(`UPDATE plan_runs SET acknowledgement_id=? WHERE run_id=?`, "ack-"+e.EvidenceID, r.RunID)
+	f.exec(`INSERT INTO gate_evidence_drafts VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,'human-a',?)`, "draft-"+e.EvidenceID, e.EvidenceID, e.GateID, e.SubjectID, e.DefinitionVersion, e.EvaluatorVersion, e.SourceKind, e.ProofClass, e.SupersedesEvidenceID, e.RevokesEvidenceID, e.ArtifactDigest, e.BundleDigest, f.bytes(b), e.ObservedAt, e.StateRevision, e.AppliedAt)
+	f.exec(`INSERT INTO gate_applied_evidence VALUES(?,?,?,?,?,?,?,?,?,?,0,?,1,?,?,?,?,?,?,?,?)`, e.EvidenceID, "draft-"+e.EvidenceID, e.GateID, e.SubjectID, e.Status, e.SourceKind, e.ProofClass, e.BundleDigest, f.bytes(e), e.StateRevision, p.DeclarationID, p.PlanID, p.PlanDigest, r.RunID, r.StepID, r.LeaseID, e.SupersedesEvidenceID, e.RevokesEvidenceID, e.AppliedAt)
 }
