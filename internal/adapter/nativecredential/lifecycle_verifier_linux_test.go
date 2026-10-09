@@ -37,7 +37,7 @@ func TestExactDeniedReaders(t *testing.T) {
 		},
 		MaterialVersion: "version-a", ResolverID: "native-systemd", TargetID: "target-a", CiphertextFingerprint: "sha256:" + strings.Repeat("a", 64), StateRevision: 12, RecoveryEpoch: 3,
 	}
-	step := NativeVerificationStep{OperationID: binding.OperationID, OperationType: string(binding.Action), TargetID: binding.TargetID, ArtifactDigest: binding.CiphertextFingerprint}
+	step := NativeVerificationStep{PlanDigest: "sha256:" + strings.Repeat("c", 64), RunID: "run-a", StepID: "step-a", OperationID: binding.OperationID, OperationType: string(binding.Action), TargetID: binding.TargetID, ArtifactDigest: binding.CiphertextFingerprint}
 	authority := &deniedAuthority{openedUID: 2002}
 	verifier := &NativeLifecycleVerifier{Authority: authority, policy: func(credentialref.LifecycleBinding) error { return nil },
 		observe: func(_ context.Context, _ credentialref.LifecycleBinding, reader credentialref.NativeConsumerBinding) (NativeInvocationProof, error) {

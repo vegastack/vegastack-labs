@@ -33,6 +33,7 @@ type NativeLifecycleVerifier struct {
 	CiphertextOwnerUID uint32
 	policy             func(credentialref.LifecycleBinding) error
 	observe            func(context.Context, credentialref.LifecycleBinding, credentialref.NativeConsumerBinding) (NativeInvocationProof, error)
+	current            func(context.Context, credentialref.LifecycleBinding, credentialref.NativeConsumerBinding) (NativeInvocationProof, error)
 	recheck            func(context.Context, credentialref.LifecycleBinding, credentialref.NativeConsumerBinding, NativeInvocationProof) error
 }
 
@@ -41,6 +42,7 @@ type NativeLifecycleVerifier struct {
 type NativeVerificationStep struct {
 	OperationID, OperationType, TargetID, ArtifactDigest string
 	PlanDigest, RunID, StepID                            string
+	PlanID, LeaseID                                      string
 }
 
 func NewNativeLifecycleVerifier(authority *LocalNativeAuthority, units AppliedUnitReader, ciphertextRoot string, ownerUID uint32) (*NativeLifecycleVerifier, error) {
@@ -53,6 +55,7 @@ func NewNativeLifecycleVerifier(authority *LocalNativeAuthority, units AppliedUn
 		inspect: InspectEncrypted, process: observeProcessIdentity}
 	v.observe = observer.observe
 	v.recheck = v.recheckProof
+	v.current = v.currentNativeProof
 	return v, nil
 }
 
@@ -116,6 +119,10 @@ func (v *NativeLifecycleVerifier) VerifyNative(ctx context.Context, step NativeV
 			strconv.FormatUint(proof.SourceDevice, 10), strconv.FormatUint(proof.SourceInode, 10), proof.SourceFingerprint)
 		verification, err := credentialref.NewConsumerVerification(binding, reader.ConsumerID, reader.ProfileID, reader.RoleID, evidence, "native-systemd-delivery", "verified", true)
 		if err != nil {
+			return nil, errNativeLifecycle
+		}
+		verification.NativeReceipt = &credentialref.NativeLoadedReceipt{Version: 1, Binding: binding, ConsumerID: reader.ConsumerID, PlanDigest: step.PlanDigest, RunID: step.RunID, StepID: step.StepID, Proof: proof}
+		if !credentialref.ValidConsumerVerification(binding, verification) {
 			return nil, errNativeLifecycle
 		}
 		results = append(results, verification)

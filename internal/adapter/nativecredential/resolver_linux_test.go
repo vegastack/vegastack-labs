@@ -4,6 +4,7 @@ package nativecredential
 
 import (
 	"context"
+	"golang.org/x/sys/unix"
 	"os"
 	"path/filepath"
 	"testing"
@@ -37,7 +38,11 @@ func TestNativeResolverRequiresAppliedActiveVersionAndRestartObservation(t *test
 	fingerprint := "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	activated := "2026-09-16T00:00:00Z"
 	reference := generated.CredentialReference{ReferenceID: binding.ReferenceID, ConsumerID: binding.ConsumerID, PurposeID: binding.PurposeID, TargetID: binding.TargetID, ResolverID: binding.ResolverID, MaterialVersion: binding.MaterialVersion, Fingerprint: fingerprint, Status: "active", StateRevision: 2, RecoveryEpoch: 0, ActivatedAt: &activated, VerifiedConsumerIDs: []string{binding.ConsumerID}}
-	observer := syntheticLoadedObserver{loaded: LoadedCredential{Name: name, MaterialVersion: binding.MaterialVersion, CiphertextFingerprint: fingerprint, RestartObserved: true}}
+	var fileStat unix.Stat_t
+	if err := unix.Stat(filepath.Join(dir, name), &fileStat); err != nil {
+		t.Fatal(err)
+	}
+	observer := syntheticLoadedObserver{loaded: LoadedCredential{Name: name, MaterialVersion: binding.MaterialVersion, CiphertextFingerprint: fingerprint, RestartObserved: true, Device: uint64(fileStat.Dev), Inode: fileStat.Ino, UID: fileStat.Uid, GID: fileStat.Gid, Mode: fileStat.Mode}}
 	resolver, err := NewResolver(dir, uint32(os.Geteuid()), syntheticReferenceInspector{reference}, observer)
 	if err != nil {
 		t.Fatal(err)
@@ -48,6 +53,13 @@ func TestNativeResolverRequiresAppliedActiveVersionAndRestartObservation(t *test
 		t.Fatal(err)
 	}
 	value.Close()
+	wrongFile := observer
+	wrongFile.loaded.Inode++
+	resolver.observer = wrongFile
+	if _, err := resolver.Resolve(context.Background(), binding); err == nil {
+		t.Fatal("different loaded inode accepted")
+	}
+	resolver.observer = observer
 	if len(value.Bytes()) != 0 {
 		t.Fatal("closed value readable")
 	}

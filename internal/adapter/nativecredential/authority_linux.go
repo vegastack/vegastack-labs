@@ -145,3 +145,27 @@ func monotonicNanos() (int64, error) {
 	}
 	return ts.Sec*1e9 + ts.Nsec, nil
 }
+
+// EnqueueRestart asks the existing system manager to queue one enrolled unit.
+// A nil error proves only enqueue, never completion or credential activation.
+func (a *LocalNativeAuthority) EnqueueRestart(ctx context.Context, unit string) error {
+	if ctx == nil || ctx.Err() != nil || !a.qualified(ctx, unit) {
+		return errProbeBlocked
+	}
+	bounded, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	binary, err := openTrustedExecutable("/usr/bin/systemctl")
+	if err != nil {
+		return errProbeBlocked
+	}
+	defer binary.Close()
+	command := exec.CommandContext(bounded, "/usr/bin/systemctl", "--system", "--no-ask-password", "--no-block", "restart", unit)
+	command.Env = []string{"LANG=C", "LC_ALL=C", "PATH=/usr/bin:/bin"}
+	command.Stdin = strings.NewReader("")
+	command.Stdout = rejectCommandOutput{}
+	command.Stderr = rejectCommandOutput{}
+	if command.Run() != nil || bounded.Err() != nil {
+		return errProbeBlocked
+	}
+	return nil
+}

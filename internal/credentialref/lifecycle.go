@@ -35,7 +35,13 @@ var fingerprintPattern = regexp.MustCompile(`^sha256:[a-f0-9]{64}$`)
 // It is server-derived and sealed into exactly one immutable plan. It never
 // carries a credential value; CiphertextFingerprint is a metadata identity, not
 // key material.
+type HostActionConsoleBinding struct {
+	Method, TargetDigest, HostIdentityDigest string
+	TargetRevision                           int64
+}
 type LifecycleBinding struct {
+	NativeRestartContinuation   *NativeRestartContinuation `json:",omitempty"`
+	HostActionConsole           *HostActionConsoleBinding  `json:",omitempty"`
 	OperationID                 string
 	Action                      LifecycleAction
 	DraftID                     *string
@@ -65,6 +71,7 @@ type LifecycleBinding struct {
 // cold-start/restart observation. It carries only metadata digests, never
 // material.
 type ConsumerVerification struct {
+	NativeReceipt         *NativeLoadedReceipt
 	ConsumerID            string
 	ProfileID             string
 	RoleID                string
@@ -136,6 +143,17 @@ func validDigestPointer(value *string) bool {
 // epochs. It never inspects credential material and is not the authority for
 // current-epoch or plan freshness, which the store and run seams enforce.
 func ValidLifecycleBinding(binding LifecycleBinding) bool {
+	if c := binding.NativeRestartContinuation; c != nil {
+		if !ValidNativeRestartContinuation(c) || binding.HostActionConsole == nil || binding.ResolverID != "native-systemd" || (binding.Action != ActionActivate && binding.Action != ActionRotate) || len(binding.NativeConsumers) != 1 || binding.NativeConsumers[0].ConsumerID != "host-action" {
+			return false
+		}
+	}
+	if c := binding.HostActionConsole; c != nil {
+		if (binding.Action != ActionActivate && binding.Action != ActionRotate) || binding.ResolverID != "native-systemd" || len(binding.ConsumerIDs) != 1 || binding.ConsumerIDs[0] != "host-action" || c.Method != "administrator-verified-console" || !fingerprintPattern.MatchString(c.TargetDigest) || !fingerprintPattern.MatchString(c.HostIdentityDigest) || c.TargetRevision < 1 {
+			return false
+		}
+	}
+
 	if !knownAction(binding.Action) || binding.StateRevision <= 0 || binding.RecoveryEpoch < 0 {
 		return false
 	}
@@ -291,6 +309,12 @@ func (binding LifecycleBinding) Digest() string {
 		canonicalInt64Pointer(binding.PriorRecoveryEpoch),
 		canonicalStringPointer(binding.CustodyProofDigest),
 		canonicalStringPointer(binding.FormerControllerFenceDigest),
+	}
+	if c := binding.HostActionConsole; c != nil {
+		parts = append(parts, "host-action-console-v1", c.Method, c.TargetDigest, c.HostIdentityDigest, strconv.FormatInt(c.TargetRevision, 10))
+	}
+	if c := binding.NativeRestartContinuation; c != nil {
+		parts = append(parts, "native-restart-continuation-v1", NativeRestartContinuationDigest(*c))
 	}
 	sum := sha256.Sum256([]byte(strings.Join(parts, "\x00")))
 	return "sha256:" + hex.EncodeToString(sum[:])
