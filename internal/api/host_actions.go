@@ -52,6 +52,7 @@ func (app *Application) hostActionDraft(c HostActionOperations) func(http.Respon
 			app.failure(w, operation, err)
 			return
 		}
+		originalRequestDigest := hostaction.Digest(input)
 		raw, _ := json.Marshal(input)
 		if generated.ValidateContractJSON(generated.SchemaIDHostActionRequest, raw, generated.ContractExact) != nil {
 			app.failure(w, operation, apiFailure(generated.ErrorCodeInputInvalid, "host-action"))
@@ -130,6 +131,7 @@ func (app *Application) hostActionDraft(c HostActionOperations) func(http.Respon
 			app.failure(w, operation, err)
 			return
 		}
+		response.OriginalRequestDigest = originalRequestDigest
 		app.success(w, operation, response.StateRevision, response.RecoveryEpoch, response)
 	}
 }

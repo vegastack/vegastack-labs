@@ -47,6 +47,7 @@ func (app *Application) hostAccessDraft(c HostAccessOperations) func(http.Respon
 			return
 		}
 		fail := func(e error) { app.failure(w, operation, e) }
+		originalRequestDigest := hostaction.Digest(input)
 		encodedInput, _ := json.Marshal(input)
 		if generated.ValidateContractJSON(generated.SchemaIDHostAccessDraftRequest, encodedInput, generated.ContractExact) != nil {
 			fail(apiFailure(generated.ErrorCodeInputInvalid, "host-access-input"))
@@ -146,7 +147,7 @@ func (app *Application) hostAccessDraft(c HostAccessOperations) func(http.Respon
 			fail(e)
 			return
 		}
-		response := generated.HostActionSubmission{Schema: generated.SchemaIDHostActionSubmission, SchemaVersion: "1.0.0", DraftID: id, DeclarationID: id, ContentDigest: hostaction.Digest(seq), StateRevision: revised.Document.StateRevision + 1, RecoveryEpoch: apply.RecoveryEpoch}
+		response := generated.HostActionSubmission{Schema: generated.SchemaIDHostActionSubmission, SchemaVersion: "1.0.0", DraftID: id, DeclarationID: id, ContentDigest: hostaction.Digest(seq), OriginalRequestDigest: originalRequestDigest, StateRevision: revised.Document.StateRevision + 1, RecoveryEpoch: apply.RecoveryEpoch}
 		app.success(w, operation, response.StateRevision, response.RecoveryEpoch, response)
 	}
 }

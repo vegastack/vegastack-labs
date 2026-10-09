@@ -17,7 +17,7 @@ func (client *client) DiscoverHost(ctx context.Context, profile serverconfig.Pro
 	}
 	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodPost, "/api/v1/host-observations", "api.v1.host-observations.create", maxOperationResponseBodyBytes, operationTimeout, false}, input, func(data generated.HostDiscoverySubmission, r generated.RunResult) bool {
 		o := data.Observation
-		return validGateData(data, generated.SchemaIDHostDiscoverySubmission) && o.TargetID == input.TargetID && o.TargetRevision == input.TargetRevision && o.RecoveryEpoch == input.RecoveryEpoch && o.StateRevision == r.StateRevision && o.RecoveryEpoch == r.RecoveryEpoch
+		return validGateData(data, generated.SchemaIDHostDiscoverySubmission) && data.OriginalRequestDigest == hostRequestDigest(input) && o.TargetID == input.TargetID && o.TargetRevision == input.TargetRevision && o.RecoveryEpoch == input.RecoveryEpoch && o.StateRevision == r.StateRevision && o.RecoveryEpoch == r.RecoveryEpoch
 	})
 }
 func (client *client) SubmitHostAdoption(ctx context.Context, profile serverconfig.Profile, input generated.HostAdoptionRequest) (TypedResponse[generated.HostAdoptionSubmission], error) {
@@ -37,7 +37,7 @@ func (client *client) GetManagedHost(ctx context.Context, profile serverconfig.P
 		return TypedResponse[generated.ManagedHost]{}, failure.New(generated.ErrorCodeInputInvalid, "host-id", false)
 	}
 	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodGet, "/api/v1/hosts/" + id, "api.v1.hosts.get", maxOperationResponseBodyBytes, operationTimeout, false}, nil, func(data generated.ManagedHost, r generated.RunResult) bool {
-		return validGateData(data, generated.SchemaIDManagedHost) && data.HostID == id && data.StateRevision == r.StateRevision && data.RecoveryEpoch == r.RecoveryEpoch
+		return validGateData(data, generated.SchemaIDManagedHost) && data.HostID == id && data.StateRevision <= r.StateRevision && data.RecoveryEpoch == r.RecoveryEpoch
 	})
 }
 
@@ -66,13 +66,16 @@ func (client *client) SubmitHostAction(ctx context.Context, profile serverconfig
 	if !validGateData(input, generated.SchemaIDHostActionRequest) {
 		return TypedResponse[generated.HostActionSubmission]{}, failure.New(generated.ErrorCodeInputInvalid, "host-actions", false)
 	}
-	// The server seals rendered inputs before computing this digest; the subsequent exact plan exposes those bytes.
+	// Bind the original desired request separately from the server-rendered content.
+	original, _ := json.Marshal(input)
+	sum := sha256.Sum256(original)
+	originalDigest := "sha256:" + hex.EncodeToString(sum[:])
 	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodPost, "/api/v1/host-actions/draft", "api.v1.host-actions.draft", maxOperationResponseBodyBytes, operationTimeout, false}, input, func(data generated.HostActionSubmission, r generated.RunResult) bool {
 		if !validGateData(data, generated.SchemaIDHostActionSubmission) {
 			return false
 		}
 		id := "host-action-" + data.ContentDigest[7:39]
-		return data.DraftID == id && data.DeclarationID == id && data.RecoveryEpoch == input.RecoveryEpoch && data.RecoveryEpoch == r.RecoveryEpoch && data.StateRevision == r.StateRevision && data.StateRevision >= input.ExpectedStateRevision
+		return data.OriginalRequestDigest == originalDigest && data.DraftID == id && data.DeclarationID == id && data.RecoveryEpoch == input.RecoveryEpoch && data.RecoveryEpoch == r.RecoveryEpoch && data.StateRevision == r.StateRevision && data.StateRevision >= input.ExpectedStateRevision
 	})
 }
 
@@ -80,13 +83,16 @@ func (client *client) SubmitHostAccess(ctx context.Context, profile serverconfig
 	if !validGateData(input, generated.SchemaIDHostAccessDraftRequest) {
 		return TypedResponse[generated.HostActionSubmission]{}, failure.New(generated.ErrorCodeInputInvalid, "host-access", false)
 	}
-	// The server seals rendered inputs before computing this digest; the subsequent exact plan exposes those bytes.
+	// Bind the original desired request separately from the server-rendered content.
+	original, _ := json.Marshal(input)
+	sum := sha256.Sum256(original)
+	originalDigest := "sha256:" + hex.EncodeToString(sum[:])
 	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodPost, "/api/v1/host-access/draft", "api.v1.host-access.draft", maxOperationResponseBodyBytes, operationTimeout, false}, input, func(data generated.HostActionSubmission, r generated.RunResult) bool {
 		if !validGateData(data, generated.SchemaIDHostActionSubmission) {
 			return false
 		}
 		id := "host-access-" + data.ContentDigest[7:39]
-		return data.DraftID == id && data.DeclarationID == id && data.RecoveryEpoch == input.Subject.RecoveryEpoch && data.RecoveryEpoch == r.RecoveryEpoch && data.StateRevision == r.StateRevision && data.StateRevision >= input.Subject.ExpectedStateRevision
+		return data.OriginalRequestDigest == originalDigest && data.DraftID == id && data.DeclarationID == id && data.RecoveryEpoch == input.Subject.RecoveryEpoch && data.RecoveryEpoch == r.RecoveryEpoch && data.StateRevision == r.StateRevision && data.StateRevision >= input.Subject.ExpectedStateRevision
 	})
 }
 
@@ -109,4 +115,10 @@ func (client *client) GetHostReplacement(ctx context.Context, profile serverconf
 	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodGet, "/api/v1/host-replacements/" + id, "api.v1.host-replacements.get", maxOperationResponseBodyBytes, operationTimeout, false}, nil, func(data generated.HostReplacementState, r generated.RunResult) bool {
 		return validGateData(data, generated.SchemaIDHostReplacementState) && data.ReplacementID == id && data.StateRevision == r.StateRevision && data.RecoveryEpoch == r.RecoveryEpoch
 	})
+}
+
+func hostRequestDigest(input any) string {
+	raw, _ := json.Marshal(input)
+	sum := sha256.Sum256(raw)
+	return "sha256:" + hex.EncodeToString(sum[:])
 }

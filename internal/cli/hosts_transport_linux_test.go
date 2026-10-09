@@ -104,7 +104,7 @@ func hostTransportFixture(t *testing.T, action string) ([]string, []byte, []byte
 		if kind == "target" {
 			data = generated.HostDiscoveryTargetDraftSubmission{Schema: schema, SchemaVersion: "1.0.0", DraftID: id, DeclarationID: id, ContentDigest: content, StateRevision: responseState}
 		} else {
-			data = generated.HostActionSubmission{Schema: schema, SchemaVersion: "1.0.0", DraftID: id, DeclarationID: id, ContentDigest: content, StateRevision: responseState}
+			data = generated.HostActionSubmission{OriginalRequestDigest: hostTransportOriginalDigest(request), Schema: schema, SchemaVersion: "1.0.0", DraftID: id, DeclarationID: id, ContentDigest: content, StateRevision: responseState}
 		}
 		method = "POST"
 	case "observation inspect":
@@ -114,7 +114,7 @@ func hostTransportFixture(t *testing.T, action string) ([]string, []byte, []byte
 	case "discover":
 		request = syntheticHostRequest(t, generated.CommandNameNodeDiscover)
 		observation := generated.HostObservation{Schema: generated.SchemaIDHostObservation, SchemaVersion: "1.0.0", ObservationID: "observation-a", TargetID: "target-a", TargetRevision: 1, TargetDigest: digest, Collector: "collector-a", CollectorVersion: "1.0.0", ObservedAt: "2026-10-08T00:00:00Z", ExpiresAt: "2026-10-08T00:15:00Z", Status: "incomplete", Facts: []generated.HostDiscoveryFact{}, Blockers: []string{"hardening-unverified"}, ContentDigest: digest}
-		data = generated.HostDiscoverySubmission{Schema: generated.SchemaIDHostDiscoverySubmission, SchemaVersion: "1.0.0", Observation: observation, Created: true}
+		data = generated.HostDiscoverySubmission{OriginalRequestDigest: hostTransportOriginalDigest(request), Schema: generated.SchemaIDHostDiscoverySubmission, SchemaVersion: "1.0.0", Observation: observation, Created: true}
 		schema, route, operation, method = generated.SchemaIDHostDiscoverySubmission, "/api/v1/host-observations", "api.v1.host-observations.create", "POST"
 	case "add":
 		request = syntheticHostRequest(t, generated.CommandNameNodeAdd)
@@ -131,7 +131,7 @@ func hostTransportFixture(t *testing.T, action string) ([]string, []byte, []byte
 		// remains the later approval boundary.
 		content := "sha256:" + strings.Repeat("b", 64)
 		id := "host-action-" + content[7:39]
-		data = generated.HostActionSubmission{Schema: generated.SchemaIDHostActionSubmission, SchemaVersion: "1.0.0", DraftID: id, DeclarationID: id, ContentDigest: content, StateRevision: 2}
+		data = generated.HostActionSubmission{OriginalRequestDigest: hostTransportOriginalDigest(request), Schema: generated.SchemaIDHostActionSubmission, SchemaVersion: "1.0.0", DraftID: id, DeclarationID: id, ContentDigest: content, StateRevision: 2}
 		schema, route, operation, method = generated.SchemaIDHostActionSubmission, "/api/v1/host-actions/draft", "api.v1.host-actions.draft", "POST"
 	case "inspect":
 		data = generated.ManagedHost{Schema: generated.SchemaIDManagedHost, SchemaVersion: "1.0.0", HostID: "host-a", TargetID: "target-a", ObservationID: "observation-a", ProfileID: "profile-a", IdentityClass: "physical", Status: "adopted-unadmitted"}
@@ -279,4 +279,9 @@ func TestNodeCommandRejectsInputBeforeTransport(t *testing.T) {
 		default:
 		}
 	})
+}
+
+func hostTransportOriginalDigest(raw []byte) string {
+	sum := sha256.Sum256(raw)
+	return "sha256:" + hex.EncodeToString(sum[:])
 }

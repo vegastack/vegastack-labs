@@ -18,7 +18,7 @@ func TestRoleDraftClientResponseBindings(t *testing.T) {
 	for _, variant := range []string{"valid", "draft", "declaration", "revision", "epoch"} {
 		t.Run(variant, func(t *testing.T) {
 			d := "sha256:" + strings.Repeat("b", 64)
-			data := generated.HostActionSubmission{Schema: generated.SchemaIDHostActionSubmission, SchemaVersion: "1.0.0", ContentDigest: d, DraftID: "host-action-" + d[7:39], DeclarationID: "host-action-" + d[7:39], StateRevision: 9, RecoveryEpoch: 2}
+			data := generated.HostActionSubmission{OriginalRequestDigest: hostRequestDigest(input), Schema: generated.SchemaIDHostActionSubmission, SchemaVersion: "1.0.0", ContentDigest: d, DraftID: "host-action-" + d[7:39], DeclarationID: "host-action-" + d[7:39], StateRevision: 9, RecoveryEpoch: 2}
 			switch variant {
 			case "draft":
 				data.DraftID = "wrong"

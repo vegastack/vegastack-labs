@@ -2346,13 +2346,14 @@ type HostActionResult struct {
 }
 
 type HostActionSubmission struct {
-	Schema        string `json:"schema"`
-	SchemaVersion string `json:"schemaVersion"`
-	DraftID       string `json:"draftId"`
-	DeclarationID string `json:"declarationId"`
-	ContentDigest string `json:"contentDigest"`
-	StateRevision int64  `json:"stateRevision"`
-	RecoveryEpoch int64  `json:"recoveryEpoch"`
+	Schema                string `json:"schema"`
+	SchemaVersion         string `json:"schemaVersion"`
+	OriginalRequestDigest string `json:"originalRequestDigest"`
+	DraftID               string `json:"draftId"`
+	DeclarationID         string `json:"declarationId"`
+	ContentDigest         string `json:"contentDigest"`
+	StateRevision         int64  `json:"stateRevision"`
+	RecoveryEpoch         int64  `json:"recoveryEpoch"`
 }
 
 type HostAdoptionRequest struct {
@@ -2457,10 +2458,11 @@ type HostDiscoveryRequest struct {
 }
 
 type HostDiscoverySubmission struct {
-	Schema        string          `json:"schema"`
-	SchemaVersion string          `json:"schemaVersion"`
-	Observation   HostObservation `json:"observation"`
-	Created       bool            `json:"created"`
+	Schema                string          `json:"schema"`
+	SchemaVersion         string          `json:"schemaVersion"`
+	OriginalRequestDigest string          `json:"originalRequestDigest"`
+	Observation           HostObservation `json:"observation"`
+	Created               bool            `json:"created"`
 }
 
 type HostDiscoveryTarget struct {

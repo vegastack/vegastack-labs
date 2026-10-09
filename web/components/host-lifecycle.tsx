@@ -2,7 +2,7 @@
 
 import { HostReplacement } from "@/components/host-replacement";
 
-import { useState, type FormEvent } from "react";
+import { useState, useRef, type FormEvent } from "react";
 import { HostAdmission, InitialControlGuidance } from "@/components/host-admission";
 import { HostPolicyForm } from "@/components/host-policy-form";
 import { Button } from "@/components/ui/button";
@@ -37,13 +37,15 @@ function HostLifecycleContent({ initialHostId }: { initialHostId: string | null 
   const [credentialMode,setCredentialMode]=useState<"qualified-reference"|"preloaded-discovery">("qualified-reference");
   const [observationId, setObservationId] = useState<string | null>(null);
   const [draft, setDraft] = useState<{ declarationId: string; digest: string; kind: ExactPlanKind } | null>(null);
-  const [planId, setPlanId] = useState<string | null>(null);
+  const selectedDraft = useRef<typeof draft>(null);
+  const [plannedDraft, setPlannedDraft] = useState<{ declarationId: string; digest: string; planId: string } | null>(null);
+  const planId = plannedDraft && draft && plannedDraft.declarationId === draft.declarationId && plannedDraft.digest === draft.digest ? plannedDraft.planId : null;
   const host = useManagedHost(hostId);
   const observation = useHostObservation(observationId);
   const target = useHostTargetDraft(); const discovery = useHostDiscovery(); const adoption = useHostAdoption(); const planning = useHostPlan();
   const error = target.error ?? discovery.error ?? adoption.error ?? planning.error ?? host.error ?? observation.error;
   const busy = target.isPending || discovery.isPending || adoption.isPending || planning.isPending;
-  function saveDraft(data: { declarationId: string; contentDigest: string }, kind: ExactPlanKind) { setDraft({ declarationId: data.declarationId, digest: data.contentDigest, kind }); setPlanId(null); }
+  function saveDraft(data: { declarationId: string; contentDigest: string }, kind: ExactPlanKind) { const next = { declarationId: data.declarationId, digest: data.contentDigest, kind }; selectedDraft.current = next; setDraft(next); setPlannedDraft(null); }
   return <section aria-label="Host lifecycle" className="space-y-4">
     <Card><CardHeader><CardTitle>Registered hosts</CardTitle><CardDescription>Inventory drafts, discovery and registration are separate. Registration does not admit workloads.</CardDescription></CardHeader><CardContent className="space-y-4">
       <form onSubmit={e => { const d = form(e); setHostId(text(d, "hostId")); }} className="flex items-end gap-2"><Field name="hostId" label="Managed host ID" value={hostId ?? ""} /><Button type="submit">Inspect registered host</Button></form>
@@ -79,6 +81,6 @@ function HostLifecycleContent({ initialHostId }: { initialHostId: string | null 
     <HostPolicyForm onPrepared={saveDraft} />
     <InitialControlGuidance />
     <HostReplacement onPrepared={saveDraft} />
-    {draft ? <Card><CardHeader><CardTitle>Draft prepared</CardTitle><CardDescription>No host action has been applied.</CardDescription></CardHeader><CardContent className="space-y-3"><p>Declaration: {draft.declarationId}</p><p className="break-all">Digest: {draft.digest}</p><Button disabled={busy} onClick={async()=>{try{const p=await planning.mutateAsync(draft.declarationId);setPlanId(p.planId);}catch{}}}>Create exact plan</Button><ExactPlanLauncher key={planId ?? draft.declarationId} kind={draft.kind} planId={planId} destructive /></CardContent></Card> : null}
+    {draft ? <Card><CardHeader><CardTitle>Draft prepared</CardTitle><CardDescription>No host action has been applied.</CardDescription></CardHeader><CardContent className="space-y-3"><p>Declaration: {draft.declarationId}</p><p className="break-all">Digest: {draft.digest}</p><Button disabled={busy} onClick={async()=>{try{const selected = draft; const p=await planning.mutateAsync(selected.declarationId); if (selectedDraft.current === selected) setPlannedDraft({ declarationId: selected.declarationId, digest: selected.digest, planId: p.planId });}catch{}}}>Create exact plan</Button><ExactPlanLauncher key={planId ?? draft.declarationId} kind={draft.kind} planId={planId} destructive /></CardContent></Card> : null}
   </section>;
 }

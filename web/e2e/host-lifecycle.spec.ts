@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { installReadFixture } from "./api-fixture";
+import { hostRequestDigest } from "../generated/read-api";
 const fixture=JSON.parse(readFileSync(__dirname+"/../../internal/localapi/testdata/host-target.json","utf8"));
 const digest=`sha256:${"a".repeat(64)}`;
 function envelope(command:string,data:unknown,code?:string){return {schema:"vegastack-labs.dev/browser-run-result",schemaVersion:"1.0.0",toolVersion:"test",command,runId:null,status:code?"failed":"succeeded",changed:false,recoveryEpoch:0,stateRevision:3,snapshotDigest:null,releaseBuildId:"test",sourceRevision:null,planId:null,errors:code?[{code,message:"Current authority required.",retryable:false}]:[],data};}
@@ -12,7 +13,7 @@ async function fillTarget(page:Page){
 }
 test("preloaded target remains inert and stale plan clears prior forms",async({page},info)=>{
  await installReadFixture(page); let captured:any; let preparations=0;
- await page.route("**/api/v1/host-discovery-targets/draft",async route=>{captured=route.request().postDataJSON();preparations++;await route.fulfill({json:envelope("api.v1.host-discovery-targets.draft",{schema:"vegastack-labs.dev/host-discovery-target-draft-submission",schemaVersion:"1.0.0",draftId:"discovery-draft-one",declarationId:"discovery-draft-one",contentDigest:digest,stateRevision:3,recoveryEpoch:0})});});
+ await page.route("**/api/v1/host-discovery-targets/draft",async route=>{captured=route.request().postDataJSON();preparations++;const contentDigest=await hostRequestDigest("vegastack-labs.dev/host-discovery-target-draft-request",captured);const draftId="discovery-draft-"+contentDigest.slice(7,39);await route.fulfill({json:envelope("api.v1.host-discovery-targets.draft",{schema:"vegastack-labs.dev/host-discovery-target-draft-submission",schemaVersion:"1.0.0",draftId,declarationId:draftId,contentDigest,stateRevision:3,recoveryEpoch:0})});});
  await page.route("**/api/v1/declarations/**/plan-preparation",route=>route.fulfill({status:409,json:envelope("api.v1.plans.prepare",null,"PLAN_STALE")}));
  await page.goto("/nodes");const form=await fillTarget(page);
  await form.getByLabel("Discovery credential mode").selectOption("preloaded-discovery");
@@ -73,7 +74,7 @@ test("role import stays inert and shows independent admission prerequisites",asy
  const input=JSON.parse(readFileSync(__dirname+"/../../internal/linuxrole/testdata/role-input.json","utf8"));
  const request=JSON.parse(readFileSync(__dirname+"/../../internal/localapi/testdata/host-action.json","utf8"));
  Object.assign(request,{actionId:"debian.role.apply",hostId:input.hostId,callerUid:input.automationUid,actionInput:JSON.stringify(input)});request.consoleConfirmation.hostIdentityDigest=input.hostIdentityDigest;
- await page.route("**/api/v1/host-actions/draft",route=>{mutations++;captured=route.request().postDataJSON();return route.fulfill({json:envelope("api.v1.host-actions.draft",{schema:"vegastack-labs.dev/host-action-submission",schemaVersion:"1.0.0",draftId:"role-draft",declarationId:"role-draft",contentDigest:digest,stateRevision:3,recoveryEpoch:0})});});
+ await page.route("**/api/v1/host-actions/draft",async route=>{mutations++;captured=route.request().postDataJSON();const originalRequestDigest=await hostRequestDigest("vegastack-labs.dev/host-action-request",captured);return route.fulfill({json:envelope("api.v1.host-actions.draft",{schema:"vegastack-labs.dev/host-action-submission",schemaVersion:"1.0.0",draftId:"host-action-"+digest.slice(7,39),declarationId:"host-action-"+digest.slice(7,39),contentDigest:digest,originalRequestDigest,stateRevision:3,recoveryEpoch:0})});});
  await page.goto("/nodes");await page.getByRole("button",{name:"Role and service handoff",exact:true}).click();
  await page.getByLabel("Prepared role policy file").setInputFiles({name:"role.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify(request))});
  await expect(page.getByLabel("Prepared role details")).toContainText(`Role: ${input.roleId}`);

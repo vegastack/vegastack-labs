@@ -1,12 +1,13 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { installReadFixture } from "./api-fixture";
+import { hostRequestDigest } from "../generated/read-api";
 const fixture=JSON.parse(readFileSync(__dirname+"/../test/fixtures/host-replacement.json","utf8"));
 function envelope(command:string,data:unknown,code?:string){return {schema:"vegastack-labs.dev/browser-run-result",schemaVersion:"1.0.0",toolVersion:"test",command,runId:null,status:code?"failed":"succeeded",changed:false,recoveryEpoch:0,stateRevision:3,snapshotDigest:null,releaseBuildId:"test",sourceRevision:null,planId:null,errors:code?[{code,message:"Current authority required.",retryable:false}]:[],data};}
 
 test("replacement preview preserves both identities and needs separate impact confirmation",async({page})=>{
- await installReadFixture(page);let calls=0;let captured:any;
- await page.route("**/api/v1/host-replacements",route=>{calls++;captured=route.request().postDataJSON();return route.fulfill({json:envelope("api.v1.host-replacements.prepare",{schema:"vegastack-labs.dev/host-replacement-submission",schemaVersion:"1.0.0",replacementId:"replacement-a",draftId:"replacement-draft",declarationId:"replacement-draft",contentDigest:fixture.oldIdentityDigest,stateRevision:3,recoveryEpoch:0})});});
+ await installReadFixture(page);let calls=0;let captured:any;const contentDigest=await hostRequestDigest("vegastack-labs.dev/host-replacement-request",fixture);const draftId="host-replacement-"+contentDigest.slice(7,39);
+ await page.route("**/api/v1/host-replacements",route=>{calls++;captured=route.request().postDataJSON();return route.fulfill({json:envelope("api.v1.host-replacements.prepare",{schema:"vegastack-labs.dev/host-replacement-submission",schemaVersion:"1.0.0",replacementId:"replacement-a",draftId,declarationId:draftId,contentDigest,stateRevision:3,recoveryEpoch:0})});});
  await page.goto("/nodes");
  await page.getByLabel("Prepared replacement request file").setInputFiles({name:"replacement.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify(fixture))});
  const impact=page.getByRole("region",{name:"Replacement impact"});
@@ -14,7 +15,7 @@ test("replacement preview preserves both identities and needs separate impact co
  await expect(page.getByRole("button",{name:"Prepare replacement draft",exact:true})).toBeDisabled();expect(calls).toBe(0);
  await page.getByLabel("I reviewed both hosts, the aliases and preserved data. This confirmation does not approve execution.").check();
  await page.getByRole("button",{name:"Prepare replacement draft",exact:true}).click();
- await expect(page.getByText("Declaration: replacement-draft",{exact:true})).toBeVisible();expect(calls).toBe(1);expect(captured).toEqual(fixture);
+ await expect(page.getByText(`Declaration: ${draftId}`,{exact:true})).toBeVisible();expect(calls).toBe(1);expect(captured).toEqual(fixture);
  await expect(page.getByRole("button",{name:"Execute exact plan",exact:true})).toHaveCount(0);
 });
 

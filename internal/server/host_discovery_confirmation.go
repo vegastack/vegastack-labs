@@ -15,6 +15,12 @@ type discoveryConsoleGate struct {
 	fallback run.GateVerifier
 }
 
+// NewDiscoveryConsoleGate composes the finite discovery-only console guard.
+// The fallback retains the existing recovery requirement for qualified references.
+func NewDiscoveryConsoleGate(targets *store.HostDiscoveryRepository, fallback run.GateVerifier) run.GateVerifier {
+	return discoveryConsoleGate{targets: targets, fallback: fallback}
+}
+
 func (g discoveryConsoleGate) VerifySecretStep(ctx context.Context, p generated.Plan, op generated.PlanOperation) error {
 	deny := func() error { return hostdiscovery.Error(generated.ErrorCodePrerequisiteBlocked) }
 	if g.targets == nil || len(p.Operations) != 1 || p.Operations[0] != op || p.AuthorizationBranch != "human" || p.ExecutorMode != "central" || p.Risk != "control-plane" || op.AdapterID != "core.host-discovery-target" {

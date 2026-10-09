@@ -48,6 +48,7 @@ var remoteExecutorEndpoints = map[string]bool{
 // operation still passes verified browser-session, exact-origin, route
 // authorization and server-owned plan/policy checks before reading its body.
 var remoteBrowserWriteEndpoints = map[string]bool{
+	"api.v1.host-replacements.create":      true,
 	"api.v1.host-discovery-targets.draft":  true,
 	"api.v1.host-observations.create":      true,
 	"api.v1.host-adoptions.draft":          true,

@@ -78,7 +78,7 @@ func TestHostLifecyclePreparedResponseBindings(t *testing.T) {
 					route = "/api/v1/host-access/draft"
 				}
 				id := prefix + digest[7:39]
-				data := generated.HostActionSubmission{Schema: generated.SchemaIDHostActionSubmission, SchemaVersion: "1.0.0", DraftID: id, DeclarationID: id, ContentDigest: digest, StateRevision: 3}
+				data := generated.HostActionSubmission{OriginalRequestDigest: hostRequestDigest(input), Schema: generated.SchemaIDHostActionSubmission, SchemaVersion: "1.0.0", DraftID: id, DeclarationID: id, ContentDigest: digest, StateRevision: 3}
 				responseState := int64(3)
 				switch mode {
 				case "draft":
@@ -130,5 +130,51 @@ func TestHostLifecyclePreparedResponseBindings(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestRenderedHostDraftRejectsAnotherValidRequestsResponse(t *testing.T) {
+	for _, kind := range []string{"action", "access"} {
+		t.Run(kind, func(t *testing.T) {
+			raw, err := os.ReadFile("testdata/host-" + kind + ".json")
+			if err != nil {
+				t.Fatal(err)
+			}
+			inputs := make([]any, 2)
+			for i := range inputs {
+				if kind == "action" {
+					var v generated.HostActionRequest
+					_ = json.Unmarshal(raw, &v)
+					v.IdempotencyKey += string(rune('a' + i))
+					inputs[i] = v
+				} else {
+					var v generated.HostAccessDraftRequest
+					_ = json.Unmarshal(raw, &v)
+					v.Subject.IdempotencyKey += string(rune('a' + i))
+					inputs[i] = v
+				}
+			}
+			for _, pair := range [][2]int{{0, 0}, {1, 1}, {0, 1}, {1, 0}} {
+				// Each response is independently valid for its own original request; its
+				// rendered digest intentionally differs from that original-request digest.
+				rendered := hostRequestDigest([]any{"rendered", inputs[pair[1]]})
+				id := "host-" + kind + "-" + rendered[7:39]
+				data := generated.HostActionSubmission{Schema: generated.SchemaIDHostActionSubmission, SchemaVersion: "1.0.0", OriginalRequestDigest: hostRequestDigest(inputs[pair[1]]), ContentDigest: rendered, DraftID: id, DeclarationID: id, StateRevision: 3}
+				op := "api.v1.host-actions.draft"
+				if kind == "access" {
+					op = "api.v1.host-access.draft"
+				}
+				_, profile, _ := serveFixedResponse(t, 200, operationEnvelope(t, op, false, 0, 3, data))
+				client := NewClient(clientTestFactory())
+				if kind == "action" {
+					_, err = client.SubmitHostAction(context.Background(), profile, inputs[pair[0]].(generated.HostActionRequest))
+				} else {
+					_, err = client.SubmitHostAccess(context.Background(), profile, inputs[pair[0]].(generated.HostAccessDraftRequest))
+				}
+				if (pair[0] == pair[1]) != (err == nil) {
+					t.Fatalf("request%d response%d: %v", pair[0], pair[1], err)
+				}
+			}
+		})
 	}
 }

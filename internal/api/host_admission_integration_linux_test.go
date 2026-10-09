@@ -320,10 +320,13 @@ func admissionAccessSequence(t *testing.T, extraPackages ...string) ([]generated
 	return admissionAccessSequenceForInput(t, in, len(extraPackages) > 0)
 }
 
-func admissionAccessSequenceForInput(t *testing.T, in generated.DebianAccessInput, containers bool) ([]generated.PlanOperation, []generated.HostActionRequest) {
+func admissionAccessSequenceForInput(t *testing.T, in generated.DebianAccessInput, containers bool, target ...generated.HostDiscoveryTargetDraftRequest) ([]generated.PlanOperation, []generated.HostActionRequest) {
 	t.Helper()
 	raw, _ := json.Marshal(in)
 	d := hostaction.Digest(admissionTargetDraft(in, in.HostID))
+	if len(target) != 0 {
+		d = hostaction.Digest(target[0])
+	}
 	apply := generated.HostActionRequest{Schema: generated.SchemaIDHostActionRequest, SchemaVersion: "1.0.0", ActionID: "debian.access.apply", ActionVersion: "1.0.0", ActionInput: string(raw), ActionInputDigest: hostaction.BytesDigest(raw), HostID: in.HostID, TargetRevision: 1, TargetDigest: d, AutomationPrincipalID: "automation", CallerUID: 1001, CredentialReferenceID: "action-key", CredentialMaterialVersion: "version-a", ConsoleConfirmation: generated.HostActionConsoleConfirmation{Schema: generated.SchemaIDHostActionConsoleConfirmation, SchemaVersion: "1.0.0", Method: "administrator-verified-console", TargetDigest: d, HostIdentityDigest: in.HostIdentityDigest}, ExpectedStateRevision: 1, RecoveryEpoch: 0, IdempotencyKey: "apply-a"}
 	collect := apply
 	collect.ActionID = "debian.access.collect"

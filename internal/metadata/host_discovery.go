@@ -53,7 +53,7 @@ func hostDiscoverySchemas() []SchemaDefinition {
 			discoveryArray("facts", "Facts", discoveryFactID, 768),
 			FieldDefinition{JSONName: "blockers", GoName: "Blockers", Kind: ValueArray, Required: true, ItemKind: ValueString, MaxItems: intPointer(64)},
 			phase5Digest("contentDigest", "ContentDigest"), phase5Nonnegative("stateRevision", "StateRevision"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch")),
-		phase5Schema(discoverySubmissionID,
+		phase5Schema(discoverySubmissionID, phase5Digest("originalRequestDigest", "OriginalRequestDigest"),
 			discoveryRef("observation", "Observation", discoveryObservationID), phase5Bool("created", "Created")),
 	}
 }

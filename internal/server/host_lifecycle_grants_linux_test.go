@@ -73,7 +73,14 @@ func TestHostLifecycleBrowserCurrentStoreGrants(t *testing.T) {
 	if err = api.RegisterHostAdoptionOperations(app, api.HostAdoptionOperations{Hosts: store.NewHostAdoptionRepository(authority), Declarations: declarations, Results: factory}); err != nil {
 		t.Fatal(err)
 	}
+	if err = api.RegisterHostReplacementOperations(app, api.HostReplacementOperations{Replacements: store.NewHostReplacementRepository(authority), Declarations: declarations, Results: factory}); err != nil {
+		t.Fatal(err)
+	}
 	auth, _, sessions := newBrowserAuthFixture(t)
+	browser, err := NewBrowserHandler(app, http.NotFoundHandler(), auth)
+	if err != nil {
+		t.Fatal(err)
+	}
 	request := func(host string) int {
 		t.Helper()
 		req := httptest.NewRequest("GET", "https://console.example/api/v1/hosts/"+host, nil)
@@ -84,7 +91,7 @@ func TestHostLifecycleBrowserCurrentStoreGrants(t *testing.T) {
 		req.Header.Set("Cf-Access-Jwt-Assertion", "verified-provider-assertion")
 		req.AddCookie(&http.Cookie{Name: BrowserSessionCookieName, Value: sessions.raw})
 		response := httptest.NewRecorder()
-		auth.Wrap(app).ServeHTTP(response, req)
+		browser.ServeHTTP(response, req)
 		t.Logf("host=%s status=%d body=%s", host, response.Code, response.Body.String())
 		return response.Code
 	}
@@ -93,6 +100,20 @@ func TestHostLifecycleBrowserCurrentStoreGrants(t *testing.T) {
 	}
 	if got := request("private-other-host"); got != 403 {
 		t.Fatalf("cross-host grant leaked lookup: %d", got)
+	}
+	// Exercise the actual browser route allowlist before any body or scoped draft
+	// preparation. A missing body is rejected by the typed handler, never 404.
+	replacement := httptest.NewRequest("POST", "https://console.example/api/v1/host-replacements", nil)
+	replacement.Header.Set("Origin", "https://console.example")
+	replacement.Header.Set("Sec-Fetch-Site", "same-origin")
+	replacement.Header.Set("Sec-Fetch-Mode", "cors")
+	replacement.Header.Set("Sec-Fetch-Dest", "empty")
+	replacement.Header.Set("Cf-Access-Jwt-Assertion", "verified-provider-assertion")
+	replacement.AddCookie(&http.Cookie{Name: BrowserSessionCookieName, Value: sessions.raw})
+	response := httptest.NewRecorder()
+	browser.ServeHTTP(response, replacement)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("replacement browser route: %d %s", response.Code, response.Body.String())
 	}
 	exec(`UPDATE effective_authorization_grants SET status='revoked' WHERE grant_id='host-read'`)
 	if got := request("host-a"); got != 403 {

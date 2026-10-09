@@ -967,6 +967,7 @@ export interface HostActionRequest {
 export interface HostActionSubmission {
   readonly "schema": "vegastack-labs.dev/host-action-submission";
   readonly "schemaVersion": "1.0.0";
+  readonly "originalRequestDigest": string;
   readonly "draftId": string;
   readonly "declarationId": string;
   readonly "contentDigest": string;
@@ -1050,6 +1051,7 @@ export interface HostDiscoveryRequest {
 export interface HostDiscoverySubmission {
   readonly "schema": "vegastack-labs.dev/host-discovery-submission";
   readonly "schemaVersion": "1.0.0";
+  readonly "originalRequestDigest": string;
   readonly "observation": HostObservation;
   readonly "created": boolean;
 }
@@ -1612,6 +1614,7 @@ type FieldRule = {
   readonly kind: "string" | "boolean" | "integer" | "object" | "array";
   readonly required: boolean;
   readonly nullable: boolean;
+  readonly omitEmpty?: boolean;
   readonly ref?: string;
   readonly itemRef?: string;
   readonly itemKind?: "string" | "boolean" | "integer" | "object" | "array";
@@ -2208,6 +2211,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": false,
         "nullable": false,
+        "omitEmpty": true,
         "pattern": "^sha256:[a-f0-9]{64}$"
       },
       {
@@ -3366,6 +3370,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": false,
         "nullable": false,
+        "omitEmpty": true,
         "pattern": "^sha256:[a-f0-9]{64}$"
       },
       {
@@ -3373,6 +3378,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": false,
         "nullable": false,
+        "omitEmpty": true,
         "pattern": "^sha256:[a-f0-9]{64}$"
       },
       {
@@ -3380,6 +3386,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": false,
         "nullable": false,
+        "omitEmpty": true,
         "pattern": "^sha256:[a-f0-9]{64}$"
       }
     ]
@@ -5944,6 +5951,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "object",
         "required": false,
         "nullable": true,
+        "omitEmpty": true,
         "ref": "vegastack-labs.dev/host-alias-claim-request"
       },
       {
@@ -7308,6 +7316,13 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         ]
       },
       {
+        "name": "originalRequestDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
         "name": "draftId",
         "kind": "string",
         "required": true,
@@ -7626,6 +7641,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": false,
         "nullable": false,
+        "omitEmpty": true,
         "pattern": "^sha256:[a-f0-9]{64}$"
       }
     ]
@@ -7801,6 +7817,13 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         ]
       },
       {
+        "name": "originalRequestDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
         "name": "observation",
         "kind": "object",
         "required": true,
@@ -7959,6 +7982,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": false,
         "nullable": true,
+        "omitEmpty": true,
         "enum": [
           "preloaded-discovery"
         ]
@@ -7968,6 +7992,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": false,
         "nullable": true,
+        "omitEmpty": true,
         "pattern": "^sha256:[a-f0-9]{64}$"
       }
     ]
@@ -8036,6 +8061,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "object",
         "required": false,
         "nullable": true,
+        "omitEmpty": true,
         "ref": "vegastack-labs.dev/host-discovery-console-confirmation"
       }
     ]
@@ -8743,6 +8769,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "object",
         "required": false,
         "nullable": true,
+        "omitEmpty": true,
         "ref": "vegastack-labs.dev/host-replacement-source-reference"
       },
       {
@@ -9015,6 +9042,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": false,
         "nullable": false,
+        "omitEmpty": true,
         "pattern": "^sha256:[a-f0-9]{64}$"
       },
       {
@@ -9022,6 +9050,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": false,
         "nullable": false,
+        "omitEmpty": true,
         "pattern": "^sha256:[a-f0-9]{64}$"
       },
       {
@@ -9029,6 +9058,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": false,
         "nullable": false,
+        "omitEmpty": true,
         "pattern": "^sha256:[a-f0-9]{64}$"
       },
       {
@@ -9036,6 +9066,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": false,
         "nullable": false,
+        "omitEmpty": true,
         "pattern": "^sha256:[a-f0-9]{64}$"
       }
     ]
@@ -9138,6 +9169,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": false,
         "nullable": false,
+        "omitEmpty": true,
         "pattern": "^sha256:[a-f0-9]{64}$"
       },
       {
@@ -9282,6 +9314,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": false,
         "nullable": false,
+        "omitEmpty": true,
         "pattern": "^sha256:[a-f0-9]{64}$"
       },
       {
@@ -9673,6 +9706,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": false,
         "nullable": false,
+        "omitEmpty": true,
         "pattern": "^sha256:[a-f0-9]{64}$"
       }
     ]
@@ -9762,6 +9796,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": false,
         "nullable": false,
+        "omitEmpty": true,
         "pattern": "^sha256:[a-f0-9]{64}$"
       },
       {
@@ -9769,6 +9804,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": false,
         "nullable": false,
+        "omitEmpty": true,
         "pattern": "^sha256:[a-f0-9]{64}$"
       },
       {
@@ -9795,6 +9831,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "object",
         "required": false,
         "nullable": true,
+        "omitEmpty": true,
         "ref": "vegastack-labs.dev/debian-access-input"
       },
       {
@@ -9878,6 +9915,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": false,
         "nullable": false,
+        "omitEmpty": true,
         "pattern": "^sha256:[a-f0-9]{64}$"
       },
       {
@@ -9885,6 +9923,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": false,
         "nullable": false,
+        "omitEmpty": true,
         "pattern": "^sha256:[a-f0-9]{64}$"
       },
       {
@@ -9892,6 +9931,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "object",
         "required": false,
         "nullable": true,
+        "omitEmpty": true,
         "ref": "vegastack-labs.dev/control-handoff-input"
       }
     ]
@@ -10001,6 +10041,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "object",
         "required": false,
         "nullable": true,
+        "omitEmpty": true,
         "ref": "vegastack-labs.dev/host-role-foundation"
       },
       {
@@ -10382,6 +10423,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "object",
         "required": false,
         "nullable": true,
+        "omitEmpty": true,
         "ref": "vegastack-labs.dev/native-restart-presentation"
       },
       {
@@ -10389,6 +10431,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": false,
         "nullable": false,
+        "omitEmpty": true,
         "maxLength": 256
       },
       {
@@ -10396,6 +10439,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "object",
         "required": false,
         "nullable": true,
+        "omitEmpty": true,
         "ref": "vegastack-labs.dev/host-action-credential-confirmation"
       },
       {
@@ -10403,6 +10447,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "object",
         "required": false,
         "nullable": true,
+        "omitEmpty": true,
         "ref": "vegastack-labs.dev/host-replacement-request"
       },
       {
@@ -10410,6 +10455,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "object",
         "required": false,
         "nullable": true,
+        "omitEmpty": true,
         "ref": "vegastack-labs.dev/host-alias-claim-request"
       },
       {
@@ -10417,6 +10463,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "object",
         "required": false,
         "nullable": true,
+        "omitEmpty": true,
         "ref": "vegastack-labs.dev/host-replacement-continuity-reference"
       },
       {
@@ -10424,6 +10471,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "object",
         "required": false,
         "nullable": true,
+        "omitEmpty": true,
         "ref": "vegastack-labs.dev/host-role-scope"
       },
       {
@@ -10431,6 +10479,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "object",
         "required": false,
         "nullable": true,
+        "omitEmpty": true,
         "ref": "vegastack-labs.dev/host-baseline-scope"
       },
       {
@@ -10438,6 +10487,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "object",
         "required": false,
         "nullable": true,
+        "omitEmpty": true,
         "ref": "vegastack-labs.dev/host-access-sequence"
       },
       {
@@ -10445,6 +10495,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "object",
         "required": false,
         "nullable": true,
+        "omitEmpty": true,
         "ref": "vegastack-labs.dev/host-action-request"
       },
       {
@@ -10452,6 +10503,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "object",
         "required": false,
         "nullable": true,
+        "omitEmpty": true,
         "ref": "vegastack-labs.dev/host-adoption-request"
       },
       {
@@ -10459,6 +10511,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "object",
         "required": false,
         "nullable": true,
+        "omitEmpty": true,
         "ref": "vegastack-labs.dev/host-discovery-target-draft-request"
       },
       {
@@ -11095,6 +11148,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": false,
         "nullable": false,
+        "omitEmpty": true,
         "maxLength": 128
       },
       {
@@ -12265,15 +12319,24 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
     },
     async getHostObservation(path, options = {}) {
       const operation = "api.v1.host-observations.get";
-      return performRead(fetchTransport, "/api/v1/host-observations/" + encodePathString(path.observationID, "observationID") + "", options, operation, decodeHostObservation);
+      const result = await performRead(fetchTransport, "/api/v1/host-observations/" + encodePathString(path.observationID, "observationID") + "", options, operation, decodeHostObservation);
+      const data = result.data;
+      requireHostBinding(data.observationId === path.observationID && data.stateRevision === result.stateRevision && data.recoveryEpoch === result.recoveryEpoch, operation);
+      return result;
     },
     async getHostReplacement(path, options = {}) {
       const operation = "api.v1.host-replacements.get";
-      return performRead(fetchTransport, "/api/v1/host-replacements/" + encodePathString(path.replacementId, "replacementId") + "", options, operation, decodeHostReplacementState);
+      const result = await performRead(fetchTransport, "/api/v1/host-replacements/" + encodePathString(path.replacementId, "replacementId") + "", options, operation, decodeHostReplacementState);
+      const data = result.data;
+      requireHostBinding(data.replacementId === path.replacementId && data.stateRevision === result.stateRevision && data.recoveryEpoch === result.recoveryEpoch, operation);
+      return result;
     },
     async getHosts(path, options = {}) {
       const operation = "api.v1.hosts.get";
-      return performRead(fetchTransport, "/api/v1/hosts/" + encodePathString(path.hostID, "hostID") + "", options, operation, decodeManagedHost);
+      const result = await performRead(fetchTransport, "/api/v1/hosts/" + encodePathString(path.hostID, "hostID") + "", options, operation, decodeManagedHost);
+      const data = result.data;
+      requireHostBinding(data.hostId === path.hostID && data.stateRevision <= result.stateRevision && data.recoveryEpoch === result.recoveryEpoch, operation);
+      return result;
     },
     async getInventoryDraftAlias(path, options = {}) {
       const operation = "api.v1.inventory-draft-aliases.get";
@@ -12513,6 +12576,35 @@ export function createPhase5Client(fetchTransport: FetchTransport): Phase5Client
   };
 }
 
+// Match generated Go struct order, omitempty semantics and encoding/json escaping.
+export async function hostRequestDigest(schema: string, value: unknown): Promise<string> {
+  const decoded = decodeSchema(schema, value);
+  function ordered(id: string, input: Record<string, unknown>): Record<string, unknown> {
+    const rule = SCHEMAS.find(candidate => candidate.id === id);
+    if (!rule) return mismatch(id, "schema is unavailable");
+    const out: Record<string, unknown> = {};
+    for (const field of rule.fields) {
+      let v = input[field.name];
+      if (v === undefined) {
+        if (field.omitEmpty) continue;
+        v = field.nullable || field.kind === "array" || field.kind === "object" ? null : field.kind === "string" ? "" : field.kind === "boolean" ? false : 0;
+      }
+      if (field.omitEmpty && (v === null || (!field.nullable && (v === "" || v === false || v === 0 || (Array.isArray(v) && v.length === 0))))) continue;
+      if (v !== null && field.ref) v = ordered(field.ref, v as Record<string, unknown>);
+      else if (Array.isArray(v) && field.itemRef) v = v.map(item => ordered(field.itemRef!, item as Record<string, unknown>));
+      out[field.name] = v;
+    }
+    return out;
+  }
+  const text = JSON.stringify(ordered(schema, decoded)).replace(/[<>&\u2028\u2029]/gu, c => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"));
+  const sum = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return "sha256:" + Array.from(new Uint8Array(sum), b => b.toString(16).padStart(2, "0")).join("");
+}
+
+function requireHostBinding(ok: boolean, operation: string): void {
+  if (!ok) mismatch(operation, "host response does not match the exact request");
+}
+
 // Browser-authorized host lifecycle operations.
 export type HostClient = {
   readonly prepareHostAccess: (request: HostAccessDraftRequest, options?: RequestOptions) => Promise<ReadResult<HostActionSubmission>>;
@@ -12531,44 +12623,77 @@ export function createHostClient(fetchTransport: FetchTransport): HostClient {
     async prepareHostAccess(request, options = {}) {
       const operation = "api.v1.host-access.draft";
       const body = decodeHostAccessDraftRequest(request);
-      return performChange(fetchTransport, "/api/v1/host-access/draft", body, options, operation, decodeHostActionSubmission, false);
+      const digest = await hostRequestDigest("vegastack-labs.dev/host-access-draft-request", body);
+      const result = await performChange(fetchTransport, "/api/v1/host-access/draft", body, options, operation, decodeHostActionSubmission, false);
+      const data = result.data;
+      requireHostBinding(data.originalRequestDigest === digest && data.draftId === "host-access-" + data.contentDigest.slice(7, 39) && data.declarationId === data.draftId && data.recoveryEpoch === body.subject.recoveryEpoch && data.recoveryEpoch === result.recoveryEpoch && data.stateRevision === result.stateRevision && data.stateRevision >= body.subject.expectedStateRevision, operation);
+      return result;
     },
     async prepareHostAction(request, options = {}) {
       const operation = "api.v1.host-actions.draft";
       const body = decodeHostActionRequest(request);
-      return performChange(fetchTransport, "/api/v1/host-actions/draft", body, options, operation, decodeHostActionSubmission, false);
+      const digest = await hostRequestDigest("vegastack-labs.dev/host-action-request", body);
+      const result = await performChange(fetchTransport, "/api/v1/host-actions/draft", body, options, operation, decodeHostActionSubmission, false);
+      const data = result.data;
+      requireHostBinding(data.originalRequestDigest === digest && data.draftId === "host-action-" + data.contentDigest.slice(7, 39) && data.declarationId === data.draftId && data.recoveryEpoch === body.recoveryEpoch && data.recoveryEpoch === result.recoveryEpoch && data.stateRevision === result.stateRevision && data.stateRevision >= body.expectedStateRevision, operation);
+      return result;
     },
     async prepareHostAdoption(request, options = {}) {
       const operation = "api.v1.host-adoptions.draft";
       const body = decodeHostAdoptionRequest(request);
-      return performChange(fetchTransport, "/api/v1/host-adoptions/draft", body, options, operation, decodeHostAdoptionSubmission, false);
+      const digest = await hostRequestDigest("vegastack-labs.dev/host-adoption-request", body);
+      const result = await performChange(fetchTransport, "/api/v1/host-adoptions/draft", body, options, operation, decodeHostAdoptionSubmission, false);
+      const data = result.data;
+      requireHostBinding(data.contentDigest === digest && data.draftId === "host-adoption-" + data.contentDigest.slice(7, 39) && data.declarationId === data.draftId && data.recoveryEpoch === body.recoveryEpoch && data.recoveryEpoch === result.recoveryEpoch && data.stateRevision === result.stateRevision && data.stateRevision >= body.expectedStateRevision, operation);
+      return result;
     },
     async prepareHostTarget(request, options = {}) {
       const operation = "api.v1.host-discovery-targets.draft";
       const body = decodeHostDiscoveryTargetDraftRequest(request);
-      return performChange(fetchTransport, "/api/v1/host-discovery-targets/draft", body, options, operation, decodeHostDiscoveryTargetDraftSubmission, false);
+      const digest = await hostRequestDigest("vegastack-labs.dev/host-discovery-target-draft-request", body);
+      const result = await performChange(fetchTransport, "/api/v1/host-discovery-targets/draft", body, options, operation, decodeHostDiscoveryTargetDraftSubmission, false);
+      const data = result.data;
+      requireHostBinding(data.contentDigest === digest && data.draftId === "discovery-draft-" + data.contentDigest.slice(7, 39) && data.declarationId === data.draftId && data.recoveryEpoch === body.target.recoveryEpoch && data.recoveryEpoch === result.recoveryEpoch && data.stateRevision === result.stateRevision && data.stateRevision >= body.expectedStateRevision, operation);
+      return result;
     },
     async discoverHost(request, options = {}) {
       const operation = "api.v1.host-observations.create";
       const body = decodeHostDiscoveryRequest(request);
-      return performChange(fetchTransport, "/api/v1/host-observations", body, options, operation, decodeHostDiscoverySubmission, false);
+      const digest = await hostRequestDigest("vegastack-labs.dev/host-discovery-request", body);
+      const result = await performChange(fetchTransport, "/api/v1/host-observations", body, options, operation, decodeHostDiscoverySubmission, false);
+      const data = result.data.observation;
+      requireHostBinding(result.data.originalRequestDigest === digest && data.targetId === body.targetId && data.targetRevision === body.targetRevision && data.recoveryEpoch === body.recoveryEpoch && data.recoveryEpoch === result.recoveryEpoch && data.stateRevision === result.stateRevision && data.stateRevision >= body.expectedStateRevision, operation);
+      return result;
     },
     async getHostObservation(path, options = {}) {
       const operation = "api.v1.host-observations.get";
-      return performRead(fetchTransport, "/api/v1/host-observations/" + encodePathString(path.observationID, "observationID") + "", options, operation, decodeHostObservation);
+      const result = await performRead(fetchTransport, "/api/v1/host-observations/" + encodePathString(path.observationID, "observationID") + "", options, operation, decodeHostObservation);
+      const data = result.data;
+      requireHostBinding(data.observationId === path.observationID && data.stateRevision === result.stateRevision && data.recoveryEpoch === result.recoveryEpoch, operation);
+      return result;
     },
     async prepareHostReplacement(request, options = {}) {
       const operation = "api.v1.host-replacements.create";
       const body = decodeHostReplacementRequest(request);
-      return performChange(fetchTransport, "/api/v1/host-replacements", body, options, operation, decodeHostReplacementSubmission, false);
+      const digest = await hostRequestDigest("vegastack-labs.dev/host-replacement-request", body);
+      const result = await performChange(fetchTransport, "/api/v1/host-replacements", body, options, operation, decodeHostReplacementSubmission, false);
+      const data = result.data;
+      requireHostBinding(data.replacementId === body.replacementId && data.contentDigest === digest && data.draftId === "host-replacement-" + data.contentDigest.slice(7, 39) && data.declarationId === data.draftId && data.recoveryEpoch === body.recoveryEpoch && data.recoveryEpoch === result.recoveryEpoch && data.stateRevision === result.stateRevision && data.stateRevision >= body.expectedStateRevision, operation);
+      return result;
     },
     async getHostReplacement(path, options = {}) {
       const operation = "api.v1.host-replacements.get";
-      return performRead(fetchTransport, "/api/v1/host-replacements/" + encodePathString(path.replacementId, "replacementId") + "", options, operation, decodeHostReplacementState);
+      const result = await performRead(fetchTransport, "/api/v1/host-replacements/" + encodePathString(path.replacementId, "replacementId") + "", options, operation, decodeHostReplacementState);
+      const data = result.data;
+      requireHostBinding(data.replacementId === path.replacementId && data.stateRevision === result.stateRevision && data.recoveryEpoch === result.recoveryEpoch, operation);
+      return result;
     },
     async getHosts(path, options = {}) {
       const operation = "api.v1.hosts.get";
-      return performRead(fetchTransport, "/api/v1/hosts/" + encodePathString(path.hostID, "hostID") + "", options, operation, decodeManagedHost);
+      const result = await performRead(fetchTransport, "/api/v1/hosts/" + encodePathString(path.hostID, "hostID") + "", options, operation, decodeManagedHost);
+      const data = result.data;
+      requireHostBinding(data.hostId === path.hostID && data.stateRevision <= result.stateRevision && data.recoveryEpoch === result.recoveryEpoch, operation);
+      return result;
     },
   };
 }

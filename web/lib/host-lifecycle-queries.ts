@@ -25,8 +25,11 @@ export function useHostPlan() {
   return useMutation({ mutationKey: ["change", "hosts", "plan"], retry: false, mutationFn: async (declarationId: string) => {
     const prepared = await changeClient.preparePlan({ declarationId, revision: 1 });
     const p = prepared.data;
+    if (p.declarationId !== declarationId || p.declarationRevision !== 1 || p.recoveryEpoch !== prepared.recoveryEpoch || p.expectedStateRevision !== prepared.stateRevision) throw new ReadClientError("schema-mismatch", "INTEGRITY_FAILURE", "host-plan-preparation");
     const result = await changeClient.createPlan({ declarationId }, { schema: "vegastack-labs.dev/plan-create-request", schemaVersion: "1.0.0", declarationId, declarationRevision: p.declarationRevision, expectedStateRevision: p.expectedStateRevision, recoveryEpoch: p.recoveryEpoch, observationFingerprint: p.observationFingerprint, idempotencyKey: `console-host-plan-${crypto.randomUUID()}`, extensions: [] });
-    return planFromView(result.data);
+    const plan = planFromView(result.data);
+    if (plan.declarationId !== declarationId || plan.binding.declarationRevision !== p.declarationRevision + 1 || plan.binding.recoveryEpoch !== p.recoveryEpoch || result.recoveryEpoch !== p.recoveryEpoch || plan.binding.priorStateRevision !== p.expectedStateRevision || plan.binding.stateRevision !== result.stateRevision || plan.binding.observationFingerprint !== p.observationFingerprint) throw new ReadClientError("schema-mismatch", "INTEGRITY_FAILURE", "host-plan");
+    return plan;
   } });
 }
 

@@ -24,6 +24,8 @@ import (
 	runengine "github.com/vegastack/vegastack-labs/internal/run"
 	"github.com/vegastack/vegastack-labs/internal/store"
 	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -64,8 +66,8 @@ func replacementQualifiedRoleSnapshot(t *testing.T, at time.Time, stateless ...b
 	return replacementQualifiedRoleSnapshotForInput(t, at, admissionAccessInput(t, "aide", "cryptsetup-bin"), roleID)
 }
 
-func replacementQualifiedRoleSnapshotForInput(t *testing.T, at time.Time, access generated.DebianAccessInput, roleID string) store.HostAdmissionSnapshot {
-	ops, requests := admissionAccessSequenceForInput(t, access, true)
+func replacementQualifiedRoleSnapshotForInput(t *testing.T, at time.Time, access generated.DebianAccessInput, roleID string, target ...generated.HostDiscoveryTargetDraftRequest) store.HostAdmissionSnapshot {
+	ops, requests := admissionAccessSequenceForInput(t, access, true, target...)
 	s := qualifiedHostSnapshotFromSequence(t, at, ops, requests)
 	var roleInput generated.LinuxRoleInput
 	if err := json.Unmarshal(roleTestInputJSON, &roleInput); err != nil {
@@ -399,7 +401,15 @@ func replacementPersistRoleSnapshot(t *testing.T, at *time.Time, expected store.
 				r.ReceiptID = roleDeclaration + "-receipt"
 				r.OperationID = p.Operations[0].OperationID
 				r.ArtifactDigest = p.Operations[0].ArtifactDigest
-				f.receipt(p, r)
+				var existingRuns int
+				if existing != nil {
+					if err := existing.db.QueryRow(`SELECT count(*) FROM plan_runs WHERE plan_id=? AND status='succeeded'`, p.PlanID).Scan(&existingRuns); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if existingRuns == 0 {
+					f.receipt(p, r)
+				}
 				break
 			}
 		}
@@ -533,9 +543,48 @@ func (o replacementIntegrationOperations) VerifyReplacement(ctx context.Context,
 }
 
 func TestReplacementAPIClaimAndFreezeApprovedPipeline(t *testing.T) {
+	runReplacementPipeline(t, nil, nil)
+}
+
+// RunReplacementBrowserAcceptance is test-only reuse for the external-package
+// acceptance that supplies the real server browser boundary.
+func RunReplacementBrowserAcceptance(t *testing.T, transport lifecycleBrowserTransport, gate lifecycleDiscoveryGate) {
+	runReplacementPipeline(t, transport, gate)
+}
+
+func runReplacementPipeline(t *testing.T, transport lifecycleBrowserTransport, discoveryGate lifecycleDiscoveryGate) {
 	at := time.Now().UTC().Truncate(time.Second)
 	clock := func() time.Time { return at }
-	f := replacementPersistedRoleFixture(t, &at, true)
+	var f roleAdmissionFixture
+	var upstreamTarget *generated.HostDiscoveryTargetDraftRequest
+	var upstreamRole *generated.Plan
+	if transport == nil {
+		f = replacementPersistedRoleFixture(t, &at, true)
+	} else {
+		existing, target := lifecycleAdoptedFixture(t, &at, transport, discoveryGate)
+		upstreamTarget = &target
+		ops, requests := admissionAccessSequenceForInput(t, existing.input, true, target)
+		baseline := qualifiedHostSnapshotFromSequence(t, at, ops, requests)
+		namespaceReplacementSnapshot(&baseline, "upstream-baseline", 0)
+		existing.seed.exec(`UPDATE system_meta SET state_revision=100 WHERE id=1`)
+		existing.seed.exec(`INSERT INTO gate_applied_profiles(binding_id,profile_id,profile_version,policy_id,policy_version,capabilities_bytes,state_revision,recovery_epoch,declaration_id,declaration_revision,plan_id,plan_digest,run_id,step_id,lease_id,human_id,applied_at) VALUES('scope-a','vegastack-labs','1.0.0','policy-a','1.0.0',X'5B5D',1,0,'scope-declaration',1,'scope-plan',?,'scope-run','scope-step','scope-lease','human-a',?)`, hostaction.Digest("scope"), at.Format(time.RFC3339))
+		existing = seedHostAdmissionFixture(t, &at, baseline, nil, existing.authority, existing.db, existing.proofs, false)
+		expected := replacementQualifiedRoleSnapshotForInput(t, at, existing.input, "application", target)
+		var desired generated.LinuxRoleInput
+		for _, m := range expected.Measurements {
+			if m.Plan.HostRoleScope != nil {
+				if json.Unmarshal([]byte(m.Plan.HostAction.ActionInput), &desired) != nil {
+					t.Fatal("desired role")
+				}
+				break
+			}
+		}
+		applied := lifecycleApplyRole(t, existing, &at, target, desired, transport)
+		upstreamRole = &applied
+		namespaceReplacementSnapshot(&expected, "post-role", applied.Binding.StateRevision)
+		existing.seed.exec(`UPDATE system_meta SET state_revision=? WHERE id=1`, applied.Binding.StateRevision+100)
+		f = replacementPersistRoleSnapshot(t, &at, expected, applied.DeclarationID, applied.Binding.StateRevision, &existing, applied)
+	}
 	seedDiscoveryCredential := func(input generated.DebianAccessInput, host string) {
 		draft := admissionTargetDraft(input, host)
 		fingerprint := hostaction.Digest("synthetic-public-key-" + host)
@@ -549,6 +598,14 @@ func TestReplacementAPIClaimAndFreezeApprovedPipeline(t *testing.T) {
 	app, e := NewApplication(Config{Authority: f.authority, Authorizer: allowOperationAuthorizer(), Reads: testReads{}, Results: factory, Cursors: testCursor{}})
 	if e != nil {
 		t.Fatal(e)
+	}
+	serve := func(method, path string, input any) *httptest.ResponseRecorder {
+		return serveGateRequest(t, app, method, path, input)
+	}
+	if transport != nil {
+		app.config.Authorizer = store.NewReadAuthorizer(f.authority)
+		app.config.Reads = store.NewReadRepository(f.authority)
+		serve = transport(app, f.authority, f.db, at)
 	}
 	auth := EffectiveAuthorizationConfig{Authorizer: evaluator, Recorder: policy, Clock: clock}
 	app.effective = auth
@@ -565,7 +622,7 @@ func TestReplacementAPIClaimAndFreezeApprovedPipeline(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	plans, e := planengine.NewService(planengine.Config{HostActions: store.NewHostActionRepository(f.authority), HostReplacements: replacements, Repository: revisions, Observations: observations, Clock: clock, PolicyVersion: "1.0.0", ToolVersion: "1.0.0", ContractVersion: "1.0.0", Risk: "infrastructure", AuthorizationBranch: "human", ExecutorMode: "central", OperationExecutorID: "executor-central"})
+	plans, e := planengine.NewService(planengine.Config{HostActions: store.NewHostActionRepository(f.authority), HostActionCredentials: store.NewCredentialRepository(f.authority), HostReplacements: replacements, Repository: revisions, Observations: observations, Clock: clock, PolicyVersion: "1.0.0", ToolVersion: "1.0.0", ContractVersion: "1.0.0", Risk: "infrastructure", AuthorizationBranch: "human", ExecutorMode: "central", OperationExecutorID: "executor-central"})
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -575,6 +632,24 @@ func TestReplacementAPIClaimAndFreezeApprovedPipeline(t *testing.T) {
 	if e = RegisterHostReplacementOperations(app, HostReplacementOperations{Replacements: replacements, Declarations: declarations, Results: factory}); e != nil {
 		t.Fatal(e)
 	}
+	if transport != nil {
+		if err := RegisterGateOperations(app, GateOperations{Gates: f.repo, Revisions: revisions, Declarations: declarations, Results: factory, Clock: clock}); err != nil {
+			t.Fatal(err)
+		}
+		f.seed.exec(`INSERT INTO read_grants VALUES('human-a','gate.read','gate','host.role-admission',1,'active','now','now')`)
+	}
+	browserRoleAdmission := func(host string) {
+		t.Helper()
+		if transport == nil {
+			return
+		}
+		w := serve(http.MethodGet, "/api/v1/gates/host.role-admission?subjectId="+host, nil)
+		var response struct{ Data generated.GateView }
+		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &response) != nil || response.Data.Evaluation.Outcome != "passed" || response.Data.Evaluation.SubjectID != host {
+			t.Fatalf("browser role admission %s: %d %s", host, w.Code, w.Body.String())
+		}
+	}
+	browserRoleAdmission(f.input.HostID)
 	grant := func(id, action, cap, kind, target string, branch any) {
 		f.seed.exec(`INSERT INTO effective_authorization_grants VALUES(?,'human-a','control-plane-admin',?,?,?,?,?,1,'active','now','now')`, id, action, cap, kind, target, branch)
 	}
@@ -583,9 +658,37 @@ func TestReplacementAPIClaimAndFreezeApprovedPipeline(t *testing.T) {
 		t.Fatal(e)
 	}
 	effects := &runengine.HostReplacementEffect{Operations: replacementIntegrationOperations{f, replacements, &at}, Approvals: store.NewAcknowledgementRepository(f.authority)}
-	engine, e := runengine.NewEngine(runengine.Config{Repository: store.NewRunRepository(f.authority), Plans: plans, Admission: runengine.NewAdmissionGate(ack, clock), Adapters: adapter.NewRegistry(), Core: runengine.CoreRouter{HostReplacement: effects}, Clock: clock})
+	runs := store.NewRunRepository(f.authority)
+	registry := adapter.NewRegistry()
+	engineConfig := runengine.Config{Repository: runs, Plans: plans, Admission: runengine.NewAdmissionGate(ack, clock), Adapters: registry, Core: runengine.CoreRouter{HostReplacement: effects}, Clock: clock}
+	if transport != nil {
+		hosts := store.NewHostActionRepository(f.authority)
+		credentials := store.NewCredentialRepository(f.authority)
+		readiness := roleTestReadiness{f.repo, clock}
+		runs.ConfigureHostRoles(f.repo, readiness)
+		if err := registry.Register(hostaction.AdapterID, &roleTestOS{authority: f.authority, hosts: hosts, clock: clock}); err != nil {
+			t.Fatal(err)
+		}
+		if err := registry.RegisterCredentialResolver(adapter.CredentialCapabilityScope{ResolverID: "native-systemd", ConsumerID: hostaction.AdapterID, ProfileID: "synthetic-role-profile", CapabilityID: "synthetic-role-ssh", Enabled: true}, roleTestCredential{}); err != nil {
+			t.Fatal(err)
+		}
+		engineConfig.SecretGate = roleTestSecretGate{hosts}
+		engineConfig.CredentialStep = &runengine.CredentialStep{Bindings: credentials, Resolvers: registry, Profiles: roleTestCredential{}, Plans: plans, Clock: clock}
+		if err := RegisterHostActionOperations(app, HostActionOperations{Hosts: hosts, Declarations: declarations, Credentials: credentials, RolePreparer: readiness, Results: factory}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	engine, e := runengine.NewEngine(engineConfig)
 	if e != nil {
 		t.Fatal(e)
+	}
+	if transport != nil {
+		if e = RegisterRunOperations(app, RunOperationConfig{Runs: engine, Plans: revisions, Acknowledgements: ack, Results: factory, Authorization: auth}); e != nil {
+			t.Fatal(e)
+		}
+	}
+	if transport != nil {
+		registerLifecycleBrowserApproval(t, app, ack, plans, factory)
 	}
 	execute := func(declarationID string) generated.Run {
 		t.Helper()
@@ -601,24 +704,84 @@ func TestReplacementAPIClaimAndFreezeApprovedPipeline(t *testing.T) {
 		if e != nil {
 			t.Fatal(e)
 		}
-		made, e := plans.Create(f.ctx, planengine.AuthorScope{PrincipalID: "human-a", PrincipalMethod: identity.LocalOSPeerMethod, AgentSessionID: "replacement-integration"}, generated.PlanCreateRequest{Schema: generated.SchemaIDPlanCreateRequest, SchemaVersion: "1.0.0", DeclarationID: doc.DeclarationID, DeclarationRevision: 1, ExpectedStateRevision: rev.StateRevision, RecoveryEpoch: rev.RecoveryEpoch, ObservationFingerprint: finger, IdempotencyKey: "plan-" + declarationID, Extensions: doc.Extensions})
-		if e != nil {
-			t.Fatal("plan", e)
+		request := generated.PlanCreateRequest{Schema: generated.SchemaIDPlanCreateRequest, SchemaVersion: "1.0.0", DeclarationID: doc.DeclarationID, DeclarationRevision: 1, ExpectedStateRevision: rev.StateRevision, RecoveryEpoch: rev.RecoveryEpoch, ObservationFingerprint: finger, IdempotencyKey: "plan-" + declarationID, Extensions: doc.Extensions}
+		var p generated.Plan
+		if transport != nil {
+			grant("plan-"+declarationID, "author", "plan.author", "declaration", doc.DeclarationID, nil)
+			w := serve(http.MethodPost, "/api/v1/declarations/"+doc.DeclarationID+"/plans", request)
+			if w.Code != 200 {
+				t.Fatalf("browser plan: %d %s", w.Code, w.Body.String())
+			}
+			var response struct{ Data generated.PlanPresentation }
+			if json.Unmarshal(w.Body.Bytes(), &response) != nil {
+				t.Fatal("browser plan response")
+			}
+			p = response.Data.Plan
+		} else {
+			made, err := plans.Create(f.ctx, planengine.AuthorScope{PrincipalID: "human-a", PrincipalMethod: identity.LocalOSPeerMethod, AgentSessionID: "replacement-integration"}, request)
+			if err != nil {
+				t.Fatal("plan", err)
+			}
+			p = made.Plan
 		}
-		p := made.Plan
 		target := p.Operations[0].TargetID
 		grant("execute-"+declarationID, "execute", p.Operations[0].OperationType, "execution-target", target, "human")
 		grant("ack-"+declarationID, "acknowledge", "plan.acknowledge", "plan-target", target, "human")
-		human := identity.Principal{ID: "human-a", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}
-		card, e := ack.Request(f.ctx, acknowledgement.Scope{Human: human, AuthorityID: "fixture-authority", Nonce: "nonce-" + declarationID}, p.PlanID)
-		if e != nil {
-			t.Fatal(e)
+		if transport != nil {
+			ref := generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: p.PlanID, PlanDigest: p.PlanDigest, RecoveryEpoch: p.Binding.RecoveryEpoch, IdempotencyKey: "run-" + declarationID, Extensions: []generated.ContractExtension{}}
+			grant("read-plan-"+declarationID, "read", "plan.read", "plan", p.PlanID, nil)
+			f.seed.exec(`INSERT INTO read_grants VALUES('human-a','plan.read','plan',?,1,'active','now','now')`, p.PlanID)
+			fetched := serve(http.MethodGet, "/api/v1/plans/"+p.PlanID, nil)
+			var readPlan struct{ Data generated.PlanPresentation }
+			if fetched.Code != 200 || json.Unmarshal(fetched.Body.Bytes(), &readPlan) != nil || readPlan.Data.Plan.PlanDigest != p.PlanDigest {
+				t.Fatalf("missing-ack plan precondition: %d %s", fetched.Code, fetched.Body.String())
+			}
+			denied := serve(http.MethodPost, "/api/v1/plans/"+p.PlanID+"/execute", ref)
+			if denied.Code != http.StatusNotFound || !strings.Contains(denied.Body.String(), "RESOURCE_NOT_FOUND") {
+				t.Fatalf("missing acknowledgement accepted: %d %s", denied.Code, denied.Body.String())
+			}
+			var runCount int
+			if err := f.db.QueryRow(`SELECT count(*) FROM plan_runs WHERE plan_id=?`, p.PlanID).Scan(&runCount); err != nil || runCount != 0 {
+				t.Fatalf("missing acknowledgement created run count=%d error=%v", runCount, err)
+			}
+			stale := ref
+			stale.PlanDigest = hostaction.Digest("stale-browser-plan")
+			denied = serve(http.MethodPost, "/api/v1/plans/"+p.PlanID+"/execute", stale)
+			if denied.Code < 400 || !strings.Contains(denied.Body.String(), "PLAN_STALE") {
+				t.Fatalf("stale plan accepted: %d %s", denied.Code, denied.Body.String())
+			}
+			f.seed.exec(`UPDATE effective_authorization_grants SET status='revoked' WHERE grant_id=?`, "execute-"+declarationID)
+			denied = serve(http.MethodPost, "/api/v1/plans/"+p.PlanID+"/execute", ref)
+			if denied.Code != http.StatusForbidden {
+				t.Fatalf("revoked grant accepted: %d %s", denied.Code, denied.Body.String())
+			}
+			f.seed.exec(`INSERT INTO effective_authorization_grants VALUES(?,'human-a','infrastructure-admin','execute',?,'execution-target',?,'human',1,'active','now','now')`, "execute-restored-"+declarationID, p.Operations[0].OperationType, target)
 		}
-		human.Method = identity.SlackSocketModeMethod
-		expiry, _ := time.Parse(time.RFC3339, card.Request.ExpiresAt)
-		approved, e := ack.Decide(f.ctx, acknowledgement.Candidate{Human: human, AuthorityID: card.Request.AuthorityID, Action: acknowledgement.ActionApprove, PlanID: p.PlanID, PlanDigest: p.PlanDigest, TargetDigest: card.Request.TargetDigest, ReasonDigest: card.Request.ReasonDigest, Nonce: card.Nonce, StateRevision: card.Request.StateRevision, RecoveryEpoch: card.Request.RecoveryEpoch, ExpiresAt: expiry, DecidedAt: at})
-		if e != nil {
-			t.Fatal(e)
+		var approved generated.Acknowledgement
+		if transport != nil {
+			requestLifecycleBrowserApproval(t, serve, f.seed, p, &at)
+		} else {
+			at = time.Now().UTC().Truncate(time.Second)
+			human := identity.Principal{ID: "human-a", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}
+			card, e := ack.Request(f.ctx, acknowledgement.Scope{Human: human, AuthorityID: "fixture-authority", Nonce: "nonce-" + declarationID}, p.PlanID)
+			if e != nil {
+				t.Fatal(e)
+			}
+			approved = approveHostLifecycleViaSlack(t, ack, card)
+
+		}
+		if transport != nil {
+			ref := generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: p.PlanID, PlanDigest: p.PlanDigest, RecoveryEpoch: p.Binding.RecoveryEpoch, IdempotencyKey: "run-" + declarationID, Extensions: []generated.ContractExtension{}}
+			response := serve(http.MethodPost, "/api/v1/plans/"+p.PlanID+"/execute", ref)
+			if response.Code != http.StatusOK {
+				t.Fatalf("browser execute: %d %s", response.Code, response.Body.String())
+			}
+			var envelope struct{ Data generated.RunPresentation }
+			if json.Unmarshal(response.Body.Bytes(), &envelope) != nil || envelope.Data.Run.Status != "succeeded" {
+				t.Fatalf("browser run: %s", response.Body.String())
+			}
+			assertLifecycleDurableRun(t, f.db, p, envelope.Data.Run)
+			return generated.Run{RunID: envelope.Data.Run.RunID, Status: envelope.Data.Run.Status}
 		}
 		branch := "human"
 		decision := generated.AuthorizationDecision{Schema: generated.SchemaIDAuthorizationDecision, SchemaVersion: "1.0.0", DecisionID: "decision-" + declarationID, PrincipalID: "human-a", Action: "execute", TargetID: target, Allowed: true, Branch: &branch, ReasonCode: authorization.ReasonAllowed, GrantRevision: 1, PlanDigest: p.PlanDigest, DecidedAt: at.Format(time.RFC3339), Extensions: []generated.ContractExtension{}}
@@ -638,7 +801,13 @@ func TestReplacementAPIClaimAndFreezeApprovedPipeline(t *testing.T) {
 	decl := generated.DeclarationRevisionRequest{Schema: generated.SchemaIDDeclarationRevisionRequest, SchemaVersion: "1.0.0", DeclarationID: "initial-alias", DeclarationType: "host.alias-claim", ExpectedRevision: 1, ExpectedStateRevision: rev.StateRevision, RecoveryEpoch: rev.RecoveryEpoch, HostAliasClaim: &claim, ReasonDigest: d, Extensions: []generated.ContractExtension{{Name: hostreplacement.AliasClaimExtension, ValueDigest: d}}, Operations: []generated.DeclarationOperation{{Sequence: 1, OperationID: "claim", OperationType: hostreplacement.AliasClaimOperation, AdapterID: hostreplacement.AdapterID, TargetID: "initial-alias", InputDigest: d, ArtifactDigest: d, Idempotent: true}}}
 	grant("prepare-"+f.input.HostID, "author", "host.replacement.prepare", "host", f.input.HostID, nil)
 	grant("claim-author", "author", "declaration.author", "declaration", decl.DeclarationID, nil)
-	w := serveGateRequest(t, app, http.MethodPost, "/api/v1/declarations/initial-alias/revisions", decl)
+	w := serve(http.MethodPost, "/api/v1/declarations/initial-alias/revisions", decl)
+	if transport != nil {
+		if w.Code != http.StatusForbidden {
+			t.Fatalf("browser alias-claim boundary: %d %s", w.Code, w.Body.String())
+		}
+		w = serveGateRequest(t, app, http.MethodPost, "/api/v1/declarations/initial-alias/revisions", decl)
+	}
 	if w.Code != 200 {
 		t.Fatalf("claim HTTP%d %s", w.Code, w.Body.String())
 	}
@@ -646,43 +815,175 @@ func TestReplacementAPIClaimAndFreezeApprovedPipeline(t *testing.T) {
 	// Register independent synthetic target identity; no alias/ownership outcome is seeded.
 	newInput := admissionAccessInput(t, "aide", "cryptsetup-bin")
 	newInput.HostID = "replacement-host"
+	newInput.ProfileID = f.input.ProfileID
 	newInput.HostIdentityDigest = hostaction.Digest("replacement-machine")
 	newInput.RollbackSpecification.HostID = newInput.HostID
 	newInput.RollbackSpecification.HostIdentityDigest = newInput.HostIdentityDigest
 	newInput.RollbackDigest = hostaction.Digest(newInput.RollbackSpecification)
-	grant("read-new", "read", "host.read", "host", newInput.HostID, nil)
+	var replacementTarget *generated.HostDiscoveryTargetDraftRequest
+	if transport != nil {
+		next, target := lifecycleAdoptedFixture(t, &at, transport, discoveryGate, f)
+		newInput = next.input
+		replacementTarget = &target
+	}
+
+	if transport == nil {
+		grant("read-new", "read", "host.read", "host", newInput.HostID, nil)
+	}
 	oldTarget := admissionTargetDraft(f.input, f.input.HostID)
+	if upstreamTarget != nil {
+		oldTarget = *upstreamTarget
+	}
 	newTarget := admissionTargetDraft(newInput, newInput.HostID)
+	if replacementTarget != nil {
+		newTarget = *replacementTarget
+	}
 	current, e := f.repo.ResolveHostAdmission(f.ctx, f.input.HostID)
 	if e != nil {
 		t.Fatal(e)
+	}
+	obs := generated.HostObservation{Schema: generated.SchemaIDHostObservation, SchemaVersion: "1.0.0", ObservationID: "observation-" + newInput.HostID, TargetID: newTarget.Target.TargetID, TargetRevision: 1, TargetDigest: hostaction.Digest(newTarget), Collector: "ssh", CollectorVersion: "1.0.0", ObservedAt: at.Format(time.RFC3339), ExpiresAt: at.Add(time.Hour).Format(time.RFC3339), Status: "untrusted", Facts: []generated.HostDiscoveryFact{}, Blockers: []string{}}
+	obs.ContentDigest = hostaction.Digest("observed-new-host")
+	if transport == nil {
+		f.seed.host(newInput, newInput.HostID, newInput.HostIdentityDigest, obs)
+	} else {
+		host, err := store.NewHostAdoptionRepository(f.authority).Get(f.ctx, newInput.HostID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		obs, err = store.NewHostDiscoveryRepository(f.authority).Get(f.ctx, host.ObservationID)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	seedDiscoveryCredential(newInput, newInput.HostID)
+	if transport != nil {
+		ops, requests := admissionAccessSequenceForInput(t, newInput, true, newTarget)
+		baseline := qualifiedHostSnapshotFromSequence(t, at, ops, requests)
+		currentRevision, err := revisions.CurrentRevision(f.ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		namespaceReplacementSnapshot(&baseline, "new-host-baseline", currentRevision.StateRevision)
+		f.seed.exec(`UPDATE system_meta SET state_revision=? WHERE id=1`, currentRevision.StateRevision+100)
+		seedHostAdmissionFixture(t, &at, baseline, nil, f.authority, f.db, f.proofs, false)
+		f.seed.exec(`INSERT INTO effective_authorization_principals VALUES('automation-a','agent','active',1,'now','now')`)
+		f.seed.exec(`INSERT INTO effective_authorization_grants VALUES('new-role-automation','automation-a','infrastructure-admin','execute','host.action.execute','execution-target',?,'human',1,'active','now','now')`, newInput.HostID)
+		grant("new-role-prepare", "author", "host.action.prepare", "host", newInput.HostID, nil)
+		keyDigest := hostaction.Digest("synthetic-new-role-key")
+		f.seed.exec(`INSERT INTO credential_reference_versions VALUES('new-role-action','new-role-action','host-action','host-action-ssh',?,'native-systemd','version-a',?,'active',1,0,?,?,'fixture-declaration',1,'fixture-plan',?,'fixture-run','fixture-step','fixture-lease','human-a','now')`, newInput.HostID, keyDigest, at.Format(time.RFC3339), []byte(`["host-action"]`), keyDigest)
 	}
 	role := roleTestInput(t, newInput)
 	replacementApplicationRole(&role)
 	role.BaselineSnapshotDigest = hostaction.Digest("replacement-current-baseline")
 	role.RenderedPolicyDigest = linuxrole.PolicyDigest(role)
 	role.RoleBindingDigest = linuxrole.RoleBindingDigest(role)
+	if transport != nil {
+		role.BaselineSnapshotDigest = ""
+		var err error
+		role, err = (roleTestReadiness{f.repo, clock}).PrepareRole(f.ctx, "debian.role.apply", role)
+		if err != nil {
+			t.Fatal("new role prepare", err)
+		}
+	}
 	roleRaw, _ := json.Marshal(role)
 	roleDeclRevision, e := revisions.CurrentRevision(f.ctx)
 	if e != nil {
 		t.Fatal(e)
 	}
 	roleReq := generated.HostActionRequest{Schema: generated.SchemaIDHostActionRequest, SchemaVersion: "1.0.0", HostID: newInput.HostID, TargetRevision: 1, TargetDigest: hostaction.Digest(newTarget), ActionID: "debian.role.apply", ActionVersion: "1.0.0", ActionInput: string(roleRaw), ActionInputDigest: hostaction.BytesDigest(roleRaw), CallerUID: role.AutomationUID, AutomationPrincipalID: "automation-a", CredentialReferenceID: "credential-a", CredentialMaterialVersion: "version-a", ConsoleConfirmation: generated.HostActionConsoleConfirmation{Schema: generated.SchemaIDHostActionConsoleConfirmation, SchemaVersion: "1.0.0", Method: "administrator-verified-console", TargetDigest: hostaction.Digest(newTarget), HostIdentityDigest: newInput.HostIdentityDigest}, ExpectedStateRevision: roleDeclRevision.StateRevision, RecoveryEpoch: roleDeclRevision.RecoveryEpoch, IdempotencyKey: "replacement-role"}
+	if transport != nil {
+		roleReq.CredentialReferenceID = "new-role-action"
+	}
 	roleID := hostaction.DraftID(roleReq)
 	if err := hostaction.ValidateRequest(roleReq); err != nil {
 		t.Fatalf("proposed role request: %v", err)
 	}
-	f.seed.exec(`INSERT INTO host_action_drafts VALUES(?,?,?,'human-a',0,0)`, roleID, hostaction.Digest(roleReq), f.seed.bytes(roleReq))
-	roleDigest := hostaction.Digest(roleReq)
-	_, e = declarations.Revise(f.ctx, change.AuthorScope{PrincipalID: "human-a", PrincipalMethod: identity.LocalOSPeerMethod, AgentSessionID: "new-role-declaration"}, generated.DeclarationRevisionRequest{Schema: generated.SchemaIDDeclarationRevisionRequest, SchemaVersion: "1.0.0", DeclarationID: roleID, DeclarationType: "host.action", ExpectedRevision: 1, ExpectedStateRevision: roleDeclRevision.StateRevision, RecoveryEpoch: roleDeclRevision.RecoveryEpoch, ReasonDigest: roleDigest, Extensions: []generated.ContractExtension{{Name: "x-host-action", ValueDigest: roleDigest}}, Operations: []generated.DeclarationOperation{{Sequence: 1, OperationID: "new-role", OperationType: hostaction.OperationType, AdapterID: hostaction.AdapterID, TargetID: newInput.HostID, InputDigest: roleDigest, ArtifactDigest: roleDigest, Idempotent: false}}})
-	if e != nil {
-		t.Fatal("new role declaration", e)
+	if transport == nil {
+		f.seed.exec(`INSERT INTO host_action_drafts VALUES(?,?,?,'human-a',0,0)`, roleID, hostaction.Digest(roleReq), f.seed.bytes(roleReq))
+		roleDigest := hostaction.Digest(roleReq)
+		_, e = declarations.Revise(f.ctx, change.AuthorScope{PrincipalID: "human-a", PrincipalMethod: identity.LocalOSPeerMethod, AgentSessionID: "new-role-declaration"}, generated.DeclarationRevisionRequest{Schema: generated.SchemaIDDeclarationRevisionRequest, SchemaVersion: "1.0.0", DeclarationID: roleID, DeclarationType: "host.action", ExpectedRevision: 1, ExpectedStateRevision: roleDeclRevision.StateRevision, RecoveryEpoch: roleDeclRevision.RecoveryEpoch, ReasonDigest: roleDigest, Extensions: []generated.ContractExtension{{Name: "x-host-action", ValueDigest: roleDigest}}, Operations: []generated.DeclarationOperation{{Sequence: 1, OperationID: "new-role", OperationType: hostaction.OperationType, AdapterID: hostaction.AdapterID, TargetID: newInput.HostID, InputDigest: roleDigest, ArtifactDigest: roleDigest, Idempotent: false}}})
+		if e != nil {
+			t.Fatal("new role declaration", e)
+		}
+
+	} else {
+		grant("new-role-draft", "author", "declaration.author", "declaration", roleID, nil)
+		w := serve(http.MethodPost, "/api/v1/host-actions/draft", roleReq)
+		if w.Code != 200 {
+			t.Fatalf("new role draft: %d %s", w.Code, w.Body.String())
+		}
+		var submission struct {
+			Data generated.HostActionSubmission
+		}
+		if json.Unmarshal(w.Body.Bytes(), &submission) != nil || submission.Data.DeclarationID != roleID || submission.Data.OriginalRequestDigest != hostaction.Digest(roleReq) {
+			t.Fatalf("new role request binding %s", w.Body.String())
+		}
+	}
+	// Prepare and execute the independent new-host role before freezing the old
+	// owner. Credential manifests and plans bind the exact current revision; an
+	// unrelated intervening mutation requires fresh preparation. Only external
+	// host observations are synthetic; the browser plan, Slack and run are real.
+	roleDoc, err := declarations.Get(f.ctx, roleID, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	roleRevision, err := revisions.CurrentRevision(f.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	roleFingerprint, err := observations.CurrentFingerprint(f.ctx, roleID, roleDoc.Operations)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rolePlanRequest := generated.PlanCreateRequest{Schema: generated.SchemaIDPlanCreateRequest, SchemaVersion: "1.0.0", DeclarationID: roleID, DeclarationRevision: 1, ExpectedStateRevision: roleRevision.StateRevision, RecoveryEpoch: roleRevision.RecoveryEpoch, ObservationFingerprint: roleFingerprint, IdempotencyKey: "new-role-plan", Extensions: roleDoc.Extensions}
+	var rolePlan store.PlanCommitResult
+	if transport != nil {
+		grant("new-role-plan", "author", "plan.author", "declaration", roleID, nil)
+		w := serve(http.MethodPost, "/api/v1/declarations/"+roleID+"/plans", rolePlanRequest)
+		var response struct{ Data generated.PlanPresentation }
+		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &response) != nil {
+			t.Fatalf("new role browser plan: %d %s", w.Code, w.Body.String())
+		}
+		rolePlan.Plan = response.Data.Plan
+	} else {
+		rolePlan, err = plans.Create(f.ctx, planengine.AuthorScope{PrincipalID: "human-a", PrincipalMethod: identity.LocalOSPeerMethod, AgentSessionID: "replacement-role-fixture"}, rolePlanRequest)
+		if err != nil {
+			t.Fatal("new role plan", err)
+		}
+	}
+	grant("new-role-execute", "execute", hostaction.OperationType, "execution-target", newInput.HostID, "human")
+	grant("new-role-ack", "acknowledge", "plan.acknowledge", "plan-target", newInput.HostID, "human")
+	if transport != nil {
+		requestLifecycleBrowserApproval(t, serve, f.seed, rolePlan.Plan, &at)
+	} else {
+		at = time.Now().UTC().Truncate(time.Second)
+		roleHuman := identity.Principal{ID: "human-a", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}
+		roleCard, err := ack.Request(f.ctx, acknowledgement.Scope{Human: roleHuman, AuthorityID: "fixture-authority", Nonce: "new-role-nonce"}, rolePlan.Plan.PlanID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		approveHostLifecycleViaSlack(t, ack, roleCard)
+
+	}
+	if transport != nil {
+		w := serve(http.MethodPost, "/api/v1/plans/"+rolePlan.Plan.PlanID+"/execute", generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: rolePlan.Plan.PlanID, PlanDigest: rolePlan.Plan.PlanDigest, RecoveryEpoch: rolePlan.Plan.Binding.RecoveryEpoch, IdempotencyKey: "execute-new-role", Extensions: []generated.ContractExtension{}})
+		if w.Code != 200 {
+			t.Fatalf("new role execution %d %s", w.Code, w.Body.String())
+		}
+		var response struct{ Data generated.RunPresentation }
+		if json.Unmarshal(w.Body.Bytes(), &response) != nil || response.Data.Run.Status != "succeeded" {
+			t.Fatalf("new role run %s", w.Body.String())
+		}
+		assertLifecycleDurableRun(t, f.db, rolePlan.Plan, response.Data.Run)
 	}
 
-	obs := generated.HostObservation{Schema: generated.SchemaIDHostObservation, SchemaVersion: "1.0.0", ObservationID: "observation-" + newInput.HostID, TargetID: newTarget.Target.TargetID, TargetRevision: 1, TargetDigest: hostaction.Digest(newTarget), Collector: "ssh", CollectorVersion: "1.0.0", ObservedAt: at.Format(time.RFC3339), ExpiresAt: at.Add(time.Hour).Format(time.RFC3339), Status: "untrusted", Facts: []generated.HostDiscoveryFact{}, Blockers: []string{}}
-	obs.ContentDigest = hostaction.Digest("observed-new-host")
-	f.seed.host(newInput, newInput.HostID, newInput.HostIdentityDigest, obs)
-	seedDiscoveryCredential(newInput, newInput.HostID)
+	newExpected := replacementQualifiedRoleSnapshotForInput(t, at, newInput, "application", newTarget)
+	offset := rolePlan.Plan.Binding.StateRevision - 1
+	namespaceReplacementSnapshot(&newExpected, newInput.HostID, offset)
+	f.seed.exec(`UPDATE system_meta SET state_revision=? WHERE id=1`, offset+100)
+	replacementPersistRoleSnapshot(t, &at, newExpected, roleID, rolePlan.Plan.Binding.StateRevision, &f, rolePlan.Plan)
+	browserRoleAdmission(newInput.HostID)
 	rev, e = revisions.CurrentRevision(f.ctx)
 	if e != nil {
 		t.Fatal(e)
@@ -703,6 +1004,10 @@ func TestReplacementAPIClaimAndFreezeApprovedPipeline(t *testing.T) {
 	req.ProfileLockDigest = f.input.ProfileLockDigest
 	req.OldRoleBindingDigest = current.RoleBindingDigest
 	req.RoleDeclarationID = "initial-role-declaration"
+	if upstreamRole != nil {
+		req.RoleDeclarationID = upstreamRole.DeclarationID
+		req.RoleDeclarationRevision = upstreamRole.Binding.DeclarationRevision
+	}
 	req.ProposedRoleDeclarationID = roleID
 	req.ProposedRoleBindingDigest = role.RoleBindingDigest
 	req.PreservedPreimageDigest = hostreplacement.RolePreimageDigest(role)
@@ -730,7 +1035,7 @@ func TestReplacementAPIClaimAndFreezeApprovedPipeline(t *testing.T) {
 	}
 	draftID := "host-replacement-" + hostaction.Digest(req)[7:39]
 	grant("replace-author", "author", "declaration.author", "declaration", draftID, nil)
-	w = serveGateRequest(t, app, http.MethodPost, "/api/v1/host-replacements", req)
+	w = serve(http.MethodPost, "/api/v1/host-replacements", req)
 	if w.Code != 200 {
 		t.Fatalf("replacement HTTP%d %s", w.Code, w.Body.String())
 	}
@@ -771,7 +1076,7 @@ func TestReplacementAPIClaimAndFreezeApprovedPipeline(t *testing.T) {
 			mutate(&bad)
 			badID := "host-replacement-" + hostaction.Digest(bad)[7:39]
 			grant("deny-"+name, "author", "declaration.author", "declaration", badID, nil)
-			response := serveGateRequest(t, app, http.MethodPost, "/api/v1/host-replacements", bad)
+			response := serve(http.MethodPost, "/api/v1/host-replacements", bad)
 			if response.Code < 400 || response.Code >= 500 {
 				t.Fatalf("invalid continuation HTTP%d %s", response.Code, response.Body.String())
 			}
@@ -785,42 +1090,6 @@ func TestReplacementAPIClaimAndFreezeApprovedPipeline(t *testing.T) {
 			}
 		})
 	}
-	// The separately prepared role declaration becomes a real immutable plan
-	// and receives a real acknowledgement. Only its host-side producer records
-	// are synthetic, as in the already qualified former host fixture.
-	roleDoc, err := declarations.Get(f.ctx, roleID, 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	roleRevision, err := revisions.CurrentRevision(f.ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	roleFingerprint, err := observations.CurrentFingerprint(f.ctx, roleID, roleDoc.Operations)
-	if err != nil {
-		t.Fatal(err)
-	}
-	rolePlan, err := plans.Create(f.ctx, planengine.AuthorScope{PrincipalID: "human-a", PrincipalMethod: identity.LocalOSPeerMethod, AgentSessionID: "replacement-role-fixture"}, generated.PlanCreateRequest{Schema: generated.SchemaIDPlanCreateRequest, SchemaVersion: "1.0.0", DeclarationID: roleID, DeclarationRevision: 1, ExpectedStateRevision: roleRevision.StateRevision, RecoveryEpoch: roleRevision.RecoveryEpoch, ObservationFingerprint: roleFingerprint, IdempotencyKey: "new-role-plan", Extensions: roleDoc.Extensions})
-	if err != nil {
-		t.Fatal("new role plan", err)
-	}
-	grant("new-role-execute", "execute", hostaction.OperationType, "execution-target", newInput.HostID, "human")
-	grant("new-role-ack", "acknowledge", "plan.acknowledge", "plan-target", newInput.HostID, "human")
-	roleHuman := identity.Principal{ID: "human-a", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}
-	roleCard, err := ack.Request(f.ctx, acknowledgement.Scope{Human: roleHuman, AuthorityID: "fixture-authority", Nonce: "new-role-nonce"}, rolePlan.Plan.PlanID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	roleHuman.Method = identity.SlackSocketModeMethod
-	roleExpiry, _ := time.Parse(time.RFC3339, roleCard.Request.ExpiresAt)
-	if _, err := ack.Decide(f.ctx, acknowledgement.Candidate{Human: roleHuman, AuthorityID: roleCard.Request.AuthorityID, Action: acknowledgement.ActionApprove, PlanID: rolePlan.Plan.PlanID, PlanDigest: rolePlan.Plan.PlanDigest, TargetDigest: roleCard.Request.TargetDigest, ReasonDigest: roleCard.Request.ReasonDigest, Nonce: roleCard.Nonce, StateRevision: roleCard.Request.StateRevision, RecoveryEpoch: roleCard.Request.RecoveryEpoch, ExpiresAt: roleExpiry, DecidedAt: at}); err != nil {
-		t.Fatal(err)
-	}
-	newExpected := replacementQualifiedRoleSnapshotForInput(t, at, newInput, "application")
-	offset := rolePlan.Plan.Binding.StateRevision - 1
-	namespaceReplacementSnapshot(&newExpected, newInput.HostID, offset)
-	f.seed.exec(`UPDATE system_meta SET state_revision=? WHERE id=1`, offset+100)
-	replacementPersistRoleSnapshot(t, &at, newExpected, roleID, rolePlan.Plan.Binding.StateRevision, &f, rolePlan.Plan)
 	commit := req
 	commit.Operation = "commit"
 	commit.IdempotencyKey = "commit-replacement"
@@ -832,7 +1101,7 @@ func TestReplacementAPIClaimAndFreezeApprovedPipeline(t *testing.T) {
 	commit.ExpectedStateRevision = commitRevision.StateRevision
 	commitID := "host-replacement-" + hostaction.Digest(commit)[7:39]
 	grant("commit-author", "author", "declaration.author", "declaration", commitID, nil)
-	w = serveGateRequest(t, app, http.MethodPost, "/api/v1/host-replacements", commit)
+	w = serve(http.MethodPost, "/api/v1/host-replacements", commit)
 	if w.Code != 200 {
 		t.Fatalf("commit draft HTTP%d %s", w.Code, w.Body.String())
 	}
@@ -847,7 +1116,7 @@ func TestReplacementAPIClaimAndFreezeApprovedPipeline(t *testing.T) {
 	if _, err := f.repo.ResolveHostAdmission(f.ctx, req.OldHostID); err == nil {
 		t.Fatal("retired old host regained admission")
 	}
-	w = serveGateRequest(t, app, http.MethodGet, "/api/v1/host-replacements/"+req.ReplacementID, nil)
+	w = serve(http.MethodGet, "/api/v1/host-replacements/"+req.ReplacementID, nil)
 	if w.Code != 200 {
 		t.Fatalf("state HTTP%d %s", w.Code, w.Body.String())
 	}
