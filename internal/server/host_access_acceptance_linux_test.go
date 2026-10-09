@@ -50,7 +50,7 @@ func accessAcceptanceInput(t *testing.T, f hostActionEnrollmentFixture) generate
 	d := f.DestinationIdentity
 	a := generated.AccessAccount{Schema: generated.SchemaIDAccessAccount, SchemaVersion: "1.0.0", Name: "automation", UID: 1001, GID: 1001, Home: "/home/automation", Role: "automation", PublicKeys: []string{k}, PublicKeyDigests: []string{hostaction.BytesDigest([]byte(k))}}
 	lock := generated.DebianProfileLock{Schema: generated.SchemaIDDebianProfileLock, SchemaVersion: "1.0.0", ImageDigest: d, OSFamily: "debian", OSVersion: "13.6", Architecture: "amd64", PackageSourceDigest: d, Packages: []generated.AccessPackage{{Schema: generated.SchemaIDAccessPackage, SchemaVersion: "1.0.0", Name: "openssh-server", Version: "synthetic-test"}}, ExecutableVersion: "1.0.0", AnsibleVersion: "synthetic-test", AnsibleExecutableDigest: d, CollectionDigest: d, RoleDigest: d, Backend: "iptables-nft"}
-	in := generated.DebianAccessInput{Schema: generated.SchemaIDDebianAccessInput, SchemaVersion: "1.0.0", HostID: "synthetic-host", HostIdentityDigest: d, ProfileID: "test-profile", ProfileLock: lock, ProfileLockDigest: hostaction.Digest(lock), ActionVersion: "1.0.0", AutomationUID: 1001, Accounts: []generated.AccessAccount{a}, SSHUsers: []string{"automation"}, SSHSourcePrefixes: []string{"127.0.0.1/32"}, RecoverySourcePrefixes: []string{"127.0.0.1/32"}, PrivilegedServiceKeys: []generated.AccessServiceKey{}, Interfaces: []generated.AccessInterface{{Schema: generated.SchemaIDAccessInterface, SchemaVersion: "1.0.0", Name: "eth0", Index: 2, Addresses: []string{"192.0.2.2"}}}, HostFlows: []generated.AccessFlow{}, ContainerFlows: []generated.AccessFlow{}}
+	in := generated.DebianAccessInput{Schema: generated.SchemaIDDebianAccessInput, SchemaVersion: "1.0.0", HostID: "synthetic-host", HostIdentityDigest: d, ProfileID: "test-profile", ProfileLock: lock, ProfileLockDigest: hostaction.Digest(lock), ActionVersion: "1.0.0", AutomationUID: 1001, Accounts: []generated.AccessAccount{a}, SSHUsers: []string{"automation"}, SSHSourcePrefixes: []string{"127.0.0.1/32"}, RecoverySourcePrefixes: []string{"127.0.0.1/32"}, PrivilegedServiceKeys: []generated.AccessServiceKey{}, Interfaces: []generated.AccessInterface{{Schema: generated.SchemaIDAccessInterface, SchemaVersion: "1.0.0", Name: "eth0", Index: 2, Addresses: []string{f.Target.Address}}}, HostFlows: []generated.AccessFlow{}, ContainerFlows: []generated.AccessFlow{}}
 	in.RollbackSpecification = generated.AccessRollbackSpecification{Schema: generated.SchemaIDAccessRollbackSpecification, SchemaVersion: "1.0.0", HostID: in.HostID, HostIdentityDigest: d, ProfileLockDigest: in.ProfileLockDigest, DeadlineSeconds: 600, RecoverySourcePrefixes: in.RecoverySourcePrefixes, OwnedState: []generated.AccessOwnedState{{Schema: generated.SchemaIDAccessOwnedState, SchemaVersion: "1.0.0", ResourceID: "ssh-config", BeforeDigest: d, AfterDigest: d}}}
 	in.RollbackDigest = hostaction.Digest(in.RollbackSpecification)
 	in.RenderedAccess = generated.RenderedAccess{Schema: generated.SchemaIDRenderedAccess, SchemaVersion: "1.0.0", ProfileLockDigest: in.ProfileLockDigest, RendererDigest: d, Accounts: in.Accounts, SSHUsers: in.SSHUsers, SSHSourcePrefixes: in.SSHSourcePrefixes, RecoverySourcePrefixes: in.RecoverySourcePrefixes, PrivilegedServiceKeys: in.PrivilegedServiceKeys, Interfaces: in.Interfaces, HostFlows: in.HostFlows, ContainerFlows: in.ContainerFlows, RollbackUnitsDigest: d}
@@ -188,7 +188,7 @@ func runAccessAcceptance(t *testing.T, f hostActionEnrollmentFixture, state *acc
 	if e != nil {
 		t.Fatal(e)
 	}
-	created, e := plans.Create(ctx, planengine.AuthorScope{PrincipalID: "operator-a", PrincipalMethod: identity.LocalOSPeerMethod, AgentSessionID: "access-test"}, generated.PlanCreateRequest{Schema: generated.SchemaIDPlanCreateRequest, SchemaVersion: "1.0.0", DeclarationID: declarationID, DeclarationRevision: 1, ExpectedStateRevision: current.StateRevision, RecoveryEpoch: current.RecoveryEpoch, ObservationFingerprint: fingerprint, IdempotencyKey: "access-plan", Extensions: []generated.ContractExtension{}})
+	created, e := plans.Create(ctx, planengine.AuthorScope{PrincipalID: "operator-a", PrincipalMethod: identity.LocalOSPeerMethod, AgentSessionID: "access-test"}, generated.PlanCreateRequest{Schema: generated.SchemaIDPlanCreateRequest, SchemaVersion: "1.0.0", DeclarationID: declarationID, DeclarationRevision: 1, ExpectedStateRevision: current.StateRevision, RecoveryEpoch: current.RecoveryEpoch, ObservationFingerprint: fingerprint, IdempotencyKey: "access-plan", Extensions: declaration.Extensions})
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -211,7 +211,7 @@ func runAccessAcceptance(t *testing.T, f hostActionEnrollmentFixture, state *acc
 		t.Fatal(e)
 	}
 	composition := hostAccessComposition{store: f.Authority, hosts: hosts, allowed: []string{f.DestinationIdentity}}
-	recorder := accessAcceptanceRecorder{actual: composition, state: state, db: f.DB}
+	recorder := accessAcceptanceRecorder{actual: composition, state: state, db: f.DB, t: t}
 	implementation, e := transport.NewWithAccess(hostActionTargets{repository: hosts, allowed: []string{f.DestinationIdentity}}, &HostActionBundleIssuer{Repository: hosts, Signer: f.Signer, Clock: time.Now}, live, composition, accessAcceptanceLocalProbe{state}, recorder)
 	if e != nil {
 		t.Fatal(e)
@@ -241,6 +241,20 @@ func runAccessAcceptance(t *testing.T, f hostActionEnrollmentFixture, state *acc
 	} else if applied.Status == "succeeded" || string(raw) != "armed" {
 		t.Fatalf("unsafe denial: %+v %v file=%s", applied, err, raw)
 	}
+	switch state.mode {
+	case "forged-result":
+		if state.recorderCalls != 1 || state.recorderError != generated.ErrorCodeIntegrityFailure {
+			t.Fatal("forged-result branch not exercised", state.recorderCalls, state.recorderError)
+		}
+	case "persistence-failure":
+		if state.recorderCalls != 1 || state.recorderError == "" {
+			t.Fatal("persistence branch not exercised")
+		}
+	case "failed-probe":
+		if !state.failedProbe.Load() || state.recorderCalls < 3 {
+			t.Fatal("failed actual probe branch not reached", state.recorderCalls)
+		}
+	}
 	var n int
 	if e = f.DB.QueryRow(`SELECT count(*) FROM gate_applied_evidence`).Scan(&n); e != nil || n != 0 {
 		t.Fatal("software test promoted admission", n, e)
@@ -261,10 +275,16 @@ func runAccessAcceptance(t *testing.T, f hostActionEnrollmentFixture, state *acc
 	}
 }
 
-type accessAcceptanceOS struct{ mode, path string }
+type accessAcceptanceOS struct {
+	mode, path    string
+	recorderCalls int
+	recorderError string
+	failedProbe   atomic.Bool
+}
 type accessAcceptanceLocalProbe struct{ s *accessAcceptanceOS }
 
 func (p accessAcceptanceLocalProbe) Execute(_ context.Context, in generated.AccessProbeInput, _ []*credentialref.Value) ([]generated.AccessMeasurement, error) {
+	p.s.failedProbe.Store(p.s.mode == "failed-probe")
 	return accessAcceptanceMeasurements(in, p.s.mode), nil
 }
 func accessAcceptanceMeasurements(in generated.AccessProbeInput, mode string) []generated.AccessMeasurement {
@@ -282,7 +302,7 @@ func accessAcceptanceMeasurements(in generated.AccessProbeInput, mode string) []
 		if strings.HasPrefix(c.Kind, "container-") {
 			kind = "container-flow"
 		}
-		m := generated.AccessMeasurement{Schema: generated.SchemaIDAccessMeasurement, SchemaVersion: "1.0.0", ControlID: c.ProbeID, Kind: kind, Status: status, SubjectHostID: in.SubjectHostID, SubjectIdentityDigest: in.SubjectIdentityDigest, ProfileLockDigest: in.ProfileLockDigest, ProducerID: "debian-access-probe", ProducerVersion: "1.0.0", BundleDigest: hostaction.Digest(in), ObservedAt: time.Now().UTC().Format(time.RFC3339Nano), ConfigurationDigest: in.ApplyInputDigest, PositiveProbeDigest: hostaction.Digest("synthetic-positive"), NegativeProbeDigest: hostaction.Digest("synthetic-negative"), Reason: "synthetic-os-observation", Probe: &generated.AccessProbeObservation{Schema: generated.SchemaIDAccessProbeObservation, SchemaVersion: "1.0.0", ProbeID: c.ProbeID, SourceHostID: in.Source.HostID, SourceIdentityDigest: in.Source.IdentityDigest, SourceContextDigest: in.Source.ContextDigest, ActualSourceAddress: in.Source.Address, SourceNamespaceDigest: hostaction.Digest("synthetic-namespace"), DestinationDigest: hostaction.Digest(c.Destination), WitnessDigest: hostaction.Digest(c.Witness), Expected: c.Expected, Actual: actual}}
+		m := generated.AccessMeasurement{Schema: generated.SchemaIDAccessMeasurement, SchemaVersion: "1.0.0", ControlID: c.ProbeID, Kind: kind, Status: status, SubjectHostID: in.SubjectHostID, SubjectIdentityDigest: in.SubjectIdentityDigest, ProfileLockDigest: in.ProfileLockDigest, ProducerID: "debian-access-probe", ProducerVersion: "1.0.0", BundleDigest: hostaction.Digest(in), ObservedAt: time.Now().UTC().Format(time.RFC3339), ConfigurationDigest: in.ApplyInputDigest, PositiveProbeDigest: hostaction.Digest("synthetic-positive"), NegativeProbeDigest: hostaction.Digest("synthetic-negative"), Reason: "synthetic-os-observation", Probe: &generated.AccessProbeObservation{Schema: generated.SchemaIDAccessProbeObservation, SchemaVersion: "1.0.0", ProbeID: c.ProbeID, SourceHostID: in.Source.HostID, SourceIdentityDigest: in.Source.IdentityDigest, SourceContextDigest: in.Source.ContextDigest, ActualSourceAddress: in.Source.Address, SourceNamespaceDigest: hostaction.Digest("synthetic-namespace"), DestinationDigest: hostaction.Digest(c.Destination), WitnessDigest: hostaction.Digest(c.Witness), Expected: c.Expected, Actual: actual}}
 		m.MeasurementDigest = hostaction.MeasurementDigest(m)
 		out = append(out, m)
 	}
@@ -333,7 +353,7 @@ func (h accessAcceptanceHandler) Execute(_ context.Context, b generated.HostActi
 				return result, fmt.Errorf("missing applied state")
 			}
 		}
-		m := generated.AccessMeasurement{Schema: generated.SchemaIDAccessMeasurement, SchemaVersion: "1.0.0", ControlID: "debian.ssh", Kind: "ssh", Status: "passed", SubjectHostID: b.HostID, SubjectIdentityDigest: b.HostIdentityDigest, ProfileLockDigest: profile, ProducerID: "synthetic-os", ProducerVersion: "1.0.0", BundleDigest: digest, ObservedAt: time.Now().UTC().Format(time.RFC3339Nano), ConfigurationDigest: inputDigest, PositiveProbeDigest: hostaction.Digest("synthetic-positive"), NegativeProbeDigest: hostaction.Digest("synthetic-negative"), Reason: "synthetic-os-observation"}
+		m := generated.AccessMeasurement{Schema: generated.SchemaIDAccessMeasurement, SchemaVersion: "1.0.0", ControlID: "debian.ssh", Kind: "ssh", Status: "passed", SubjectHostID: b.HostID, SubjectIdentityDigest: b.HostIdentityDigest, ProfileLockDigest: profile, ProducerID: "synthetic-os", ProducerVersion: "1.0.0", BundleDigest: digest, ObservedAt: time.Now().UTC().Format(time.RFC3339), ConfigurationDigest: inputDigest, PositiveProbeDigest: hostaction.Digest("synthetic-positive"), NegativeProbeDigest: hostaction.Digest("synthetic-negative"), Reason: "synthetic-os-observation"}
 		if b.ActionID == "debian.access.apply" {
 			m.Status = "partial"
 			m.RollbackRecordDigest = hostaction.Digest("synthetic-rollback-record")
@@ -362,12 +382,14 @@ func (h accessAcceptanceHandler) Verify(_ context.Context, b generated.HostActio
 }
 
 type accessAcceptanceRecorder struct {
+	t      *testing.T
 	actual hostAccessComposition
 	state  *accessAcceptanceOS
 	db     *sql.DB
 }
 
 func (r accessAcceptanceRecorder) RecordVerifiedControlResults(ctx context.Context, op adapter.Operation, b adapter.ExactExecutionBinding, e adapter.Effect, result generated.HostActionResult) error {
+	r.state.recorderCalls++
 	if r.state.mode == "forged-result" {
 		result.ControlMeasurements[0].Reason = "forged"
 		result.ControlMeasurements[0].MeasurementDigest = hostaction.MeasurementDigest(result.ControlMeasurements[0])
@@ -380,6 +402,8 @@ func (r accessAcceptanceRecorder) RecordVerifiedControlResults(ctx context.Conte
 		}
 	}
 	err := r.actual.RecordVerifiedControlResults(ctx, op, b, e, result)
+	r.state.recorderError = store.Code(err)
+	r.t.Logf("recorder actual result for %s: %v", op.OperationID, err)
 	if err == nil && r.state.mode == "post-record-failure" {
 		return fmt.Errorf("synthetic failure after actual receipt-backed append")
 	}

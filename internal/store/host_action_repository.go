@@ -235,7 +235,7 @@ func (r *HostActionRepository) ExecutionForBundle(ctx context.Context, b generat
 	var p generated.PlanOperation
 	var maximum, operationID string
 	err = r.store.Read(ctx, func(tx ReadTx) error {
-		return tx.queryRow(ctx, `SELECT maximum_expires_at,operation_id FROM target_execution_leases WHERE lease_id=? AND run_id=? AND step_id=?`, b.LeaseID, b.RunID, b.StepID).Scan(&maximum, &operationID)
+		return tx.queryRow(ctx, `SELECT l.maximum_expires_at,s.operation_id FROM target_execution_leases l JOIN plan_run_steps s ON s.run_id=l.run_id AND s.step_id=l.step_id WHERE l.lease_id=? AND l.run_id=? AND l.step_id=?`, b.LeaseID, b.RunID, b.StepID).Scan(&maximum, &operationID)
 	})
 	if err != nil {
 		return HostActionExecution{}, err
