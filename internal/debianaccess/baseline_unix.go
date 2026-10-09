@@ -20,7 +20,10 @@ func ArmBaseline(ctx context.Context, b generated.HostActionBundle, files map[st
 	return n.armBaseline(ctx, b, files, services)
 }
 func (n *nativeRuntime) armBaseline(ctx context.Context, b generated.HostActionBundle, files map[string][]byte, services []string) (string, error) {
-	if len(files) == 0 || len(files) > 5 || !validBaselineServices(services) {
+	return n.armBaselineProfiles(ctx, b, files, services, nil)
+}
+func (n *nativeRuntime) armBaselineProfiles(ctx context.Context, b generated.HostActionBundle, files map[string][]byte, services []string, profiles []BaselineProfile) (string, error) {
+	if (len(files) == 0 && len(profiles) == 0) || len(files) > 5 || (len(services) > 0 && !validBaselineServices(services)) {
 		return "", errAccess
 	}
 	boot, e := os.ReadFile(n.root + "/proc/sys/kernel/random/boot_id")
@@ -32,7 +35,7 @@ func (n *nativeRuntime) armBaseline(ctx context.Context, b generated.HostActionB
 		return "", e
 	}
 	armedAt := n.now()
-	r := RollbackRecord{HostID: b.HostID, HostIdentityDigest: b.HostIdentityDigest, PlanID: b.PlanID, RunID: b.RunID, InputDigest: b.ActionInputDigest, AuthorizationDigest: b.PlanDigest, BundleDigest: bd, BootID: strings.TrimSpace(string(boot)), ArmedAt: armedAt, Deadline: armedAt.Add(600 * time.Second), State: "armed", BaselineServices: services}
+	r := RollbackRecord{HostID: b.HostID, HostIdentityDigest: b.HostIdentityDigest, PlanID: b.PlanID, RunID: b.RunID, InputDigest: b.ActionInputDigest, AuthorizationDigest: b.PlanDigest, BundleDigest: bd, BootID: strings.TrimSpace(string(boot)), ArmedAt: armedAt, Deadline: armedAt.Add(600 * time.Second), State: "armed", BaselineServices: services, BaselineProfiles: profiles}
 	r.BaselineServiceStates = map[string]string{}
 	for _, service := range services {
 		if service == "apparmor.service" {
@@ -90,6 +93,9 @@ func (n *nativeRuntime) armBaseline(ctx context.Context, b generated.HostActionB
 		}
 		r.Files = append(r.Files, RollbackFile{Path: p, Before: raw, BeforePresent: e == nil, BeforeMode: mode, AfterDigest: digestBytes(files[p]), AfterMode: 0600})
 	}
+	if e = n.checkBaselineProfiles(ctx, profiles, true); e != nil {
+		return "", e
+	}
 	if e = Arm(ctx, n.root, r); e != nil {
 		return "", e
 	}
@@ -103,7 +109,7 @@ func (n *nativeRuntime) armBaseline(ctx context.Context, b generated.HostActionB
 func ConfirmBaseline(ctx context.Context, digest, evidence string) error {
 	return withRollback(ctx, "/", func(fs *os.Root) error {
 		r, e := readRollback(fs)
-		if e != nil || r.Digest() != digest || len(r.BaselineServices) == 0 || r.State != "armed" || !time.Now().Before(r.Deadline) {
+		if e != nil || r.Digest() != digest || (len(r.BaselineServices) == 0 && len(r.BaselineProfiles) == 0) || r.State != "armed" || !time.Now().Before(r.Deadline) {
 			return errAccess
 		}
 		for _, f := range r.Files {
@@ -131,7 +137,7 @@ func writeBaseline(ctx context.Context, root, digest string, files map[string][]
 	changed := false
 	e := withRollback(ctx, root, func(fs *os.Root) error {
 		r, e := readRollback(fs)
-		if e != nil || r.Digest() != digest || r.State != "armed" || len(r.BaselineServices) == 0 || len(files) != len(r.Files) || !time.Now().Before(r.Deadline) {
+		if e != nil || r.Digest() != digest || r.State != "armed" || (len(r.BaselineServices) == 0 && len(r.BaselineProfiles) == 0) || len(files) != len(r.Files) || !time.Now().Before(r.Deadline) {
 			return errAccess
 		}
 		for _, f := range r.Files {

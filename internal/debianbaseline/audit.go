@@ -52,7 +52,7 @@ func CollectAudit(ctx context.Context, in generated.DebianBaselineInput, r Nativ
 		return c, e
 	}
 	values := configurationValues(cfg)
-	for k, v := range map[string]string{"max_log_file": "80", "num_logs": "5", "max_log_file_action": "ROTATE", "space_left_action": "SYSLOG", "admin_space_left_action": "SYSLOG", "disk_full_action": "SYSLOG", "disk_error_action": "SYSLOG"} {
+	for k, v := range map[string]string{"write_logs": "yes", "local_events": "yes", "log_file": "/var/log/audit/audit.log", "log_format": "RAW", "flush": "INCREMENTAL_ASYNC", "freq": "50", "max_log_file": "80", "num_logs": "5", "max_log_file_action": "ROTATE", "space_left_action": "SYSLOG", "admin_space_left_action": "SYSLOG", "disk_full_action": "SYSLOG", "disk_error_action": "SYSLOG"} {
 		if values[k] != v {
 			return c, nil
 		}

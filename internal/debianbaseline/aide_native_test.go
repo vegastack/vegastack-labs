@@ -4,6 +4,7 @@ package debianbaseline
 
 import (
 	"context"
+	"fmt"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"os"
@@ -49,7 +50,7 @@ func TestAIDEInitializeReturnsCurrentReferenceWithoutChangingInputBinding(t *tes
 	n, in, calls := aideNativeFixture(t)
 	digest := hostaction.Digest(in)
 	out, e := n.applyAIDE(context.Background(), generated.HostActionBundle{ActionID: "debian.aide.initialize"}, in)
-	if e != nil || !out.Changed || *calls != 2 {
+	if e != nil || !out.Changed || *calls != 3 {
 		t.Fatal(out, e, *calls)
 	}
 	if len(out.Measurements) != 1 || out.Measurements[0].Status != "passed" || out.Measurements[0].Baseline.AIDEReferenceDigest != digestBytes([]byte("native synthetic database")) || out.Measurements[0].ConfigurationDigest != digest {
@@ -80,5 +81,36 @@ func TestAIDERefreshRequiresExactPriorDatabase(t *testing.T) {
 	b, _ := os.ReadFile(p)
 	if string(b) != "prior" {
 		t.Fatal("prior DB destroyed")
+	}
+}
+
+func TestAIDERefusesContentChangedDuringInitialization(t *testing.T) {
+	for _, self := range []bool{false, true} {
+		t.Run(fmt.Sprint(self), func(t *testing.T) {
+			n, in, _ := aideNativeFixture(t)
+			if self {
+				p := "/etc/vsk-labs/baseline/aide.conf"
+				os.WriteFile(filepath.Join(n.root, p), []byte("old"), 0600)
+				in.AIDE.ScopePaths = []string{p}
+				in.AIDE.ScopeDigest = hostaction.Digest(in.AIDE.ScopePaths)
+				in.AIDE.ApprovedChangeDigest = hostaction.Digest(map[string]string{p: digestBytes([]byte("old"))})
+			}
+			original := n.run
+			n.run = func(ctx context.Context, bin string, args []string, b []byte) ([]byte, error) {
+				out, e := original(ctx, bin, args, b)
+				if args[0] == "--init" && !self {
+					os.WriteFile(filepath.Join(n.root, in.AIDE.ScopePaths[0]), []byte("drift"), 0600)
+				}
+				return out, e
+			}
+			if _, e := n.applyAIDE(context.Background(), generated.HostActionBundle{ActionID: "debian.aide.initialize"}, in); e == nil {
+				t.Fatal("unapproved content promoted")
+			}
+			for _, p := range []string{"aide.db", "aide-reference.json"} {
+				if _, e := os.Stat(filepath.Join(n.root, "var/lib/vsk-labs/baseline", p)); !os.IsNotExist(e) {
+					t.Fatal("reference promoted", p)
+				}
+			}
+		})
 	}
 }

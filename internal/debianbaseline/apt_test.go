@@ -46,6 +46,12 @@ func aptFixture(t *testing.T) (*nativeRuntime, func(string, []byte)) {
 	write("var/lib/apt/lists/snapshot_InRelease", []byte("Date: "+now.Add(-8*24*time.Hour).Format(time.RFC1123Z)+"\nValid-Until: "+now.Add(24*time.Hour).Format(time.RFC1123Z)+"\nSHA256:\n "+strings.TrimPrefix(digestBytes(packages), "sha256:")+" 39 main/binary-amd64/Packages\n"))
 	write("var/lib/apt/lists/security_InRelease", []byte("Date: "+now.Add(-time.Hour).Format(time.RFC1123Z)+"\nValid-Until: "+now.Add(24*time.Hour).Format(time.RFC1123Z)+"\n"))
 	n := &nativeRuntime{root: root, now: func() time.Time { return now }, run: func(_ context.Context, bin string, _ []string, _ []byte) ([]byte, error) {
+		if bin == "/usr/bin/systemctl" {
+			return []byte("LoadState=loaded\nActiveState=inactive\n"), nil
+		}
+		if bin == "/usr/bin/apt-config" {
+			return []byte("APT::Periodic::Enable \"0\";\n"), nil
+		}
 		if bin == "/usr/bin/gpgv" {
 			return []byte("[GNUPG:] VALIDSIG " + fingerprint + " actual-native-command-boundary-fixture"), nil
 		}
@@ -127,6 +133,37 @@ func TestStableSnapshotMissingExpiryDoesNotRelaxSecurityFreshness(t *testing.T) 
 			}
 			if mode != "stable-no-expiry" && e == nil {
 				t.Fatal("expired or stale signed provenance accepted", mode)
+			}
+		})
+	}
+}
+
+func TestUpdateOwnerRequiresAvailableAndActiveObservation(t *testing.T) {
+	for _, mode := range []string{"unavailable", "inactive-unattended", "disabled-unattended", "active-unattended"} {
+		t.Run(mode, func(t *testing.T) {
+			n := &nativeRuntime{run: func(_ context.Context, bin string, args []string, _ []byte) ([]byte, error) {
+				if mode == "unavailable" {
+					return nil, errBaseline
+				}
+				if bin == "/usr/bin/systemctl" {
+					state := "active"
+					if mode == "inactive-unattended" {
+						state = "inactive"
+					}
+					return []byte("LoadState=loaded\nActiveState=" + state + "\n"), nil
+				}
+				if mode == "disabled-unattended" {
+					return []byte("APT::Periodic::Enable \"0\";"), nil
+				}
+				return []byte("APT::Periodic::Update-Package-Lists \"1\";\nAPT::Periodic::Unattended-Upgrade \"1\";"), nil
+			}}
+			owner := "unattended-upgrades"
+			if mode == "unavailable" {
+				owner = "operator"
+			}
+			e := n.observeUpdateOwner(context.Background(), owner)
+			if (e == nil) != (mode == "active-unattended") {
+				t.Fatal(e)
 			}
 		})
 	}

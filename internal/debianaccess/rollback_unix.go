@@ -181,7 +181,7 @@ func Arm(ctx context.Context, root string, r RollbackRecord) error {
 	}
 	return withRollback(ctx, root, func(fs *os.Root) error {
 		old, err := readRollback(fs)
-		if err == nil && (old.State == "armed" || old.State == "uncertain") {
+		if err == nil && (old.State == "armed" || old.State == "uncertain" || old.State == "services-pending") {
 			return errAccess
 		}
 		if err != nil && !os.IsNotExist(err) {
@@ -218,7 +218,7 @@ func restoreWith(ctx context.Context, root, digest string, finish func(RollbackR
 		if r.State == "restored" {
 			return nil
 		}
-		if r.State != "armed" {
+		if r.State != "armed" && r.State != "services-pending" {
 			return errAccess
 		}
 		uncertain := func() error { r.State = "uncertain"; _ = saveRollback(fs, r); return errAccess }
@@ -255,11 +255,15 @@ func restoreWith(ctx context.Context, root, digest string, finish func(RollbackR
 				}
 			}
 		}
-		if len(r.Firewall) > 0 && finish == nil {
+		if (len(r.Firewall) > 0 || len(r.BaselineServices) > 0 || len(r.BaselineProfiles) > 0) && finish == nil {
 			return uncertain()
 		}
 		if finish != nil {
 			if err = finish(r); err != nil {
+				if err == errBaselineServicesPending {
+					r.State = "services-pending"
+					return saveRollback(fs, r)
+				}
 				return uncertain()
 			}
 		}

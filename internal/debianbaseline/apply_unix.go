@@ -30,20 +30,12 @@ func (n *nativeRuntime) Apply(ctx context.Context, b generated.HostActionBundle,
 		services = append(services, "auditd.service")
 	}
 
-	// Health and storage selectors never silently mutate OS settings.
-	if len(files) == 0 {
-		if selected(in, "linux.apparmor-enforcing") {
-			changed, e := n.loadProfiles(ctx, in)
-			if e != nil {
-				return Result{Changed: changed}, e
-			}
-			m, e := Collect(ctx, in, n)
-			return Result{Changed: changed, Measurements: m}, e
-		}
-		return n.Collect(ctx, b, in)
+	profiles, e := n.preflightProfiles(ctx, in)
+	if e != nil {
+		return Result{}, e
 	}
-	if len(services) == 0 {
-		return Result{}, errBaseline
+	if len(files) == 0 && len(profiles) == 0 {
+		return n.Collect(ctx, b, in)
 	}
 	// All target files and ancestors must already be installed by the bounded
 	// administrator preparation or packaged OS; no arbitrary directory creation.
@@ -63,7 +55,7 @@ func (n *nativeRuntime) Apply(ctx context.Context, b generated.HostActionBundle,
 			}
 		}
 	}
-	digest, e := debianaccess.ArmBaseline(ctx, b, files, services)
+	digest, e := debianaccess.ArmBaselineProfiles(ctx, b, files, services, profiles)
 	if e != nil {
 		return Result{}, e
 	}
@@ -99,12 +91,11 @@ func (n *nativeRuntime) Apply(ctx context.Context, b generated.HostActionBundle,
 			return Result{Changed: true}, e
 		}
 	}
-	if selected(in, "linux.apparmor-enforcing") {
-		did, e := n.loadProfiles(ctx, in)
-		changed = changed || did
-		if e != nil {
-			return Result{Changed: changed}, e
+	if len(profiles) > 0 {
+		if e = debianaccess.LoadBaselineProfiles(ctx, digest); e != nil {
+			return Result{Changed: true}, e
 		}
+		changed = true
 	}
 
 	m, e := Collect(ctx, in, n)
@@ -209,6 +200,9 @@ func (n *nativeRuntime) applyAIDE(ctx context.Context, b generated.HostActionBun
 	if in.AIDE.ApprovedChangeDigest == "" || hostaction.Digest(reviewed) != in.AIDE.ApprovedChangeDigest {
 		return Result{}, errBaseline
 	}
+	if before, ok := reviewed["/etc/vsk-labs/baseline/aide.conf"]; ok && before != digestBytes(cfg) {
+		return Result{}, errBaseline
+	}
 	if _, e := os.Lstat(path.Join(n.root, "var/lib/vsk-labs/baseline/aide.new.db")); !os.IsNotExist(e) {
 		return Result{}, errBaseline
 	}
@@ -221,6 +215,22 @@ func (n *nativeRuntime) applyAIDE(ctx context.Context, b generated.HostActionBun
 	fresh, e := protectedRead(n.root, "var/lib/vsk-labs/baseline/aide.new.db", 16<<20)
 	if e != nil {
 		return Result{Changed: true}, e
+	}
+	// Verify the candidate database against current bytes BEFORE promotion, with
+	// a fixed stdin configuration selecting only the candidate input database.
+	candidateConfig := []byte(strings.Replace(string(cfg), "database_in=file:/var/lib/vsk-labs/baseline/aide.db\n", "database_in=file:/var/lib/vsk-labs/baseline/aide.new.db\n", 1))
+	if _, e = n.run(ctx, "/usr/bin/aide", []string{"--check", "--config=-"}, candidateConfig); e != nil {
+		return Result{Changed: true}, e
+	}
+	for _, name := range in.AIDE.ScopePaths {
+		current, e := protectedRead(n.root, strings.TrimPrefix(name, "/"), 16<<20)
+		if e != nil || digestBytes(current) != reviewed[name] {
+			return Result{Changed: true}, errBaseline
+		}
+	}
+	candidate, e := protectedRead(n.root, "var/lib/vsk-labs/baseline/aide.new.db", 16<<20)
+	if e != nil || digestBytes(candidate) != digestBytes(fresh) {
+		return Result{Changed: true}, errBaseline
 	}
 	reference := aideReference{ScopeDigest: in.AIDE.ScopeDigest, DatabaseDigest: digestBytes(fresh), ApprovedChangeDigest: in.AIDE.ApprovedChangeDigest}
 	raw, _ := json.Marshal(reference)
@@ -255,22 +265,45 @@ func (n *nativeRuntime) applyAIDE(ctx context.Context, b generated.HostActionBun
 	return Result{Changed: true, Measurements: m}, e
 }
 
-func (n *nativeRuntime) loadProfiles(ctx context.Context, in generated.DebianBaselineInput) (bool, error) {
-	changed := false
+func (n *nativeRuntime) preflightProfiles(ctx context.Context, in generated.DebianBaselineInput) ([]debianaccess.BaselineProfile, error) {
+	if !selected(in, "linux.apparmor-enforcing") {
+		return nil, nil
+	}
+	raw, e := n.Read(ctx, ReadRequest{Operation: ReadAppArmor})
+	if e != nil {
+		return nil, e
+	}
+	var status struct {
+		Profiles map[string]string `json:"profiles"`
+	}
+	if json.Unmarshal(raw, &status) != nil || status.Profiles == nil {
+		return nil, errBaseline
+	}
+	out := []debianaccess.BaselineProfile{}
 	for _, p := range in.AppArmorProfiles {
 		integrity, e := n.Read(ctx, ReadRequest{Operation: ReadPackageIntegrity, Selector: p.PackageName})
 		if e != nil || len(strings.TrimSpace(string(integrity))) != 0 {
-			return changed, errBaseline
+			return nil, errBaseline
 		}
-
 		raw, e := n.Read(ctx, ReadRequest{Operation: ReadProfile, Selector: p.ProfileID})
 		if e != nil || digestBytes(raw) != p.ProfileDigest || strings.Contains(string(raw), "complain") {
-			return changed, errBaseline
+			return nil, errBaseline
 		}
-		if _, e = n.run(ctx, "/usr/sbin/apparmor_parser", []string{"--replace", "--", path.Join(n.root, "etc/apparmor.d", p.ProfileID)}, nil); e != nil {
-			return changed, e
+		names, e := n.run(ctx, "/usr/sbin/apparmor_parser", []string{"--names", "--skip-cache", "--config-file=/dev/null", "--", path.Join(n.root, "etc/apparmor.d", p.ProfileID)}, nil)
+		name := strings.TrimSpace(string(names))
+		if e != nil || (name != p.ProfileID && name != "/"+strings.ReplaceAll(p.ProfileID, ".", "/")) {
+			return nil, errBaseline
 		}
-		changed = true
+		if mode, exists := status.Profiles[name]; exists {
+			if mode != "enforce" {
+				return nil, errBaseline
+			}
+			continue
+		}
+		if strings.Contains(string(raw), "include") {
+			return nil, errBaseline
+		}
+		out = append(out, debianaccess.BaselineProfile{File: "etc/apparmor.d/" + p.ProfileID, Name: name, Digest: p.ProfileDigest})
 	}
-	return changed, nil
+	return out, nil
 }

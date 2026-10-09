@@ -40,3 +40,10 @@ Results retain failed, partial, unsupported and error states. A successful colle
 Ordinary tests use temporary roots/databases, synthetic SSH/Slack peers and narrowly injected OS boundaries. The approved isolated Linux test environment is separate from fleet authority. Native package/service/kernel, ban expiry, reboot, real cryptographic key and allowed/denied packet qualification must be measured under #228's exact profile. Implementation does not pass either host gate, enable workloads or complete Phase 6.
 
 Nodes04/05 remain absolutely excluded. Mac/iMac remain deferred within v1. No deployment, real Slack setup/message, release or existing application/database change is authorized by this document.
+
+### Failure containment corrections
+
+- AppArmor uses an all-profile preflight. Existing enforcing profiles are unchanged; only an absent self-contained single profile can be added with its exact absence recorded in the existing rollback record. Unknown/complain/include-dependent prior state refuses automated change. Partial additions are removed through that same timer recovery path.
+- Baseline rollback distinguishes stopped services from active services. Early boot queues the exact prior state and retains `services-pending`; the existing timer must later observe restoration before reporting `restored`.
+- AIDE validates the candidate database and approved scoped content again before replacing the old reference; it cannot approve its own changed configuration using an old content digest.
+- Audit checks require local events, disk logging and the fixed audit log destination. Update-owner checks reject unavailable unit observations and require effective selected-owner APT settings and timer activity. Native behavior remains separately qualified by #228.

@@ -38,7 +38,7 @@ func (b *outputLimit) Write(p []byte) (int, error) {
 }
 func baselineCommand(ctx context.Context, bin string, args []string, in []byte) ([]byte, error) {
 	switch bin {
-	case "/usr/bin/dpkg", "/usr/sbin/iptables-nft", "/usr/sbin/ip6tables-nft", "/usr/bin/busctl", "/usr/bin/fail2ban-client", "/usr/sbin/auditctl", "/usr/sbin/augenrules", "/usr/sbin/aa-status", "/usr/sbin/apparmor_parser", "/usr/bin/systemctl", "/usr/bin/dpkg-query", "/usr/bin/timedatectl", "/usr/bin/chronyc", "/usr/bin/aide", "/usr/bin/gpgv", "/usr/bin/apt-get":
+	case "/usr/bin/apt-config", "/usr/bin/dpkg", "/usr/sbin/iptables-nft", "/usr/sbin/ip6tables-nft", "/usr/bin/busctl", "/usr/bin/fail2ban-client", "/usr/sbin/auditctl", "/usr/sbin/augenrules", "/usr/sbin/aa-status", "/usr/sbin/apparmor_parser", "/usr/bin/systemctl", "/usr/bin/dpkg-query", "/usr/bin/timedatectl", "/usr/bin/chronyc", "/usr/bin/aide", "/usr/bin/gpgv", "/usr/bin/apt-get":
 	default:
 		return nil, errBaseline
 	}

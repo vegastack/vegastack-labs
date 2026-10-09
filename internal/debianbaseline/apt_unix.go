@@ -215,13 +215,9 @@ func (n *nativeRuntime) readAPT(ctx context.Context) ([]byte, error) {
 	} else if !os.IsNotExist(e) {
 		return nil, e
 	}
-	// Conflicting automated update owners are observed, never disabled here.
-	for _, unit := range []string{"apt-daily.timer", "apt-daily-upgrade.timer"} {
-		b, e := n.run(ctx, "/usr/bin/systemctl", []string{"is-active", unit}, nil)
-		active := e == nil && strings.TrimSpace(string(b)) == "active"
-		if cfg.Owner == "operator" && active {
-			return nil, errBaseline
-		}
+	// show distinguishes a known inactive timer from an unavailable observation.
+	if e = n.observeUpdateOwner(ctx, cfg.Owner); e != nil {
+		return nil, e
 	}
 	return json.Marshal(obs)
 }
@@ -258,4 +254,55 @@ func signedReleasePayload(raw []byte) ([]byte, error) {
 		}
 	}
 	return []byte(strings.Join(lines, "\n")), nil
+}
+
+func (n *nativeRuntime) observeUpdateOwner(ctx context.Context, owner string) error {
+	for _, unit := range []string{"apt-daily.timer", "apt-daily-upgrade.timer"} {
+		raw, e := n.run(ctx, "/usr/bin/systemctl", []string{"show", unit, "--property=LoadState,ActiveState"}, nil)
+		if e != nil {
+			return e
+		}
+		state := configurationValues(raw)
+		if state["LoadState"] != "loaded" {
+			return errBaseline
+		}
+		active := state["ActiveState"]
+		if owner == "operator" {
+			if active != "inactive" {
+				return errBaseline
+			}
+		} else if active != "active" {
+			return errBaseline
+		}
+	}
+	raw, e := n.run(ctx, "/usr/bin/apt-config", []string{"dump"}, nil)
+	if e != nil {
+		return e
+	}
+	values := map[string]string{}
+	for _, line := range strings.Split(string(raw), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 2 {
+			values[fields[0]] = strings.Trim(fields[1], "\";")
+		}
+	}
+	enabled := values["APT::Periodic::Enable"]
+	upgrade := values["APT::Periodic::Unattended-Upgrade"]
+	switch owner {
+	case "operator":
+		if enabled != "0" && upgrade != "" && upgrade != "0" {
+			return errBaseline
+		}
+	case "apt-periodic":
+		if enabled == "0" || values["APT::Periodic::Update-Package-Lists"] != "1" || (upgrade != "" && upgrade != "0") {
+			return errBaseline
+		}
+	case "unattended-upgrades":
+		if enabled == "0" || values["APT::Periodic::Update-Package-Lists"] != "1" || upgrade != "1" {
+			return errBaseline
+		}
+	default:
+		return errBaseline
+	}
+	return nil
 }

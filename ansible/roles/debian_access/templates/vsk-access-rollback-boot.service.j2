@@ -1,7 +1,7 @@
 [Unit]
 Description=Restore interrupted VegaStack access change before network services
 DefaultDependencies=no
-After=local-fs.target
+After=local-fs.target apparmor.service
 Before=network-pre.target ssh.service ssh.socket docker.service
 [Service]
 Type=oneshot

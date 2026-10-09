@@ -161,6 +161,9 @@ func (n *nativeRuntime) restore(ctx context.Context) error {
 		if e := n.restoreFirewall(ctx, r, newBoot, false); e != nil {
 			return e
 		}
+		if e := n.restoreBaselineProfiles(ctx, r.BaselineProfiles); e != nil {
+			return e
+		}
 		if len(r.BaselineServices) > 0 {
 			for _, service := range r.BaselineServices {
 				if service == "auditd.service" {
@@ -183,16 +186,17 @@ func (n *nativeRuntime) restore(ctx context.Context) error {
 						}
 					}
 				}
-				op := "reload"
-				if r.BaselineServiceStates[service] == "inactive" {
-					op = "stop"
-				} else if r.BaselineServiceStates[service] != "active" {
-					return errAccess
-				}
-				if _, e := n.run(ctx, "/usr/bin/systemctl", []string{op, service}, nil); e != nil {
+				if e := n.restoreBaselineService(ctx, service, r.BaselineServiceStates[service], newBoot); e != nil {
 					return e
 				}
+
 			}
+			if newBoot {
+				return errBaselineServicesPending
+			}
+			return nil
+		}
+		if len(r.BaselineProfiles) > 0 {
 			return nil
 		}
 		if _, e := n.run(ctx, "/usr/sbin/sshd", []string{"-t"}, nil); e != nil {
@@ -209,12 +213,60 @@ func (n *nativeRuntime) restore(ctx context.Context) error {
 	}
 	return withRollback(ctx, n.root, func(fs *os.Root) error {
 		current, e := readRollback(fs)
-		if e != nil || current.Digest() != record.Digest() || current.State != "restored" {
+		if e != nil || current.Digest() != record.Digest() || (current.State != "restored" && current.State != "services-pending") {
 			return errAccess
 		}
 		current.ReconciledBootID = boot
+		if current.State == "services-pending" {
+			if e = writeAtomic(fs, "etc/systemd/system/vsk-access-rollback.timer", timerBytes(n.now().Add(time.Minute)), 0644); e != nil {
+				return e
+			}
+			for _, args := range [][]string{{"daemon-reload"}, {"--no-block", "restart", "vsk-access-rollback.timer"}} {
+				if _, e = n.run(ctx, "/usr/bin/systemctl", args, nil); e != nil {
+					return e
+				}
+			}
+		}
 		return saveRollback(fs, current)
 	})
+}
+
+func (n *nativeRuntime) restoreBaselineService(ctx context.Context, service, prior string, boot bool) error {
+	if prior != "active" && prior != "inactive" {
+		return errAccess
+	}
+	raw, e := n.run(ctx, "/usr/bin/systemctl", []string{"show", service, "--property=ActiveState", "--value"}, nil)
+	if e != nil {
+		return e
+	}
+	current := strings.TrimSpace(string(raw))
+	if current != "active" && current != "inactive" {
+		return errAccess
+	}
+	op := "stop"
+	if prior == "active" {
+		op = "reload"
+		if current == "inactive" {
+			op = "start"
+		}
+	}
+	if prior == "inactive" && current == "inactive" {
+		return nil
+	}
+	args := []string{op, service}
+	if boot {
+		args = append([]string{"--no-block"}, args...)
+	}
+	if _, e = n.run(ctx, "/usr/bin/systemctl", args, nil); e != nil {
+		return e
+	}
+	if !boot {
+		raw, e = n.run(ctx, "/usr/bin/systemctl", []string{"show", service, "--property=ActiveState", "--value"}, nil)
+		if e != nil || strings.TrimSpace(string(raw)) != prior {
+			return errAccess
+		}
+	}
+	return nil
 }
 
 func (n *nativeRuntime) restoreFirewall(ctx context.Context, r RollbackRecord, newBoot, confirmed bool) error {

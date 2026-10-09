@@ -3,6 +3,7 @@ package debianbaseline
 import (
 	"context"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"strings"
 	"testing"
 )
 
@@ -32,7 +33,7 @@ func TestAppArmorComplainCannotPass(t *testing.T) {
 
 func TestAuditRequiresActiveBoundedNativeState(t *testing.T) {
 	in := generated.DebianBaselineInput{AuditPaths: []string{"/etc/passwd"}}
-	cfg := []byte("max_log_file = 80\nnum_logs = 5\nmax_log_file_action = ROTATE\nspace_left_action = SYSLOG\nadmin_space_left_action = SYSLOG\ndisk_full_action = SYSLOG\ndisk_error_action = SYSLOG\n")
+	cfg := []byte("write_logs = yes\nlocal_events = yes\nlog_file = /var/log/audit/audit.log\nlog_format = RAW\nflush = INCREMENTAL_ASYNC\nfreq = 50\nmax_log_file = 80\nnum_logs = 5\nmax_log_file_action = ROTATE\nspace_left_action = SYSLOG\nadmin_space_left_action = SYSLOG\ndisk_full_action = SYSLOG\ndisk_error_action = SYSLOG\n")
 	r := fixtureReader{{Operation: ReadAuditStatus}: []byte("enabled 1\npid 100\nfailure 1\nrate_limit 1000\nbacklog_limit 8192\nlost 0\nbacklog 0\n"), {Operation: ReadAuditRules}: []byte("-w /etc/passwd -p wa -k vsk-security\n"), {Operation: ReadConfig, Selector: "auditd"}: cfg}
 	m, e := CollectAudit(context.Background(), in, r)
 	if e != nil || m.Status != "passed" {
@@ -116,5 +117,17 @@ func TestAppArmorRequiresPinnedEnforcingProfile(t *testing.T) {
 	m, e = CollectAppArmor(context.Background(), in, r)
 	if e == nil && m.Status == "passed" {
 		t.Fatal("changed profile passed")
+	}
+}
+
+func TestAuditLoggingCannotBeDisabledOrRedirected(t *testing.T) {
+	in := generated.DebianBaselineInput{ControlIDs: []string{"linux.audit-bounded"}, AuditPaths: []string{"/etc/passwd"}}
+	cfg := DesiredFiles(in)["etc/audit/auditd.conf"]
+	for _, change := range [][2]string{{"write_logs = yes", "write_logs = no"}, {"local_events = yes", "local_events = no"}, {"/var/log/audit/audit.log", "/dev/null"}} {
+		r := fixtureReader{{Operation: ReadAuditStatus}: []byte("enabled 1\npid 100\nfailure 1\nrate_limit 1000\nbacklog_limit 8192\nlost 0\nbacklog 0\n"), {Operation: ReadAuditRules}: []byte("-w /etc/passwd -p wa -k vsk-security\n"), {Operation: ReadConfig, Selector: "auditd"}: []byte(strings.ReplaceAll(string(cfg), change[0], change[1]))}
+		m, e := CollectAudit(context.Background(), in, r)
+		if e == nil && m.Status == "passed" {
+			t.Fatal("disabled logging passed", change)
+		}
 	}
 }
