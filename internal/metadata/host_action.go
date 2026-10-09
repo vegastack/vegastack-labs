@@ -26,7 +26,7 @@ func hostActionSchemas() []SchemaDefinition {
 	return []SchemaDefinition{
 		phase5Schema("vegastack-labs.dev/native-restart-selector", phase5ID("priorRunId", "PriorRunID"), phase5ID("priorStepId", "PriorStepID")),
 		phase5Schema("vegastack-labs.dev/native-restart-presentation", phase5ID("priorRunId", "PriorRunID"), phase5ID("priorStepId", "PriorStepID"), phase5Digest("pendingDigest", "PendingDigest"), phase5Digest("expectedInvocationDigest", "ExpectedInvocationDigest")),
-		phase5Schema("vegastack-labs.dev/host-action-credential-confirmation", phase5Enum("method", "Method", "administrator-verified-console"), phase5Digest("targetDigest", "TargetDigest"), phase5Digest("hostIdentityDigest", "HostIdentityDigest"), phase5Positive("targetRevision", "TargetRevision")),
+		phase5Schema("vegastack-labs.dev/host-action-credential-confirmation", phase5Enum("method", "Method", "administrator-verified-console"), phase5Digest("targetDigest", "TargetDigest"), phase5Digest("hostIdentityDigest", "HostIdentityDigest"), phase5Positive("targetRevision", "TargetRevision"), FieldDefinition{JSONName: "nativeConsumerMachineId", GoName: "NativeConsumerMachineID", Kind: ValueString, Required: true, Pattern: "^[a-f0-9]{32}$"}),
 		phase5Schema(hostActionBundleID, bundle...),
 		phase5Schema(hostActionEnvelopeID, discoveryRef("bundle", "Bundle", hostActionBundleID), phase5ID("keyId", "KeyID"), discoveryText("signature", "Signature", 88)),
 		phase5Schema(hostActionChallengeID, phase5Digest("bundleDigest", "BundleDigest"), discoveryText("nonce", "Nonce", 64), phase5ID("hostId", "HostID"), phase5Timestamp("startedAt", "StartedAt")),

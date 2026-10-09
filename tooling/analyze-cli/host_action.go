@@ -51,6 +51,9 @@ func reviewedHostActionServerSigner(c checkedSourcePackage, serverImport string)
 	if c.listed.ImportPath != serverImport {
 		return false
 	}
+	if !containsString(c.listed.GoFiles, "recovery_canary_system.go") || digestSourceFiles(c.listed.Dir, []string{"recovery_canary_system.go"}) != "e5c6b4c0135eccca2e07f4a981bd2a33b93cee22894bfbbdc1b989a86f72c8ef" {
+		return false
+	}
 	for _, name := range c.listed.GoFiles {
 		if name == "host_action_signer_linux.go" {
 			if digestSourceFiles(c.listed.Dir, []string{name}) != hostActionSignerSeal {

@@ -83,7 +83,7 @@ func (service *credentialLifecycleService) createDraftResult(ctx context.Context
 	operationID := "credential-operation-" + keyDigest[7:39]
 	binding := credentialref.LifecycleBinding{OperationID: operationID, Action: credentialref.LifecycleAction(input.Action), DraftID: input.DraftID, ReferenceID: input.ReferenceID, ConsumerIDs: input.ConsumerIDs, RequiredDeniedConsumerIDs: input.RequiredDeniedConsumerIDs, MaterialVersion: input.MaterialVersion, PriorMaterialVersion: input.PriorMaterialVersion, ResolverID: input.ResolverID, TargetID: input.TargetID, OverlapSeconds: input.OverlapSeconds, StateRevision: input.ExpectedStateRevision + 3, RecoveryEpoch: input.RecoveryEpoch, PriorRecoveryEpoch: input.PriorRecoveryEpoch, CustodyProofDigest: input.CustodyProofDigest, FormerControllerFenceDigest: input.FormerControllerFenceDigest}
 	if c := input.HostActionConsole; c != nil {
-		binding.HostActionConsole = &credentialref.HostActionConsoleBinding{Method: c.Method, TargetDigest: c.TargetDigest, HostIdentityDigest: c.HostIdentityDigest, TargetRevision: c.TargetRevision}
+		binding.HostActionConsole = &credentialref.HostActionConsoleBinding{Method: c.Method, TargetDigest: c.TargetDigest, HostIdentityDigest: c.HostIdentityDigest, TargetRevision: c.TargetRevision, NativeConsumerMachineID: c.NativeConsumerMachineID}
 	}
 	var importDraft *store.CredentialImportDraft
 	if input.DraftID != nil {

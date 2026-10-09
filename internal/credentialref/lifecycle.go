@@ -36,8 +36,8 @@ var fingerprintPattern = regexp.MustCompile(`^sha256:[a-f0-9]{64}$`)
 // carries a credential value; CiphertextFingerprint is a metadata identity, not
 // key material.
 type HostActionConsoleBinding struct {
-	Method, TargetDigest, HostIdentityDigest string
-	TargetRevision                           int64
+	Method, TargetDigest, HostIdentityDigest, NativeConsumerMachineID string
+	TargetRevision                                                    int64
 }
 type LifecycleBinding struct {
 	NativeRestartContinuation   *NativeRestartContinuation `json:",omitempty"`
@@ -149,7 +149,7 @@ func ValidLifecycleBinding(binding LifecycleBinding) bool {
 		}
 	}
 	if c := binding.HostActionConsole; c != nil {
-		if (binding.Action != ActionActivate && binding.Action != ActionRotate) || binding.ResolverID != "native-systemd" || len(binding.ConsumerIDs) != 1 || binding.ConsumerIDs[0] != "host-action" || c.Method != "administrator-verified-console" || !fingerprintPattern.MatchString(c.TargetDigest) || !fingerprintPattern.MatchString(c.HostIdentityDigest) || c.TargetRevision < 1 {
+		if (binding.Action != ActionActivate && binding.Action != ActionRotate) || binding.ResolverID != "native-systemd" || len(binding.ConsumerIDs) != 1 || binding.ConsumerIDs[0] != "host-action" || c.Method != "administrator-verified-console" || !fingerprintPattern.MatchString(c.TargetDigest) || !fingerprintPattern.MatchString(c.HostIdentityDigest) || c.TargetRevision < 1 || !nativeMachineID.MatchString(c.NativeConsumerMachineID) || len(binding.NativeConsumers) != 1 || binding.NativeConsumers[0].HostMachineID != c.NativeConsumerMachineID {
 			return false
 		}
 	}
@@ -311,7 +311,7 @@ func (binding LifecycleBinding) Digest() string {
 		canonicalStringPointer(binding.FormerControllerFenceDigest),
 	}
 	if c := binding.HostActionConsole; c != nil {
-		parts = append(parts, "host-action-console-v1", c.Method, c.TargetDigest, c.HostIdentityDigest, strconv.FormatInt(c.TargetRevision, 10))
+		parts = append(parts, "host-action-console-v1", c.Method, c.TargetDigest, c.HostIdentityDigest, strconv.FormatInt(c.TargetRevision, 10), c.NativeConsumerMachineID)
 	}
 	if c := binding.NativeRestartContinuation; c != nil {
 		parts = append(parts, "native-restart-continuation-v1", NativeRestartContinuationDigest(*c))

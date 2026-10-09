@@ -29,3 +29,19 @@ func TestHostActionPlanNeverOmitsHumanConsoleReview(t *testing.T) {
 	}
 	_ = hostaction.AdapterID
 }
+
+func TestHostActionCredentialPlanNamesBothMachinesAndRestartUnit(t *testing.T) {
+	p := generated.Plan{HostActionNativeUnit: "vsk-labs.service", HostActionConsole: &generated.HostActionCredentialConfirmation{Schema: generated.SchemaIDHostActionCredentialConfirmation, SchemaVersion: "1.0.0", Method: "administrator-verified-console", TargetRevision: 1, HostIdentityDigest: hostaction.Digest("destination"), TargetDigest: hostaction.Digest("pinned destination"), NativeConsumerMachineID: strings.Repeat("a", 32)}}
+	body := readablePlan(p)
+	for _, part := range []string{"BOTH", "destination host", "consumer/controller machine", "vsk-labs.service", strings.Repeat("a", 32)} {
+		if !strings.Contains(body, part) {
+			t.Fatalf("missing %s in review", part)
+		}
+	}
+	before, _ := planDigest(p)
+	p.HostActionNativeUnit = "different.service"
+	after, _ := planDigest(p)
+	if before == after {
+		t.Fatal("restart unit omitted from immutable plan")
+	}
+}

@@ -642,6 +642,7 @@ export interface HostActionCredentialConfirmation {
   readonly "targetDigest": string;
   readonly "hostIdentityDigest": string;
   readonly "targetRevision": number;
+  readonly "nativeConsumerMachineId": string;
 }
 
 export interface HostActionRequest {
@@ -785,6 +786,7 @@ export interface Plan {
   readonly "expiresAt": string;
   readonly "readableDigest": string;
   readonly "nativeRestart"?: NativeRestartPresentation | null;
+  readonly "hostActionNativeUnit"?: string;
   readonly "hostActionConsole"?: HostActionCredentialConfirmation | null;
   readonly "hostAction"?: HostActionRequest | null;
   readonly "hostAdoption"?: HostAdoptionRequest | null;
@@ -4586,6 +4588,13 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "minimum": 1
+      },
+      {
+        "name": "nativeConsumerMachineId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-f0-9]{32}$"
       }
     ]
   },
@@ -5503,6 +5512,13 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": false,
         "nullable": true,
         "ref": "vegastack-labs.dev/native-restart-presentation"
+      },
+      {
+        "name": "hostActionNativeUnit",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "maxLength": 256
       },
       {
         "name": "hostActionConsole",

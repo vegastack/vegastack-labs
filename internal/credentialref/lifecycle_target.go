@@ -20,7 +20,7 @@ func LifecycleTargetDigest(input generated.CredentialLifecycleRequest) string {
 	}
 	parts := []string{"credential-lifecycle-target-v2", input.Action, canonicalStringPointer(input.DraftID), input.ReferenceID, canonicalIDSet(input.ConsumerIDs), canonicalIDSet(input.RequiredDeniedConsumerIDs), canonicalPublicNativeConsumers(input.NativeConsumers), canonicalPublicDeniedReaders(input.NativeDeniedReaders), input.MaterialVersion, canonicalStringPointer(input.PriorMaterialVersion), input.ResolverID, input.TargetID, strconv.FormatInt(input.OverlapSeconds, 10), strconv.FormatInt(input.ExpectedStateRevision, 10), strconv.FormatInt(input.RecoveryEpoch, 10), canonicalInt64Pointer(input.PriorRecoveryEpoch), canonicalStringPointer(input.CustodyProofDigest), canonicalStringPointer(input.FormerControllerFenceDigest)}
 	if c := input.HostActionConsole; c != nil {
-		parts = append(parts, "host-action-console-v1", c.Method, c.TargetDigest, c.HostIdentityDigest, strconv.FormatInt(c.TargetRevision, 10))
+		parts = append(parts, "host-action-console-v1", c.Method, c.TargetDigest, c.HostIdentityDigest, strconv.FormatInt(c.TargetRevision, 10), c.NativeConsumerMachineID)
 	}
 	if c := input.NativeRestart; c != nil {
 		parts = append(parts, "native-restart-selector-v1", c.PriorRunID, c.PriorStepID)

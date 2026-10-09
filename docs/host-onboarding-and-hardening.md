@@ -128,6 +128,9 @@ Ansible `rescue` does not run for unreachable hosts. The Debian design therefore
 
 No broad `NOPASSWD: ALL` grant is added for convenience. Ansible connects as a dedicated non-root identity. The only permitted elevation is the root-owned, non-resident `host-action-once` mode of `vsk-labs`, defined by `privileged-execution`: it accepts an immutable action bundle and validates the plan ID/digest, bundle digest, immutable host ID, declaration revision, recovery epoch, approved action set, expiry and recovery precheck. It accepts neither arbitrary module/command input nor target widening, keeps no desired state and exits after the exact action. Phase 6 must implement and qualify that boundary; a prose command allowlist is not proof that arbitrary Ansible modules are constrained. [D-123](decisions-and-sources.md#d-123)
 
+For native host-action credential activation or rotation, the single administrator console confirmation names both affected machines: the destination host's immutable identity and pinned SSH target, and the native consumer/controller's exact machine ID. It must match the sole sealed `host-action` consumer. The readable plan identifies the controller service unit that can restart. Missing or mismatched controller identity blocks before queuing any restart. If the controller restarts, the original run remains partial; a fresh acknowledged plan names that exact prior attempt and verifies its observed new invocation without repeating the restart. This grants no host admission or global recovery qualification.
+
+
 ### macOS has real local prerequisites
 
 This section preserves the v1 requirements for the later Phase 6 Mac/iMac batch. Issue 6.2 does not choose or contact a Mac test target. [D-130](decisions-and-sources.md#d-130)

@@ -1850,12 +1850,13 @@ type HostActionConsoleConfirmation struct {
 }
 
 type HostActionCredentialConfirmation struct {
-	Schema             string `json:"schema"`
-	SchemaVersion      string `json:"schemaVersion"`
-	Method             string `json:"method"`
-	TargetDigest       string `json:"targetDigest"`
-	HostIdentityDigest string `json:"hostIdentityDigest"`
-	TargetRevision     int64  `json:"targetRevision"`
+	Schema                  string `json:"schema"`
+	SchemaVersion           string `json:"schemaVersion"`
+	Method                  string `json:"method"`
+	TargetDigest            string `json:"targetDigest"`
+	HostIdentityDigest      string `json:"hostIdentityDigest"`
+	TargetRevision          int64  `json:"targetRevision"`
+	NativeConsumerMachineID string `json:"nativeConsumerMachineId"`
 }
 
 type HostActionEnvelope struct {
@@ -2458,27 +2459,28 @@ type OutboxRecordData struct {
 }
 
 type Plan struct {
-	Schema              string                            `json:"schema"`
-	SchemaVersion       string                            `json:"schemaVersion"`
-	PlanID              string                            `json:"planId"`
-	PlanDigest          string                            `json:"planDigest"`
-	DeclarationID       string                            `json:"declarationId"`
-	Binding             PlanBinding                       `json:"binding"`
-	Operations          []PlanOperation                   `json:"operations"`
-	Status              string                            `json:"status"`
-	Risk                string                            `json:"risk"`
-	AuthorizationBranch string                            `json:"authorizationBranch"`
-	ExecutorMode        string                            `json:"executorMode"`
-	ExecutorID          *string                           `json:"executorId"`
-	CreatedAt           string                            `json:"createdAt"`
-	ExpiresAt           string                            `json:"expiresAt"`
-	ReadableDigest      string                            `json:"readableDigest"`
-	NativeRestart       *NativeRestartPresentation        `json:"nativeRestart,omitempty"`
-	HostActionConsole   *HostActionCredentialConfirmation `json:"hostActionConsole,omitempty"`
-	HostAction          *HostActionRequest                `json:"hostAction,omitempty"`
-	HostAdoption        *HostAdoptionRequest              `json:"hostAdoption,omitempty"`
-	HostDiscoveryTarget *HostDiscoveryTargetDraftRequest  `json:"hostDiscoveryTarget,omitempty"`
-	Extensions          []ContractExtension               `json:"extensions"`
+	Schema               string                            `json:"schema"`
+	SchemaVersion        string                            `json:"schemaVersion"`
+	PlanID               string                            `json:"planId"`
+	PlanDigest           string                            `json:"planDigest"`
+	DeclarationID        string                            `json:"declarationId"`
+	Binding              PlanBinding                       `json:"binding"`
+	Operations           []PlanOperation                   `json:"operations"`
+	Status               string                            `json:"status"`
+	Risk                 string                            `json:"risk"`
+	AuthorizationBranch  string                            `json:"authorizationBranch"`
+	ExecutorMode         string                            `json:"executorMode"`
+	ExecutorID           *string                           `json:"executorId"`
+	CreatedAt            string                            `json:"createdAt"`
+	ExpiresAt            string                            `json:"expiresAt"`
+	ReadableDigest       string                            `json:"readableDigest"`
+	NativeRestart        *NativeRestartPresentation        `json:"nativeRestart,omitempty"`
+	HostActionNativeUnit string                            `json:"hostActionNativeUnit,omitempty"`
+	HostActionConsole    *HostActionCredentialConfirmation `json:"hostActionConsole,omitempty"`
+	HostAction           *HostActionRequest                `json:"hostAction,omitempty"`
+	HostAdoption         *HostAdoptionRequest              `json:"hostAdoption,omitempty"`
+	HostDiscoveryTarget  *HostDiscoveryTargetDraftRequest  `json:"hostDiscoveryTarget,omitempty"`
+	Extensions           []ContractExtension               `json:"extensions"`
 }
 
 type PlanBinding struct {

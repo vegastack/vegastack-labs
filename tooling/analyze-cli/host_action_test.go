@@ -62,7 +62,14 @@ func TestHostActionSignerAllowanceDoesNotAuthorizeOtherServerSigners(t *testing.
 	if err := os.WriteFile(filepath.Join(dir, "host_action_signer_linux.go"), raw, 0600); err != nil {
 		t.Fatal(err)
 	}
-	c := checkedSourcePackage{sourcePackage: sourcePackage{listed: listedPackage{ImportPath: module + "/internal/server", Dir: dir, GoFiles: []string{"host_action_signer_linux.go"}}}}
+	canary, err := os.ReadFile(filepath.Join("..", "..", "internal", "server", "recovery_canary_system.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "recovery_canary_system.go"), canary, 0600); err != nil {
+		t.Fatal(err)
+	}
+	c := checkedSourcePackage{sourcePackage: sourcePackage{listed: listedPackage{ImportPath: module + "/internal/server", Dir: dir, GoFiles: []string{"host_action_signer_linux.go", "recovery_canary_system.go"}}}}
 	if !reviewedHostActionServerSigner(c, module+"/internal/server") {
 		t.Fatal("exact action signer refused")
 	}
@@ -72,5 +79,24 @@ func TestHostActionSignerAllowanceDoesNotAuthorizeOtherServerSigners(t *testing.
 	c.listed.GoFiles = append(c.listed.GoFiles, "other.go")
 	if reviewedHostActionServerSigner(c, module+"/internal/server") {
 		t.Fatal("another signer inherited action-key permission")
+	}
+}
+
+func TestHostActionSignerPreservesRecoveryCanarySeal(t *testing.T) {
+	const module = "github.com/vegastack/vegastack-labs"
+	dir := t.TempDir()
+	raw, err := os.ReadFile(filepath.Join("..", "..", "internal", "server", "host_action_signer_linux.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "host_action_signer_linux.go"), raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "recovery_canary_system.go"), []byte("package server\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	c := checkedSourcePackage{sourcePackage: sourcePackage{listed: listedPackage{ImportPath: module + "/internal/server", Dir: dir, GoFiles: []string{"host_action_signer_linux.go", "recovery_canary_system.go"}}}}
+	if reviewedHostActionServerSigner(c, module+"/internal/server") {
+		t.Fatal("action signer allowance bypassed existing recovery source seal")
 	}
 }

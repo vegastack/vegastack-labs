@@ -40,7 +40,7 @@ func readablePlan(plan generated.Plan) string {
 	}
 	if plan.HostActionConsole != nil {
 		raw, _, _ := stateexport.CanonicalJSON(plan.HostActionConsole)
-		fmt.Fprintf(&body, "Credential consumer console confirmation: %s\nAdministrator confirms independent console access for this exact current machine and pinned target key. Native credential loading and denied-reader probes remain required.\n", raw)
+		fmt.Fprintf(&body, "Credential consumer console confirmation: %s\nAdministrator confirms independent console access for BOTH the exact destination host/pinned key and the named native consumer/controller machine. Controller unit %s may restart during activation or rotation; native credential loading and denied-reader probes remain required.\n", raw, plan.HostActionNativeUnit)
 	}
 	if plan.HostAction != nil {
 		raw, _, _ := stateexport.CanonicalJSON(plan.HostAction)

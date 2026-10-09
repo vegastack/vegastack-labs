@@ -70,6 +70,10 @@
           ],
           "type": "string"
         },
+        "nativeConsumerMachineId": {
+          "pattern": "^[a-f0-9]{32}$",
+          "type": "string"
+        },
         "schema": {
           "enum": [
             "vegastack-labs.dev/host-action-credential-confirmation"
@@ -97,7 +101,8 @@
         "method",
         "targetDigest",
         "hostIdentityDigest",
-        "targetRevision"
+        "targetRevision",
+        "nativeConsumerMachineId"
       ],
       "type": "object"
     },
@@ -756,6 +761,10 @@
           "type": "null"
         }
       ]
+    },
+    "hostActionNativeUnit": {
+      "maxLength": 256,
+      "type": "string"
     },
     "hostAdoption": {
       "anyOf": [

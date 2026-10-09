@@ -312,7 +312,11 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 			candidate.NativeRestart = &generated.NativeRestartPresentation{Schema: generated.SchemaIDNativeRestartPresentation, SchemaVersion: "1.0.0", PriorRunID: c.PriorRunID, PriorStepID: c.PriorStepID, PendingDigest: c.PendingDigest, ExpectedInvocationDigest: hostaction.Digest(c.Expected)}
 		}
 		if c := lifecycle.HostActionConsole; c != nil {
-			candidate.HostActionConsole = &generated.HostActionCredentialConfirmation{Schema: generated.SchemaIDHostActionCredentialConfirmation, SchemaVersion: "1.0.0", Method: c.Method, TargetDigest: c.TargetDigest, HostIdentityDigest: c.HostIdentityDigest, TargetRevision: c.TargetRevision}
+			if len(lifecycle.NativeConsumers) != 1 {
+				return store.PlanCommitResult{}, planError(generated.ErrorCodePrerequisiteBlocked)
+			}
+			candidate.HostActionNativeUnit = lifecycle.NativeConsumers[0].UnitName
+			candidate.HostActionConsole = &generated.HostActionCredentialConfirmation{Schema: generated.SchemaIDHostActionCredentialConfirmation, SchemaVersion: "1.0.0", Method: c.Method, TargetDigest: c.TargetDigest, HostIdentityDigest: c.HostIdentityDigest, TargetRevision: c.TargetRevision, NativeConsumerMachineID: c.NativeConsumerMachineID}
 		}
 	}
 	candidate.HostAction = action

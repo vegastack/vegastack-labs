@@ -64,7 +64,7 @@ func (g hostActionGate) VerifySecretStep(ctx context.Context, p generated.Plan, 
 			}
 		}
 		c = *p.HostActionConsole
-		if c.Method != b.HostActionConsole.Method || c.TargetDigest != b.HostActionConsole.TargetDigest || c.HostIdentityDigest != b.HostActionConsole.HostIdentityDigest || c.TargetRevision != b.HostActionConsole.TargetRevision {
+		if c.Method != b.HostActionConsole.Method || c.TargetDigest != b.HostActionConsole.TargetDigest || c.HostIdentityDigest != b.HostActionConsole.HostIdentityDigest || c.TargetRevision != b.HostActionConsole.TargetRevision || c.NativeConsumerMachineID != b.HostActionConsole.NativeConsumerMachineID || len(b.NativeConsumers) != 1 || c.NativeConsumerMachineID != b.NativeConsumers[0].HostMachineID || p.HostActionNativeUnit != b.NativeConsumers[0].UnitName {
 			return actionFailure()
 		}
 	}
