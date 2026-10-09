@@ -342,6 +342,9 @@ func directoryDigest(p string, uid, gid int64, mode string) string {
 func (n *nativeRuntime) Apply(ctx context.Context, b generated.HostActionBundle, in generated.LinuxRoleInput) (RoleResult, error) {
 	out := RoleResult{}
 	e := n.withLock(ctx, func() (applyErr error) {
+		if e := n.requireResolvedRoleJournal(); e != nil {
+			return e
+		}
 		var rollbacks []roleUnitRollback
 		bootLinkCreated := false
 		defer func() {
@@ -402,8 +405,31 @@ func (n *nativeRuntime) Apply(ctx context.Context, b generated.HostActionBundle,
 		if active != "inactive" && active != "active" {
 			return errNative
 		}
-		if in.RoleID == "control" && active != "inactive" {
-			return errNative
+		if in.RoleID == "control" && active == "active" {
+			if in.ExpectedServiceState != "active" {
+				return errNative
+			}
+			for p, want := range files {
+				got, e := readProtected(n.root, p, 65536)
+				if e != nil || !bytes.Equal(got, want) {
+					return errNative
+				}
+			}
+			for _, a := range in.Accounts {
+				if _, e := n.account(ctx, a, false); e != nil {
+					return e
+				}
+			}
+			for _, d := range in.Directories {
+				if _, e := n.directory(in, d, false); e != nil {
+					return e
+				}
+			}
+			if e := n.activeControlFiles(in); e != nil {
+				return e
+			}
+			_, e := n.resources(ctx, in)
+			return e
 		}
 		for _, a := range in.Accounts {
 			changed, e := n.account(ctx, a, true)
@@ -484,7 +510,7 @@ func (n *nativeRuntime) Apply(ctx context.Context, b generated.HostActionBundle,
 				return e
 			}
 		}
-		return nil
+		return n.completeRoleJournal(rollbacks)
 	})
 	if e != nil {
 		return out, e
@@ -505,7 +531,7 @@ func (n *nativeRuntime) freeSpace(in generated.LinuxRoleInput) error {
 	return nil
 }
 func resourceArgs(in generated.LinuxRoleInput) []string {
-	return []string{"show", UnitName(in.RoleID), "--property=MemoryMax,CPUQuotaPerSecUSec,TasksMax,ActiveState,User,MainPID,FragmentPath,ControlGroup,DropInPaths,UnitFileState", "--no-pager"}
+	return []string{"show", UnitName(in.RoleID), "--property=MemoryMax,CPUQuotaPerSecUSec,TasksMax,ActiveState,User,Group,MainPID,FragmentPath,ControlGroup,DropInPaths,UnitFileState", "--no-pager"}
 }
 func parseProperties(raw []byte) map[string]string {
 	m := map[string]string{}
@@ -528,6 +554,9 @@ func (n *nativeRuntime) resources(ctx context.Context, in generated.LinuxRoleInp
 		return nil, e
 	}
 	m := parseProperties(raw)
+	if in.RoleID == "control" && (m["User"] != strconv.FormatInt(in.Accounts[0].UID, 10) || m["Group"] != strconv.FormatInt(in.Accounts[0].GID, 10)) {
+		return m, errNative
+	}
 	expectedCPU := fmt.Sprintf("%dms", in.Resources.CPUQuotaPercent*10)
 	if m["MemoryMax"] != strconv.FormatInt(in.Resources.MemoryMaxBytes, 10) || m["TasksMax"] != strconv.FormatInt(in.Resources.TasksMax, 10) || (m["CPUQuotaPerSecUSec"] != expectedCPU && m["CPUQuotaPerSecUSec"] != time.Duration(in.Resources.CPUQuotaPercent*10000000).String()) {
 		return m, errNative
@@ -666,6 +695,9 @@ func (n *nativeRuntime) restoreRoleUnit(ctx context.Context, r roleUnitRollback)
 			return e
 		}
 	}
+	if _, e = n.run(ctx, "/usr/bin/systemctl", []string{"daemon-reload"}); e != nil {
+		return e
+	}
 	r.Status = "restored"
 	records := []roleUnitRollback{}
 	if raw, re := readProtected(n.root, "var/lib/vsk-labs/access-rollback/role-unit-before.json", 65536); re == nil {
@@ -689,8 +721,7 @@ func (n *nativeRuntime) restoreRoleUnit(ctx context.Context, r roleUnitRollback)
 	if e = writeProtected(n.root, "var/lib/vsk-labs/access-rollback/role-unit-before.json", raw); e != nil {
 		return e
 	}
-	_, e = n.run(ctx, "/usr/bin/systemctl", []string{"daemon-reload"})
-	return e
+	return nil
 }
 func ownedUnitPreimage(in generated.LinuxRoleInput, old []byte) bool {
 	expected := regexp.QuoteMeta(string(DesiredFiles(in)["etc/systemd/system/"+UnitName(in.RoleID)]))
@@ -716,4 +747,85 @@ func ownedTmpfilesPreimage(in generated.LinuxRoleInput, old []byte) bool {
 		}
 	}
 	return false
+}
+
+const roleJournalPath = "var/lib/vsk-labs/access-rollback/role-unit-before.json"
+
+func roleOwnedFile(p string) bool {
+	switch p {
+	case "etc/systemd/system/vsk-labs.service", "etc/systemd/system/vsk-application.slice", "etc/systemd/system/vsk-ci.slice", "etc/systemd/system/vsk-standby.slice", "etc/tmpfiles.d/vsk-application.conf", "etc/tmpfiles.d/vsk-ci.conf", "etc/tmpfiles.d/vsk-standby.conf":
+		return true
+	}
+	return false
+}
+func (n *nativeRuntime) requireResolvedRoleJournal() error {
+	raw, e := readProtected(n.root, roleJournalPath, 65536)
+	if os.IsNotExist(e) {
+		return nil
+	}
+	if e != nil {
+		return e
+	}
+	var records []roleUnitRollback
+	if json.Unmarshal(raw, &records) != nil || len(records) == 0 || len(records) > 2 {
+		return errNative
+	}
+	seen := map[string]bool{}
+	for _, r := range records {
+		if !roleOwnedFile(r.Path) || seen[r.Path] || (r.Status != "completed" && r.Status != "restored") || r.AfterDigest == "" || r.BundleDigest == "" {
+			return errNative
+		}
+		seen[r.Path] = true
+	}
+	return nil
+}
+func (n *nativeRuntime) completeRoleJournal(records []roleUnitRollback) error {
+	if len(records) == 0 {
+		return nil
+	}
+	if len(records) > 2 {
+		return errNative
+	}
+	for i := range records {
+		r := &records[i]
+		got, e := readProtected(n.root, r.Path, 65536)
+		if e != nil || hostaction.BytesDigest(got) != r.AfterDigest {
+			return errNative
+		}
+		r.Status = "completed"
+	}
+	raw, e := json.Marshal(records)
+	if e != nil {
+		return e
+	}
+	return writeProtected(n.root, roleJournalPath, raw)
+}
+
+// Active control reapply only observes the approved executable/configuration.
+// Its directories have already passed the exact role ownership checks.
+func (n *nativeRuntime) activeControlFiles(in generated.LinuxRoleInput) error {
+	executable, e := readProtected(n.root, "usr/local/bin/vsk-labs", 128<<20)
+	if e != nil || hostaction.BytesDigest(executable) != in.ExecutableDigest {
+		return errNative
+	}
+	fs, e := os.OpenRoot(n.root)
+	if e != nil {
+		return e
+	}
+	defer fs.Close()
+	p := "etc/vsk-labs/control/server.json"
+	f, e := fs.OpenFile(p, os.O_RDONLY|unix.O_NOFOLLOW, 0)
+	if e != nil {
+		return e
+	}
+	defer f.Close()
+	var st unix.Stat_t
+	if unix.Fstat(int(f.Fd()), &st) != nil || int64(st.Uid) != in.Accounts[0].UID || st.Nlink != 1 || st.Mode&unix.S_IFMT != unix.S_IFREG || st.Mode&0022 != 0 || st.Size > 65536 {
+		return errNative
+	}
+	raw, e := io.ReadAll(io.LimitReader(f, 65537))
+	if e != nil || len(raw) > 65536 || hostaction.BytesDigest(raw) != in.ConfigDigest {
+		return errNative
+	}
+	return nil
 }

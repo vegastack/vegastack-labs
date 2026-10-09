@@ -434,7 +434,7 @@
         "imports": [
           "github.com/vegastack/vegastack-labs/internal/linuxrole"
         ],
-        "mutationBoundaryDigest": "sha256:c7fba00a2ddf821194a380e6ffe9250a557accd6a21d12f4bf96d69cafce484f"
+        "mutationBoundaryDigest": "sha256:83010e8c96f2f21a5c22884ae93ced9c6b2e638bd1e27e56328b83f5fe5d1c8f"
       }
     ]
   },
