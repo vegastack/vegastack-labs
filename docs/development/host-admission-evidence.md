@@ -47,9 +47,11 @@ Native qualification and per-machine observations are separate. Baseline qualifi
    vsk-labs gate check --config <protected-server-profile> --gate-id host.role-admission --subject-id <host-id> --output json
    ```
 
-3. Read the outcome and bounded reason code. Missing producer, native qualification or prerequisite evidence remains a blocker. Do not insert a synthetic success or treat registration as admission.
+3. Read the outcome and bounded reason code. A control denial names the control, for example `host-control-missing:host.ssh-effective` or `host-control-failed:linux.fail2ban-sshd`; missing native qualification names its stage. Missing producer, native qualification or prerequisite evidence remains a blocker. Do not insert a synthetic success or treat registration as admission.
 4. If a new observation or configuration change is needed, prepare its existing exact action plan. Review the targets, current authorization, human acknowledgement and recovery prerequisites before executing within separately granted infrastructure scope.
 5. After role installation or another relevant change, recollect the affected baseline and role checks and repeat the same gate check. Admission-dependent execution must recheck the current binding before reserving the action.
+
+The existing API also accepts `GET /api/v1/gates?subjectId=<host-id>` and `GET /api/v1/gates/<gate-id>?subjectId=<host-id>`. The host-specific views use the same evaluator as `POST /api/v1/gates/<gate-id>/check`. Omitting the subject keeps the existing unbound overview; it cannot establish a host admission result.
 
 Humans and agents use the same commands and server authority. A gate result is a read decision, not permission to deploy or an acknowledgement of a mutation. There is no automatic rollback associated with reading it; recovery uses the separately approved action and its own tested recovery procedure.
 
