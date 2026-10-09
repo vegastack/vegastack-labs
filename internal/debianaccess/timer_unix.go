@@ -161,7 +161,9 @@ func (n *nativeRuntime) restore(ctx context.Context) error {
 		if e := n.restoreFirewall(ctx, r, newBoot, false); e != nil {
 			return e
 		}
-		if e := n.restoreBaselineProfiles(ctx, r, newBoot); e != nil {
+		// Profile ownership belongs to the original addition boot. Service
+		// reconciliation must never transfer it to a later boot.
+		if e := n.restoreBaselineProfiles(ctx, r, boot != r.BootID); e != nil {
 			return e
 		}
 		if len(r.BaselineServices) > 0 {

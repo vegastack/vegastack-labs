@@ -260,3 +260,93 @@ func TestBaselinePreAddRefusalNeverRemovesExternalProfile(t *testing.T) {
 		t.Fatal("external ownership not retained as uncertain", r.State, e)
 	}
 }
+
+func TestBaselineReconciledBootNeverAcquiresOldProfileOwnership(t *testing.T) {
+	f := nativeFixtureNew(t)
+	os.MkdirAll(filepath.Join(f.root, "etc/apparmor.d"), 0700)
+	profileBytes := []byte("profile owned { }\n")
+	os.WriteFile(filepath.Join(f.root, "etc/apparmor.d/owned"), profileBytes, 0600)
+	loaded, removed := false, false
+	fixtureRun := f.n.run
+	f.n.run = func(ctx context.Context, bin string, args []string, b []byte) ([]byte, error) {
+		if bin == "/usr/sbin/aa-status" {
+			profiles := map[string]string{}
+			if loaded {
+				profiles["owned"] = "enforce"
+			}
+			return json.Marshal(map[string]any{"profiles": profiles})
+		}
+		if bin == "/usr/sbin/apparmor_parser" {
+			switch args[0] {
+			case "--names":
+				return []byte("owned"), nil
+			case "--add":
+				loaded = true
+				return nil, nil
+			case "--remove":
+				removed = true
+				loaded = false
+				return nil, nil
+			}
+			t.Fatal("unexpected profile operation", args)
+		}
+		return fixtureRun(ctx, bin, args, b)
+	}
+	p := "etc/fail2ban/jail.d/70-vsk-sshd.local"
+	os.MkdirAll(filepath.Join(f.root, filepath.Dir(p)), 0700)
+	os.WriteFile(filepath.Join(f.root, p), []byte("before"), 0600)
+	files := map[string][]byte{p: []byte("after")}
+	d, e := f.n.armBaselineProfiles(context.Background(), f.bundle, files, []string{"fail2ban.service"}, []BaselineProfile{{File: "etc/apparmor.d/owned", Name: "owned", Digest: digestBytes(profileBytes)}})
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = f.n.loadBaselineProfiles(context.Background(), d); e != nil {
+		t.Fatal(e)
+	}
+	if _, e = writeBaseline(context.Background(), f.root, d, files); e != nil {
+		t.Fatal(e)
+	}
+	os.WriteFile(filepath.Join(f.root, "proc/sys/kernel/random/boot_id"), []byte("next-boot"), 0600)
+	loaded = false // Kernel profile state was lost on reboot.
+	state := "inactive"
+	queued := false
+	original := f.n.run
+	f.n.run = func(ctx context.Context, bin string, args []string, b []byte) ([]byte, error) {
+		joined := strings.Join(args, " ")
+		if strings.Contains(joined, "fail2ban.service") {
+			if args[0] == "show" {
+				return []byte(state), nil
+			}
+			if joined == "--no-block start fail2ban.service" {
+				queued = true
+				return nil, nil
+			}
+			if joined == "reload fail2ban.service" && state == "active" {
+				return nil, nil
+			}
+			t.Fatal("unsafe early boot action", args)
+		}
+		return original(ctx, bin, args, b)
+	}
+	if e = f.n.restore(context.Background()); e != nil || !queued {
+		t.Fatal(e, queued)
+	}
+	fs, e := os.OpenRoot(f.root)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer fs.Close()
+	r, e := readRollback(fs)
+	if e != nil || r.State != "services-pending" || r.ReconciledBootID != "next-boot" {
+		t.Fatal(r.State, e)
+	}
+	state = "active"
+	loaded = true // External confinement appears after boot reconciliation.
+	if e = f.n.restore(context.Background()); e == nil || removed || !loaded {
+		t.Fatal("old-boot ownership removed external profile", e, removed, loaded)
+	}
+	r, e = readRollback(fs)
+	if e != nil || r.State != "uncertain" {
+		t.Fatal(r.State, e)
+	}
+}

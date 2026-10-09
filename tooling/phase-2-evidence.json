@@ -415,7 +415,7 @@
         "imports": [
           "github.com/vegastack/vegastack-labs/internal/debianbaseline"
         ],
-        "mutationBoundaryDigest": "sha256:f913d60ebb2969c08996489e9e670b1c27e800c905f6a2fee2298160460c3bae"
+        "mutationBoundaryDigest": "sha256:d68b2a572cb46c50c16bc5dab4315de97387c2d9daa2b7556962708c0fa7c02d"
       }
     ]
   },
