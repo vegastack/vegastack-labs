@@ -159,22 +159,7 @@ func (repository *PlanRepository) CommitDeclarationAndPlan(ctx context.Context, 
 		var owners []authorization.Target
 		var err error
 		if q := request.RestoreQualification; q != nil {
-			if actor, e := adoptionGrant(ctx, row, q.Request.PointID, "recovery-point", "author", "recovery.restore.author", true); e == nil {
-				if actor != request.Attribution.AuthenticatedPrincipalID {
-					return actionError(generated.ErrorCodeAuthorizationDenied)
-				}
-			} else {
-				id, e := recoveryPointPolicy(row, q.Request.PointID)
-				if e != nil {
-					return e
-				}
-				owners = []authorization.Target{{Capability: "recovery.restore.author", ResourceKind: "backup-policy", ResourceID: id}}
-			}
-			for _, host := range []string{q.Request.FormerHostID, q.Request.ReplacementHostID} {
-				if host != "" {
-					owners = append(owners, authorization.Target{Capability: "host.read", ResourceKind: "host", ResourceID: host})
-				}
-			}
+			owners, err = restoreRequestAuthorizationTargets(ctx, row, q.Request, request.Attribution.AuthenticatedPrincipalID)
 		} else {
 			owners, err = workflowDeclarationTargets(row, request.DesiredDeclaration, authorization.ActionAuthor)
 		}

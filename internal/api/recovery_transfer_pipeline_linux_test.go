@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/acknowledgement"
+	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/change"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
@@ -89,6 +90,46 @@ func RunRecoveryTransferAcceptance(t *testing.T, sshHostKey string, use func(Rec
 			}
 			plans := store.NewPlanRepository(f.authority)
 			restores := store.NewRestoreRepository(f.authority)
+			// The fixture's externally verified snapshot has an exact known point;
+			// it does not claim a real restic policy/job or native backup proof.
+			f.seed.exec(`INSERT INTO effective_authorization_grants VALUES('transfer-restore-author','human-a','control-plane-admin','author','recovery.restore.author','recovery-point',?,NULL,1,'active','now','now')`, input.PointID)
+			document, err := change.BuildRestoreChange(f.ctx, input, source.Binding, input.Fences, input.AuditDecision)
+			if err != nil {
+				t.Fatal(err)
+			}
+			document.CreatedBy, document.AgentSessionID = "human-a", "transfer-draft-denials"
+			requestBytes, _ := json.Marshal(input)
+			for _, variant := range []string{"missing-request", "altered-point", "revoked-point", "revoked-source-read"} {
+				t.Run("draft-"+variant, func(t *testing.T) {
+					q := input
+					r := store.DeclarationRevisionRequest{RestoreRequest: &q, Document: document, ReasonDigest: input.AuditDecisionDigest, Expected: store.RevisionToken{StateRevision: input.ExpectedStateRevision, RecoveryEpoch: input.RecoveryEpoch}, KeyDigest: hostaction.Digest(variant), RequestDigest: hostaction.BytesDigest(requestBytes), Attribution: audit.Attribution{AuthenticatedPrincipalID: "human-a", AuthenticatedPrincipalMethod: identity.LocalOSPeerMethod}}
+					switch variant {
+					case "missing-request":
+						r.RestoreRequest = nil
+					case "altered-point":
+						q.PointID = "unrelated-point"
+					case "revoked-point", "revoked-source-read":
+						principal := "transfer-draft-" + variant
+						f.seed.exec(`INSERT INTO effective_authorization_principals VALUES(?,'human','active',1,'now','now')`, principal)
+						f.seed.exec(`INSERT INTO effective_authorization_grants SELECT ? || grant_id,?,role_id,action,capability,resource_kind,resource_id,branch,grant_revision,status,created_at,updated_at FROM effective_authorization_grants WHERE principal_id='human-a'`, principal+"-", principal)
+						r.Attribution.AuthenticatedPrincipalID = principal
+						r.Document.CreatedBy = principal
+						if variant == "revoked-point" {
+							f.seed.exec(`UPDATE effective_authorization_grants SET status='revoked' WHERE principal_id=? AND capability='recovery.restore.author'`, principal)
+						} else {
+							f.seed.exec(`UPDATE effective_authorization_grants SET status='revoked' WHERE principal_id=? AND capability='host.read' AND resource_id=?`, principal, input.FormerHostID)
+						}
+					}
+					ctx := identity.WithVerifiedPrincipal(f.ctx, identity.Principal{ID: r.Attribution.AuthenticatedPrincipalID, Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman})
+					if _, err := store.NewDeclarationRepository(f.authority).CreateRevision(ctx, r); err == nil {
+						t.Fatal("unbound/unauthorized restore draft accepted")
+					}
+					var count int
+					if err := f.db.QueryRow(`SELECT count(*) FROM declaration_revisions WHERE declaration_id=?`, document.DeclarationID).Scan(&count); err != nil || count != 0 {
+						t.Fatal("denied draft persisted", count, err)
+					}
+				})
+			}
 			planner := recovery.StoreRestorePlanner{Declarations: store.NewDeclarationRepository(f.authority), Plans: plans, Restores: restores, Clock: clock}
 			b, e := planner.CreateRestorePlan(f.ctx, input, source, recovery.FenceResult{Items: input.Fences, FenceSetDigest: input.FenceSetDigest}, source.Audit, identity.Principal{ID: "human-a", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman})
 			if e != nil {
@@ -133,7 +174,7 @@ func RunRecoveryTransferAcceptance(t *testing.T, sshHostKey string, use func(Rec
 				t.Fatal(e)
 			}
 			for _, id := range []string{q.OldHostID, q.NewHostID} {
-				f.seed.exec(`INSERT INTO effective_authorization_grants VALUES(?,'human-a','control-plane-admin','author','host.action.prepare','host',?,NULL,1,'active','now','now')`, "transfer-prepare-"+id, id)
+				f.seed.exec(`INSERT OR IGNORE INTO effective_authorization_grants VALUES(?,'human-a','control-plane-admin','author','host.action.prepare','host',?,NULL,1,'active','now','now')`, "transfer-prepare-"+id, id)
 			}
 			pending, found, err := restores.PendingPromotion(f.ctx)
 			if err != nil || !found || hostaction.Digest(pending.Binding) != hostaction.Digest(b) {

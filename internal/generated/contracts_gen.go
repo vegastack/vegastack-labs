@@ -6,7 +6,7 @@ import "encoding/json"
 
 const (
 	SchemaMajor                                    = 1
-	RegistrySchemaVersion                          = "1.26.0"
+	RegistrySchemaVersion                          = "1.27.0"
 	AvailabilityAvailable                          = "available"
 	AvailabilityPlanned                            = "planned"
 	FlagKindValue                                  = "value"
@@ -3371,6 +3371,8 @@ type NativeControlSetupWitness struct {
 	SetupRequestDigest   string                      `json:"setupRequestDigest"`
 	SetupReviewDigest    string                      `json:"setupReviewDigest"`
 	ApprovalDigest       string                      `json:"approvalDigest"`
+	InitialProfileDigest string                      `json:"initialProfileDigest"`
+	FinalProfileDigest   string                      `json:"finalProfileDigest"`
 	InstanceID           string                      `json:"instanceId"`
 	RecoveryEpoch        int64                       `json:"recoveryEpoch"`
 	InitialPID           int64                       `json:"initialPid"`
@@ -3512,6 +3514,7 @@ type NativePreparationRequest struct {
 	DeclarationRevision int64                            `json:"declarationRevision,omitempty"`
 	Identifier          string                           `json:"identifier,omitempty"`
 	GateID              string                           `json:"gateId,omitempty"`
+	GrantBatch          *AuthorizationGrantBatchRequest  `json:"grantBatch,omitempty"`
 	ProducerLookup      *NativeProducerLookupRequest     `json:"producerLookup,omitempty"`
 	FixtureApproval     *NativeSlackFixtureApproval      `json:"fixtureApproval,omitempty"`
 	Target              *HostDiscoveryTargetDraftRequest `json:"target,omitempty"`
@@ -3535,6 +3538,8 @@ type NativePreparationResult struct {
 	SchemaVersion       string                              `json:"schemaVersion"`
 	Result              RunResult                           `json:"result"`
 	ExitCode            int64                               `json:"exitCode"`
+	GrantDeclaration    *DeclarationRevision                `json:"grantDeclaration,omitempty"`
+	DatabaseStatus      *DatabaseStatusData                 `json:"databaseStatus,omitempty"`
 	ProducerReference   *NativeProducerReference            `json:"producerReference,omitempty"`
 	Target              *HostDiscoveryTargetDraftSubmission `json:"target,omitempty"`
 	Discovery           *HostDiscoverySubmission            `json:"discovery,omitempty"`

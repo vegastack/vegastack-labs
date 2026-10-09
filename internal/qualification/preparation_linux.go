@@ -48,6 +48,22 @@ func validatePreparation(scope validatedNativeScope, in generated.NativePreparat
 		return ErrUnavailable
 	}
 	switch in.Kind {
+	case "database-status":
+		// No caller-selected target or request body.
+	case "grant-batch":
+		if in.GrantBatch == nil || in.GrantBatch.RecoveryEpoch != in.Binding.RecoveryEpoch {
+			return ErrUnavailable
+		}
+		allowed := map[string]bool{scope.value.ProfileID: true, "profile-drafts": true}
+		for _, guest := range scope.guests {
+			allowed[guest.HostID] = true
+		}
+		for _, grant := range in.GrantBatch.Changes {
+			if !allowed[grant.ResourceID] {
+				return ErrUnavailable
+			}
+		}
+		selected.GrantBatch = in.GrantBatch
 	case "producer-lookup":
 		if in.ProducerLookup == nil || in.ProducerLookup.ScopeDigest != scope.digest || in.ProducerLookup.ScenarioID != in.Binding.ScenarioID || in.ProducerLookup.HostID != g.HostID || in.ProducerLookup.RecoveryEpoch != in.Binding.RecoveryEpoch {
 			return ErrUnavailable
@@ -182,6 +198,20 @@ func preparationResult[T any](response localapi.TypedResponse[T]) generated.Nati
 func dispatchPreparation(ctx context.Context, c localapi.Client, p serverconfig.Profile, in generated.NativePreparationRequest) (generated.NativePreparationResult, error) {
 	var out generated.NativePreparationResult
 	switch in.Kind {
+	case "database-status":
+		r, e := c.DatabaseStatus(ctx, p)
+		out = preparationResult(r)
+		if e == nil && r.ExitCode == 0 {
+			out.DatabaseStatus = &r.Data
+		}
+		return out, e
+	case "grant-batch":
+		r, e := c.DraftAuthorizationGrants(ctx, p, *in.GrantBatch)
+		out = preparationResult(r)
+		if e == nil && r.ExitCode == 0 {
+			out.GrantDeclaration = &r.Data
+		}
+		return out, e
 	case "producer-lookup":
 		r, e := c.LookupNativeProducerReference(ctx, p, *in.ProducerLookup)
 		out = preparationResult(r)

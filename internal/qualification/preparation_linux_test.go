@@ -125,3 +125,44 @@ func TestRecoveryPreparationCannotEscapeScopeOrMixInputs(t *testing.T) {
 		}
 	}
 }
+
+func TestNativeGrantAndStatusPreparationStayScoped(t *testing.T) {
+	scope, err := validateScope(scopeFixture())
+	if err != nil {
+		t.Fatal(err)
+	}
+	binding := generated.NativeStepRequest{Operation: "prepare", GuestID: "subject", RecoveryEpoch: 0}
+	in := generated.NativePreparationRequest{Binding: binding, Kind: "grant-batch", GrantBatch: &generated.AuthorizationGrantBatchRequest{PrincipalID: "existing-human", Changes: []generated.AuthorizationGrantChange{{ResourceID: scope.guests["subject"].HostID}}}}
+	if validatePreparation(scope, in) != nil {
+		t.Fatal("named grant rejected")
+	}
+	for _, variant := range []string{"outside", "epoch", "mixed", "missing"} {
+		t.Run(variant, func(t *testing.T) {
+			bad := in
+			batch := *in.GrantBatch
+			batch.Changes = append([]generated.AuthorizationGrantChange{}, batch.Changes...)
+			bad.GrantBatch = &batch
+			switch variant {
+			case "outside":
+				batch.Changes[0].ResourceID = "outside"
+			case "epoch":
+				batch.RecoveryEpoch = 1
+			case "mixed":
+				bad.Identifier = "caller-path"
+			case "missing":
+				bad.GrantBatch = nil
+			}
+			if validatePreparation(scope, bad) == nil {
+				t.Fatal("broadened grant accepted")
+			}
+		})
+	}
+	status := generated.NativePreparationRequest{Binding: binding, Kind: "database-status"}
+	if validatePreparation(scope, status) != nil {
+		t.Fatal("status rejected")
+	}
+	status.GrantBatch = in.GrantBatch
+	if validatePreparation(scope, status) == nil {
+		t.Fatal("status accepted payload")
+	}
+}

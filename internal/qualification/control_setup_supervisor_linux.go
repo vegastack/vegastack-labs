@@ -237,7 +237,7 @@ func superviseFixtureControl(ctx context.Context, s generated.NativeSlackFixture
 			return ErrUnavailable
 		}
 	}
-	w := generated.NativeControlSetupWitness{Schema: generated.SchemaIDNativeControlSetupWitness, SchemaVersion: "1.0.0", ScopeDigest: hostaction.Digest(s), FixtureScope: s, PeerPID: int64(os.Getpid()), SetupID: setup.SetupID, SetupRequestDigest: s.SetupRequestDigest, SetupReviewDigest: s.SetupPlanDigest}
+	w := generated.NativeControlSetupWitness{Schema: generated.SchemaIDNativeControlSetupWitness, SchemaVersion: "1.0.0", ScopeDigest: hostaction.Digest(s), FixtureScope: s, PeerPID: int64(os.Getpid()), SetupID: setup.SetupID, SetupRequestDigest: s.SetupRequestDigest, SetupReviewDigest: s.SetupPlanDigest, InitialProfileDigest: setup.ProfileSHA256}
 	var e error
 	w.PeerStartIdentity, e = fixtureStartIdentity(os.Getpid())
 	if e != nil {
@@ -330,6 +330,30 @@ func superviseFixtureControl(ctx context.Context, s generated.NativeSlackFixture
 		}
 		w.Attempts = append(w.Attempts, generated.NativeControlSetupAttempt{Schema: generated.SchemaIDNativeControlSetupAttempt, SchemaVersion: "1.0.0", Kind: kind, BeforeDigest: before, AfterDigest: after, InstanceID: next.InstanceID, PID: next.PID, StartIdentity: c.start, ObservedAt: time.Now().UTC().Format(time.RFC3339Nano)})
 	}
+	// Initial setup deliberately has no signer. Activate only the protected
+	// prepared signer and optional existing backup backend after measuring
+	// every setup/refusal/restart case.
+	before, e = fixtureControlPreimage()
+	if e != nil || c.stop(syscall.SIGTERM) != nil {
+		return ErrUnavailable
+	}
+	w.FinalProfileDigest, e = replaceFixtureSignerProfile(fixtureControlProfile, fixtureControlFinalProfile, uint32(s.ControlServiceUID), uint32(s.ControlServiceGID), setup.ProfileSHA256)
+	if e != nil {
+		return e
+	}
+	c, e = startFixtureControl(ctx, s, false)
+	if e != nil {
+		return e
+	}
+	next, err := waitFixtureControl(ctx, s, c)
+	if err != nil || next.InstanceID != h.InstanceID || next.RecoveryEpoch != h.RecoveryEpoch {
+		return ErrUnavailable
+	}
+	after, e = fixtureControlPreimage()
+	if e != nil {
+		return e
+	}
+	w.Attempts = append(w.Attempts, generated.NativeControlSetupAttempt{Schema: generated.SchemaIDNativeControlSetupAttempt, SchemaVersion: "1.0.0", Kind: "signer-restart", BeforeDigest: before, AfterDigest: after, InstanceID: next.InstanceID, PID: next.PID, StartIdentity: c.start, ObservedAt: time.Now().UTC().Format(time.RFC3339Nano)})
 	receipt, uid, mode, e := fixtureRegularFile(slackFixtureSetupPath+".approval.json", 65536)
 	if e != nil || int64(uid) != s.ControlServiceUID || mode != 0600 {
 		return ErrUnavailable
@@ -339,6 +363,9 @@ func superviseFixtureControl(ctx context.Context, s generated.NativeSlackFixture
 		Approval struct{ ReviewDigest, RequestDigest string } `json:"approval"`
 	}
 	if json.Unmarshal(receipt, &approval) != nil || hostaction.BytesDigest(approval.Review) != s.SetupPlanDigest || approval.Approval.ReviewDigest != s.SetupPlanDigest || approval.Approval.RequestDigest != s.SetupRequestDigest {
+		return ErrUnavailable
+	}
+	if !fixtureSetupProfileMatches(approval.Review, w.InitialProfileDigest) {
 		return ErrUnavailable
 	}
 	w.ApprovalDigest = hostaction.BytesDigest(receipt)

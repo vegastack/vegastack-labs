@@ -2754,7 +2754,8 @@
             "populated-refusal",
             "writer-refusal",
             "restart",
-            "crash-restart"
+            "crash-restart",
+            "signer-restart"
           ],
           "type": "string"
         },
@@ -2813,6 +2814,10 @@
           "minimum": 1,
           "type": "integer"
         },
+        "finalProfileDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
         "finalStartIdentity": {
           "maxLength": 256,
           "minLength": 1,
@@ -2824,6 +2829,10 @@
         "initialPid": {
           "minimum": 1,
           "type": "integer"
+        },
+        "initialProfileDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
         },
         "initialStartIdentity": {
           "maxLength": 256,
@@ -2891,6 +2900,8 @@
         "setupRequestDigest",
         "setupReviewDigest",
         "approvalDigest",
+        "initialProfileDigest",
+        "finalProfileDigest",
         "instanceId",
         "recoveryEpoch",
         "initialPid",

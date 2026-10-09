@@ -22,11 +22,11 @@ func ValidateControlSetupEvidence(e ProducerExecution, a ControlSetupAuthority, 
 		return ErrUnavailable
 	}
 	s := w.FixtureScope
-	if !s.RunControlSetup || w.ScopeDigest != hostaction.Digest(s) || s.ExecutableDigest != o.ExecutableDigest || w.SetupID != s.SetupPlanID || w.SetupRequestDigest != s.SetupRequestDigest || w.SetupReviewDigest != s.SetupPlanDigest || a.SetupID != w.SetupID || a.RequestDigest != w.SetupRequestDigest || a.ReviewDigest != w.SetupReviewDigest || a.InstanceID != w.InstanceID || a.RecoveryEpoch != w.RecoveryEpoch || w.RecoveryEpoch != 0 || len(w.Attempts) != 6 || w.InitialPID == w.FinalPID || w.InitialStartIdentity == w.FinalStartIdentity {
+	if !s.RunControlSetup || w.ScopeDigest != hostaction.Digest(s) || s.ExecutableDigest != o.ExecutableDigest || w.SetupID != s.SetupPlanID || w.SetupRequestDigest != s.SetupRequestDigest || w.SetupReviewDigest != s.SetupPlanDigest || a.SetupID != w.SetupID || a.RequestDigest != w.SetupRequestDigest || a.ReviewDigest != w.SetupReviewDigest || a.InstanceID != w.InstanceID || a.RecoveryEpoch != w.RecoveryEpoch || w.RecoveryEpoch != 0 || len(w.Attempts) != 7 || w.InitialPID == w.FinalPID || w.InitialStartIdentity == w.FinalStartIdentity {
 		return ErrUnavailable
 	}
 	in, err := linuxrole.DecodeInput([]byte(e.Plan.HostAction.ActionInput))
-	if err != nil || in.RoleID != "control" || in.HostID != e.Reference.HostID {
+	if err != nil || in.RoleID != "control" || in.HostID != e.Reference.HostID || in.ConfigDigest != w.FinalProfileDigest || w.InitialProfileDigest == w.FinalProfileDigest {
 		return ErrUnavailable
 	}
 	if a.VerifiedRestoreBinding == nil {
@@ -51,10 +51,10 @@ func ValidateControlSetupEvidence(e ProducerExecution, a ControlSetupAuthority, 
 }
 
 func validateSetupAttempts(w generated.NativeControlSetupWitness, issued, observed time.Time) error {
-	if len(w.Attempts) != 6 {
+	if len(w.Attempts) != 7 {
 		return ErrUnavailable
 	}
-	kinds := []string{"incomplete-refusal", "fresh", "populated-refusal", "writer-refusal", "restart", "crash-restart"}
+	kinds := []string{"incomplete-refusal", "fresh", "populated-refusal", "writer-refusal", "restart", "crash-restart", "signer-restart"}
 	last := issued
 	for i, attempt := range w.Attempts {
 		at, err := time.Parse(time.RFC3339Nano, attempt.ObservedAt)
@@ -70,7 +70,7 @@ func validateSetupAttempts(w generated.NativeControlSetupWitness, issued, observ
 			return ErrUnavailable
 		}
 	}
-	if w.Attempts[1].BeforeDigest == w.Attempts[1].AfterDigest || w.Attempts[1].PID != w.InitialPID || w.Attempts[1].StartIdentity != w.InitialStartIdentity || w.Attempts[5].PID != w.FinalPID || w.Attempts[5].StartIdentity != w.FinalStartIdentity || w.Attempts[4].StartIdentity == w.Attempts[5].StartIdentity {
+	if w.Attempts[1].BeforeDigest == w.Attempts[1].AfterDigest || w.Attempts[1].PID != w.InitialPID || w.Attempts[1].StartIdentity != w.InitialStartIdentity || w.Attempts[6].PID != w.FinalPID || w.Attempts[6].StartIdentity != w.FinalStartIdentity || w.Attempts[4].StartIdentity == w.Attempts[5].StartIdentity || w.Attempts[5].StartIdentity == w.Attempts[6].StartIdentity {
 		return ErrUnavailable
 	}
 	return nil

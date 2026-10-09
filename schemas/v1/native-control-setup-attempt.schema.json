@@ -28,7 +28,8 @@
         "populated-refusal",
         "writer-refusal",
         "restart",
-        "crash-restart"
+        "crash-restart",
+        "signer-restart"
       ],
       "type": "string"
     },

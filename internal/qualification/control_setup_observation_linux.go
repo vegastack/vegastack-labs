@@ -49,6 +49,12 @@ func InspectNativeControlSetup(ctx context.Context) (generated.NativeControlSetu
 	if e != nil || int64(uid) != s.ControlServiceUID || mode != 0600 || hostaction.BytesDigest(approval) != w.ApprovalDigest {
 		return w, ErrUnavailable
 	}
+	var receipt struct {
+		Review json.RawMessage `json:"review"`
+	}
+	if json.Unmarshal(approval, &receipt) != nil || hostaction.BytesDigest(receipt.Review) != w.SetupReviewDigest || !fixtureSetupProfileMatches(receipt.Review, w.InitialProfileDigest) {
+		return w, ErrUnavailable
+	}
 	// The original controller may now be fenced by an actual restore. Do not
 	// reinterpret this preserved setup observation as current health. The
 	// collector independently binds the current producer and verified restore.

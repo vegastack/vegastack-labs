@@ -889,6 +889,7 @@ func runReplacementPipeline(t *testing.T, transport lifecycleBrowserTransport, d
 		}
 	}
 	seedDiscoveryCredential(newInput, newInput.HostID)
+	grant("new-role-prepare", "author", "host.action.prepare", "host", newInput.HostID, nil)
 	if transport != nil {
 		ops, requests := admissionAccessSequenceForInput(t, newInput, true, newTarget)
 		baseline := qualifiedHostSnapshotFromSequence(t, at, ops, requests)
@@ -901,7 +902,6 @@ func runReplacementPipeline(t *testing.T, transport lifecycleBrowserTransport, d
 		seedHostAdmissionFixture(t, &at, baseline, nil, f.authority, f.db, f.proofs, false)
 		f.seed.exec(`INSERT INTO effective_authorization_principals VALUES('automation-a','agent','active',1,'now','now')`)
 		f.seed.exec(`INSERT OR IGNORE INTO effective_authorization_grants VALUES('new-role-automation','automation-a','infrastructure-admin','execute','host.action.execute','execution-target',?,'human',1,'active','now','now')`, newInput.HostID)
-		grant("new-role-prepare", "author", "host.action.prepare", "host", newInput.HostID, nil)
 		keyDigest := hostaction.Digest("synthetic-new-role-key")
 		f.seed.exec(`INSERT INTO credential_reference_versions VALUES('new-role-action','new-role-action','host-action','host-action-ssh',?,'native-systemd','version-a',?,'active',1,0,?,?,'fixture-declaration',1,'fixture-plan',?,'fixture-run','fixture-step','fixture-lease','human-a','now')`, newInput.HostID, keyDigest, at.Format(time.RFC3339), []byte(`["host-action"]`), keyDigest)
 	}

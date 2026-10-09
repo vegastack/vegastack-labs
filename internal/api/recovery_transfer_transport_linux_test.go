@@ -241,6 +241,48 @@ func recoveryTransferTransport(t *testing.T, drift string) {
 		if json.Unmarshal(w.Body.Bytes(), &draft) != nil || draft.Data.OriginalRequestDigest != hostaction.Digest(request) {
 			t.Fatal("original selector binding")
 		}
+		// The new receive payload names both the frozen source and recipient.
+		// Exercise actual stored declaration navigation without legacy exact grants.
+		owners, err := f.Authority.WorkflowAuthorizationTargets(f.Context, authorization.Request{Action: authorization.ActionRead, Target: authorization.Target{Capability: "declaration.read", ResourceKind: "declaration", ResourceID: id + ":1"}})
+		if err != nil || len(owners) != 2 {
+			t.Fatal("receive owner resolution", owners, err)
+		}
+		ex(`INSERT INTO effective_authorization_principals VALUES('transfer-reader','human','active',1,'now','now')`)
+		ex(`INSERT INTO read_principals VALUES('transfer-reader','active',1,'now','now')`)
+		grant("transfer-reader-new", "transfer-reader", "read", "host.read", "host", descriptor.Replacement.NewHostID, nil)
+		ex(`INSERT INTO read_grants VALUES('transfer-reader','host.read','host',?,1,'active','now','now')`, descriptor.Replacement.NewHostID)
+		cursors, err := api.NewCursorCodec(rand.Reader, f.Clock)
+		if err != nil {
+			t.Fatal(err)
+		}
+		readApp, err := api.NewApplication(api.Config{Authority: f.Authority, Authorizer: store.NewReadAuthorizer(f.Authority), Reads: store.NewReadRepository(f.Authority), Results: f.Results, Cursors: cursors})
+		if err != nil {
+			t.Fatal(err)
+		}
+		policy := store.NewEffectiveAuthorizationRepository(f.Authority)
+		if err = api.RegisterDeclarationPlanOperations(readApp, api.DeclarationPlanConfig{Declarations: f.Declarations, Plans: f.Plans, Results: f.Results, Authorization: api.EffectiveAuthorizationConfig{WorkflowOwners: f.Authority, Authorizer: authorization.NewEvaluator(policy), Recorder: policy, Clock: f.Clock}}); err != nil {
+			t.Fatal(err)
+		}
+		read := func() int {
+			r := httptest.NewRequest(http.MethodGet, "/api/v1/declarations/"+id+"/revisions/1", nil)
+			r = r.WithContext(identity.WithVerifiedPrincipal(r.Context(), identity.Principal{ID: "transfer-reader", Kind: identity.PrincipalHuman, Method: identity.LocalOSPeerMethod}))
+			w := httptest.NewRecorder()
+			readApp.ServeHTTP(w, r)
+			return w.Code
+		}
+		if read() != http.StatusForbidden {
+			t.Fatal("recipient-only read exposed source workflow")
+		}
+		grant("transfer-reader-old", "transfer-reader", "read", "host.read", "host", descriptor.Replacement.OldHostID, nil)
+		ex(`INSERT INTO read_grants VALUES('transfer-reader','host.read','host',?,1,'active','now','now')`, descriptor.Replacement.OldHostID)
+		if read() != http.StatusOK {
+			t.Fatal("both-owner read denied")
+		}
+		ex(`UPDATE effective_authorization_grants SET status='revoked' WHERE grant_id='transfer-reader-old'`)
+		ex(`UPDATE read_grants SET status='revoked' WHERE principal_id='transfer-reader' AND resource_id=?`, descriptor.Replacement.OldHostID)
+		if read() != http.StatusForbidden {
+			t.Fatal("revoked source read admitted")
+		}
 		grant("transfer-plan", "human-a", "author", "plan.author", "declaration", id, nil)
 		w = call(http.MethodGet, "/api/v1/declarations/"+id+"/revisions/1/plan-preparation", nil)
 		var preparation struct{ Data generated.PlanPreparation }
