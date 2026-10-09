@@ -13,7 +13,7 @@ func TestHostWorkflowClientSealRejectsDrift(t *testing.T) {
 	checked := 0
 	for key, seal := range hostWorkflowSourceSeals {
 		relative, joined, _ := strings.Cut(key, "|")
-		if relative != "internal/localapi" {
+		if relative != "internal/localapi" || !strings.Contains(joined, "authorization_grants.go") {
 			continue
 		}
 		names := strings.Split(joined, ",")

@@ -12,8 +12,8 @@ func TestReviewedCredentialImportAndAuditLocalClientWavesRejectChangedAndAddedSo
 		name  string
 		files []string
 	}{
-		{"linux", []string{"audit_client.go", "backup_client.go", "client.go", "credential_client.go", "credential_lifecycle_client.go", "database_client.go", "gates_client.go", "hosts_client.go", "listener.go", "listener_linux.go", "restore_client.go", "schedule_client.go"}},
-		{"unsupported", []string{"audit_client.go", "backup_client.go", "client.go", "credential_client.go", "credential_lifecycle_client.go", "database_client.go", "gates_client.go", "hosts_client.go", "listener.go", "listener_unsupported.go", "restore_client.go", "schedule_client.go"}},
+		{"linux", []string{"audit_client.go", "authorization_grants.go", "backup_client.go", "client.go", "credential_client.go", "credential_lifecycle_client.go", "database_client.go", "gates_client.go", "hosts_client.go", "listener.go", "listener_linux.go", "restore_client.go", "schedule_client.go"}},
+		{"unsupported", []string{"audit_client.go", "authorization_grants.go", "backup_client.go", "client.go", "credential_client.go", "credential_lifecycle_client.go", "database_client.go", "gates_client.go", "hosts_client.go", "listener.go", "listener_unsupported.go", "restore_client.go", "schedule_client.go"}},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			temporary := t.TempDir()
@@ -27,7 +27,7 @@ func TestReviewedCredentialImportAndAuditLocalClientWavesRejectChangedAndAddedSo
 				}
 			}
 			const module = "github.com/vegastack/vegastack-labs"
-			seal, ok := linuxRoleSourceSeals["internal/localapi|"+strings.Join(testCase.files, ",")]
+			seal, ok := hostWorkflowSourceSeals["internal/localapi|"+strings.Join(testCase.files, ",")]
 			if !ok {
 				t.Fatal("current local client seal missing")
 			}
@@ -35,7 +35,7 @@ func TestReviewedCredentialImportAndAuditLocalClientWavesRejectChangedAndAddedSo
 			if !reviewedLocalAPISource(candidate) {
 				t.Fatal("the exact reviewed local gate, credential import, and audit client source was not accepted")
 			}
-			for _, clientFile := range []string{"audit_client.go", "credential_client.go", "credential_lifecycle_client.go", "database_client.go", "restore_client.go", "schedule_client.go", "hosts_client.go"} {
+			for _, clientFile := range []string{"authorization_grants.go", "audit_client.go", "credential_client.go", "credential_lifecycle_client.go", "database_client.go", "restore_client.go", "schedule_client.go", "hosts_client.go"} {
 				file := filepath.Join(temporary, clientFile)
 				original, err := os.ReadFile(file)
 				if err != nil {

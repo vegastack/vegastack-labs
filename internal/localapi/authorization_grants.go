@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
-	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"github.com/vegastack/vegastack-labs/internal/localtransport"
 	"github.com/vegastack/vegastack-labs/internal/serverconfig"
 )
@@ -24,6 +23,6 @@ func (client *client) DraftAuthorizationGrants(ctx context.Context, profile serv
 			return false
 		}
 		op := d.Operations[0]
-		return validGateData(d, generated.SchemaIDDeclarationRevision) && d.DeclarationID == expectedID && d.DeclarationType == "authorization.policy" && len(d.Extensions) == 0 && op.Sequence == 1 && op.OperationID == "grant-batch" && op.OperationType == "identity.change" && op.AdapterID == "core.authorization" && op.TargetID == input.PrincipalID && op.InputDigest == hostaction.Digest(input) && op.ArtifactDigest == hostaction.Digest("core.authorization@1") && !op.Idempotent && op.OffsiteRunSpec == nil && d.AuthorizationGrantBatch != nil && hostaction.Digest(d.AuthorizationGrantBatch) == hostaction.Digest(input) && d.Status == "draft" && d.Revision == input.ExpectedDeclarationRevision+1 && d.StateRevision == input.ExpectedStateRevision+1 && d.StateRevision == r.StateRevision && d.RecoveryEpoch == input.RecoveryEpoch && d.RecoveryEpoch == r.RecoveryEpoch
+		return validGateData(d, generated.SchemaIDDeclarationRevision) && d.DeclarationID == expectedID && d.DeclarationType == "authorization.policy" && len(d.Extensions) == 0 && op.Sequence == 1 && op.OperationID == "grant-batch" && op.OperationType == "identity.change" && op.AdapterID == "core.authorization" && op.TargetID == input.PrincipalID && op.InputDigest == hostRequestDigest(input) && op.ArtifactDigest == hostRequestDigest("core.authorization@1") && !op.Idempotent && op.OffsiteRunSpec == nil && d.AuthorizationGrantBatch != nil && hostRequestDigest(d.AuthorizationGrantBatch) == hostRequestDigest(input) && d.Status == "draft" && d.Revision == input.ExpectedDeclarationRevision+1 && d.StateRevision == input.ExpectedStateRevision+1 && d.StateRevision == r.StateRevision && d.RecoveryEpoch == input.RecoveryEpoch && d.RecoveryEpoch == r.RecoveryEpoch
 	})
 }
