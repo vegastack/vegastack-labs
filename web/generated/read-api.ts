@@ -712,6 +712,20 @@ export interface HostAdoptionRequest {
   readonly "confirmation": HostIdentityConfirmation;
 }
 
+export interface HostBaselineScope {
+  readonly "schema": "vegastack-labs.dev/host-baseline-scope";
+  readonly "schemaVersion": "1.0.0";
+  readonly "subjectHostId": string;
+  readonly "subjectIdentityDigest": string;
+  readonly "executionHostId": string;
+  readonly "executionIdentityDigest": string;
+  readonly "profileId": string;
+  readonly "profileLockDigest": string;
+  readonly "roleId": string;
+  readonly "controlIds": ReadonlyArray<string>;
+  readonly "priorVolumeReceiptDigest"?: string;
+}
+
 export interface HostDiscoveryConsoleConfirmation {
   readonly "schema": "vegastack-labs.dev/host-discovery-console-confirmation";
   readonly "schemaVersion": "1.0.0";
@@ -823,6 +837,7 @@ export interface Plan {
   readonly "nativeRestart"?: NativeRestartPresentation | null;
   readonly "hostActionNativeUnit"?: string;
   readonly "hostActionConsole"?: HostActionCredentialConfirmation | null;
+  readonly "hostBaselineScope"?: HostBaselineScope | null;
   readonly "hostAccessSequence"?: HostAccessSequence | null;
   readonly "hostAction"?: HostActionRequest | null;
   readonly "hostAdoption"?: HostAdoptionRequest | null;
@@ -5052,6 +5067,94 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/host-baseline-scope",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/host-baseline-scope"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "subjectHostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "subjectIdentityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "executionHostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "executionIdentityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "profileId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "profileLockDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "roleId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "controlIds",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "maxItems": 8,
+        "uniqueItems": true
+      },
+      {
+        "name": "priorVolumeReceiptDigest",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/host-discovery-console-confirmation",
     "fields": [
       {
@@ -5778,6 +5881,13 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": false,
         "nullable": true,
         "ref": "vegastack-labs.dev/host-action-credential-confirmation"
+      },
+      {
+        "name": "hostBaselineScope",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "ref": "vegastack-labs.dev/host-baseline-scope"
       },
       {
         "name": "hostAccessSequence",
@@ -6772,6 +6882,10 @@ function decodeHostActionRequest(value: unknown): HostActionRequest {
 
 function decodeHostAdoptionRequest(value: unknown): HostAdoptionRequest {
   return decodeSchema("vegastack-labs.dev/host-adoption-request", value) as unknown as HostAdoptionRequest;
+}
+
+function decodeHostBaselineScope(value: unknown): HostBaselineScope {
+  return decodeSchema("vegastack-labs.dev/host-baseline-scope", value) as unknown as HostBaselineScope;
 }
 
 function decodeHostDiscoveryConsoleConfirmation(value: unknown): HostDiscoveryConsoleConfirmation {

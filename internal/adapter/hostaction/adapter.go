@@ -4,6 +4,7 @@ package hostaction
 import (
 	"context"
 	"encoding/json"
+	"github.com/vegastack/vegastack-labs/internal/debianbaseline"
 	"net"
 	"strings"
 	"sync"
@@ -129,7 +130,7 @@ func (a *Adapter) ExecuteBoundWithCredentials(ctx context.Context, op adapter.Op
 	if adapter.ValidateEffect(e) != nil || e.Status != "succeeded" {
 		return adapter.Effect{EffectObserved: true}, denied()
 	}
-	if strings.HasPrefix(b.ActionID, "debian.access.") && (len(result.ControlMeasurements) == 0 || a.recorder == nil) {
+	if (strings.HasPrefix(b.ActionID, "debian.access.") || debianbaseline.IsAction(b.ActionID)) && (len(result.ControlMeasurements) == 0 || a.recorder == nil) {
 		return adapter.Effect{EffectObserved: true}, denied()
 	}
 	if err := a.remember(op, binding, e, result); err != nil {

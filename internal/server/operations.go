@@ -395,7 +395,7 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	if err := api.RegisterHostActionOperations(application, api.HostActionOperations{Hosts: store.NewHostActionRepository(authority), Declarations: declarations, Credentials: credentialRepository, Results: factory}); err != nil {
+	if err := api.RegisterHostActionOperations(application, api.HostActionOperations{BaselineRenderer: hostAccessComposition{}, Hosts: store.NewHostActionRepository(authority), Declarations: declarations, Credentials: credentialRepository, Results: factory}); err != nil {
 		return err
 	}
 	if err := api.RegisterHostAccessOperations(application, api.HostAccessOperations{Hosts: store.NewHostActionRepository(authority), Declarations: declarations, Credentials: credentialRepository, Renderer: hostAccessComposition{}, Results: factory}); err != nil {

@@ -438,6 +438,76 @@
       ],
       "type": "object"
     },
+    "host-baseline-scope": {
+      "additionalProperties": false,
+      "properties": {
+        "controlIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 8,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "executionHostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "executionIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "priorVolumeReceiptDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "profileId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "profileLockDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "roleId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-baseline-scope"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "subjectHostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "subjectIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "subjectHostId",
+        "subjectIdentityDigest",
+        "executionHostId",
+        "executionIdentityDigest",
+        "profileId",
+        "profileLockDigest",
+        "roleId",
+        "controlIds"
+      ],
+      "type": "object"
+    },
     "host-discovery-console-confirmation": {
       "additionalProperties": false,
       "properties": {
@@ -846,6 +916,16 @@
           "anyOf": [
             {
               "$ref": "#/$defs/host-adoption-request"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hostBaselineScope": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/host-baseline-scope"
             },
             {
               "type": "null"

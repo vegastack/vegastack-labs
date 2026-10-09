@@ -1,0 +1,62 @@
+{
+  "$id": "vegastack-labs.dev/baseline-resource-limit",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "cpuQuotaPercent": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "memoryMaxBytes": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "minimumFreeBytes": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "minimumFreePercent": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "mountPath": {
+      "maxLength": 256,
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/baseline-resource-limit"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "tasksMax": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "unit": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "unit",
+    "mountPath",
+    "memoryMaxBytes",
+    "tasksMax",
+    "cpuQuotaPercent",
+    "minimumFreeBytes",
+    "minimumFreePercent"
+  ],
+  "title": "VegaStack Labs baseline resource limit",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

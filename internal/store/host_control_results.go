@@ -56,7 +56,7 @@ func (s *Store) RecordHostControlResults(ctx context.Context, q HostControlResul
 			return actionError(generated.ErrorCodeApprovalRequired)
 		}
 		var p generated.Plan
-		if json.Unmarshal(raw, &p) != nil || p.PlanID != q.Binding.PlanID || p.PlanDigest != q.Binding.PlanDigest || (p.HostAccessSequence == nil && (p.HostAction == nil || p.HostAction.ActionID != "debian.access.collect")) || p.Binding.StateRevision != q.Binding.StateRevision || p.Binding.RecoveryEpoch != q.Binding.RecoveryEpoch {
+		if json.Unmarshal(raw, &p) != nil || p.PlanID != q.Binding.PlanID || p.PlanDigest != q.Binding.PlanDigest || (p.HostBaselineScope == nil && p.HostAccessSequence == nil && (p.HostAction == nil || p.HostAction.ActionID != "debian.access.collect")) || p.Binding.StateRevision != q.Binding.StateRevision || p.Binding.RecoveryEpoch != q.Binding.RecoveryEpoch {
 			return actionError(generated.ErrorCodePlanStale)
 		}
 		d, op, e := actionDraftForPlan(row, p, q.Operation.OperationID)
@@ -92,6 +92,12 @@ func (s *Store) RecordHostControlResults(ctx context.Context, q HostControlResul
 			sequenceDigest = hostaction.Digest(*p.HostAccessSequence)
 		}
 		input, e := debianaccess.DecodeInput([]byte(apply.Request.ActionInput))
+		if p.HostBaselineScope != nil {
+			input, e = baselineProjection(p)
+			if len(q.Result.ControlMeasurements) != len(p.HostBaselineScope.ControlIDs) {
+				return actionError(generated.ErrorCodeIntegrityFailure)
+			}
+		}
 		if e != nil {
 			return actionError(generated.ErrorCodeIntegrityFailure)
 		}
@@ -119,12 +125,20 @@ func (s *Store) RecordHostControlResults(ctx context.Context, q HostControlResul
 			if e != nil || observed.After(s.config.Clock().Add(time.Second)) || s.config.Clock().Sub(observed) > 10*time.Minute || m.SubjectHostID != input.HostID || m.SubjectIdentityDigest != input.HostIdentityDigest || m.ProfileLockDigest != input.ProfileLockDigest {
 				return actionError(generated.ErrorCodePlanStale)
 			}
+			if p.HostBaselineScope != nil {
+				if e = validateBaselineMeasurement(p, m, ordinal); e != nil {
+					return e
+				}
+			}
 			if probe != nil {
 				if e = validateAccessProbeMeasurement(*probe, m, ordinal); e != nil {
 					return e
 				}
 			}
 			control := generated.HostControlResult{Schema: generated.SchemaIDHostControlResult, SchemaVersion: "1.0.0", HostID: input.HostID, IdentityDigest: input.HostIdentityDigest, IdentityClass: identityClass, ProfileID: input.ProfileID, OSFamily: input.ProfileLock.OSFamily, OSVersion: input.ProfileLock.OSVersion, Architecture: input.ProfileLock.Architecture, RoleID: "host", BaselineVersion: input.ActionVersion, ControlID: m.ControlID, ProducerID: m.ProducerID, ProducerVersion: m.ProducerVersion, ActionReceiptDigest: hostaction.BytesDigest(receiptRaw), DeclarationID: p.DeclarationID, DeclarationRevision: p.Binding.DeclarationRevision, RecoveryEpoch: p.Binding.RecoveryEpoch, ObservedAt: m.ObservedAt, Status: m.Status, MeasurementDigest: m.MeasurementDigest, PositiveProbeDigest: m.PositiveProbeDigest, NegativeProbeDigest: m.NegativeProbeDigest}
+			if p.HostBaselineScope != nil {
+				control.RoleID = p.HostBaselineScope.RoleID
+			}
 			controlBytes, _ := json.Marshal(control)
 			measurementBytes, _ := json.Marshal(m)
 			if len(controlBytes) > 16384 || generated.ValidateContractJSON(generated.SchemaIDHostControlResult, controlBytes, generated.ContractExact) != nil {
@@ -140,6 +154,9 @@ func (s *Store) RecordHostControlResults(ctx context.Context, q HostControlResul
 	return e
 }
 func validateAccessCurrentTargets(row discoveryRow, p generated.Plan, now time.Time) error {
+	if p.HostBaselineScope != nil {
+		return validateBaselineCurrent(row, p, now)
+	}
 	if p.HostAccessSequence == nil {
 		if p.HostAction == nil || p.HostAction.ActionID != "debian.access.collect" {
 			return actionError(generated.ErrorCodeIntegrityFailure)
@@ -200,22 +217,27 @@ func (r *GateRepository) ReadHostControlResults(ctx context.Context, hostID stri
 		return out, actionError(generated.ErrorCodeInputInvalid)
 	}
 	e := r.store.Read(ctx, func(tx ReadTx) error {
-		rows, e := tx.query(ctx, `SELECT c.control_bytes FROM host_control_results c JOIN execution_receipts e ON e.receipt_id=c.receipt_id AND e.result_digest=c.result_digest AND e.status='succeeded' JOIN plan_run_steps s ON s.run_id=c.run_id AND s.step_id=c.step_id AND s.status='succeeded' AND s.effect_state='verified' JOIN system_meta m ON m.id=1 AND m.recovery_epoch=c.recovery_epoch JOIN managed_hosts h ON h.host_id=c.host_id AND h.identity_digest=c.host_identity_digest WHERE c.host_id=? ORDER BY c.control_id,c.observed_at DESC,c.rowid DESC`, hostID)
+		rows, e := tx.query(ctx, `SELECT c.control_bytes,p.canonical_bytes FROM host_control_results c JOIN immutable_plans p ON p.plan_id=c.plan_id AND p.plan_digest=c.plan_digest JOIN execution_receipts e ON e.receipt_id=c.receipt_id AND e.result_digest=c.result_digest AND e.status='succeeded' JOIN plan_run_steps s ON s.run_id=c.run_id AND s.step_id=c.step_id AND s.status='succeeded' AND s.effect_state='verified' JOIN system_meta m ON m.id=1 AND m.recovery_epoch=c.recovery_epoch JOIN managed_hosts h ON h.host_id=c.host_id AND h.identity_digest=c.host_identity_digest WHERE c.host_id=? ORDER BY c.control_id,c.observed_at DESC,c.rowid DESC`, hostID)
 		if e != nil {
 			return e
 		}
 		defer rows.Close()
 		seen := map[string]bool{}
 		for rows.Next() {
-			var raw []byte
+			var raw, planRaw []byte
+			var p generated.Plan
 			var value generated.HostControlResult
-			if rows.Scan(&raw) != nil || json.Unmarshal(raw, &value) != nil || generated.ValidateContractJSON(generated.SchemaIDHostControlResult, raw, generated.ContractExact) != nil {
+			if rows.Scan(&raw, &planRaw) != nil || json.Unmarshal(planRaw, &p) != nil || json.Unmarshal(raw, &value) != nil || generated.ValidateContractJSON(generated.SchemaIDHostControlResult, raw, generated.ContractExact) != nil {
 				return actionError(generated.ErrorCodeIntegrityFailure)
 			}
-			if !seen[value.ControlID] {
-				seen[value.ControlID] = true
-				out = append(out, value)
+			if seen[value.ControlID] {
+				continue
 			}
+			seen[value.ControlID] = true
+			if p.HostBaselineScope != nil && validateBaselineCurrent(func(q string, a ...any) *sql.Row { return tx.queryRow(ctx, q, a...) }, p, r.store.config.Clock()) != nil {
+				continue
+			}
+			out = append(out, value)
 		}
 		return rows.Err()
 	})

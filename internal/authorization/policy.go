@@ -234,6 +234,9 @@ func validPreauthorized(principal identity.Principal, request Request, risk Risk
 }
 
 func planContainsTarget(plan generated.Plan, targetID string) bool {
+	if p := plan.HostBaselineScope; p != nil && (p.SubjectHostID == targetID || p.ExecutionHostID == targetID) {
+		return true
+	}
 	if plan.HostAccessSequence != nil {
 		for _, target := range plan.HostAccessSequence.AuxiliaryTargets {
 			if target.HostID == targetID {

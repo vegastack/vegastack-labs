@@ -8,6 +8,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
 	"github.com/vegastack/vegastack-labs/internal/debianaccess"
+	"github.com/vegastack/vegastack-labs/internal/debianbaseline"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"github.com/vegastack/vegastack-labs/internal/hostdiscovery"
@@ -56,6 +57,11 @@ func (r *HostActionRepository) StageDraft(ctx context.Context, req generated.Hos
 	defer r.actionPreparationFailure(ctx, req, &outcome)
 	if r == nil || r.store == nil || hostaction.ValidateRequest(req) != nil {
 		return HostActionDraft{}, actionError(generated.ErrorCodeInputInvalid)
+	}
+	if debianbaseline.IsAction(req.ActionID) {
+		if e := r.ValidateBaselinePreparation(ctx, req); e != nil {
+			return HostActionDraft{}, e
+		}
 	}
 	validate := func(row discoveryRow) error {
 		if _, err := actionTarget(row, req); err != nil {
@@ -133,6 +139,9 @@ func (r *HostActionRepository) CurrentExecution(ctx context.Context, op adapter.
 			return actionError(generated.ErrorCodePlanStale)
 		}
 		d := out.Draft
+		if debianbaseline.IsAction(d.Request.ActionID) != (p.HostBaselineScope != nil) {
+			return actionError(generated.ErrorCodeIntegrityFailure)
+		}
 		if p.HostAccessSequence == nil && (d.Request.ActionID == "debian.access.apply" || d.Request.ActionID == "debian.access.confirm" || d.Request.ActionID == "debian.access.probe-source" || d.Request.ActionID == "debian.access.probe.local") {
 			return actionError(generated.ErrorCodeAuthorizationDenied)
 		}
@@ -167,6 +176,20 @@ func (r *HostActionRepository) CurrentExecution(ctx context.Context, op adapter.
 			return actionError(generated.ErrorCodeApprovalRequired)
 		}
 
+		if p.HostBaselineScope != nil {
+			if e := validateBaselineCurrent(row, p, r.store.config.Clock()); e != nil {
+				return e
+			}
+			for _, id := range []string{p.HostBaselineScope.SubjectHostID, p.HostBaselineScope.ExecutionHostID} {
+				var n int
+				if row(`SELECT count(*) FROM effective_authorization_principals p JOIN effective_authorization_grants g ON g.principal_id=p.principal_id AND g.grant_revision=p.grant_revision WHERE p.principal_id=? AND p.status='active' AND g.status='active' AND g.action='acknowledge' AND g.capability='plan.acknowledge' AND g.resource_kind='plan-target' AND g.resource_id=? AND g.branch='human'`, human, id).Scan(&n) != nil || n == 0 {
+					return actionError(generated.ErrorCodeAuthorizationDenied)
+				}
+				if row(`SELECT count(*) FROM effective_authorization_principals p JOIN effective_authorization_grants g ON g.principal_id=p.principal_id AND g.grant_revision=p.grant_revision JOIN audit_events a ON a.principal_id=p.principal_id WHERE a.event_type='run.created' AND a.correlation_id=? AND p.status='active' AND g.status='active' AND g.action='execute' AND g.capability='host.action.execute' AND g.resource_kind='execution-target' AND g.resource_id=? AND g.branch='human'`, b.RunID, id).Scan(&n) != nil || n == 0 {
+					return actionError(generated.ErrorCodeAuthorizationDenied)
+				}
+			}
+		}
 		if p.HostAccessSequence != nil {
 			if e := validateAccessCurrentTargets(row, p, r.store.config.Clock()); e != nil {
 				return e

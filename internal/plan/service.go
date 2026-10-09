@@ -4,6 +4,7 @@ package plan
 import (
 	"context"
 	"encoding/json"
+	"github.com/vegastack/vegastack-labs/internal/debianbaseline"
 	"sort"
 	"strings"
 	"time"
@@ -330,6 +331,13 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 		}
 	}
 	candidate.HostAction = action
+	if action != nil {
+		scope, err := debianbaseline.ScopeForRequest(*action)
+		if err != nil {
+			return store.PlanCommitResult{}, planError(generated.ErrorCodeInputInvalid)
+		}
+		candidate.HostBaselineScope = scope
+	}
 	candidate.HostAccessSequence = sequence
 	candidate.HostAdoption = adoption
 	candidate.HostDiscoveryTarget = discovery
