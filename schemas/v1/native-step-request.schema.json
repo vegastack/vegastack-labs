@@ -1,0 +1,126 @@
+{
+  "$id": "vegastack-labs.dev/native-step-request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "controllerInstanceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "deadline": {
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": "string"
+    },
+    "guestId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "leaseId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "nonce": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "operation": {
+      "enum": [
+        "observe",
+        "execute",
+        "reboot-continuation",
+        "collect-native",
+        "witness",
+        "cleanup-native"
+      ],
+      "type": "string"
+    },
+    "ordinal": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "planDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "planId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "runId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "scenarioId": {
+      "enum": [
+        "baseline-access",
+        "baseline-controls",
+        "access-idempotence",
+        "access-rollback-timeout",
+        "access-rollback-reboot",
+        "action-replay",
+        "action-concurrency",
+        "fail2ban-window",
+        "container-network",
+        "volume-effective-mapping",
+        "volume-recovery-positive",
+        "volume-wrong-key",
+        "volume-wrong-header",
+        "volume-wrong-slot",
+        "volume-wrong-mapping",
+        "volume-revoked-binding",
+        "volume-unchanged-after-verification",
+        "volume-inconsistent-redundant-header",
+        "volume-status-no-original-repair",
+        "volume-sealed-copy-write-refused",
+        "native-credential-lifecycle",
+        "control-setup",
+        "control-handoff",
+        "role-application",
+        "role-ci",
+        "role-reserve",
+        "replacement-recovery"
+      ],
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/native-step-request"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "scopeDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "stepId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "scopeDigest",
+    "guestId",
+    "scenarioId",
+    "ordinal",
+    "controllerInstanceId",
+    "recoveryEpoch",
+    "nonce",
+    "deadline",
+    "operation"
+  ],
+  "title": "VegaStack Labs native step request",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

@@ -1,0 +1,61 @@
+{
+  "$id": "vegastack-labs.dev/host-action-denial",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "bundleDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "claimDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "code": {
+      "enum": [
+        "AUTHORIZATION_DENIED"
+      ],
+      "type": "string"
+    },
+    "executionDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "phase": {
+      "enum": [
+        "envelope",
+        "dispatch",
+        "authorization",
+        "execution-claim",
+        "handler",
+        "result"
+      ],
+      "type": "string"
+    },
+    "resultDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/host-action-denial"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "code",
+    "phase"
+  ],
+  "title": "VegaStack Labs host action denial",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

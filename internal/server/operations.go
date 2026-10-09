@@ -364,7 +364,7 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 			}
 		}
 	}
-	gateRepository := store.NewGateRepository(authority)
+	gateRepository := nativeGateRepository(authority, operations.build)
 	roleComposition := hostRoleComposition{gates: gateRepository, render: roletransport.RenderLinuxRole, clock: time.Now}
 	runRepository.ConfigureHostRoles(gateRepository, roleComposition)
 	if err := api.RegisterGateOperations(application, api.GateOperations{Gates: gateRepository, Revisions: planRepository, Declarations: declarations, Results: factory, Build: operations.build, Clock: time.Now}); err != nil {
@@ -406,7 +406,7 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 	if err := api.RegisterHostAdoptionOperations(application, api.HostAdoptionOperations{Hosts: store.NewHostAdoptionRepository(authority), Declarations: declarations, Results: factory}); err != nil {
 		return err
 	}
-	if err := registerHostDiscovery(application, authority, adapters, declarations, factory, profile.SocketOwnerUID); err != nil {
+	if err := registerHostDiscovery(application, authority, adapters, declarations, factory, profile.SocketOwnerUID, gateRepository); err != nil {
 		_ = application.Shutdown(ctx)
 		return err
 	}
@@ -416,7 +416,7 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 	if err := api.RegisterHostAccessOperations(application, api.HostAccessOperations{Hosts: store.NewHostActionRepository(authority), Declarations: declarations, Credentials: credentialRepository, Renderer: hostAccessComposition{}, Results: factory}); err != nil {
 		return err
 	}
-	hostActionCleanup, err := composeHostActions(ctx, profile, operations.databasePath, authority, adapters)
+	hostActionCleanup, err := composeHostActions(ctx, profile, operations.databasePath, authority, adapters, gateRepository)
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err

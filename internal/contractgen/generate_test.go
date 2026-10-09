@@ -294,6 +294,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/host-action-challenge.schema.json",
 		"schemas/v1/host-action-console-confirmation.schema.json",
 		"schemas/v1/host-action-credential-confirmation.schema.json",
+		"schemas/v1/host-action-denial.schema.json",
 		"schemas/v1/host-action-envelope.schema.json",
 		"schemas/v1/host-action-request.schema.json",
 		"schemas/v1/host-action-result.schema.json",
@@ -348,14 +349,50 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/local-setup-request.schema.json",
 		"schemas/v1/local-setup-review-request.schema.json",
 		"schemas/v1/managed-host.schema.json",
+		"schemas/v1/native-action-negative-observation.schema.json",
+		"schemas/v1/native-action-protocol-witness.schema.json",
+		"schemas/v1/native-action-receipt-witness.schema.json",
+		"schemas/v1/native-collect-data.schema.json",
+		"schemas/v1/native-collect-request.schema.json",
+		"schemas/v1/native-control-handoff-witness.schema.json",
+		"schemas/v1/native-control-service-state.schema.json",
+		"schemas/v1/native-control-setup-attempt.schema.json",
+		"schemas/v1/native-control-setup-witness.schema.json",
+		"schemas/v1/native-fail2ban-input.schema.json",
+		"schemas/v1/native-fail2ban-state.schema.json",
+		"schemas/v1/native-fail2ban-witness.schema.json",
+		"schemas/v1/native-guest-launch.schema.json",
+		"schemas/v1/native-observation-binding.schema.json",
+		"schemas/v1/native-observation.schema.json",
+		"schemas/v1/native-producer-reference.schema.json",
+		"schemas/v1/native-qualification-prerequisite.schema.json",
+		"schemas/v1/native-qualification-producer.schema.json",
+		"schemas/v1/native-qualification.schema.json",
+		"schemas/v1/native-report.schema.json",
 		"schemas/v1/native-restart-presentation.schema.json",
 		"schemas/v1/native-restart-selector.schema.json",
+		"schemas/v1/native-rollback-witness.schema.json",
+		"schemas/v1/native-slack-fixture-approval-list.schema.json",
+		"schemas/v1/native-slack-fixture-approval.schema.json",
+		"schemas/v1/native-slack-fixture-scope.schema.json",
+		"schemas/v1/native-ssh-observation.schema.json",
+		"schemas/v1/native-step-request.schema.json",
+		"schemas/v1/native-step-result.schema.json",
+		"schemas/v1/native-volume-case-witness.schema.json",
+		"schemas/v1/native-volume-seal-witness.schema.json",
+		"schemas/v1/native-witness-request.schema.json",
+
 		"schemas/v1/outbox-record-data.schema.json",
 		"schemas/v1/plan-create-request.schema.json",
 		"schemas/v1/plan-preparation.schema.json",
 		"schemas/v1/plan-presentation.schema.json",
 		"schemas/v1/plan-reference-request.schema.json",
 		"schemas/v1/plan.schema.json",
+		"schemas/v1/qualification-guest.schema.json",
+		"schemas/v1/qualification-inspect-data.schema.json",
+		"schemas/v1/qualification-inspect-request.schema.json",
+		"schemas/v1/qualification-resources.schema.json",
+		"schemas/v1/qualification-scope.schema.json",
 		"schemas/v1/recovery-point.schema.json",
 		"schemas/v1/recovery-witness-collection-data.schema.json",
 		"schemas/v1/release-inspect-data.schema.json",
@@ -381,6 +418,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/run-result.schema.json",
 		"schemas/v1/run.schema.json",
 		"schemas/v1/sanitized-export-data.schema.json",
+		"schemas/v1/scenario-result.schema.json",
 		"schemas/v1/scheduled-job-cancel-request.schema.json",
 		"schemas/v1/scheduled-job-policy.schema.json",
 		"schemas/v1/scheduled-job-request.schema.json",
@@ -390,6 +428,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/server-profile.schema.json",
 		"schemas/v1/server-status-data.schema.json",
 		"schemas/v1/signed-inventory-draft-export.schema.json",
+		"schemas/v1/suitability-facts.schema.json",
 		"schemas/v1/volume-observation.schema.json",
 		"schemas/v1/volume-recovery-input.schema.json",
 	}
@@ -817,8 +856,8 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 			}
 		}
 	}
-	if available != 62 || planned != 21 {
-		t.Fatalf("command availability = (%d available, %d planned), want (62, 21)", available, planned)
+	if available != 66 || planned != 21 {
+		t.Fatalf("command availability = (%d available, %d planned), want (66, 21)", available, planned)
 	}
 	// #102's 17 available/38 planned baseline remains the arithmetic base:
 	// #104 promoted four exact gate commands and added one exact profile draft;

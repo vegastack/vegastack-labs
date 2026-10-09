@@ -1,0 +1,65 @@
+{
+  "$id": "vegastack-labs.dev/native-fail2ban-state",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "banTimeSeconds": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "banned": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 32,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "bannedTotal": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "failedTotal": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "findTimeSeconds": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "maxRetry": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "observedAt": {
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/native-fail2ban-state"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "failedTotal",
+    "bannedTotal",
+    "banned",
+    "maxRetry",
+    "findTimeSeconds",
+    "banTimeSeconds",
+    "observedAt"
+  ],
+  "title": "VegaStack Labs native fail2ban state",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

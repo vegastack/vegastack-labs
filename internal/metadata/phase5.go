@@ -644,6 +644,7 @@ func phase5RequestSchemas() []SchemaDefinition {
 			FieldDefinition{JSONName: "checks", GoName: "Checks", Kind: ValueArray, Required: true, ItemRef: gateEvidenceCheckSchemaID, MaxItems: intPointer(64)},
 			FieldDefinition{JSONName: "attachments", GoName: "Attachments", Kind: ValueArray, Required: true, ItemRef: gateEvidenceAttachmentSchemaID, MaxItems: intPointer(16)},
 			phase5ID("collectorId", "CollectorID"), phase5Timestamp("observedAt", "ObservedAt"),
+			FieldDefinition{JSONName: "nativeQualification", GoName: "NativeQualification", Kind: ValueObject, Ref: "vegastack-labs.dev/native-qualification", Nullable: true, OmitEmpty: true},
 		),
 		phase5GateSchema(gateEvidenceSubmissionSchemaID,
 			phase5ID("draftId", "DraftID"), phase5ID("changeId", "ChangeID"), phase5ID("evidenceId", "EvidenceID"),

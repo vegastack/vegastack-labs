@@ -847,6 +847,7 @@ export interface GateEvidenceBundle {
   readonly "attachments": ReadonlyArray<GateEvidenceAttachment>;
   readonly "collectorId": string;
   readonly "observedAt": string;
+  readonly "nativeQualification"?: NativeQualification | null;
 }
 
 export interface GateEvidenceCheck {
@@ -1424,6 +1425,54 @@ export interface ManagedHost {
   readonly "status": "adopted-unadmitted";
   readonly "stateRevision": number;
   readonly "recoveryEpoch": number;
+}
+
+export interface NativeProducerReference {
+  readonly "schema": "vegastack-labs.dev/native-producer-reference";
+  readonly "schemaVersion": "1.0.0";
+  readonly "scenarioId": "baseline-access" | "baseline-controls" | "access-idempotence" | "access-rollback-timeout" | "access-rollback-reboot" | "action-replay" | "action-concurrency" | "fail2ban-window" | "container-network" | "volume-effective-mapping" | "volume-recovery-positive" | "volume-wrong-key" | "volume-wrong-header" | "volume-wrong-slot" | "volume-wrong-mapping" | "volume-revoked-binding" | "volume-unchanged-after-verification" | "volume-inconsistent-redundant-header" | "volume-status-no-original-repair" | "volume-sealed-copy-write-refused" | "native-credential-lifecycle" | "control-setup" | "control-handoff" | "role-application" | "role-ci" | "role-reserve" | "replacement-recovery";
+  readonly "hostId": string;
+  readonly "planId": string;
+  readonly "planDigest": string;
+  readonly "runId": string;
+  readonly "stepId": string;
+  readonly "leaseId": string;
+}
+
+export interface NativeQualification {
+  readonly "schema": "vegastack-labs.dev/native-qualification";
+  readonly "schemaVersion": "1.0.0";
+  readonly "prerequisites"?: ReadonlyArray<NativeQualificationPrerequisite>;
+  readonly "stage": "baseline" | "role" | "recovery";
+  readonly "scopeDigest": string;
+  readonly "profileId": string;
+  readonly "profileLockDigest": string;
+  readonly "sourceCommit": string;
+  readonly "sourceDigest": string;
+  readonly "executableDigest": string;
+  readonly "controllerInstanceId": string;
+  readonly "recoveryEpoch": number;
+  readonly "observedAt": string;
+  readonly "expiresAt": string;
+  readonly "observerDigest": string;
+  readonly "producers": ReadonlyArray<NativeQualificationProducer>;
+}
+
+export interface NativeQualificationPrerequisite {
+  readonly "schema": "vegastack-labs.dev/native-qualification-prerequisite";
+  readonly "schemaVersion": "1.0.0";
+  readonly "stage": "baseline" | "role";
+  readonly "evidenceId": string;
+  readonly "bundleDigest": string;
+  readonly "artifactDigest": string;
+}
+
+export interface NativeQualificationProducer {
+  readonly "schema": "vegastack-labs.dev/native-qualification-producer";
+  readonly "schemaVersion": "1.0.0";
+  readonly "reference": NativeProducerReference;
+  readonly "hostIdentityDigest": string;
+  readonly "receiptDigest": string;
 }
 
 export interface NativeRestartPresentation {
@@ -6642,6 +6691,14 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      {
+        "name": "nativeQualification",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "omitEmpty": true,
+        "ref": "vegastack-labs.dev/native-qualification"
       }
     ]
   },
@@ -10321,6 +10378,332 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/native-producer-reference",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/native-producer-reference"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "scenarioId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "baseline-access",
+          "baseline-controls",
+          "access-idempotence",
+          "access-rollback-timeout",
+          "access-rollback-reboot",
+          "action-replay",
+          "action-concurrency",
+          "fail2ban-window",
+          "container-network",
+          "volume-effective-mapping",
+          "volume-recovery-positive",
+          "volume-wrong-key",
+          "volume-wrong-header",
+          "volume-wrong-slot",
+          "volume-wrong-mapping",
+          "volume-revoked-binding",
+          "volume-unchanged-after-verification",
+          "volume-inconsistent-redundant-header",
+          "volume-status-no-original-repair",
+          "volume-sealed-copy-write-refused",
+          "native-credential-lifecycle",
+          "control-setup",
+          "control-handoff",
+          "role-application",
+          "role-ci",
+          "role-reserve",
+          "replacement-recovery"
+        ]
+      },
+      {
+        "name": "hostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "planId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "planDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "runId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "stepId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "leaseId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/native-qualification",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/native-qualification"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "prerequisites",
+        "kind": "array",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "itemRef": "vegastack-labs.dev/native-qualification-prerequisite",
+        "maxItems": 2
+      },
+      {
+        "name": "stage",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "baseline",
+          "role",
+          "recovery"
+        ]
+      },
+      {
+        "name": "scopeDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "profileId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "profileLockDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "sourceCommit",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9a-f]{40}$"
+      },
+      {
+        "name": "sourceDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "executableDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "controllerInstanceId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "observedAt",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      {
+        "name": "expiresAt",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      {
+        "name": "observerDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "producers",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/native-qualification-producer",
+        "maxItems": 48
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/native-qualification-prerequisite",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/native-qualification-prerequisite"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "stage",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "baseline",
+          "role"
+        ]
+      },
+      {
+        "name": "evidenceId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "bundleDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "artifactDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/native-qualification-producer",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/native-qualification-producer"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "reference",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/native-producer-reference"
+      },
+      {
+        "name": "hostIdentityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "receiptDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/native-restart-presentation",
     "fields": [
       {
@@ -12145,6 +12528,22 @@ function decodeLinuxRoleResources(value: unknown): LinuxRoleResources {
 
 function decodeManagedHost(value: unknown): ManagedHost {
   return decodeSchema("vegastack-labs.dev/managed-host", value) as unknown as ManagedHost;
+}
+
+function decodeNativeProducerReference(value: unknown): NativeProducerReference {
+  return decodeSchema("vegastack-labs.dev/native-producer-reference", value) as unknown as NativeProducerReference;
+}
+
+function decodeNativeQualification(value: unknown): NativeQualification {
+  return decodeSchema("vegastack-labs.dev/native-qualification", value) as unknown as NativeQualification;
+}
+
+function decodeNativeQualificationPrerequisite(value: unknown): NativeQualificationPrerequisite {
+  return decodeSchema("vegastack-labs.dev/native-qualification-prerequisite", value) as unknown as NativeQualificationPrerequisite;
+}
+
+function decodeNativeQualificationProducer(value: unknown): NativeQualificationProducer {
+  return decodeSchema("vegastack-labs.dev/native-qualification-producer", value) as unknown as NativeQualificationProducer;
 }
 
 function decodeNativeRestartPresentation(value: unknown): NativeRestartPresentation {

@@ -101,7 +101,7 @@ func TestReplacementContinuitySurvivesRecoveredAuthorityBundle(t *testing.T) {
 	testRestorePlanAuthorityBundle(t, true)
 }
 
-func testRestorePlanAuthorityBundle(t *testing.T, withContinuity bool) {
+func testRestorePlanAuthorityBundle(t *testing.T, withContinuity bool, inspect ...func(*Store, generated.RestoreBinding, bool)) {
 	config := testConfig(t)
 	config.Clock = func() time.Time { return time.Date(2026, 9, 24, 6, 0, 0, 0, time.UTC) }
 	authority, err := Open(context.Background(), config)
@@ -271,6 +271,9 @@ func testRestorePlanAuthorityBundle(t *testing.T, withContinuity bool) {
 			t.Fatalf("actual candidate ownership rows missing: %d %v", n, e)
 		}
 	}
+	for _, check := range inspect {
+		check(authority, binding, false)
+	}
 	health, err := authority.Health(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -332,6 +335,9 @@ func testRestorePlanAuthorityBundle(t *testing.T, withContinuity bool) {
 	recovered, _, err = authority.RecoveredAuthorityBundle(context.Background(), binding.PlanID)
 	if err != nil || recovered.Status != "verified" {
 		t.Fatalf("verified recovered=%#v err=%v", recovered, err)
+	}
+	for _, check := range inspect {
+		check(authority, binding, true)
 	}
 	verification, err := authority.VerifyAuditHistory(context.Background(), nil)
 	if err != nil || verification.Status != "anchored" || verification.ReasonCode != "local-anchor-valid" || verification.InstanceID != binding.NewInstanceID || verification.RecoveryEpoch != binding.NextRecoveryEpoch || verification.LastAnchoredSequence != checkpoint.LastSegmentSequence+1 {

@@ -1,0 +1,224 @@
+{
+  "$defs": {
+    "native-fail2ban-state": {
+      "additionalProperties": false,
+      "properties": {
+        "banTimeSeconds": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "banned": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "bannedTotal": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "failedTotal": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "findTimeSeconds": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "maxRetry": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "observedAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/native-fail2ban-state"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "failedTotal",
+        "bannedTotal",
+        "banned",
+        "maxRetry",
+        "findTimeSeconds",
+        "banTimeSeconds",
+        "observedAt"
+      ],
+      "type": "object"
+    },
+    "native-ssh-observation": {
+      "additionalProperties": false,
+      "properties": {
+        "destinationAddress": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "destinationHostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "destinationIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "destinationPort": {
+          "maximum": 65535,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "hostKeyVerified": {
+          "type": "boolean"
+        },
+        "inputDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "namespaceDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "observedAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+          "type": "string"
+        },
+        "outcomes": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 5,
+          "type": "array"
+        },
+        "publicKeyDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "routeDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/native-ssh-observation"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "sourceAddress": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "sourceHostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "sourceIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "user": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "sourceHostId",
+        "sourceIdentityDigest",
+        "destinationHostId",
+        "destinationIdentityDigest",
+        "destinationAddress",
+        "destinationPort",
+        "user",
+        "inputDigest",
+        "sourceAddress",
+        "namespaceDigest",
+        "routeDigest",
+        "outcomes",
+        "hostKeyVerified",
+        "observedAt"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/native-fail2ban-witness",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "adminAfter": {
+      "$ref": "#/$defs/native-ssh-observation"
+    },
+    "adminBefore": {
+      "$ref": "#/$defs/native-ssh-observation"
+    },
+    "adminDuring": {
+      "$ref": "#/$defs/native-ssh-observation"
+    },
+    "after": {
+      "$ref": "#/$defs/native-fail2ban-state"
+    },
+    "banned": {
+      "$ref": "#/$defs/native-fail2ban-state"
+    },
+    "before": {
+      "$ref": "#/$defs/native-fail2ban-state"
+    },
+    "elapsedNanoseconds": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "failures": {
+      "$ref": "#/$defs/native-ssh-observation"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/native-fail2ban-witness"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "before",
+    "banned",
+    "after",
+    "failures",
+    "adminBefore",
+    "adminDuring",
+    "adminAfter",
+    "elapsedNanoseconds"
+  ],
+  "title": "VegaStack Labs native fail2ban witness",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

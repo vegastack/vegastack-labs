@@ -65,6 +65,16 @@ func TestEveryGeneratedCommandHasTruthfulRuntimeBehavior(t *testing.T) {
 				files.content, _ = json.Marshal(syntheticScheduledPolicy())
 			}
 			code, stdout, stderr := runTestAppWithOptions(t, context.Background(), arguments, nil, WithInput(strings.NewReader("encrypted-fixture")), WithReleaseOperations(operations), WithServerOperations(serverOperations), WithControlOperations(controlOperations, files), WithCredentialControlOperations(credentialOperations))
+			if strings.HasPrefix(commandName(command.Path), "qualification ") {
+				wantCode, wantError := 2, `"code":"INPUT_INVALID"`
+				if commandName(command.Path) == generated.CommandNameQualificationFixturePeer {
+					wantCode, wantError = 6, `"code":"PREREQUISITE_BLOCKED"`
+				}
+				if code != wantCode || !strings.Contains(stdout, wantError) || stderr != "" {
+					t.Fatalf("qualification boundary: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+				}
+				return
+			}
 			if commandName(command.Path) == generated.CommandNameRecoveryWitnessCollect {
 				wantCode, wantError := 6, `"code":"PREREQUISITE_BLOCKED"`
 				if runtime.GOOS == "linux" {

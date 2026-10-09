@@ -1,0 +1,41 @@
+{
+  "$id": "vegastack-labs.dev/qualification-resources",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "cpus": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "memoryBytes": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/qualification-resources"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "storageBytes": {
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "cpus",
+    "memoryBytes",
+    "storageBytes"
+  ],
+  "title": "VegaStack Labs qualification resources",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

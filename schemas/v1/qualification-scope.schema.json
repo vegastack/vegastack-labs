@@ -1,0 +1,253 @@
+{
+  "$defs": {
+    "qualification-guest": {
+      "additionalProperties": false,
+      "properties": {
+        "cpus": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "diskBytes": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "diskDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "firmwareDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "guestId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "hostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "hostIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "instanceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "memoryBytes": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "role": {
+          "enum": [
+            "controller",
+            "subject",
+            "custodian",
+            "replacement"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/qualification-guest"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "snapshotId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "sshHostKeyDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "guestId",
+        "hostId",
+        "hostIdentityDigest",
+        "instanceId",
+        "sshHostKeyDigest",
+        "role",
+        "snapshotId",
+        "diskDigest",
+        "firmwareDigest",
+        "cpus",
+        "memoryBytes",
+        "diskBytes"
+      ],
+      "type": "object"
+    },
+    "qualification-resources": {
+      "additionalProperties": false,
+      "properties": {
+        "cpus": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "memoryBytes": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/qualification-resources"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "storageBytes": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "cpus",
+        "memoryBytes",
+        "storageBytes"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/qualification-scope",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "consoleReferenceDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "controlServiceGid": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "controlServiceUid": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "controllerInstanceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "executableDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "expiresAt": {
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": "string"
+    },
+    "guests": {
+      "items": {
+        "$ref": "#/$defs/qualification-guest"
+      },
+      "maxItems": 4,
+      "type": "array"
+    },
+    "imageDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "issuedAt": {
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": "string"
+    },
+    "maximumDurationSeconds": {
+      "maximum": 14400,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "outputRoot": {
+      "maxLength": 512,
+      "minLength": 1,
+      "type": "string"
+    },
+    "physicalHostId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "physicalHostIdentityDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "profileId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "profileLockDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "purpose": {
+      "enum": [
+        "native-debian"
+      ],
+      "type": "string"
+    },
+    "resources": {
+      "$ref": "#/$defs/qualification-resources"
+    },
+    "runId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/qualification-scope"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "sourceCommit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "runId",
+    "purpose",
+    "controllerInstanceId",
+    "controlServiceUid",
+    "controlServiceGid",
+    "physicalHostId",
+    "physicalHostIdentityDigest",
+    "sourceCommit",
+    "executableDigest",
+    "imageDigest",
+    "profileId",
+    "profileLockDigest",
+    "consoleReferenceDigest",
+    "outputRoot",
+    "maximumDurationSeconds",
+    "issuedAt",
+    "expiresAt",
+    "resources",
+    "guests"
+  ],
+  "title": "VegaStack Labs qualification scope",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

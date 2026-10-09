@@ -5,6 +5,7 @@ import "github.com/vegastack/vegastack-labs/internal/generated"
 // HostAdmissionSnapshot is resolved from one authoritative read transaction.
 // Fields describe provenance, never a caller-set admission decision.
 type HostAdmissionSnapshot struct {
+	NativeProducerBindings                       map[string]HostNativeProducerBinding
 	RoleIntentRevision                           int64
 	AppliedProfileDigest                         string
 	Host                                         generated.ManagedHost

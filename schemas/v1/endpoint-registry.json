@@ -858,6 +858,32 @@
       ]
     },
     {
+      "id": "api.v1.qualification.collect",
+      "method": "POST",
+      "path": "/api/v1/qualification/collect",
+      "availability": "available",
+      "ownerPhase": "6",
+      "requestSchema": "vegastack-labs.dev/native-collect-request",
+      "dataSchema": "vegastack-labs.dev/native-collect-data",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.qualification.inspect",
+      "method": "POST",
+      "path": "/api/v1/qualification/inspect",
+      "availability": "available",
+      "ownerPhase": "6",
+      "requestSchema": "vegastack-labs.dev/qualification-inspect-request",
+      "dataSchema": "vegastack-labs.dev/qualification-inspect-data",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
       "id": "api.v1.recovery-points.list",
       "method": "GET",
       "path": "/api/v1/recovery-points",

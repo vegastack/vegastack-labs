@@ -464,6 +464,8 @@ func (app *App) Run(ctx context.Context, args []string) int {
 		return app.handlePlanResponse(mode, response)
 	case generated.CommandNameAuthorizationGrantsDraft:
 		return app.runGrantBatchDraft(ctx, mode, parsed)
+	case generated.CommandNameQualificationFixturePeer, generated.CommandNameQualificationInspect, generated.CommandNameQualificationNative, generated.CommandNameQualificationStep:
+		return app.runQualification(ctx, mode, parsed)
 	case generated.CommandNameNodeRolePrepare, generated.CommandNameServerPrepare:
 		return app.runRolePrepare(ctx, mode, parsed)
 	case generated.CommandNameNodeReplacementPrepare, generated.CommandNameNodeReplacementInspect, generated.CommandNameNodeTargetPrepare, generated.CommandNameNodeActionPrepare, generated.CommandNameNodeAccessPrepare, generated.CommandNameNodeObservationInspect:
@@ -577,7 +579,8 @@ func (app *App) failAPISSH(err error) int {
 func emptyRun(value generated.RunPresentation) bool { return value.Run.RunID == "" }
 
 var serverErrorTargets = map[string]struct{}{
-	"host-replacement": {}, "replacement-id": {},
+	"qualification-native": {},
+	"host-replacement":     {}, "replacement-id": {},
 	"application-health": {}, "application-shutdown": {}, "application-start": {},
 	"context": {}, "control-operations": {}, "control-service": {}, "control-service-drain": {}, "control-service-lock": {}, "control-service-request": {},
 	"control-service-response": {}, "control-socket": {}, "control-socket-parent": {},

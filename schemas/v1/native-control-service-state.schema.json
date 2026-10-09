@@ -1,0 +1,85 @@
+{
+  "$id": "vegastack-labs.dev/native-control-service-state",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "configDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "databaseInstanceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "executableDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "healthy": {
+      "type": "boolean"
+    },
+    "pid": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/native-control-service-state"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "serviceActive": {
+      "type": "boolean"
+    },
+    "serviceUid": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "socketIdentityDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "startIdentity": {
+      "maxLength": 256,
+      "minLength": 1,
+      "type": "string"
+    },
+    "unitDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "writerLockDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "databaseInstanceId",
+    "recoveryEpoch",
+    "serviceUid",
+    "pid",
+    "startIdentity",
+    "writerLockDigest",
+    "unitDigest",
+    "configDigest",
+    "executableDigest",
+    "socketIdentityDigest",
+    "serviceActive",
+    "healthy"
+  ],
+  "title": "VegaStack Labs native control service state",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

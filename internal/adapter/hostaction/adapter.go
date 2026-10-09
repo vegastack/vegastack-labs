@@ -37,14 +37,15 @@ type Authority interface {
 	Authorize(context.Context, generated.HostActionEnvelope, generated.HostActionChallenge) (generated.HostActionAuthorization, error)
 }
 type Adapter struct {
-	targets   TargetSource
-	bundles   BundleSource
-	authority Authority
-	mu        sync.Mutex
-	completed map[string]completedAccess
-	sequences AccessSequenceSource
-	probe     AccessLocalProbe
-	recorder  ControlResultRecorder
+	targets        TargetSource
+	bundles        BundleSource
+	authority      Authority
+	mu             sync.Mutex
+	completed      map[string]completedAccess
+	nativeProtocol map[string]generated.NativeActionProtocolWitness
+	sequences      AccessSequenceSource
+	probe          AccessLocalProbe
+	recorder       ControlResultRecorder
 }
 
 var _ adapter.Adapter = (*Adapter)(nil)

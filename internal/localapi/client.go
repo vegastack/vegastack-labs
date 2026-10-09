@@ -67,6 +67,9 @@ type TypedResponse[T any] struct {
 type Client interface {
 	DraftAuthorizationGrants(context.Context, serverconfig.Profile, generated.AuthorizationGrantBatchRequest) (TypedResponse[generated.DeclarationRevision], error)
 	PrepareHostTarget(context.Context, serverconfig.Profile, generated.HostDiscoveryTargetDraftRequest) (TypedResponse[generated.HostDiscoveryTargetDraftSubmission], error)
+	ApplyBound(context.Context, serverconfig.Profile, generated.PlanReferenceRequest) (TypedResponse[generated.RunPresentation], error)
+	InspectQualification(context.Context, serverconfig.Profile, generated.QualificationInspectRequest) (TypedResponse[generated.QualificationInspectData], error)
+	CollectNativeQualification(context.Context, serverconfig.Profile, generated.NativeCollectRequest) (TypedResponse[generated.NativeCollectData], error)
 	SubmitHostAction(context.Context, serverconfig.Profile, generated.HostActionRequest) (TypedResponse[generated.HostActionSubmission], error)
 	SubmitHostAccess(context.Context, serverconfig.Profile, generated.HostAccessDraftRequest) (TypedResponse[generated.HostActionSubmission], error)
 	PrepareHostReplacement(context.Context, serverconfig.Profile, generated.HostReplacementRequest) (TypedResponse[generated.HostReplacementSubmission], error)

@@ -1,0 +1,254 @@
+{
+  "$defs": {
+    "scenario-result": {
+      "additionalProperties": false,
+      "properties": {
+        "afterStateDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "artifactDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "beforeStateDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "cleanupResult": {
+          "enum": [
+            "passed",
+            "failed",
+            "not-required",
+            "uncertain"
+          ],
+          "type": "string"
+        },
+        "executableDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "finishedAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "nativeObservationDigests": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "negativeObservationDigests": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "positiveObservationDigests": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "producerReceiptDigests": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "producerRunIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "profileLockDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "qualificationClass": {
+          "enum": [
+            "native",
+            "fixture"
+          ],
+          "type": "string"
+        },
+        "recoveryResult": {
+          "enum": [
+            "passed",
+            "failed",
+            "not-required",
+            "uncertain"
+          ],
+          "type": "string"
+        },
+        "scenarioId": {
+          "enum": [
+            "baseline-access",
+            "baseline-controls",
+            "access-idempotence",
+            "access-rollback-timeout",
+            "access-rollback-reboot",
+            "action-replay",
+            "action-concurrency",
+            "fail2ban-window",
+            "container-network",
+            "volume-effective-mapping",
+            "volume-recovery-positive",
+            "volume-wrong-key",
+            "volume-wrong-header",
+            "volume-wrong-slot",
+            "volume-wrong-mapping",
+            "volume-revoked-binding",
+            "volume-unchanged-after-verification",
+            "volume-inconsistent-redundant-header",
+            "volume-status-no-original-repair",
+            "volume-sealed-copy-write-refused",
+            "native-credential-lifecycle",
+            "control-setup",
+            "control-handoff",
+            "role-application",
+            "role-ci",
+            "role-reserve",
+            "replacement-recovery"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/scenario-result"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "startedAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "passed",
+            "failed",
+            "not-run",
+            "uncertain"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "scenarioId",
+        "status",
+        "profileLockDigest",
+        "executableDigest",
+        "startedAt",
+        "finishedAt",
+        "positiveObservationDigests",
+        "negativeObservationDigests",
+        "recoveryResult",
+        "cleanupResult",
+        "qualificationClass",
+        "producerRunIds",
+        "producerReceiptDigests",
+        "nativeObservationDigests"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/native-report",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "changed": {
+      "type": "boolean"
+    },
+    "executableDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "finishedAt": {
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": "string"
+    },
+    "pendingRequirements": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 128,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "profileLockDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "runId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "scenarios": {
+      "items": {
+        "$ref": "#/$defs/scenario-result"
+      },
+      "maxItems": 128,
+      "type": "array"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/native-report"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "scopeDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "sourceCommit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "type": "string"
+    },
+    "startedAt": {
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "changed",
+    "runId",
+    "scopeDigest",
+    "sourceCommit",
+    "executableDigest",
+    "profileLockDigest",
+    "scenarios",
+    "pendingRequirements",
+    "startedAt",
+    "finishedAt"
+  ],
+  "title": "VegaStack Labs native report",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

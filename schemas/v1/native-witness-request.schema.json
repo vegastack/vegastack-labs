@@ -1,0 +1,1417 @@
+{
+  "$defs": {
+    "access-package": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/access-package"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "name",
+        "version"
+      ],
+      "type": "object"
+    },
+    "access-probe-source": {
+      "additionalProperties": false,
+      "properties": {
+        "address": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "contextDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "contextId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "family": {
+          "enum": [
+            "ipv4",
+            "ipv6"
+          ],
+          "type": "string"
+        },
+        "hostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "identityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "interface": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "interfaceIndex": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "kind": {
+          "enum": [
+            "host-network",
+            "network-namespace",
+            "container"
+          ],
+          "type": "string"
+        },
+        "routeDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/access-probe-source"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "hostId",
+        "identityDigest",
+        "kind",
+        "contextId",
+        "contextDigest",
+        "interface",
+        "interfaceIndex",
+        "address",
+        "family",
+        "routeDigest"
+      ],
+      "type": "object"
+    },
+    "access-probe-tuple": {
+      "additionalProperties": false,
+      "properties": {
+        "address": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "hostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "identityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "ownershipDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "port": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "protocol": {
+          "enum": [
+            "tcp",
+            "udp"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/access-probe-tuple"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "hostId",
+        "identityDigest",
+        "address",
+        "port",
+        "protocol"
+      ],
+      "type": "object"
+    },
+    "access-verification-evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "applyReceiptDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "expiresAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "probeResultsDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "rollbackRecordDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/access-verification-evidence"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "sequenceDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "applyReceiptDigest",
+        "rollbackRecordDigest",
+        "probeResultsDigest",
+        "sequenceDigest",
+        "expiresAt"
+      ],
+      "type": "object"
+    },
+    "baseline-aide-policy": {
+      "additionalProperties": false,
+      "properties": {
+        "approvedChangeDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "previousDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "referenceDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/baseline-aide-policy"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "scopeDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "scopePaths": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "scopePaths",
+        "scopeDigest"
+      ],
+      "type": "object"
+    },
+    "baseline-apparmor-profile": {
+      "additionalProperties": false,
+      "properties": {
+        "allowedProbeSelector": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "deniedProbeSelector": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "packageName": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "profileDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "profileId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/baseline-apparmor-profile"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "profileId",
+        "packageName",
+        "profileDigest",
+        "allowedProbeSelector",
+        "deniedProbeSelector"
+      ],
+      "type": "object"
+    },
+    "baseline-kernel-setting": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "enum": [
+            "kernel.dmesg_restrict",
+            "kernel.kptr_restrict",
+            "kernel.yama.ptrace_scope",
+            "fs.protected_hardlinks",
+            "fs.protected_symlinks"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/baseline-kernel-setting"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "value": {
+          "enum": [
+            "1",
+            "2"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "name",
+        "value"
+      ],
+      "type": "object"
+    },
+    "baseline-resource-limit": {
+      "additionalProperties": false,
+      "properties": {
+        "cpuQuotaPercent": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "memoryMaxBytes": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "minimumFreeBytes": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "minimumFreePercent": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "mountPath": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/baseline-resource-limit"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "tasksMax": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "unit": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "unit",
+        "mountPath",
+        "memoryMaxBytes",
+        "tasksMax",
+        "cpuQuotaPercent",
+        "minimumFreeBytes",
+        "minimumFreePercent"
+      ],
+      "type": "object"
+    },
+    "debian-baseline-input": {
+      "additionalProperties": false,
+      "properties": {
+        "actionVersion": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
+          "type": "string"
+        },
+        "aide": {
+          "$ref": "#/$defs/baseline-aide-policy"
+        },
+        "appArmorProfiles": {
+          "items": {
+            "$ref": "#/$defs/baseline-apparmor-profile"
+          },
+          "maxItems": 16,
+          "type": "array"
+        },
+        "auditPaths": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "automationUid": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "controlIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 8,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "hostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "hostIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "kernelSettings": {
+          "items": {
+            "$ref": "#/$defs/baseline-kernel-setting"
+          },
+          "maxItems": 16,
+          "type": "array"
+        },
+        "profileId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "profileLock": {
+          "$ref": "#/$defs/debian-profile-lock"
+        },
+        "profileLockDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "recoverySourcePrefixes": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "renderedPolicyDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "resources": {
+          "items": {
+            "$ref": "#/$defs/baseline-resource-limit"
+          },
+          "maxItems": 16,
+          "type": "array"
+        },
+        "roleId": {
+          "enum": [
+            "control",
+            "application",
+            "ci",
+            "host",
+            "recovery-spare",
+            "reserve"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/debian-baseline-input"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "timeOwner": {
+          "enum": [
+            "systemd-timesyncd",
+            "chrony"
+          ],
+          "type": "string"
+        },
+        "updateOwner": {
+          "enum": [
+            "unattended-upgrades",
+            "apt-periodic",
+            "operator"
+          ],
+          "type": "string"
+        },
+        "volumes": {
+          "items": {
+            "$ref": "#/$defs/host-volume-binding"
+          },
+          "maxItems": 16,
+          "type": "array"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "hostId",
+        "hostIdentityDigest",
+        "profileId",
+        "profileLockDigest",
+        "profileLock",
+        "roleId",
+        "actionVersion",
+        "automationUid",
+        "renderedPolicyDigest",
+        "controlIds",
+        "recoverySourcePrefixes",
+        "updateOwner",
+        "timeOwner",
+        "auditPaths",
+        "appArmorProfiles",
+        "aide",
+        "resources",
+        "kernelSettings",
+        "volumes"
+      ],
+      "type": "object"
+    },
+    "debian-profile-lock": {
+      "additionalProperties": false,
+      "properties": {
+        "ansibleExecutableDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "ansibleVersion": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "architecture": {
+          "enum": [
+            "amd64"
+          ],
+          "type": "string"
+        },
+        "backend": {
+          "enum": [
+            "iptables-nft"
+          ],
+          "type": "string"
+        },
+        "collectionDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "executableVersion": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
+          "type": "string"
+        },
+        "imageDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "osFamily": {
+          "enum": [
+            "debian"
+          ],
+          "type": "string"
+        },
+        "osVersion": {
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
+        },
+        "packageSourceDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "packages": {
+          "items": {
+            "$ref": "#/$defs/access-package"
+          },
+          "maxItems": 64,
+          "type": "array"
+        },
+        "roleDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/debian-profile-lock"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "imageDigest",
+        "osFamily",
+        "osVersion",
+        "architecture",
+        "packageSourceDigest",
+        "packages",
+        "executableVersion",
+        "ansibleVersion",
+        "ansibleExecutableDigest",
+        "collectionDigest",
+        "roleDigest",
+        "backend"
+      ],
+      "type": "object"
+    },
+    "host-action-bundle": {
+      "additionalProperties": false,
+      "properties": {
+        "actionId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "actionInput": {
+          "maxLength": 32768,
+          "minLength": 1,
+          "type": "string"
+        },
+        "actionInputDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "actionVersion": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
+          "type": "string"
+        },
+        "automationPrincipalId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "bundleId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "callerUid": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "consoleConfirmationDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "credentialMaterialVersion": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "credentialReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "declarationId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "declarationRevision": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "expiresAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "hostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "hostIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "issuedAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "leaseId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "planDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "planId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "runId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-action-bundle"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "stateRevision": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "stepId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "verificationEvidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/access-verification-evidence"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "verificationEvidenceDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "actionId",
+        "actionVersion",
+        "actionInputDigest",
+        "actionInput",
+        "bundleId",
+        "planId",
+        "runId",
+        "stepId",
+        "leaseId",
+        "hostId",
+        "declarationId",
+        "automationPrincipalId",
+        "credentialReferenceId",
+        "credentialMaterialVersion",
+        "planDigest",
+        "hostIdentityDigest",
+        "consoleConfirmationDigest",
+        "declarationRevision",
+        "stateRevision",
+        "recoveryEpoch",
+        "callerUid",
+        "issuedAt",
+        "expiresAt"
+      ],
+      "type": "object"
+    },
+    "host-discovery-target": {
+      "additionalProperties": false,
+      "properties": {
+        "address": {
+          "maxLength": 45,
+          "minLength": 1,
+          "type": "string"
+        },
+        "assetId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "credentialMode": {
+          "enum": [
+            null,
+            "preloaded-discovery"
+          ],
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "credentialPublicKeyDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "credentialReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "expectedArchitecture": {
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
+        },
+        "expectedOs": {
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
+        },
+        "expectedVersion": {
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
+        },
+        "hostKey": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "type": "string"
+        },
+        "inventoryDraftId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "inventoryDraftRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "materialVersion": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "port": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "profileId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "revision": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-discovery-target"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "targetId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "user": {
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "targetId",
+        "revision",
+        "address",
+        "port",
+        "user",
+        "hostKey",
+        "profileId",
+        "credentialReferenceId",
+        "materialVersion",
+        "expectedOs",
+        "expectedVersion",
+        "expectedArchitecture",
+        "inventoryDraftId",
+        "inventoryDraftRevision",
+        "assetId",
+        "recoveryEpoch"
+      ],
+      "type": "object"
+    },
+    "host-volume-binding": {
+      "additionalProperties": false,
+      "properties": {
+        "controlHostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "controlHostIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "declarationId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "declarationRevision": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "deviceMajor": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "deviceMinor": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "headerBytes": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "headerDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "hostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "hostIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "keySlot": {
+          "maximum": 31,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "luksUuid": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "mapperName": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "mappingDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "mountBindingDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "mountPath": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "recoveryCustodianId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryCustodianIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "recoveryReferenceDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "recoveryTargetDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-volume-binding"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "volumeId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "hostId",
+        "hostIdentityDigest",
+        "volumeId",
+        "controlHostId",
+        "controlHostIdentityDigest",
+        "headerBytes",
+        "luksUuid",
+        "headerDigest",
+        "mappingDigest",
+        "mountBindingDigest",
+        "mapperName",
+        "mountPath",
+        "deviceMajor",
+        "deviceMinor",
+        "keySlot",
+        "recoveryCustodianId",
+        "recoveryCustodianIdentityDigest",
+        "recoveryTargetDigest",
+        "recoveryReferenceDigest",
+        "declarationId",
+        "declarationRevision",
+        "recoveryEpoch"
+      ],
+      "type": "object"
+    },
+    "native-fail2ban-input": {
+      "additionalProperties": false,
+      "properties": {
+        "destination": {
+          "$ref": "#/$defs/access-probe-tuple"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/native-fail2ban-input"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/access-probe-source"
+        },
+        "target": {
+          "$ref": "#/$defs/host-discovery-target"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "target",
+        "source",
+        "destination"
+      ],
+      "type": "object"
+    },
+    "native-step-request": {
+      "additionalProperties": false,
+      "properties": {
+        "controllerInstanceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "deadline": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "guestId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "leaseId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "nonce": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "operation": {
+          "enum": [
+            "observe",
+            "execute",
+            "reboot-continuation",
+            "collect-native",
+            "witness",
+            "cleanup-native"
+          ],
+          "type": "string"
+        },
+        "ordinal": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "planDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "planId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "runId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "scenarioId": {
+          "enum": [
+            "baseline-access",
+            "baseline-controls",
+            "access-idempotence",
+            "access-rollback-timeout",
+            "access-rollback-reboot",
+            "action-replay",
+            "action-concurrency",
+            "fail2ban-window",
+            "container-network",
+            "volume-effective-mapping",
+            "volume-recovery-positive",
+            "volume-wrong-key",
+            "volume-wrong-header",
+            "volume-wrong-slot",
+            "volume-wrong-mapping",
+            "volume-revoked-binding",
+            "volume-unchanged-after-verification",
+            "volume-inconsistent-redundant-header",
+            "volume-status-no-original-repair",
+            "volume-sealed-copy-write-refused",
+            "native-credential-lifecycle",
+            "control-setup",
+            "control-handoff",
+            "role-application",
+            "role-ci",
+            "role-reserve",
+            "replacement-recovery"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/native-step-request"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "scopeDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "stepId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "scopeDigest",
+        "guestId",
+        "scenarioId",
+        "ordinal",
+        "controllerInstanceId",
+        "recoveryEpoch",
+        "nonce",
+        "deadline",
+        "operation"
+      ],
+      "type": "object"
+    },
+    "volume-recovery-input": {
+      "additionalProperties": false,
+      "properties": {
+        "actionVersion": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
+          "type": "string"
+        },
+        "automationUid": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "binding": {
+          "$ref": "#/$defs/host-volume-binding"
+        },
+        "hostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "hostIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "priorVolumeReceiptDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "profileId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "profileLock": {
+          "$ref": "#/$defs/debian-profile-lock"
+        },
+        "profileLockDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "recoveryMaterialVersion": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "roleId": {
+          "enum": [
+            "control",
+            "application",
+            "ci",
+            "host",
+            "recovery-spare",
+            "reserve"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/volume-recovery-input"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "hostId",
+        "hostIdentityDigest",
+        "profileId",
+        "profileLockDigest",
+        "profileLock",
+        "roleId",
+        "actionVersion",
+        "automationUid",
+        "binding",
+        "priorVolumeReceiptDigest",
+        "recoveryReferenceId",
+        "recoveryMaterialVersion"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/native-witness-request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "actionBundle": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/host-action-bundle"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "baselineInput": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/debian-baseline-input"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "binding": {
+      "$ref": "#/$defs/native-step-request"
+    },
+    "fail2banInput": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/native-fail2ban-input"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "kind": {
+      "enum": [
+        "rollback",
+        "fail2ban-state",
+        "ssh-failures",
+        "ssh-admin",
+        "volume-seal",
+        "control-handoff",
+        "control-setup",
+        "action-receipt",
+        "volume-case"
+      ],
+      "type": "string"
+    },
+    "priorVolumeInput": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/volume-recovery-input"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "rollbackRecordDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/native-witness-request"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "volumeInput": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/volume-recovery-input"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "binding",
+    "kind"
+  ],
+  "title": "VegaStack Labs native witness request",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

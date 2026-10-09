@@ -3366,6 +3366,266 @@
     },
     {
       "path": [
+        "qualification",
+        "fixture-peer"
+      ],
+      "summary": "Serve the finite disposable qualification approval peer from its fixed protected manifest until its original deadline.",
+      "availability": "available",
+      "ownerPhase": "6",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "examples": [
+        {
+          "summary": "Serve the finite disposable qualification approval peer from its fixed protected manifest until its original deadline.",
+          "arguments": [
+            "qualification",
+            "fixture-peer",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "qualification",
+        "inspect"
+      ],
+      "summary": "Run one finite scoped native qualification workflow.",
+      "availability": "available",
+      "ownerPhase": "6",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read the protected local server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read a bounded exact qualification request.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/qualification-inspect-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/qualification-inspect-data",
+      "examples": [
+        {
+          "summary": "Run one finite scoped native qualification workflow.",
+          "arguments": [
+            "qualification",
+            "inspect",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/qualification.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "qualification",
+        "native"
+      ],
+      "summary": "Run one finite scoped native qualification workflow.",
+      "availability": "available",
+      "ownerPhase": "6",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Use the fixed guest client profile /etc/vsk-labs/native/client.json; the outer coordinator does not open a database.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read a bounded exact qualification request.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/qualification-scope",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/native-report",
+      "examples": [
+        {
+          "summary": "Run one finite scoped native qualification workflow.",
+          "arguments": [
+            "qualification",
+            "native",
+            "--config",
+            "/etc/vsk-labs/native/client.json",
+            "--file",
+            "fixture/qualification.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "qualification",
+        "step"
+      ],
+      "summary": "Run one finite scoped native qualification workflow.",
+      "availability": "available",
+      "ownerPhase": "6",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read the protected local server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read a bounded exact qualification request.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/native-step-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/native-step-result",
+      "examples": [
+        {
+          "summary": "Run one finite scoped native qualification workflow.",
+          "arguments": [
+            "qualification",
+            "step",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/qualification.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
         "recovery",
         "witness",
         "collect"
@@ -5676,6 +5936,11 @@
       "artifactPath": "schemas/v1/host-action-credential-confirmation.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/host-action-denial",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/host-action-denial.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/host-action-envelope",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/host-action-envelope.schema.json"
@@ -6010,6 +6275,106 @@
       "artifactPath": "schemas/v1/managed-host.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/native-action-negative-observation",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-action-negative-observation.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-action-protocol-witness",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-action-protocol-witness.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-action-receipt-witness",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-action-receipt-witness.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-collect-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-collect-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-collect-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-collect-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-control-handoff-witness",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-control-handoff-witness.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-control-service-state",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-control-service-state.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-control-setup-attempt",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-control-setup-attempt.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-control-setup-witness",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-control-setup-witness.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-fail2ban-input",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-fail2ban-input.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-fail2ban-state",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-fail2ban-state.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-fail2ban-witness",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-fail2ban-witness.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-guest-launch",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-guest-launch.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-observation",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-observation.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-observation-binding",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-observation-binding.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-producer-reference",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-producer-reference.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-qualification",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-qualification.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-qualification-prerequisite",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-qualification-prerequisite.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-qualification-producer",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-qualification-producer.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-report",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-report.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/native-restart-presentation",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/native-restart-presentation.schema.json"
@@ -6018,6 +6383,56 @@
       "id": "vegastack-labs.dev/native-restart-selector",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/native-restart-selector.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-rollback-witness",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-rollback-witness.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-slack-fixture-approval",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-slack-fixture-approval.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-slack-fixture-approval-list",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-slack-fixture-approval-list.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-slack-fixture-scope",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-slack-fixture-scope.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-ssh-observation",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-ssh-observation.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-step-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-step-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-step-result",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-step-result.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-volume-case-witness",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-volume-case-witness.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-volume-seal-witness",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-volume-seal-witness.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-witness-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-witness-request.schema.json"
     },
     {
       "id": "vegastack-labs.dev/offsite-run-spec",
@@ -6060,6 +6475,31 @@
       "id": "vegastack-labs.dev/plan-reference-request",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/plan-reference-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/qualification-guest",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/qualification-guest.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/qualification-inspect-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/qualification-inspect-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/qualification-inspect-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/qualification-inspect-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/qualification-resources",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/qualification-resources.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/qualification-scope",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/qualification-scope.schema.json"
     },
     {
       "id": "vegastack-labs.dev/recovery-point",
@@ -6211,6 +6651,11 @@
       "artifactPath": "schemas/v1/sanitized-export-data.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/scenario-result",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/scenario-result.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/scheduled-job",
       "version": "1.1.0",
       "artifactPath": "schemas/v1/scheduled-job.schema.json"
@@ -6270,6 +6715,11 @@
     {
       "id": "vegastack-labs.dev/state-export-source",
       "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/suitability-facts",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/suitability-facts.schema.json"
     },
     {
       "id": "vegastack-labs.dev/volume-observation",

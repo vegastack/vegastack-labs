@@ -82,6 +82,9 @@ func ProfileScopeDigest(scope GateAppliedProfile) (string, error) {
 }
 
 func (repository *GateRepository) PutGateDraft(ctx context.Context, request GateDraftRequest) (GateDraft, error) {
+	return repository.putGateDraft(ctx, request, nil)
+}
+func (repository *GateRepository) putGateDraft(ctx context.Context, request GateDraftRequest, native *NativeGateDraftRequest) (GateDraft, error) {
 	if repository == nil || repository.store == nil || gateHuman(request.Attribution) == "" {
 		return GateDraft{}, newStoreError(generated.ErrorCodeInputInvalid, "gate-draft", false, nil)
 	}
@@ -130,6 +133,11 @@ func (repository *GateRepository) PutGateDraft(ctx context.Context, request Gate
 	}
 	createdAt := repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339)
 	_, err = repository.store.writeIntent(ctx, intentRequest{Expected: &request.Expected, Idempotency: key, Event: event}, func(ctx context.Context, tx *sql.Tx) error {
+		if native != nil {
+			if err := repository.validateNativeDraftTransaction(ctx, tx, *native); err != nil {
+				return err
+			}
+		}
 		_, err := tx.ExecContext(ctx, `INSERT INTO gate_evidence_drafts(draft_id,evidence_id,gate_id,subject_id,definition_version,evaluator_version,source_kind,proof_class,supersedes_evidence_id,revokes_evidence_id,artifact_digest,bundle_digest,bundle_bytes,observed_at,state_revision,recovery_epoch,human_id,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, draftID, request.EvidenceID, request.GateID, request.SubjectID, request.DefinitionVersion, request.EvaluatorVersion, request.SourceKind, request.ProofClass, request.SupersedesEvidenceID, request.RevokesEvidenceID, request.ArtifactDigest, bundleDigest, bundleBytes, request.Bundle.ObservedAt, request.Expected.StateRevision+1, request.Expected.RecoveryEpoch, gateHuman(request.Attribution), createdAt)
 		return err
 	})

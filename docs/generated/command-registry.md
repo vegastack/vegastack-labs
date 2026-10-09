@@ -579,6 +579,56 @@ Owner phase: `4` · risk: `read-only` · availability: `available`
 
 - Create an immutable plan from one exact inert declaration revision.: `vsk-labs plan --config fixture/server-profile.json --declaration-id change-1 --revision 2 --output json`
 
+### `vsk-labs qualification fixture-peer`
+
+Serve the finite disposable qualification approval peer from its fixed protected manifest until its original deadline.
+
+Owner phase: `6` · risk: `mutation` · availability: `available`
+
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Serve the finite disposable qualification approval peer from its fixed protected manifest until its original deadline.: `vsk-labs qualification fixture-peer --output json`
+
+### `vsk-labs qualification inspect`
+
+Run one finite scoped native qualification workflow.
+
+Owner phase: `6` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read the protected local server profile.
+- `--file <path>` — Read a bounded exact qualification request.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Run one finite scoped native qualification workflow.: `vsk-labs qualification inspect --config fixture/server-profile.json --file fixture/qualification.json --output json`
+
+### `vsk-labs qualification native`
+
+Run one finite scoped native qualification workflow.
+
+Owner phase: `6` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Use the fixed guest client profile /etc/vsk-labs/native/client.json; the outer coordinator does not open a database.
+- `--file <path>` — Read a bounded exact qualification request.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Run one finite scoped native qualification workflow.: `vsk-labs qualification native --config /etc/vsk-labs/native/client.json --file fixture/qualification.json --output json`
+
+### `vsk-labs qualification step`
+
+Run one finite scoped native qualification workflow.
+
+Owner phase: `6` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read the protected local server profile.
+- `--file <path>` — Read a bounded exact qualification request.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Run one finite scoped native qualification workflow.: `vsk-labs qualification step --config fixture/server-profile.json --file fixture/qualification.json --output json`
+
 ### `vsk-labs recovery witness collect`
 
 Collect one bounded independent recovery witness on a separately administered custodian.
