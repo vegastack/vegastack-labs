@@ -24,7 +24,11 @@ func accessSequenceFixture(t *testing.T) ([]generated.PlanOperation, []generated
 		if i == 0 || i == 4 {
 			expected = "allowed"
 		}
-		probe.Cases = append(probe.Cases, generated.AccessProbeCase{Schema: generated.SchemaIDAccessProbeCase, SchemaVersion: "1.0.0", ProbeID: fmt.Sprintf("probe-%d", i), Kind: kind, Expected: expected, Destination: tuple, Witness: tuple})
+		destination := tuple
+		if i == 5 {
+			destination.Port = 1
+		}
+		probe.Cases = append(probe.Cases, generated.AccessProbeCase{Schema: generated.SchemaIDAccessProbeCase, SchemaVersion: "1.0.0", ProbeID: fmt.Sprintf("probe-%d", i), Kind: kind, Expected: expected, Destination: destination, Witness: tuple})
 	}
 	local := apply
 	local.ActionID = "debian.access.probe.local"

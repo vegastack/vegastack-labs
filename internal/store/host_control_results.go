@@ -200,7 +200,7 @@ func (r *GateRepository) ReadHostControlResults(ctx context.Context, hostID stri
 		return out, actionError(generated.ErrorCodeInputInvalid)
 	}
 	e := r.store.Read(ctx, func(tx ReadTx) error {
-		rows, e := tx.query(ctx, `SELECT c.control_bytes FROM host_control_results c JOIN system_meta m ON m.id=1 AND m.recovery_epoch=c.recovery_epoch JOIN managed_hosts h ON h.host_id=c.host_id AND h.identity_digest=c.host_identity_digest WHERE c.host_id=? ORDER BY c.control_id,c.observed_at DESC,c.rowid DESC`, hostID)
+		rows, e := tx.query(ctx, `SELECT c.control_bytes FROM host_control_results c JOIN execution_receipts e ON e.receipt_id=c.receipt_id AND e.result_digest=c.result_digest AND e.status='succeeded' JOIN plan_run_steps s ON s.run_id=c.run_id AND s.step_id=c.step_id AND s.status='succeeded' AND s.effect_state='verified' JOIN system_meta m ON m.id=1 AND m.recovery_epoch=c.recovery_epoch JOIN managed_hosts h ON h.host_id=c.host_id AND h.identity_digest=c.host_identity_digest WHERE c.host_id=? ORDER BY c.control_id,c.observed_at DESC,c.rowid DESC`, hostID)
 		if e != nil {
 			return e
 		}

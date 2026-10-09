@@ -27,6 +27,7 @@ func Sequence(ops []generated.PlanOperation, requests []generated.HostActionRequ
 	executions := map[string]bool{}
 	probeIDs := map[string]bool{}
 	coverage := map[string]bool{}
+	policyProbes := []generated.AccessProbeInput{}
 	collected := false
 	budget := int64(120) // apply and confirm each fit one existing 60s lease.
 	for i, op := range ops {
@@ -72,6 +73,7 @@ func Sequence(ops []generated.PlanOperation, requests []generated.HostActionRequ
 					return out, errInput
 				}
 			}
+			policyProbes = append(policyProbes, probe)
 			p.SourceContextDigest = probe.Source.ContextDigest
 			duration, budgetErr := RequiredProbeDuration(probe)
 			if budgetErr != nil || duration >= 60*time.Second {
@@ -98,6 +100,9 @@ func Sequence(ops []generated.PlanOperation, requests []generated.HostActionRequ
 			return out, errInput
 		}
 		out.ProbeSteps = append(out.ProbeSteps, p)
+	}
+	if validateProbePolicy(input, policyProbes) != nil {
+		return out, fmt.Errorf("%w: policy probe coverage", errInput)
 	}
 	if !collected {
 		return out, errInput

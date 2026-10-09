@@ -50,7 +50,7 @@ func accessAcceptanceInput(t *testing.T, f hostActionEnrollmentFixture) generate
 	d := f.DestinationIdentity
 	a := generated.AccessAccount{Schema: generated.SchemaIDAccessAccount, SchemaVersion: "1.0.0", Name: "automation", UID: 1001, GID: 1001, Home: "/home/automation", Role: "automation", PublicKeys: []string{k}, PublicKeyDigests: []string{hostaction.BytesDigest([]byte(k))}}
 	lock := generated.DebianProfileLock{Schema: generated.SchemaIDDebianProfileLock, SchemaVersion: "1.0.0", ImageDigest: d, OSFamily: "debian", OSVersion: "13.6", Architecture: "amd64", PackageSourceDigest: d, Packages: []generated.AccessPackage{{Schema: generated.SchemaIDAccessPackage, SchemaVersion: "1.0.0", Name: "openssh-server", Version: "synthetic-test"}}, ExecutableVersion: "1.0.0", AnsibleVersion: "synthetic-test", AnsibleExecutableDigest: d, CollectionDigest: d, RoleDigest: d, Backend: "iptables-nft"}
-	in := generated.DebianAccessInput{Schema: generated.SchemaIDDebianAccessInput, SchemaVersion: "1.0.0", HostID: "synthetic-host", HostIdentityDigest: d, ProfileID: "test-profile", ProfileLock: lock, ProfileLockDigest: hostaction.Digest(lock), ActionVersion: "1.0.0", AutomationUID: 1001, Accounts: []generated.AccessAccount{a}, SSHUsers: []string{"automation"}, SSHSourcePrefixes: []string{"192.0.2.0/24"}, RecoverySourcePrefixes: []string{"192.0.2.1/32"}, PrivilegedServiceKeys: []generated.AccessServiceKey{}, Interfaces: []generated.AccessInterface{{Schema: generated.SchemaIDAccessInterface, SchemaVersion: "1.0.0", Name: "eth0", Index: 2, Addresses: []string{"192.0.2.2"}}}, HostFlows: []generated.AccessFlow{}, ContainerFlows: []generated.AccessFlow{}}
+	in := generated.DebianAccessInput{Schema: generated.SchemaIDDebianAccessInput, SchemaVersion: "1.0.0", HostID: "synthetic-host", HostIdentityDigest: d, ProfileID: "test-profile", ProfileLock: lock, ProfileLockDigest: hostaction.Digest(lock), ActionVersion: "1.0.0", AutomationUID: 1001, Accounts: []generated.AccessAccount{a}, SSHUsers: []string{"automation"}, SSHSourcePrefixes: []string{"127.0.0.1/32"}, RecoverySourcePrefixes: []string{"127.0.0.1/32"}, PrivilegedServiceKeys: []generated.AccessServiceKey{}, Interfaces: []generated.AccessInterface{{Schema: generated.SchemaIDAccessInterface, SchemaVersion: "1.0.0", Name: "eth0", Index: 2, Addresses: []string{"192.0.2.2"}}}, HostFlows: []generated.AccessFlow{}, ContainerFlows: []generated.AccessFlow{}}
 	in.RollbackSpecification = generated.AccessRollbackSpecification{Schema: generated.SchemaIDAccessRollbackSpecification, SchemaVersion: "1.0.0", HostID: in.HostID, HostIdentityDigest: d, ProfileLockDigest: in.ProfileLockDigest, DeadlineSeconds: 600, RecoverySourcePrefixes: in.RecoverySourcePrefixes, OwnedState: []generated.AccessOwnedState{{Schema: generated.SchemaIDAccessOwnedState, SchemaVersion: "1.0.0", ResourceID: "ssh-config", BeforeDigest: d, AfterDigest: d}}}
 	in.RollbackDigest = hostaction.Digest(in.RollbackSpecification)
 	in.RenderedAccess = generated.RenderedAccess{Schema: generated.SchemaIDRenderedAccess, SchemaVersion: "1.0.0", ProfileLockDigest: in.ProfileLockDigest, RendererDigest: d, Accounts: in.Accounts, SSHUsers: in.SSHUsers, SSHSourcePrefixes: in.SSHSourcePrefixes, RecoverySourcePrefixes: in.RecoverySourcePrefixes, PrivilegedServiceKeys: in.PrivilegedServiceKeys, Interfaces: in.Interfaces, HostFlows: in.HostFlows, ContainerFlows: in.ContainerFlows, RollbackUnitsDigest: d}
@@ -62,7 +62,7 @@ func accessAcceptanceInput(t *testing.T, f hostActionEnrollmentFixture) generate
 // network qualification observations below are explicitly synthetic. This is
 // isolated software composition proof, not native Debian acceptance.
 func TestHostAccessSequenceAcceptance(t *testing.T) {
-	for _, mode := range []string{"success", "forged-result", "persistence-failure", "failed-probe"} {
+	for _, mode := range []string{"success", "forged-result", "persistence-failure", "post-record-failure", "failed-probe"} {
 		t.Run(mode, func(t *testing.T) {
 			state := &accessAcceptanceOS{mode: mode}
 			hostActionAcceptance(t, "success", hostActionAcceptanceHooks{EnrollmentOnly: true, Peer: func(t *testing.T, k ssh.Signer, s ActionSigner, _ *atomic.Int32, dir string) int {
@@ -94,14 +94,18 @@ func accessAcceptanceRequest(t *testing.T, f hostActionEnrollmentFixture) genera
 	collect.IdempotencyKey = "collect-a"
 	d := hostaction.Digest("synthetic-source")
 	source := generated.AccessProbeSource{Schema: generated.SchemaIDAccessProbeSource, SchemaVersion: "1.0.0", HostID: r.HostID, IdentityDigest: f.DestinationIdentity, Kind: "host-network", ContextID: "synthetic-context", ContextDigest: d, Interface: "lo", InterfaceIndex: 1, Address: "127.0.0.1", Family: "ipv4", RouteDigest: d}
-	tuple := generated.AccessProbeTuple{Schema: generated.SchemaIDAccessProbeTuple, SchemaVersion: "1.0.0", HostID: r.HostID, IdentityDigest: f.DestinationIdentity, Address: f.Target.Address, Port: f.Target.Port, Protocol: "tcp"}
+	tuple := generated.AccessProbeTuple{Schema: generated.SchemaIDAccessProbeTuple, SchemaVersion: "1.0.0", HostID: r.HostID, IdentityDigest: f.DestinationIdentity, Address: f.Target.Address, Port: 22, Protocol: "tcp"}
 	probe := generated.AccessProbeInput{Schema: generated.SchemaIDAccessProbeInput, SchemaVersion: "1.0.0", SubjectHostID: r.HostID, SubjectIdentityDigest: f.DestinationIdentity, SubjectHostKey: f.Target.HostKey, ProfileLockDigest: in.ProfileLockDigest, ApplyInputDigest: r.ActionInputDigest, RollbackDigest: in.RollbackDigest, AdministratorUser: "automation", Source: source, Cases: []generated.AccessProbeCase{}, TimeoutMillis: 10, Attempts: 1}
 	for i, kind := range []string{"ssh-admin", "ssh-wrong-user", "ssh-password", "ssh-root", "host-flow", "host-flow"} {
 		expected := "denied"
 		if i == 0 || i == 4 {
 			expected = "allowed"
 		}
-		probe.Cases = append(probe.Cases, generated.AccessProbeCase{Schema: generated.SchemaIDAccessProbeCase, SchemaVersion: "1.0.0", ProbeID: fmt.Sprintf("case-%d", i), Kind: kind, Expected: expected, Destination: tuple, Witness: tuple})
+		destination := tuple
+		if i == 5 {
+			destination.Port = 1
+		}
+		probe.Cases = append(probe.Cases, generated.AccessProbeCase{Schema: generated.SchemaIDAccessProbeCase, SchemaVersion: "1.0.0", ProbeID: fmt.Sprintf("case-%d", i), Kind: kind, Expected: expected, Destination: destination, Witness: tuple})
 	}
 	local := r
 	local.ActionID = "debian.access.probe.local"
@@ -110,6 +114,7 @@ func accessAcceptanceRequest(t *testing.T, f hostActionEnrollmentFixture) genera
 	local.ActionInput = string(raw)
 	local.ActionInputDigest = hostaction.BytesDigest(raw)
 	probe.Source.Kind = "network-namespace"
+	probe.Source.Address = "127.0.0.2"
 	probe.Cases = []generated.AccessProbeCase{{Schema: generated.SchemaIDAccessProbeCase, SchemaVersion: "1.0.0", ProbeID: "case-source", Kind: "ssh-source", Expected: "denied", Destination: tuple, Witness: tuple}}
 	remote := r
 	remote.ActionID = "debian.access.probe-source"
@@ -240,6 +245,15 @@ func runAccessAcceptance(t *testing.T, f hostActionEnrollmentFixture, state *acc
 	if e = f.DB.QueryRow(`SELECT count(*) FROM gate_applied_evidence`).Scan(&n); e != nil || n != 0 {
 		t.Fatal("software test promoted admission", n, e)
 	}
+	if state.mode == "post-record-failure" {
+		rows, err := store.NewGateRepository(f.Authority).ReadHostControlResults(ctx, "synthetic-host")
+		if err != nil || len(rows) != 0 {
+			t.Fatal("unverified step exposed evidence", rows, err)
+		}
+		if e = f.DB.QueryRow(`SELECT count(*) FROM host_control_results`).Scan(&n); e != nil || n != 1 {
+			t.Fatal("expected retained audit observation", n, e)
+		}
+	}
 	if state.mode == "success" {
 		if e = f.DB.QueryRow(`SELECT count(*) FROM host_control_results`).Scan(&n); e != nil || n != 10 {
 			t.Fatal("missing actual result rows", n, e)
@@ -365,7 +379,11 @@ func (r accessAcceptanceRecorder) RecordVerifiedControlResults(ctx context.Conte
 			return err
 		}
 	}
-	return r.actual.RecordVerifiedControlResults(ctx, op, b, e, result)
+	err := r.actual.RecordVerifiedControlResults(ctx, op, b, e, result)
+	if err == nil && r.state.mode == "post-record-failure" {
+		return fmt.Errorf("synthetic failure after actual receipt-backed append")
+	}
+	return err
 }
 
 func accessAcceptancePeer(t *testing.T, key ssh.Signer, signer ActionSigner, directory string, state *accessAcceptanceOS) int {
