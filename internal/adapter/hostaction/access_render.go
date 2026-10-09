@@ -21,10 +21,7 @@ import (
 const renderPlaybook = "---\n- hosts: localhost\n  connection: local\n  gather_facts: false\n  become: false\n  roles:\n    - debian_access_render\n"
 const renderConfig = "[defaults]\ninventory = localhost,\nroles_path = ./roles\nretry_files_enabled = False\nno_target_syslog = True\nlocal_tmp = ./tmp\nremote_tmp = ./tmp\ninterpreter_python = /usr/bin/python3\ncollections_scan_sys_path = False\ncollections_paths = ./collections\n"
 
-func AccessRendererDigest() string {
-	role, _ := assets.AccessRenderer.ReadFile("roles/debian_access_render/tasks/main.yml")
-	return protocol.Digest(struct{ Role, Playbook, Config string }{string(role), renderPlaybook, renderConfig})
-}
+func AccessRendererDigest() string { return DebianRendererDigest() }
 
 // RenderRole is finite local preparation. It has no inventory/host/SSH inputs,
 // no become and no configurable plugin paths; it never applies configuration.
