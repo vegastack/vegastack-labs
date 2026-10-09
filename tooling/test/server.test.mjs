@@ -245,3 +245,16 @@ test("the server verifier confines #225 Unix syscalls to exact access files", as
     assert.deepEqual((await verifyServer(rejected)).codes, ["SERVER_XSYS_SCOPE"], file);
   }
 });
+
+// The baseline owns these descriptor/syscall boundaries, not the whole package.
+test("the server verifier confines #226 Unix syscalls to exact volume files", async (t) => {
+  const source = 'package debianbaseline\nimport _ "golang.org/x/sys/unix"\n';
+  const accepted = await fixtureRepo(t, Object.fromEntries(
+    ["volume_files_unix.go", "volume_recovery_linux.go", "volume_linux.go"].map((name) => [`internal/debianbaseline/${name}`, source]),
+  ));
+  assert.deepEqual(await verifyServer(accepted), {status: "pass", codes: []});
+  for (const file of ["internal/debianbaseline/escape_linux.go", "internal/debianbaseline/volume_files_linux.go", "internal/other/volume_linux.go"]) {
+    const rejected = await fixtureRepo(t, {[file]: source});
+    assert.deepEqual((await verifyServer(rejected)).codes, ["SERVER_XSYS_SCOPE"], file);
+  }
+});

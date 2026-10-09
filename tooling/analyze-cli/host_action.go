@@ -36,7 +36,7 @@ func reviewedHostActionPackage(c checkedSourcePackage, module, relative string) 
 	slices.Sort(names)
 	seal, ok := hostActionSourceSeals[relative+"|"+strings.Join(names, ",")]
 	if !ok {
-		return reviewedDebianAccessPackage(c, module, relative)
+		return (reviewedDebianAccessPackage(c, module, relative) || reviewedDebianBaselinePackage(c, module, relative))
 	}
 	imports := append([]string(nil), c.listed.Imports...)
 	slices.Sort(imports)
@@ -45,7 +45,7 @@ func reviewedHostActionPackage(c checkedSourcePackage, module, relative string) 
 		expectedImports[i] = strings.Replace(v, "github.com/vegastack/vegastack-labs/", module+"/", 1)
 	}
 	slices.Sort(expectedImports)
-	return slices.Equal(imports, expectedImports) && digestSourceFiles(c.listed.Dir, names) == seal.digest || reviewedDebianAccessPackage(c, module, relative)
+	return slices.Equal(imports, expectedImports) && digestSourceFiles(c.listed.Dir, names) == seal.digest || (reviewedDebianAccessPackage(c, module, relative) || reviewedDebianBaselinePackage(c, module, relative))
 }
 func reviewedHostActionServerSigner(c checkedSourcePackage, serverImport string) bool {
 	if c.listed.ImportPath != serverImport {

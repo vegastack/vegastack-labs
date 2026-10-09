@@ -445,8 +445,8 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 		sealedNativeCredential := reviewedNativeCredentialPackage(parsed, nativeCredentialImport, modulePath)
 		sealedHostAction := reviewedHostActionPackage(parsed, modulePath, "internal/hostaction")
 		sealedHostActionMain := reviewedHostActionPackage(parsed, modulePath, "cmd/vsk-labs")
-		sealedDebianAccess := reviewedDebianAccessPackage(parsed, modulePath, "internal/debianaccess")
-		sealedAccessAdapter := reviewedDebianAccessPackage(parsed, modulePath, "internal/adapter/hostaction")
+		sealedDebianAccess := reviewedDebianAccessPackage(parsed, modulePath, "internal/debianaccess") || reviewedDebianBaselinePackage(parsed, modulePath, "internal/debianaccess") || reviewedDebianBaselinePackage(parsed, modulePath, "internal/debianbaseline")
+		sealedAccessAdapter := reviewedDebianAccessPackage(parsed, modulePath, "internal/adapter/hostaction") || reviewedDebianBaselinePackage(parsed, modulePath, "internal/adapter/hostaction")
 		sealedRecoveryCustodian := candidate.ImportPath == recoveryImport && reviewedRecoveryCustodianPackage(parsed)
 		isControlCapabilityPackage := isControlPackage && !(localClosure[candidate.ImportPath] && !result.LocalClientBoundary) && !sealedNativeCredential && !sealedRecoveryCustodian && !sealedHostAction && !sealedDebianAccess
 		// The custodian command imports recovery's fixed protected pin/receipt
