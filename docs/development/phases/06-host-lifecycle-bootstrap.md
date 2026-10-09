@@ -2,11 +2,11 @@
 
 ## Working first — simplicity mandate
 
-Operator instruction on 08-10-2026: build the smallest useful working cluster-management executable first. Reuse the existing `vsk-labs` executable, server-owned SQLite, API, authorization and plan/acknowledgement flow. Do not add services, daemons, signing systems, trust ceremonies, proof registries, generic frameworks or advanced recovery machinery merely to anticipate future needs. Every new component must be necessary for the immediate working feature; prefer extending an existing path.
+Operator update on 09-10-2026: finish all remaining Linux Phase 6 work without repeatedly reducing its scope. The instruction “do not simplify any thing … finish all the remaining phase 6” supersedes the earlier suspension for further simplification; “without over complicating … then plan and implement” preserves a small architecture. Restore outstanding Linux duties from reduced closed issues into their named owners and acceptance coverage. Mac/iMac remain explicitly deferred within v1.
 
-Additional hardening and advanced recovery are deferred until a concrete need is established and their scope is separately agreed. The earlier comprehensive Phase 6 brief approval does not require implementing those additions now. Supersede the expanded plans and revise the delivery order around a small end-to-end working slice. Do not report deferred controls or full-v1/native acceptance as passed, and do not describe a registered machine as security-qualified.
+Reuse the existing `vsk-labs` executable, server-owned SQLite, API and exact plan/acknowledgement flow. The operator approved one protected action-signing key in the existing server; no additional signing service or setup signer is authorized. Do not add speculative daemons, services or generic frameworks. Administrator-verified machine/independent-console records prove that human prerequisite only; automated checks still require actual evidence. Registration, implementation and synthetic tests do not qualify host security, native behavior, workload admission or full Phase 6.
 
-Keep the existing basic authorization, explicit mutation approval, secret handling and data-preservation boundaries. Nodes04/05 remain absolutely excluded, including reads, CI and indirect effects. This simplicity mandate grants no live access, deployment, VM operation, release or permission to bypass existing checks. It changes development priority and implementation scope, not infrastructure authority.
+Standing batch authority covers dependency-aware parallel planning/implementation, review fixes, PR creation and merging after required checks and independent review. Do not re-request those routine permissions. Isolated tests may select a machine other than nodes04/05 only after physical identity, current workloads, capacity and isolation are resolved. No live-service disruption, fleet deployment, unspecified host OS change, shared-provider change or release is implied. Nodes04/05 remain absolutely excluded, including reads, CI and indirect effects. The operator is the intended Slack approver; app setup and a real binding remain future work, not established configuration.
 
 
 ## Protected live hosts — hard exclusion
@@ -23,6 +23,14 @@ Operator instruction on 07-10-2026: **`vsk-node-04` and `vsk-node-05` are out of
 
 Issue 6.3 solution approved on 07-10-2026 against `b9074cc675a7862b0878c60ef8ec135bc91ebabb`. This records the approved 6.3 development batch; it grants no operational authority.
 
+## Remaining Linux delivery — 09-10-2026
+
+The operator restored the full outstanding Linux requirements. #223 owns exact privileged-action authorization and the native credential composition deferred by reduced #224; #225/#226 implement effective Debian controls; #229 consumes applied facts; #230 owns role foundations and post-setup service installation; #233 owns replacement/recovery; #228 supplies actual Linux-native qualification. The #221 delivery map also owns the remaining CLI/Console workflow deferred by reduced #232. #234 consumes their integrated evidence, not missing implementation. Administrator initial account/trust preparation under D-131 remains a prerequisite; there is no new root bootstrap authority.
+
+Issue #223 introduces the approved single server action key and a pinned one-shot helper protocol in the same executable. Its transport rejects unbound execution, mismatched current bindings and invalid peers, and treats interrupted post-authorization execution as uncertain. Production mutation handlers and native proof belong to their named downstream owners; a synthetic helper or protocol test does not harden a host. Fresh exact-action console confirmation does not promote discovery-only credentials or pass native encryption/custody gates. See D-132.
+
+Mac/iMac remain pending within v1. No current test result closes their requirements or full Phase 6. The real Slack app/channel binding has not been configured by this development work.
+
 ## Working-first registration delivery — 08-10-2026
 
 The operator approved reduced briefs and concrete plan v2 for [#222](https://github.com/vegastack/vegastack-labs/issues/222) and [#232](https://github.com/vegastack/vegastack-labs/issues/232). Issue #222 extends the existing API and plan/acknowledgement/run engine with one `host.adopt` database effect and an `adopted-unadmitted` read projection. The immutable plan includes the administrator's exact identity/target confirmation in JSON and readable form. There are no new signing systems, services, host-side actions or admission claims.
@@ -33,7 +41,7 @@ Issue #232 consumes these contracts after #222 integration. Issue #224 separatel
 
 Issue #231 now supplies the missing production first-start path: administrator-prepared protected files, existing signed release verification, complete exact Slack review, one-use durable approval and server-only atomic initial grants/audit. It reuses the executable, SQLite and typed Slack adapter, with no separate setup signer or automatic OS installation. The current non-root UID is explicitly mapped to the initial human; only listed exact scopes are imported. Plain restart uses existing authority. Partial/ambiguous data refuses without cleanup. [D-131](../../decisions-and-sources.md#d-131) records this approved exception.
 
-Verification uses actual protected files, real signature verification, SQLite, the production Slack adapter with synthetic transport, and the ordinary Unix API. Linux arm64 workstation-VM tests substitute the existing supported-platform probe only for software composition; they do not claim Debian13 amd64, hardware, hardening, recovery, workload admission or full Phase6 acceptance. The expanded setup, privileged-action, recovery and Mac/iMac requirements remain deferred. No live host or real Slack workspace was used.
+Verification uses actual protected files, real signature verification, SQLite, the production Slack adapter with synthetic transport, and the ordinary Unix API. Linux arm64 workstation-VM tests substitute the existing supported-platform probe only for software composition; they do not claim Debian13 amd64, hardware, hardening, recovery, workload admission or full Phase6 acceptance. At that delivery, expanded setup, privileged-action and recovery work remained deferred; the 09-10-2026 direction above restores the outstanding Linux duties. Mac/iMac remain deferred. No live host or real Slack workspace was used.
 
 ## Destination and existing decisions
 
@@ -98,4 +106,4 @@ Issue [#224](https://github.com/vegastack/vegastack-labs/issues/224) adds explic
 
 Omitted credential mode retains qualified-reference behavior and its unavailable production recovery prerequisite; there is no automatic fallback. The new mode never activates a global credential reference, registers a general resolver, passes a hardening gate or admits workloads. Removing a key does not block an acknowledged revoke plan. Plan expiry controls execution; an already applied target remains subject to current target/profile/grant/epoch checks after the activation plan expires.
 
-The user approved this software design and isolated workstation-local VM tests on 08-10-2026. Those tests use temporary databases, synthetic keys and loopback peers. They authorize no key installation, fleet discovery, deployment or native qualification. Nodes04/05 remain completely excluded; Mac/iMac and broader recovery/hardening remain deferred.
+The user approved this software design and isolated workstation-local VM tests on 08-10-2026. Those tests use temporary databases, synthetic keys and loopback peers. They authorize no key installation, fleet discovery, deployment or native qualification. Nodes04/05 remain completely excluded. The 09-10-2026 direction restores remaining Linux recovery/hardening work; Mac/iMac remain deferred.

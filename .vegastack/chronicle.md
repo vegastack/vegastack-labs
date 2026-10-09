@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 09-10-2026 — One approved machine action has an exact execution boundary ([#223](https://github.com/vegastack/vegastack-labs/issues/223))
+
+- **What:** The host-action work adds a signed, single-action conversation between the existing server and the same executable on a pinned SSH target. The transport refuses unbound commands and changed target or plan bindings; interrupted execution stays uncertain instead of silently retrying. Real mutation handlers and native qualification remain separate required work.
+- **Why:** The operator asked to finish the remaining Linux phase without repeatedly narrowing it, while retaining a simple architecture and protecting running applications.
+- **How it went:** Re-grounding exposed missing production credential composition and a false dependency on replacement recovery. Those are tracked in the issue's implementation/review; temporary peers prove software behavior only. Development cleanup reduced identified generated artifacts from 32.8 GiB to 1.42 GiB while all 56 inspected worktree statuses stayed unchanged; branches, source and concise evidence were retained.
+- **Changed:** Full remaining Linux delivery restored · one server action key · pinned finite SSH protocol · explicit uncertainty and qualification limits · routine cleanup of task-generated dependencies/caches/binaries.
+- **Decisions:** D-132 records the approved action-key/full-Linux direction. D-131 remains the separate existing setup rule. Mac stays deferred; nodes04/05 remain excluded. No real Slack configuration, deployment or full-phase acceptance is claimed.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/6.4.2-exact-host-actions
+
 ## 08-10-2026 — A prepared local machine can start its control service ([#231](https://github.com/vegastack/vegastack-labs/issues/231))
 
 - **What:** An administrator can review and approve the exact first setup in Slack. The existing executable creates its database once, imports only the listed permissions, and serves the normal local API. Later starts use that database without another setup approval.

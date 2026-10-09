@@ -2,11 +2,11 @@
 
 ## Working first — simplicity mandate
 
-Operator instruction on 08-10-2026: build the smallest useful working cluster-management executable first. Reuse the existing `vsk-labs` executable, server-owned SQLite, API, authorization and plan/acknowledgement flow. Do not add services, daemons, signing systems, trust ceremonies, proof registries, generic frameworks or advanced recovery machinery merely to anticipate future needs. Every new component must be necessary for the immediate working feature; prefer extending an existing path.
+Operator update on 09-10-2026: finish all remaining Linux Phase 6 work without repeatedly reducing its scope. The instruction “do not simplify any thing … finish all the remaining phase 6” supersedes the earlier suspension for further simplification; “without over complicating … then plan and implement” preserves a small architecture. Restore outstanding Linux duties from reduced closed issues into their named owners and acceptance coverage. Mac/iMac remain explicitly deferred within v1.
 
-Additional hardening and advanced recovery are deferred until a concrete need is established and their scope is separately agreed. The earlier comprehensive Phase 6 brief approval does not require implementing those additions now. Supersede the expanded plans and revise the delivery order around a small end-to-end working slice. Do not report deferred controls or full-v1/native acceptance as passed, and do not describe a registered machine as security-qualified.
+Reuse the existing `vsk-labs` executable, server-owned SQLite, API and exact plan/acknowledgement flow. The operator approved one protected action-signing key in the existing server; no additional signing service or setup signer is authorized. Do not add speculative daemons, services or generic frameworks. Administrator-verified machine/independent-console records prove that human prerequisite only; automated checks still require actual evidence. Registration, implementation and synthetic tests do not qualify host security, native behavior, workload admission or full Phase 6.
 
-Keep the existing basic authorization, explicit mutation approval, secret handling and data-preservation boundaries. Nodes04/05 remain absolutely excluded, including reads, CI and indirect effects. This simplicity mandate grants no live access, deployment, VM operation, release or permission to bypass existing checks. It changes development priority and implementation scope, not infrastructure authority.
+Standing batch authority covers dependency-aware parallel planning/implementation, review fixes, PR creation and merging after required checks and independent review. Do not re-request those routine permissions. Isolated tests may select a machine other than nodes04/05 only after physical identity, current workloads, capacity and isolation are resolved. No live-service disruption, fleet deployment, unspecified host OS change, shared-provider change or release is implied. Nodes04/05 remain absolutely excluded, including reads, CI and indirect effects. The operator is the intended Slack approver; app setup and a real binding remain future work, not established configuration.
 
 
 ## Protected live hosts — hard exclusion
@@ -109,3 +109,7 @@ Dark execution ends and the operator decides when work would change scope or pro
 - Use the workflow state and scope labels recorded above as directed by the active VegaStack skill.
 - Human-readable project dates use `DD-MM-YYYY`; times use the 12-hour clock with explicit AM/PM in IST.
 - Never expose plaintext secrets or private operational state.
+
+## Development artifact cleanup
+
+After each merged issue, retain concise evidence, review reports, logs needed to support the result, unmerged source and all user work. Remove only identified task-generated dependency copies, caches and compiled binaries that are no longer needed. Inspect worktree status before and after; do not delete branches, source worktrees or evidence merely to recover space. Never extend development cleanup to infrastructure, VM disks or unrelated caches without their own authority. Prefer the existing tools and a short recorded cleanup result; no new cleanup framework.
