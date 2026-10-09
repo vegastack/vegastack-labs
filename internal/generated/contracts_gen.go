@@ -249,6 +249,7 @@ const (
 	SchemaIDRestoreVerification                    = "vegastack-labs.dev/restore-verification"
 	SchemaIDRestoreVerifyRequest                   = "vegastack-labs.dev/restore-verify-request"
 	SchemaIDResultError                            = "vegastack-labs.dev/result-error"
+	SchemaIDRoleObservation                        = "vegastack-labs.dev/role-observation"
 	SchemaIDRun                                    = "vegastack-labs.dev/run"
 	SchemaIDRunPresentation                        = "vegastack-labs.dev/run-presentation"
 	SchemaIDRunReferenceRequest                    = "vegastack-labs.dev/run-reference-request"
@@ -460,6 +461,7 @@ type AccessInterface struct {
 type AccessMeasurement struct {
 	Schema                string                         `json:"schema"`
 	SchemaVersion         string                         `json:"schemaVersion"`
+	Role                  *RoleObservation               `json:"role,omitempty"`
 	Baseline              *BaselineObservation           `json:"baseline,omitempty"`
 	Volume                *VolumeObservation             `json:"volume,omitempty"`
 	DestinationOwnership  []AccessDestinationObservation `json:"destinationOwnership,omitempty"`
@@ -3370,6 +3372,15 @@ type ResultError struct {
 	Code      string `json:"code"`
 	Target    string `json:"target"`
 	Retryable bool   `json:"retryable"`
+}
+
+type RoleObservation struct {
+	Schema            string `json:"schema"`
+	SchemaVersion     string `json:"schemaVersion"`
+	RoleID            string `json:"roleId"`
+	RoleBindingDigest string `json:"roleBindingDigest"`
+	FactsDigest       string `json:"factsDigest"`
+	Verification      string `json:"verification"`
 }
 
 type Run struct {

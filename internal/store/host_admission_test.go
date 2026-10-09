@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"github.com/vegastack/vegastack-labs/internal/generated"
 	"strings"
 	"testing"
 	"time"
@@ -64,5 +65,29 @@ func TestHostAdmissionProofComparisonExcludesUnrelatedRevision(t *testing.T) {
 	altered.Blockers = append(append([]string(nil), before.Blockers...), "host-binding-changed")
 	if e = r.ValidateHostAdmissionSnapshot(f.ctx, altered); e == nil {
 		t.Fatal("different proof snapshot accepted")
+	}
+}
+
+func TestHostAdmissionMutationInvalidatesEarlierProof(t *testing.T) {
+	old := HostAdmissionMeasurement{Control: generated.HostControlResult{ControlID: "linux.time-sync", ProducerID: "debian-baseline"}, Plan: generated.Plan{PlanID: "old", Binding: generated.PlanBinding{StateRevision: 10}}}
+	later := generated.Plan{PlanID: "new-declaration-plan", Binding: generated.PlanBinding{StateRevision: 11}, HostAction: &generated.HostActionRequest{HostID: "host-a", ActionID: "debian.baseline.apply"}, HostBaselineScope: &generated.HostBaselineScope{SubjectHostID: "host-a", ControlIDs: []string{"linux.time-sync"}}}
+	if !hostMutationInvalidates(later, old, "host-a") {
+		t.Fatal("later changed declaration retained old proof")
+	}
+	for _, action := range []string{"debian.baseline.collect", "debian.volume.observe", "debian.volume-recovery.verify"} {
+		copy := later
+		request := *later.HostAction
+		request.ActionID = action
+		copy.HostAction = &request
+		if hostMutationInvalidates(copy, old, "host-a") {
+			t.Fatal("read-only collector invalidated proof", action)
+		}
+	}
+	if hostMutationInvalidates(later, old, "other-host") {
+		t.Fatal("other subject invalidated")
+	}
+	later.HostBaselineScope.ControlIDs = []string{"linux.kernel-settings"}
+	if hostMutationInvalidates(later, old, "host-a") {
+		t.Fatal("unaffected control invalidated")
 	}
 }

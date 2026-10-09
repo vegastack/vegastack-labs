@@ -358,6 +358,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/restore-source-binding.schema.json",
 		"schemas/v1/restore-verification.schema.json",
 		"schemas/v1/restore-verify-request.schema.json",
+		"schemas/v1/role-observation.schema.json",
 		"schemas/v1/run-presentation.schema.json",
 		"schemas/v1/run-reference-request.schema.json",
 		"schemas/v1/run-result.schema.json",

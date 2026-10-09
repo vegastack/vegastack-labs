@@ -340,6 +340,58 @@
       ],
       "type": "object"
     },
+    "role-observation": {
+      "additionalProperties": false,
+      "properties": {
+        "factsDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "roleBindingDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "roleId": {
+          "enum": [
+            "control",
+            "application",
+            "ci",
+            "recovery-spare",
+            "reserve"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/role-observation"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "verification": {
+          "enum": [
+            "configuration-observed",
+            "effective-probe",
+            "unavailable"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "roleId",
+        "roleBindingDigest",
+        "factsDigest",
+        "verification"
+      ],
+      "type": "object"
+    },
     "volume-observation": {
       "additionalProperties": false,
       "properties": {
@@ -430,7 +482,8 @@
         "host-flow",
         "container-flow",
         "baseline",
-        "volume"
+        "volume",
+        "role"
       ],
       "type": "string"
     },
@@ -475,6 +528,16 @@
     "reason": {
       "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
       "type": "string"
+    },
+    "role": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/role-observation"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "rollbackRecordDigest": {
       "pattern": "^sha256:[a-f0-9]{64}$",

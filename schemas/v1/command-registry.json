@@ -5436,6 +5436,11 @@
       "version": "1.0.0"
     },
     {
+      "id": "vegastack-labs.dev/role-observation",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/role-observation.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/run",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/run.schema.json"

@@ -74,6 +74,9 @@ func (r *GateRepository) resolveHostAdmission(ctx context.Context, tx ReadTx, ho
 	if err = r.admissionMeasurements(ctx, tx, &out); err != nil {
 		return
 	}
+	if err = admissionMutationInvalidation(ctx, tx, &out); err != nil {
+		return
+	}
 	if err = admissionVolumeDeclarations(ctx, tx, &out, r.store.config.Clock()); err != nil {
 		return
 	}
@@ -364,4 +367,62 @@ func hostAdmissionProofDigest(s HostAdmissionSnapshot) string {
 		Storage              HostStoragePrerequisites
 		Blockers             []string
 	}{s.BindingDigest, s.RoleBindingDigest, s.Revision.RecoveryEpoch, s.Measurements, s.Evidence, s.Qualifications, s.PrerequisiteDigests, s.Storage, s.Blockers})
+}
+
+// A later attempted mutation invalidates earlier measurements even if it failed
+// before verification and used a different declaration ID. Inert drafts and
+// read-only collectors do not enter this query.
+func admissionMutationInvalidation(ctx context.Context, tx ReadTx, out *HostAdmissionSnapshot) error {
+	if len(out.Measurements) == 0 {
+		return nil
+	}
+	oldest := out.Measurements[0].Plan.Binding.StateRevision
+	for _, m := range out.Measurements {
+		if m.Plan.Binding.StateRevision < oldest {
+			oldest = m.Plan.Binding.StateRevision
+		}
+	}
+	rows, e := tx.query(ctx, `SELECT DISTINCT p.canonical_bytes,p.readable_plan FROM immutable_plans p JOIN plan_runs r ON r.plan_id=p.plan_id AND r.plan_digest=p.plan_digest JOIN plan_run_steps s ON s.run_id=r.run_id WHERE r.recovery_epoch=? AND s.operation_type='host.action.execute' AND s.effect_state IN ('intent-recorded','receipt-recorded','effect-unknown','verified') AND s.target_id=? AND p.state_revision>? ORDER BY p.state_revision DESC LIMIT 65`, out.Revision.RecoveryEpoch, out.Host.HostID, oldest)
+	if e != nil {
+		return e
+	}
+	defer rows.Close()
+	count := 0
+	for rows.Next() {
+		var raw []byte
+		var readable string
+		var p generated.Plan
+		if rows.Scan(&raw, &readable) != nil || json.Unmarshal(raw, &p) != nil || !validPlanDigests(p, readable) {
+			return actionError(generated.ErrorCodeIntegrityFailure)
+		}
+		count++
+		if count > 64 {
+			return actionError(generated.ErrorCodeInputInvalid)
+		}
+		for _, m := range out.Measurements {
+			if hostMutationInvalidates(p, m, out.Host.HostID) {
+				out.Blockers = append(out.Blockers, "host-binding-changed")
+				return nil
+			}
+		}
+	}
+	return rows.Err()
+}
+func hostMutationInvalidates(p generated.Plan, m HostAdmissionMeasurement, hostID string) bool {
+	if p.PlanID == m.Plan.PlanID || p.Binding.StateRevision <= m.Plan.Binding.StateRevision {
+		return false
+	}
+	if p.HostAccessSequence != nil && p.HostAccessSequence.SubjectHostID == hostID {
+		return m.Control.ProducerID == "debian-access-native" || m.Control.ProducerID == "debian-access-probe"
+	}
+	if p.HostAction == nil || p.HostAction.HostID != hostID {
+		return false
+	}
+	switch p.HostAction.ActionID {
+	case "debian.access.apply":
+		return m.Control.ProducerID == "debian-access-native" || m.Control.ProducerID == "debian-access-probe"
+	case "debian.baseline.apply", "debian.aide.initialize", "debian.aide.refresh":
+		return p.HostBaselineScope != nil && p.HostBaselineScope.SubjectHostID == hostID && slices.Contains(p.HostBaselineScope.ControlIDs, m.Control.ControlID)
+	}
+	return false
 }
