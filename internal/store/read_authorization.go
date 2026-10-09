@@ -65,7 +65,7 @@ func (authorizer *ReadAuthorizer) AuthorizeRead(ctx context.Context, principal i
 	})
 	if err != nil {
 		owners, resolveErr := authorizer.store.WorkflowAuthorizationTargets(ctx, authorization.Request{Action: authorization.ActionRead, Target: authorization.Target{Capability: target.Capability, ResourceKind: target.ResourceKind, ResourceID: target.ResourceID}})
-		if resolveErr == nil && len(owners) > 0 && len(owners) <= 32 {
+		if resolveErr == nil && len(owners) > 0 && len(owners) <= 64 {
 			revision := int64(0)
 			for _, owner := range owners {
 				if owner.ResourceKind == "declaration" || owner.ResourceKind == "plan" || owner.ResourceKind == "run" {

@@ -29,16 +29,14 @@ import (
 )
 
 func TestGrantBatchApprovedAPIFromInitialSetup(t *testing.T) {
-	for _, failReadSync := range []bool{false, true} {
-		name := "fresh-host-workflow"
-		if failReadSync {
-			name = "atomic-read-sync-failure"
-		}
-		t.Run(name, func(t *testing.T) { testGrantBatchApprovedAPI(t, failReadSync) })
+	for _, variant := range []string{"fresh-host-workflow", "atomic-read-sync-failure", "subject-revision-changed", "recovery-epoch-changed", "policy-author-revoked", "acknowledgement-replayed"} {
+		t.Run(variant, func(t *testing.T) { testGrantBatchApprovedAPI(t, variant) })
 	}
 }
 
-func testGrantBatchApprovedAPI(t *testing.T, failReadSync bool) {
+func testGrantBatchApprovedAPI(t *testing.T, variant string) {
+	failReadSync := variant == "atomic-read-sync-failure"
+	denyBeforeExecution := variant != "fresh-host-workflow" && variant != "acknowledgement-replayed" && !failReadSync
 	now := time.Now().UTC().Truncate(time.Second)
 	clock := func() time.Time { return now }
 	dir := t.TempDir()
@@ -149,6 +147,35 @@ func testGrantBatchApprovedAPI(t *testing.T, failReadSync bool) {
 		}
 		var approval generated.ApprovalStatus
 		post("/api/v1/plans/"+p.Plan.PlanID+"/approval-request", ref, &approval)
+		if denyBeforeExecution {
+			// Adversarial fault injection after genuine approval, never granting authority.
+			faultDB, err := sql.Open("sqlite3", "file:"+db+"?mode=rw")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer faultDB.Close()
+			var query string
+			switch variant {
+			case "subject-revision-changed":
+				query = `UPDATE effective_authorization_principals SET grant_revision=grant_revision+1 WHERE principal_id='human-a'`
+			case "recovery-epoch-changed":
+				query = `UPDATE system_meta SET recovery_epoch=recovery_epoch+1 WHERE id=1`
+			case "policy-author-revoked":
+				query = `UPDATE effective_authorization_grants SET status='revoked' WHERE grant_id='policy-write'`
+			}
+			if _, err = faultDB.Exec(query); err != nil {
+				t.Fatal(err)
+			}
+			w := serve(http.MethodPost, "/api/v1/plans/"+p.Plan.PlanID+"/execute", ref)
+			if w.Code < 400 {
+				t.Fatal("changed authority accepted", variant, w.Body.String())
+			}
+			var count int
+			if faultDB.QueryRow(`SELECT COUNT(*) FROM effective_authorization_grants WHERE grant_id='read-subject'`).Scan(&count) != nil || count != 0 {
+				t.Fatal("denied apply activated a grant", variant, count)
+			}
+			return
+		}
 		var run generated.RunPresentation
 		if failReadSync {
 			w := serve(http.MethodPost, "/api/v1/plans/"+p.Plan.PlanID+"/execute", ref)
@@ -165,6 +192,26 @@ func testGrantBatchApprovedAPI(t *testing.T, failReadSync bool) {
 		post("/api/v1/plans/"+p.Plan.PlanID+"/execute", ref, &run)
 		if run.Run.Status != "succeeded" {
 			t.Fatalf("grant run failed %+v", run)
+		}
+		if variant == "acknowledgement-replayed" {
+			faultDB, err := sql.Open("sqlite3", "file:"+db+"?mode=ro")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer faultDB.Close()
+			var before, after int64
+			if faultDB.QueryRow(`SELECT grant_revision FROM effective_authorization_principals WHERE principal_id=?`, human).Scan(&before) != nil {
+				t.Fatal("revision unavailable")
+			}
+			ref.IdempotencyKey = "second-owner-" + key
+			w := serve(http.MethodPost, "/api/v1/plans/"+p.Plan.PlanID+"/execute", ref)
+			if w.Code < 400 {
+				t.Fatal("consumed actual acknowledgement accepted for a second run", w.Body.String())
+			}
+			if faultDB.QueryRow(`SELECT grant_revision FROM effective_authorization_principals WHERE principal_id=?`, human).Scan(&after) != nil || before != after {
+				t.Fatal("replay changed permissions", before, after)
+			}
+			return
 		}
 		grantRevision++
 		declarationRevision = p.Plan.Binding.DeclarationRevision
@@ -210,6 +257,9 @@ func testGrantBatchApprovedAPI(t *testing.T, failReadSync bool) {
 			t.Fatal("draft changed effective grants", before, err)
 		}
 		applyDraft(doc, changeKind)
+		if denyBeforeExecution || variant == "acknowledgement-replayed" {
+			return
+		}
 		after, err := evaluator.Authorize(ctx, principal, denied)
 		if err != nil || after.Allowed != (changeKind == "add") {
 			t.Fatal("approved changes not effective", after, err)

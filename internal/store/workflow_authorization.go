@@ -7,6 +7,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
 	"github.com/vegastack/vegastack-labs/internal/debianaccess"
+	"github.com/vegastack/vegastack-labs/internal/debianbaseline"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"github.com/vegastack/vegastack-labs/internal/hostadoption"
@@ -181,6 +182,14 @@ func workflowDeclarationTargets(row discoveryRow, d generated.DeclarationRevisio
 			}
 			requests = append(requests, draft.Request)
 			add("host.action.prepare", "host.read", "host", draft.Request.HostID)
+			scope, err := debianbaseline.ScopeForRequest(draft.Request)
+			if err != nil {
+				return deny()
+			}
+			if scope != nil {
+				add("host.action.prepare", "host.read", "host", scope.SubjectHostID)
+				add("host.action.prepare", "host.read", "host", scope.ExecutionHostID)
+			}
 		}
 		if d.DeclarationType == "host.action" {
 			if len(requests) != 1 || d.DeclarationID != hostaction.DraftID(requests[0]) || op.AdapterID != hostaction.AdapterID || op.OperationType != hostaction.OperationType {
@@ -190,6 +199,9 @@ func workflowDeclarationTargets(row discoveryRow, d generated.DeclarationRevisio
 			seq, err := debianaccess.Sequence(p.Operations, requests)
 			if err != nil || d.DeclarationID != "host-access-"+hostaction.Digest(seq)[7:39] {
 				return deny()
+			}
+			for _, target := range seq.AuxiliaryTargets {
+				add("host.action.prepare", "host.read", "host", target.HostID)
 			}
 		}
 	case "host.replacement":

@@ -107,7 +107,7 @@ func (app *Application) authorizePrincipal(ctx context.Context, principal identi
 	if evaluationErr == nil && !decision.Allowed {
 		if app.effective.WorkflowOwners != nil && authorization.WorkflowNavigation(policyRequest.Action, policyRequest.Target) && policyRequest.Plan == nil && len(policyRequest.Branches) == 0 {
 			owners, e := app.effective.WorkflowOwners.WorkflowAuthorizationTargets(ctx, policyRequest)
-			if e == nil && len(owners) > 0 && len(owners) <= 32 {
+			if e == nil && len(owners) > 0 && len(owners) <= 64 {
 				var first authorizationOutcome
 				for i, owner := range owners {
 					if owner == policyRequest.Target || owner.ResourceKind == "declaration" || owner.ResourceKind == "plan" || owner.ResourceKind == "run" {

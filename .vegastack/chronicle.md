@@ -897,3 +897,5 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 - **Decisions:** none; no live infrastructure, provider, credential, host, restore, or deployment authority was added.
 
 — approved by (omkarmohanta09) · built by Codex · branch feat/110-phase5-operator-surfaces
+
+The critical authorization review of issue #247 found omitted nested owners, alias host execution/acknowledgement scope, an incompatible resume target and a missing grant recovery precheck. Corrections use all sealed subject/probe owners, host plus alias projection, matching resume projection, and the existing SQLite snapshot/isolated-restore methods. Local recovery preimages are private and do not qualify node-loss recovery.

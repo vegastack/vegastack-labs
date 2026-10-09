@@ -3,10 +3,14 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/hex"
+	"errors"
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"github.com/vegastack/vegastack-labs/internal/identity"
+	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -29,7 +33,15 @@ func (r *GrantBatchRepository) Apply(ctx context.Context, in GrantBatchApply) (s
 	}
 	digest := hostaction.Digest(batch)
 	expected := RevisionToken{StateRevision: p.Plan.Binding.StateRevision, RecoveryEpoch: p.Plan.Binding.RecoveryEpoch}
+	// This database-only mutation retains a verified, functionally restored local
+	// preimage through the existing server-owned snapshot port. It works before
+	// any managed host is enrolled and makes no node-loss readiness claim.
+	preimage, before, err := r.prepareGrantRecovery(ctx, p.Plan, *batch, in)
+	if err != nil {
+		return "", err
+	}
 	event := audit.EventDraft{Type: "authorization.grants-applied", CorrelationID: in.RunID, Attribution: in.Attribution, Target: audit.Target{Kind: "authorization-policy", ID: batch.PrincipalID}, After: (*audit.Fingerprint)(&digest)}
+	event.Before = (*audit.Fingerprint)(&before)
 	intent := intentRequest{Expected: &expected, Idempotency: audit.IntentKey{Scope: "authorization-grant-batch", KeyDigest: digestParts("authorization-grant-batch", in.RunID, in.StepID, in.LeaseID), RequestDigest: audit.Fingerprint(hostaction.Digest(struct{ Plan, Run, Step, Lease, Digest string }{in.PlanDigest, in.RunID, in.StepID, in.LeaseID, digest}))}, Event: event}
 	_, err = r.store.writeIntent(ctx, intent, func(ctx context.Context, tx *sql.Tx) error {
 		row := func(q string, a ...any) *sql.Row { return tx.QueryRowContext(ctx, q, a...) }
@@ -38,6 +50,13 @@ func (r *GrantBatchRepository) Apply(ctx context.Context, in GrantBatchApply) (s
 		}
 		if err := validateGrantBatchChanges(row, *batch); err != nil {
 			return err
+		}
+		if _, e := r.store.filesystem.InspectDatabase(ctx, preimage, r.store.config.ExpectedUID); e != nil {
+			return actionError(generated.ErrorCodeRecoveryRequired)
+		}
+		actual, _, e := hashSnapshotFile(preimage)
+		if e != nil || "sha256:"+hex.EncodeToString(actual[:]) != before {
+			return actionError(generated.ErrorCodeRecoveryRequired)
 		}
 		var readRevision int64
 		var readStatus string
@@ -112,6 +131,61 @@ func (r *GrantBatchRepository) Apply(ctx context.Context, in GrantBatchApply) (s
 		return nil
 	})
 	return digest, err
+}
+
+func (r *GrantBatchRepository) prepareGrantRecovery(ctx context.Context, p generated.Plan, b generated.AuthorizationGrantBatchRequest, in GrantBatchApply) (string, string, error) {
+	// Refuse unauthorized calls before creating a private recovery artifact.
+	if err := r.store.Read(ctx, func(tx ReadTx) error {
+		row := func(q string, a ...any) *sql.Row { return tx.queryRow(ctx, q, a...) }
+		return validateGrantBatchExecution(ctx, row, p, b, in, r.store.config.Clock().UTC())
+	}); err != nil {
+		return "", "", err
+	}
+	return r.prepareGrantSnapshot(ctx, p, in)
+}
+
+func (r *GrantBatchRepository) prepareGrantSnapshot(ctx context.Context, p generated.Plan, in GrantBatchApply) (string, string, error) {
+	deny := func() (string, string, error) { return "", "", actionError(generated.ErrorCodeRecoveryRequired) }
+	source, err := NewOnlineSnapshotSource(r.store)
+	if err != nil {
+		return deny()
+	}
+	expected, err := source.CurrentExpectation(ctx)
+	if err != nil || expected.Revision != (RevisionToken{StateRevision: p.Binding.StateRevision, RecoveryEpoch: p.Binding.RecoveryEpoch}) {
+		return deny()
+	}
+	port := source.(MigrationSource)
+	name := string(digestParts("authorization-before", in.RunID, in.PlanDigest))[7:39]
+	preimage := filepath.Join(filepath.Dir(r.store.config.DatabasePath), "authorization-before-"+name+".db")
+	probe := filepath.Join(filepath.Dir(r.store.config.DatabasePath), "authorization-restore-check-"+name+".db")
+	if _, err = os.Lstat(preimage); errors.Is(err, os.ErrNotExist) {
+		if _, err = source.OnlineSnapshot(ctx, OnlineSnapshotRequest{Destination: preimage, Expected: expected}); err != nil {
+			return deny()
+		}
+	} else if err != nil {
+		return deny()
+	}
+	if inspection, e := port.InspectSnapshot(ctx, preimage, expected); e != nil || inspection.IntegrityStatus != IntegrityVerified {
+		return deny()
+	}
+	if _, e := os.Lstat(probe); !errors.Is(e, os.ErrNotExist) {
+		return deny()
+	}
+	if port.RestoreSnapshot(ctx, preimage, probe) != nil {
+		return deny()
+	}
+	if inspection, e := port.InspectSnapshot(ctx, probe, expected); e != nil || inspection.IntegrityStatus != IntegrityVerified {
+		return deny()
+	}
+	// Remove only this exact verified temporary restore probe; retain the preimage.
+	if e := os.Remove(probe); e != nil {
+		return deny()
+	}
+	sum, _, err := hashSnapshotFile(preimage)
+	if err != nil {
+		return deny()
+	}
+	return preimage, "sha256:" + hex.EncodeToString(sum[:]), nil
 }
 
 func validateGrantBatchExecution(ctx context.Context, row discoveryRow, p generated.Plan, b generated.AuthorizationGrantBatchRequest, in GrantBatchApply, now time.Time) error {

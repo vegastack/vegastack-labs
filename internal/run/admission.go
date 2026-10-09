@@ -108,6 +108,9 @@ func (gate *AdmissionGate) VerifyRun(ctx context.Context, plan generated.Plan, c
 		return runError(generated.ErrorCodeAuthorizationDenied, "acknowledgement")
 	}
 	branch := plan.AuthorizationBranch
-	decision := generated.AuthorizationDecision{Schema: generated.SchemaIDAuthorizationDecision, SchemaVersion: "1.0.0", DecisionID: current.AuthorizationDecisionID, PrincipalID: acknowledgement.HumanID, Action: string(authorization.ActionExecute), TargetID: plan.Operations[0].TargetID, Allowed: true, Branch: &branch, ReasonCode: authorization.ReasonAllowed, GrantRevision: 1, RecoveryEpoch: current.RecoveryEpoch, PlanDigest: current.PlanDigest, DecidedAt: current.CreatedAt, Extensions: []generated.ContractExtension{}}
+	if len(plan.Operations) == 0 {
+		return runError(generated.ErrorCodePlanStale, "run-admission")
+	}
+	decision := generated.AuthorizationDecision{Schema: generated.SchemaIDAuthorizationDecision, SchemaVersion: "1.0.0", DecisionID: current.AuthorizationDecisionID, PrincipalID: acknowledgement.HumanID, Action: string(authorization.ActionExecute), TargetID: authorization.ExecutionResourceIDs(plan, plan.Operations[0])[0], Allowed: true, Branch: &branch, ReasonCode: authorization.ReasonAllowed, GrantRevision: 1, RecoveryEpoch: current.RecoveryEpoch, PlanDigest: current.PlanDigest, DecidedAt: current.CreatedAt, Extensions: []generated.ContractExtension{}}
 	return gate.Verify(ctx, plan, decision, &acknowledgement)
 }

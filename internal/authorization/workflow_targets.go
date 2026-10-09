@@ -46,7 +46,7 @@ func ExecutionResourceIDs(p generated.Plan, op generated.PlanOperation) []string
 	if in := p.HostAliasClaim; in != nil {
 		digest := hostaction.Digest(*in)
 		if exact(p.DeclarationID, digest, hostreplacement.AdapterID, hostreplacement.AliasClaimOperation) && hostreplacement.ValidateAliasClaim(*in) == nil && in.RecoveryEpoch == p.Binding.RecoveryEpoch {
-			return append([]string(nil), in.AliasIDs...)
+			return append([]string{in.HostID}, in.AliasIDs...)
 		}
 	}
 	return fallback
