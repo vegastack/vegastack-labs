@@ -197,3 +197,24 @@ func TestHostNewestExpiredProofHasIntactProvenance(t *testing.T) {
 		t.Fatal(got, e)
 	}
 }
+
+func TestHostNativeRevocationWithoutRepeatedStageSuppressesOlderProof(t *testing.T) {
+	at := time.Date(2026, 10, 9, 0, 0, 0, 0, time.UTC)
+	s := qualifiedHostSnapshot(t, at)
+	b := s.Bundles["native-baseline"]
+	hostTestEvidence(&s, "native-later", "native.baseline", b, at)
+	q := s.Qualifications[0]
+	q.EvidenceID = "native-later"
+	s.Qualifications = append(s.Qualifications, q)
+	// The revocation operation may carry no qualification check of its own.
+	hostTestEvidence(&s, "revocation", "native.baseline", hostTestBundle(at), at)
+	target := "native-later"
+	s.Evidence[len(s.Evidence)-1].Status = "revoked"
+	s.Evidence[len(s.Evidence)-1].RevokesEvidenceID = &target
+	scope := hostScope("vegastack-labs")
+	scope.StateRevision = 100
+	got, e := EvaluateHostAdmission(context.Background(), s, scope, "host.hardening-baseline", at)
+	if e != nil || got.ReasonCode != "host-qualification-missing:baseline" {
+		t.Fatal(got, e)
+	}
+}
