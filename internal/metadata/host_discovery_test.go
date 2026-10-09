@@ -19,8 +19,8 @@ func TestHostDiscoveryContracts(t *testing.T) {
 }
 func TestDiscoveryCannotActivateHostGates(t *testing.T) {
 	for _, gate := range CurrentGateDefinitions() {
-		if (gate.GateID == "host.hardening-baseline" || gate.GateID == "host.role-admission") && gate.Applicability != "deferred" {
-			t.Fatal("discovery cannot activate admission")
+		if (gate.GateID == "host.hardening-baseline" || gate.GateID == "host.role-admission") && (gate.EvaluatorVersion != "1.1.0" || gate.DefinitionVersion != "1.1.0") {
+			t.Fatal("host admission must require the dedicated versioned evaluator")
 		}
 	}
 }

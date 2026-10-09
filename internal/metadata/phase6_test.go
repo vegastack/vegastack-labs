@@ -47,8 +47,8 @@ func TestPhase6HostGatesDefined(t *testing.T) {
 	if len(hardening.SubjectKinds) != 1 || hardening.SubjectKinds[0] != "node" {
 		t.Fatalf("hardening gate must apply to node subjects, got %v", hardening.SubjectKinds)
 	}
-	if hardening.Applicability != "deferred" || hardening.EvidenceSchemaID != gateEvidenceSchemaID {
-		t.Fatalf("hardening gate must stay deferred on the generic envelope: %+v", hardening)
+	if hardening.Applicability != "always" || hardening.DefinitionVersion != "1.1.0" || hardening.EvidenceSchemaID != gateEvidenceSchemaID {
+		t.Fatalf("hardening gate must use the exact host evaluator version: %+v", hardening)
 	}
 	admission, ok := defs["host.role-admission"]
 	if !ok {
@@ -57,8 +57,8 @@ func TestPhase6HostGatesDefined(t *testing.T) {
 	if !phase6Contains(admission.PrerequisiteGateIDs, "host.hardening-baseline") {
 		t.Fatalf("role-admission must require hardening baseline, got %v", admission.PrerequisiteGateIDs)
 	}
-	if admission.Applicability != "deferred" || admission.EvidenceSchemaID != gateEvidenceSchemaID {
-		t.Fatalf("role-admission must stay deferred on the generic envelope: %+v", admission)
+	if admission.Applicability != "always" || admission.DefinitionVersion != "1.1.0" || admission.EvidenceSchemaID != gateEvidenceSchemaID {
+		t.Fatalf("role-admission must use the exact host evaluator version: %+v", admission)
 	}
 }
 

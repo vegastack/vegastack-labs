@@ -21,6 +21,7 @@ const (
 // carries a schema/schemaVersion envelope at 1.0.0, following the phase 5 pattern.
 func phase6HostSchemas() []SchemaDefinition {
 	return []SchemaDefinition{
+		{ID: "vegastack-labs.dev/host-gate-query", Version: "1.0.0", ArtifactPath: schemaPath("vegastack-labs.dev/host-gate-query"), Fields: []FieldDefinition{{JSONName: "subjectId", GoName: "SubjectID", Kind: ValueString, Pattern: "^[a-z][a-z0-9._:-]{0,127}$"}}},
 		// host-identity: a managed host as a typed subject, physical or qualified
 		// virtual, optionally bound to an inventory asset. No hardware fact is
 		// inferred; assetId is nullable so a non-Labs host needs no Labs asset.

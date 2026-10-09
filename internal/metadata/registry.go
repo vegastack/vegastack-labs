@@ -242,7 +242,7 @@ func Current() Registry {
 	}
 
 	return Registry{
-		SchemaVersion:   "1.24.0",
+		SchemaVersion:   "1.25.0",
 		Commands:        commands,
 		Endpoints:       append(append(append(readEndpoints(), phase4Endpoints()...), phase5Endpoints()...), append(append(hostDiscoveryEndpoints(), hostAdoptionEndpoints()...), append(hostActionEndpoints(), accessEndpoints()...)...)...),
 		GateDefinitions: CurrentGateDefinitions(),

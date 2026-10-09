@@ -308,6 +308,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/host-discovery-target-draft-request.schema.json",
 		"schemas/v1/host-discovery-target-draft-submission.schema.json",
 		"schemas/v1/host-discovery-target.schema.json",
+		"schemas/v1/host-gate-query.schema.json",
 		"schemas/v1/host-hardening-evidence-fact.schema.json",
 		"schemas/v1/host-identity-confirmation.schema.json",
 		"schemas/v1/host-identity.schema.json",
@@ -837,7 +838,7 @@ func TestGeneratedGoIsRuntimeSerializable(t *testing.T) {
 	}
 	for _, want := range []string{
 		`RegistrySchemaVersion`,
-		`= "1.24.0"`,
+		`= "1.25.0"`,
 		`type Endpoint struct`,
 		`var Endpoints = []Endpoint`,
 		`type DatabaseStatusData struct`,
