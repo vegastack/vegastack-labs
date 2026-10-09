@@ -11,3 +11,6 @@ func (*Receipts) Claim(string) error                              { return block
 func (*Receipts) Finish(string, generated.HostActionResult) error { return blocked() }
 func (*Receipts) Close() error                                    { return nil }
 func LoadPolicy(string) (Policy, error)                           { return Policy{}, blocked() }
+
+func (*Receipts) ClaimExecution(string, string) error                              { return blocked() }
+func (*Receipts) FinishExecution(string, string, generated.HostActionResult) error { return blocked() }

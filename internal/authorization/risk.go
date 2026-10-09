@@ -20,6 +20,7 @@ const (
 var errUnknownRisk = errors.New("unknown plan operation or risk")
 
 var operationRisk = map[string]RiskClass{
+	"host.action.execute":                RiskInfrastructure,
 	"host.adopt":                         RiskControlPlane,
 	"host.discovery-target.activate":     RiskControlPlane,
 	"host.discovery-target.revoke":       RiskControlPlane,

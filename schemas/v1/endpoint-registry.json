@@ -438,6 +438,19 @@
       ]
     },
     {
+      "id": "api.v1.host-actions.draft",
+      "method": "POST",
+      "path": "/api/v1/host-actions/draft",
+      "availability": "available",
+      "ownerPhase": "6",
+      "requestSchema": "vegastack-labs.dev/host-action-request",
+      "dataSchema": "vegastack-labs.dev/host-action-submission",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
       "id": "api.v1.host-adoptions.draft",
       "method": "POST",
       "path": "/api/v1/host-adoptions/draft",

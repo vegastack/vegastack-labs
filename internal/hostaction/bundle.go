@@ -122,3 +122,9 @@ func VerifyAuthorization(raw []byte, c generated.HostActionChallenge, b generate
 	}
 	return nil
 }
+
+// ExecutionDigest consumes the approved operation, not a transient signature or lease.
+// A new run/lease or refreshed signature cannot authorize the same plan twice.
+func ExecutionDigest(b generated.HostActionBundle) string {
+	return Digest([]string{"host-action-consumption-v1", b.PlanID, b.PlanDigest, b.HostID, b.ActionID, b.ActionVersion, b.ActionInputDigest})
+}

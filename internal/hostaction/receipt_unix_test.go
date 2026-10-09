@@ -4,6 +4,7 @@ package hostaction
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
@@ -129,6 +130,16 @@ func TestOnceRealPipeHandshakeAndDurableReplay(t *testing.T) {
 		t.Fatal(err)
 	}
 	for attempt := 0; attempt < 2; attempt++ {
+		if attempt == 1 {
+			now = now.Add(time.Second)
+			b.IssuedAt = now.Format(time.RFC3339)
+			b.ExpiresAt = now.Add(time.Minute).Format(time.RFC3339)
+			b.LeaseID = "fresh-lease"
+			raw, err = SignEnvelope(b, p.KeyID, key)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
 		inR, inW := io.Pipe()
 		outR, outW := io.Pipe()
 		done := make(chan error, 1)
@@ -165,5 +176,38 @@ func TestOnceRealPipeHandshakeAndDurableReplay(t *testing.T) {
 		if attempt == 1 && err == nil {
 			t.Fatal("replayed action")
 		}
+	}
+}
+
+func TestBlockedChallengeOutputIsCancelled(t *testing.T) {
+	b, p, key, now := fixtureBundle(t)
+	root := t.TempDir()
+	if err := os.Chmod(root, 0700); err != nil {
+		t.Fatal(err)
+	}
+	receipts, err := OpenReceipts(root, uint32(os.Geteuid()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer receipts.Close()
+	raw, _ := SignEnvelope(b, p.KeyID, key)
+	outR, outW := io.Pipe()
+	defer outR.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	done := make(chan error, 1)
+	go func() {
+		done <- RunOnce(ctx, bytes.NewReader(append(raw, '\n')), outW, p, receipts, testDispatcher{fileHandler{root + "/effect"}}, func() time.Time { return now }, rand.Reader)
+	}()
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("blocked write succeeded")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("blocked output ignored cancellation")
+	}
+	if _, err := os.Stat(root + "/effect"); !os.IsNotExist(err) {
+		t.Fatal("action ran after cancelled handshake")
 	}
 }

@@ -1160,6 +1160,9 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 - `createdAt`
 - `expiresAt`
 - `readableDigest`
+- `nativeRestart`
+- `hostActionConsole`
+- `hostAction`
 - `hostAdoption`
 - `hostDiscoveryTarget`
 - `extensions`

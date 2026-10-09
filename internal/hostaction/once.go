@@ -43,10 +43,14 @@ func RunOnce(ctx context.Context, input io.Reader, output io.Writer, policy Poli
 	}
 	// Production input is a pipe. Closing it on cancellation interrupts blocked
 	// reads without spawning a goroutine for each frame.
+	operationContext := ctx
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	stop := context.AfterFunc(ctx, func() {
 		if closer, ok := input.(io.Closer); ok {
+			_ = closer.Close()
+		}
+		if closer, ok := output.(io.Closer); ok {
 			_ = closer.Close()
 		}
 	})
@@ -84,17 +88,36 @@ func RunOnce(ctx context.Context, input io.Reader, output io.Writer, policy Poli
 	if VerifyAuthorization(raw, challenge, bundle, policy, now()) != nil {
 		return blocked()
 	}
-	if err = receipts.Claim(digest); err != nil {
+	if err = receipts.ClaimExecution(ExecutionDigest(bundle), digest); err != nil {
 		return err
 	}
 	if ctx.Err() != nil {
 		return blocked()
 	}
+	// Handshake budget ends here. The action retains its signed deadline;
+	// closing either pipe on parent/deadline cancellation also bounds final writes.
+	if !stop() {
+		return blocked()
+	}
+	cancel()
+	expiry, _ := time.Parse(time.RFC3339, bundle.ExpiresAt)
+	actionContext, actionCancel := context.WithTimeout(operationContext, expiry.Sub(now()))
+	defer actionCancel()
+	actionStop := context.AfterFunc(actionContext, func() {
+		if c, ok := input.(io.Closer); ok {
+			_ = c.Close()
+		}
+		if c, ok := output.(io.Closer); ok {
+			_ = c.Close()
+		}
+	})
+	defer actionStop()
+	ctx = actionContext
 	result, err := handler.Execute(ctx, bundle)
 	if err != nil || ctx.Err() != nil || result.BundleDigest != digest || handler.Verify(ctx, bundle, result) != nil {
 		return blocked()
 	}
-	if receipts.Finish(digest, result) != nil {
+	if receipts.FinishExecution(ExecutionDigest(bundle), digest, result) != nil {
 		return blocked()
 	}
 	return WriteFrame(output, result, MaximumFrame)

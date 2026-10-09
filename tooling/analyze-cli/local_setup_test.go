@@ -6,6 +6,8 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -82,7 +84,23 @@ func TestReviewedSetupProfileRejectsChangedAndAddedSource(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			candidate := checkedSourcePackage{sourcePackage: sourcePackage{listed: listedPackage{Dir: directory, GoFiles: names}}}
+			imports := []string{}
+			for _, name := range names {
+				file, err := parser.ParseFile(token.NewFileSet(), filepath.Join(directory, name), nil, parser.ImportsOnly)
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, imp := range file.Imports {
+					value, err := strconv.Unquote(imp.Path.Value)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if !slices.Contains(imports, value) {
+						imports = append(imports, value)
+					}
+				}
+			}
+			candidate := checkedSourcePackage{sourcePackage: sourcePackage{listed: listedPackage{ImportPath: "github.com/vegastack/vegastack-labs/internal/serverconfig", Dir: directory, GoFiles: names, Imports: imports}}}
 			if !reviewedControlPlatformSource(candidate, "serverconfig") {
 				t.Fatal("reviewed frozen-profile decoder rejected")
 			}

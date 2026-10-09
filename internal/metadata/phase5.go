@@ -819,6 +819,8 @@ func phase5RequestSchemas() []SchemaDefinition {
 			phase5ID("profileId", "ProfileID"), phase5ID("roleId", "RoleID"),
 		),
 		phase5LifecycleRequest(credentialLifecycleRequestSchemaID,
+			FieldDefinition{JSONName: "nativeRestart", GoName: "NativeRestart", Kind: ValueObject, Nullable: true, OmitEmpty: true, Ref: "vegastack-labs.dev/native-restart-selector"},
+			FieldDefinition{JSONName: "hostActionConsole", GoName: "HostActionConsole", Kind: ValueObject, Required: false, Nullable: true, OmitEmpty: true, Ref: "vegastack-labs.dev/host-action-credential-confirmation"},
 			phase5LifecycleAction(),
 			phase5NullableID("draftId", "DraftID"),
 			phase5ID("referenceId", "ReferenceID"),

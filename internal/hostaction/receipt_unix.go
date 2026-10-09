@@ -37,16 +37,17 @@ func OpenReceipts(path string, uid uint32) (*Receipts, error) {
 	}
 	return &Receipts{dir: os.NewFile(uintptr(fd), "host-action-receipts"), uid: uid, claims: map[string]bool{}}, nil
 }
-func (r *Receipts) Claim(digest string) error {
+func (r *Receipts) Claim(digest string) error { return r.ClaimExecution(digest, digest) }
+func (r *Receipts) ClaimExecution(key, digest string) error {
 	if r == nil {
 		return blocked()
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if r.dir == nil || !digestPattern.MatchString(digest) {
+	if r.dir == nil || !digestPattern.MatchString(key) || !digestPattern.MatchString(digest) {
 		return blocked()
 	}
-	fd, err := unix.Openat(int(r.dir.Fd()), digest[7:]+".json", unix.O_WRONLY|unix.O_CREAT|unix.O_EXCL|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0600)
+	fd, err := unix.Openat(int(r.dir.Fd()), key[7:]+".json", unix.O_WRONLY|unix.O_CREAT|unix.O_EXCL|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0600)
 	if err != nil {
 		return blocked()
 	}
@@ -63,22 +64,25 @@ func (r *Receipts) Claim(digest string) error {
 	if writeErr != nil || syncErr != nil || closeErr != nil || dirErr != nil {
 		return blocked()
 	}
-	r.claims[digest] = true
+	r.claims[key+"/"+digest] = true
 	return nil
 }
 func (r *Receipts) Finish(digest string, result generated.HostActionResult) error {
+	return r.FinishExecution(digest, digest, result)
+}
+func (r *Receipts) FinishExecution(key, digest string, result generated.HostActionResult) error {
 	if r == nil {
 		return blocked()
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	raw, err := json.Marshal(result)
-	if r.dir == nil || !digestPattern.MatchString(digest) || !r.claims[digest] || result.BundleDigest != digest || err != nil || len(raw) > MaximumFrame || generated.ValidateContractJSON(generated.SchemaIDHostActionResult, raw, generated.ContractExact) != nil {
+	if r.dir == nil || !digestPattern.MatchString(digest) || !digestPattern.MatchString(key) || !r.claims[key+"/"+digest] || result.BundleDigest != digest || err != nil || len(raw) > MaximumFrame || generated.ValidateContractJSON(generated.SchemaIDHostActionResult, raw, generated.ContractExact) != nil {
 		return blocked()
 	}
 	// Never replace the durable claim. A separate exclusive result retains the
 	// original consumed marker even if recording the effect crashes.
-	fd, err := unix.Openat(int(r.dir.Fd()), digest[7:]+".result.json", unix.O_WRONLY|unix.O_CREAT|unix.O_EXCL|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0600)
+	fd, err := unix.Openat(int(r.dir.Fd()), key[7:]+".result.json", unix.O_WRONLY|unix.O_CREAT|unix.O_EXCL|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0600)
 	if err != nil {
 		return blocked()
 	}
@@ -90,7 +94,7 @@ func (r *Receipts) Finish(digest string, result generated.HostActionResult) erro
 	if we != nil || se != nil || ce != nil || de != nil {
 		return blocked()
 	}
-	delete(r.claims, digest)
+	delete(r.claims, key+"/"+digest)
 	return nil
 }
 func (r *Receipts) Close() error {

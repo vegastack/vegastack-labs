@@ -244,7 +244,7 @@ func Current() Registry {
 	return Registry{
 		SchemaVersion:   "1.22.0",
 		Commands:        commands,
-		Endpoints:       append(append(append(readEndpoints(), phase4Endpoints()...), phase5Endpoints()...), append(hostDiscoveryEndpoints(), hostAdoptionEndpoints()...)...),
+		Endpoints:       append(append(append(readEndpoints(), phase4Endpoints()...), phase5Endpoints()...), append(append(hostDiscoveryEndpoints(), hostAdoptionEndpoints()...), hostActionEndpoints()...)...),
 		GateDefinitions: CurrentGateDefinitions(),
 		Errors:          append([]ErrorDefinition(nil), requiredErrors...),
 		Exits:           append([]ExitDefinition(nil), requiredExits...),
@@ -915,6 +915,9 @@ func currentSchemas() []SchemaDefinition {
 				{JSONName: "inventoryExportRoot", GoName: "InventoryExportRoot", Kind: ValueString, Required: true, Pattern: `^/[^\x00]*$`, MinLength: intPointer(2), MaxLength: intPointer(4096)},
 				{JSONName: "principalBindings", GoName: "PrincipalBindings", Kind: ValueArray, Required: true, ItemRef: localPrincipalBindingSchemaID, MinItems: intPointer(1), MaxItems: intPointer(256), UniqueItems: true},
 				{JSONName: "remoteRead", GoName: "RemoteRead", Kind: ValueObject, Required: true, Ref: remoteReadProfileSchemaID},
+				{JSONName: "hostActionSignerPath", GoName: "HostActionSignerPath", Kind: ValueString, Required: false, OmitEmpty: true, MinLength: intPointer(2), MaxLength: intPointer(4096), Pattern: `^/[^\x00]*$`},
+				{JSONName: "hostActionKeyId", GoName: "HostActionKeyID", Kind: ValueString, Required: false, OmitEmpty: true, Pattern: `^[a-z][a-z0-9._:-]{0,127}$`},
+				{JSONName: "hostActionIdentityDigests", GoName: "HostActionIdentityDigests", Kind: ValueArray, Required: false, OmitEmpty: true, ItemKind: ValueString, MaxItems: intPointer(64), UniqueItems: true},
 				{JSONName: "acknowledgementAdapterConfigPath", GoName: "AcknowledgementAdapterConfigPath", Kind: ValueString, Required: false, MinLength: intPointer(2), MaxLength: intPointer(4096), Pattern: `^/[^\x00]*$`},
 				{JSONName: "scheduledRunner", GoName: "ScheduledRunner", Kind: ValueObject, Required: false, Nullable: true, Ref: scheduledRunnerProfileSchemaID},
 				{JSONName: "standardBackupRoot", GoName: "StandardBackupRoot", Kind: ValueString, Required: false, Nullable: true, MinLength: intPointer(2), MaxLength: intPointer(4096), Pattern: `^/[^\x00]*$`},

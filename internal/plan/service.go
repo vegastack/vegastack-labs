@@ -10,9 +10,11 @@ import (
 
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/authorization"
+	"github.com/vegastack/vegastack-labs/internal/credentialref"
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/gate"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"github.com/vegastack/vegastack-labs/internal/hostadoption"
 	"github.com/vegastack/vegastack-labs/internal/hostdiscovery"
 	"github.com/vegastack/vegastack-labs/internal/stateexport"
@@ -46,20 +48,28 @@ type HostAdoptionDraftReader interface {
 type HostDiscoveryDraftReader interface {
 	GetDraft(context.Context, string) (store.DiscoveryDraft, error)
 }
+type HostActionDraftReader interface {
+	GetDraft(context.Context, string) (store.HostActionDraft, error)
+}
+type HostActionLifecycleReader interface {
+	LookupLifecycleDraft(context.Context, string, int64, string) (credentialref.LifecycleBinding, error)
+}
 type Config struct {
-	HostDiscoveryTargets HostDiscoveryDraftReader
-	HostAdoptions        HostAdoptionDraftReader
-	Repository           Repository
-	Observations         ObservationReader
-	Clock                func() time.Time
-	PolicyVersion        string
-	ToolVersion          string
-	ContractVersion      string
-	Risk                 string
-	AuthorizationBranch  string
-	ExecutorMode         string
-	ExecutorID           *string
-	OperationExecutorID  string
+	HostActionCredentials HostActionLifecycleReader
+	HostActions           HostActionDraftReader
+	HostDiscoveryTargets  HostDiscoveryDraftReader
+	HostAdoptions         HostAdoptionDraftReader
+	Repository            Repository
+	Observations          ObservationReader
+	Clock                 func() time.Time
+	PolicyVersion         string
+	ToolVersion           string
+	ContractVersion       string
+	Risk                  string
+	AuthorizationBranch   string
+	ExecutorMode          string
+	ExecutorID            *string
+	OperationExecutorID   string
 }
 
 type Service struct{ config Config }
@@ -186,6 +196,33 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 		operations[index] = generated.PlanOperation{Sequence: operation.Sequence, OperationID: operation.OperationID, OperationType: operation.OperationType, AdapterID: operation.AdapterID, ExecutorID: service.config.OperationExecutorID, TargetID: operation.TargetID, InputDigest: operation.InputDigest, ArtifactDigest: operation.ArtifactDigest, Idempotent: operation.Idempotent}
 	}
 	risk := service.config.Risk
+	var action *generated.HostActionRequest
+	for _, op := range operations {
+		if op.AdapterID != hostaction.AdapterID && op.OperationType != hostaction.OperationType {
+			continue
+		}
+		if len(operations) != 1 || declaration.DeclarationType != "host.action" || op.AdapterID != hostaction.AdapterID || op.OperationType != hostaction.OperationType || op.Idempotent || service.config.HostActions == nil || service.config.AuthorizationBranch != "human" || service.config.ExecutorMode != "central" {
+			return store.PlanCommitResult{}, planError(generated.ErrorCodeAuthorizationDenied)
+		}
+		draft, err := service.config.HostActions.GetDraft(ctx, declaration.DeclarationID)
+		if err != nil {
+			return store.PlanCommitResult{}, err
+		}
+		if draft.Digest != op.ArtifactDigest || hostaction.Digest(draft.Request) != draft.Digest || draft.Request.HostID != op.TargetID || hostaction.ValidateRequest(draft.Request) != nil {
+			return store.PlanCommitResult{}, planError(generated.ErrorCodeIntegrityFailure)
+		}
+		sealed := false
+		for _, e := range extensions {
+			if e.Name == "x-host-action" {
+				sealed = e.ValueDigest == draft.Digest
+			}
+		}
+		if !sealed {
+			return store.PlanCommitResult{}, planError(generated.ErrorCodePlanStale)
+		}
+		action = &draft.Request
+		risk = string(authorization.RiskInfrastructure)
+	}
 	var adoption *generated.HostAdoptionRequest
 	var discovery *generated.HostDiscoveryTargetDraftRequest
 	for _, op := range operations {
@@ -266,6 +303,19 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 	desired.Operations = declarationOperations
 	desired.Extensions = append(make([]generated.ContractExtension, 0, len(declaration.Extensions)), declaration.Extensions...)
 	candidate := generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", DeclarationID: declaration.DeclarationID, Binding: generated.PlanBinding{RecoveryEpoch: current.RecoveryEpoch, PriorStateRevision: current.StateRevision, StateRevision: current.StateRevision + 1, DeclarationRevision: desired.Revision, ObservationFingerprint: fingerprint, TargetDigest: targets, ReasonDigest: reason, PolicyVersion: service.config.PolicyVersion, ToolVersion: service.config.ToolVersion, ContractVersion: service.config.ContractVersion}, Operations: operations, Status: "planned", Risk: risk, AuthorizationBranch: service.config.AuthorizationBranch, ExecutorMode: service.config.ExecutorMode, ExecutorID: service.config.ExecutorID, CreatedAt: created.Format(time.RFC3339), ExpiresAt: created.Add(time.Duration(generated.PlanValiditySeconds) * time.Second).Format(time.RFC3339), Extensions: extensions}
+	if service.config.HostActionCredentials != nil && len(operations) == 1 && (operations[0].OperationType == "credential.activate" || operations[0].OperationType == "credential.rotate") {
+		lifecycle, err := service.config.HostActionCredentials.LookupLifecycleDraft(ctx, declaration.DeclarationID, declaration.Revision, operations[0].OperationID)
+		if err != nil {
+			return store.PlanCommitResult{}, err
+		}
+		if c := lifecycle.NativeRestartContinuation; c != nil {
+			candidate.NativeRestart = &generated.NativeRestartPresentation{Schema: generated.SchemaIDNativeRestartPresentation, SchemaVersion: "1.0.0", PriorRunID: c.PriorRunID, PriorStepID: c.PriorStepID, PendingDigest: c.PendingDigest, ExpectedInvocationDigest: hostaction.Digest(c.Expected)}
+		}
+		if c := lifecycle.HostActionConsole; c != nil {
+			candidate.HostActionConsole = &generated.HostActionCredentialConfirmation{Schema: generated.SchemaIDHostActionCredentialConfirmation, SchemaVersion: "1.0.0", Method: c.Method, TargetDigest: c.TargetDigest, HostIdentityDigest: c.HostIdentityDigest, TargetRevision: c.TargetRevision}
+		}
+	}
+	candidate.HostAction = action
 	candidate.HostAdoption = adoption
 	candidate.HostDiscoveryTarget = discovery
 	readable := readablePlan(candidate)

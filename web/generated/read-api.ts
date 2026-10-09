@@ -627,6 +627,43 @@ export interface GateView {
   readonly "applicabilityReasonCode": string;
 }
 
+export interface HostActionConsoleConfirmation {
+  readonly "schema": "vegastack-labs.dev/host-action-console-confirmation";
+  readonly "schemaVersion": "1.0.0";
+  readonly "method": "administrator-verified-console";
+  readonly "targetDigest": string;
+  readonly "hostIdentityDigest": string;
+}
+
+export interface HostActionCredentialConfirmation {
+  readonly "schema": "vegastack-labs.dev/host-action-credential-confirmation";
+  readonly "schemaVersion": "1.0.0";
+  readonly "method": "administrator-verified-console";
+  readonly "targetDigest": string;
+  readonly "hostIdentityDigest": string;
+  readonly "targetRevision": number;
+}
+
+export interface HostActionRequest {
+  readonly "schema": "vegastack-labs.dev/host-action-request";
+  readonly "schemaVersion": "1.0.0";
+  readonly "actionId": string;
+  readonly "actionVersion": string;
+  readonly "actionInputDigest": string;
+  readonly "actionInput": string;
+  readonly "hostId": string;
+  readonly "targetRevision": number;
+  readonly "targetDigest": string;
+  readonly "automationPrincipalId": string;
+  readonly "callerUid": number;
+  readonly "credentialReferenceId": string;
+  readonly "credentialMaterialVersion": string;
+  readonly "consoleConfirmation": HostActionConsoleConfirmation;
+  readonly "expectedStateRevision": number;
+  readonly "recoveryEpoch": number;
+  readonly "idempotencyKey": string;
+}
+
 export interface HostAdoptionRequest {
   readonly "schema": "vegastack-labs.dev/host-adoption-request";
   readonly "schemaVersion": "1.0.0";
@@ -702,6 +739,15 @@ export interface InventoryDraftCounts {
   readonly "findings": number;
 }
 
+export interface NativeRestartPresentation {
+  readonly "schema": "vegastack-labs.dev/native-restart-presentation";
+  readonly "schemaVersion": "1.0.0";
+  readonly "priorRunId": string;
+  readonly "priorStepId": string;
+  readonly "pendingDigest": string;
+  readonly "expectedInvocationDigest": string;
+}
+
 export interface OffsiteRunSpec {
   readonly "generationId": string;
   readonly "sourcePointId": string;
@@ -738,6 +784,9 @@ export interface Plan {
   readonly "createdAt": string;
   readonly "expiresAt": string;
   readonly "readableDigest": string;
+  readonly "nativeRestart"?: NativeRestartPresentation | null;
+  readonly "hostActionConsole"?: HostActionCredentialConfirmation | null;
+  readonly "hostAction"?: HostActionRequest | null;
   readonly "hostAdoption"?: HostAdoptionRequest | null;
   readonly "hostDiscoveryTarget"?: HostDiscoveryTargetDraftRequest | null;
   readonly "extensions": ReadonlyArray<ContractExtension>;
@@ -4442,6 +4491,234 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/host-action-console-confirmation",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/host-action-console-confirmation"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "method",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "administrator-verified-console"
+        ]
+      },
+      {
+        "name": "targetDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "hostIdentityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/host-action-credential-confirmation",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/host-action-credential-confirmation"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "method",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "administrator-verified-console"
+        ]
+      },
+      {
+        "name": "targetDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "hostIdentityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "targetRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/host-action-request",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/host-action-request"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "actionId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "actionVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"
+      },
+      {
+        "name": "actionInputDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "actionInput",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 32768
+      },
+      {
+        "name": "hostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "targetRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "targetDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "automationPrincipalId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "callerUid",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "credentialReferenceId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "credentialMaterialVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "consoleConfirmation",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/host-action-console-confirmation"
+      },
+      {
+        "name": "expectedStateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "idempotencyKey",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/host-adoption-request",
     "fields": [
       {
@@ -4910,6 +5187,57 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/native-restart-presentation",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/native-restart-presentation"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "priorRunId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "priorStepId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "pendingDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "expectedInvocationDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/offsite-run-spec",
     "fields": [
       {
@@ -5168,6 +5496,27 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "nativeRestart",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "ref": "vegastack-labs.dev/native-restart-presentation"
+      },
+      {
+        "name": "hostActionConsole",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "ref": "vegastack-labs.dev/host-action-credential-confirmation"
+      },
+      {
+        "name": "hostAction",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "ref": "vegastack-labs.dev/host-action-request"
       },
       {
         "name": "hostAdoption",
@@ -6122,6 +6471,18 @@ function decodeGateView(value: unknown): GateView {
   return decodeSchema("vegastack-labs.dev/gate-view", value) as unknown as GateView;
 }
 
+function decodeHostActionConsoleConfirmation(value: unknown): HostActionConsoleConfirmation {
+  return decodeSchema("vegastack-labs.dev/host-action-console-confirmation", value) as unknown as HostActionConsoleConfirmation;
+}
+
+function decodeHostActionCredentialConfirmation(value: unknown): HostActionCredentialConfirmation {
+  return decodeSchema("vegastack-labs.dev/host-action-credential-confirmation", value) as unknown as HostActionCredentialConfirmation;
+}
+
+function decodeHostActionRequest(value: unknown): HostActionRequest {
+  return decodeSchema("vegastack-labs.dev/host-action-request", value) as unknown as HostActionRequest;
+}
+
 function decodeHostAdoptionRequest(value: unknown): HostAdoptionRequest {
   return decodeSchema("vegastack-labs.dev/host-adoption-request", value) as unknown as HostAdoptionRequest;
 }
@@ -6144,6 +6505,10 @@ function decodeHostIdentityConfirmation(value: unknown): HostIdentityConfirmatio
 
 function decodeInventoryDraftCounts(value: unknown): InventoryDraftCounts {
   return decodeSchema("vegastack-labs.dev/inventory-draft-counts", value) as unknown as InventoryDraftCounts;
+}
+
+function decodeNativeRestartPresentation(value: unknown): NativeRestartPresentation {
+  return decodeSchema("vegastack-labs.dev/native-restart-presentation", value) as unknown as NativeRestartPresentation;
 }
 
 function decodeOffsiteRunSpec(value: unknown): OffsiteRunSpec {

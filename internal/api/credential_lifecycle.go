@@ -41,7 +41,7 @@ func (app *Application) credentialLifecycleDraft(config CredentialLifecycleOpera
 			return
 		}
 		var input generated.CredentialLifecycleRequest
-		fields := []string{"schema", "schemaVersion", "expectedStateRevision", "recoveryEpoch", "targetDigest", "idempotencyKey", "action", "draftId", "referenceId", "consumerIds", "requiredDeniedConsumerIds", "nativeConsumers", "nativeDeniedReaders", "materialVersion", "priorMaterialVersion", "resolverId", "targetId", "overlapSeconds", "priorRecoveryEpoch", "custodyProofDigest", "formerControllerFenceDigest"}
+		fields := []string{"hostActionConsole", "nativeRestart", "schema", "schemaVersion", "expectedStateRevision", "recoveryEpoch", "targetDigest", "idempotencyKey", "action", "draftId", "referenceId", "consumerIds", "requiredDeniedConsumerIds", "nativeConsumers", "nativeDeniedReaders", "materialVersion", "priorMaterialVersion", "resolverId", "targetId", "overlapSeconds", "priorRecoveryEpoch", "custodyProofDigest", "formerControllerFenceDigest"}
 		if err := decodeOperationRequest(r, 262144, fields, &input); err != nil {
 			app.failure(w, op, err)
 			return

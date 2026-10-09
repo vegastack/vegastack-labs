@@ -146,6 +146,24 @@
         "null"
       ]
     },
+    "hostActionIdentityDigests": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 64,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "hostActionKeyId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "hostActionSignerPath": {
+      "maxLength": 4096,
+      "minLength": 2,
+      "pattern": "^/[^\\x00]*$",
+      "type": "string"
+    },
     "inventoryExportRoot": {
       "maxLength": 4096,
       "minLength": 2,

@@ -146,7 +146,9 @@ func (effect *CoreCredentialEffect) Execute(ctx context.Context, binding ExactSt
 		if err := effect.gate.VerifySecretStep(ctx, binding.Plan, *plannedOperation); err != nil {
 			return adapter.Effect{}, err
 		}
-		results, verifyErr := guardedLifecycleVerify(ctx, effect.lifecycleVerifier, binding, lifecycleBinding)
+		verificationStep := binding
+		verificationStep.Attribution = attribution
+		results, verifyErr := effect.verifyLifecycle(ctx, verificationStep, lifecycleBinding)
 		if verifyErr != nil {
 			if _, unavailable := effect.lifecycleVerifier.(UnavailableCredentialLifecycleVerifier); unavailable {
 				// The built-in sentinel performs no external work.

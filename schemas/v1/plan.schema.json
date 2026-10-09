@@ -18,6 +18,186 @@
       ],
       "type": "object"
     },
+    "host-action-console-confirmation": {
+      "additionalProperties": false,
+      "properties": {
+        "hostIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "method": {
+          "enum": [
+            "administrator-verified-console"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-action-console-confirmation"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "targetDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "method",
+        "targetDigest",
+        "hostIdentityDigest"
+      ],
+      "type": "object"
+    },
+    "host-action-credential-confirmation": {
+      "additionalProperties": false,
+      "properties": {
+        "hostIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "method": {
+          "enum": [
+            "administrator-verified-console"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-action-credential-confirmation"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "targetDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "targetRevision": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "method",
+        "targetDigest",
+        "hostIdentityDigest",
+        "targetRevision"
+      ],
+      "type": "object"
+    },
+    "host-action-request": {
+      "additionalProperties": false,
+      "properties": {
+        "actionId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "actionInput": {
+          "maxLength": 32768,
+          "minLength": 1,
+          "type": "string"
+        },
+        "actionInputDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "actionVersion": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
+          "type": "string"
+        },
+        "automationPrincipalId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "callerUid": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "consoleConfirmation": {
+          "$ref": "#/$defs/host-action-console-confirmation"
+        },
+        "credentialMaterialVersion": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "credentialReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "expectedStateRevision": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "hostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "idempotencyKey": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-action-request"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "targetDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "targetRevision": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "actionId",
+        "actionVersion",
+        "actionInputDigest",
+        "actionInput",
+        "hostId",
+        "targetRevision",
+        "targetDigest",
+        "automationPrincipalId",
+        "callerUid",
+        "credentialReferenceId",
+        "credentialMaterialVersion",
+        "consoleConfirmation",
+        "expectedStateRevision",
+        "recoveryEpoch",
+        "idempotencyKey"
+      ],
+      "type": "object"
+    },
     "host-adoption-request": {
       "additionalProperties": false,
       "properties": {
@@ -356,6 +536,48 @@
       ],
       "type": "object"
     },
+    "native-restart-presentation": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedInvocationDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "pendingDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "priorRunId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "priorStepId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/native-restart-presentation"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "priorRunId",
+        "priorStepId",
+        "pendingDigest",
+        "expectedInvocationDigest"
+      ],
+      "type": "object"
+    },
     "plan-binding": {
       "additionalProperties": false,
       "properties": {
@@ -515,6 +737,26 @@
       "maxItems": 64,
       "type": "array"
     },
+    "hostAction": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/host-action-request"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "hostActionConsole": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/host-action-credential-confirmation"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "hostAdoption": {
       "anyOf": [
         {
@@ -529,6 +771,16 @@
       "anyOf": [
         {
           "$ref": "#/$defs/host-discovery-target-draft-request"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "nativeRestart": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/native-restart-presentation"
         },
         {
           "type": "null"
