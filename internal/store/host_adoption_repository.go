@@ -102,7 +102,66 @@ func (r *HostAdoptionRepository) validatePrincipal(principal identity.Principal,
 	if epoch != req.RecoveryEpoch {
 		return generated.HostDiscoveryTarget{}, adoptionError(generated.ErrorCodeRecoveryEpochMismatch)
 	}
+	if err := validateAdoptionRegistration(row, req, target.Binding); err != nil {
+		return generated.HostDiscoveryTarget{}, err
+	}
 	return target.Binding, nil
+}
+
+// Registration is a current binding, not admission evidence. After verified
+// recovery the ordinary adoption workflow may refresh the same host's stale
+// binding; its original draft, plan, approval and audit remain immutable.
+func validateAdoptionRegistration(row discoveryRow, req generated.HostAdoptionRequest, target generated.HostDiscoveryTarget) error {
+	if err := requireHostUnfrozen(row, req.HostID); err != nil {
+		return err
+	}
+	if err := requireHostUnfrozen(row, target.TargetID); err != nil {
+		return err
+	}
+	var targetID, identityDigest, kind, class, profileID, observationID, draftID, draftDigest string
+	var epoch int64
+	err := row(`SELECT h.target_id,h.identity_digest,h.identity_kind,h.identity_class,h.profile_id,h.observation_id,h.draft_id,h.recovery_epoch,d.digest FROM managed_hosts h JOIN host_adoption_drafts d ON d.draft_id=h.draft_id WHERE h.host_id=?`, req.HostID).Scan(&targetID, &identityDigest, &kind, &class, &profileID, &observationID, &draftID, &epoch, &draftDigest)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if targetID != target.TargetID || identityDigest != req.Confirmation.IdentityDigest || kind != req.Confirmation.IdentityKind || class != req.Confirmation.IdentityClass || profileID != target.ProfileID {
+		return adoptionError(generated.ErrorCodeStateConflict)
+	}
+	if epoch == req.RecoveryEpoch && draftDigest == hostadoption.Digest(req) {
+		return nil // exact existing intent replay still rechecks all authority
+	}
+	if epoch >= req.RecoveryEpoch || observationID == req.ObservationID {
+		return adoptionError(generated.ErrorCodeStateConflict)
+	}
+	var verified int
+	if err := row(`SELECT COUNT(*) FROM system_meta m JOIN recovery_authority_journal j ON j.instance_id=m.instance_id AND j.recovery_epoch=m.recovery_epoch AND j.transition='verified' WHERE m.id=1 AND m.authority_mode='ready' AND m.recovery_epoch=?`, req.RecoveryEpoch).Scan(&verified); err != nil {
+		return err
+	}
+	if verified != 1 {
+		return adoptionError(generated.ErrorCodeRecoveryRequired)
+	}
+	prior, err := readDiscoveryObservation(row, observationID)
+	if err != nil {
+		return err
+	}
+	var raw []byte
+	var digest string
+	if err := row(`SELECT d.canonical_bytes,d.digest FROM host_discovery_targets t JOIN host_discovery_drafts d ON d.draft_id=t.draft_id WHERE t.target_id=? AND t.revision=?`, targetID, prior.TargetRevision).Scan(&raw, &digest); err != nil {
+		return err
+	}
+	var old generated.HostDiscoveryTargetDraftRequest
+	if json.Unmarshal(raw, &old) != nil || hostdiscovery.Digest(old) != digest || digest != prior.TargetDigest || old.Target.RecoveryEpoch != epoch || target.Revision <= old.Target.Revision {
+		return adoptionError(generated.ErrorCodeIntegrityFailure)
+	}
+	// The new epoch and target revision are the only permitted target changes.
+	old.Target.Revision, old.Target.RecoveryEpoch = target.Revision, target.RecoveryEpoch
+	if hostdiscovery.Digest(old.Target) != hostdiscovery.Digest(target) {
+		return adoptionError(generated.ErrorCodeStateConflict)
+	}
+	return nil
 }
 func (r *HostAdoptionRepository) StageDraft(ctx context.Context, req generated.HostAdoptionRequest, a audit.Attribution) (_ HostAdoptionDraft, outcome error) {
 	if r == nil || r.store == nil {
@@ -188,8 +247,15 @@ func (r *HostAdoptionRepository) Apply(ctx context.Context, req HostAdoptionAppl
 		if err != nil {
 			return err
 		}
-		_, err = tx.ExecContext(ctx, `INSERT INTO managed_hosts VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`, d.Request.HostID, target.TargetID, d.Request.Confirmation.IdentityDigest, d.Request.Confirmation.IdentityKind, d.Request.Confirmation.IdentityClass, d.Request.ObservationID, target.ProfileID, d.ID, req.PlanID, human, ack, current.StateRevision, current.RecoveryEpoch)
-		return err
+		result, err := tx.ExecContext(ctx, `INSERT INTO managed_hosts VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(host_id) DO UPDATE SET observation_id=excluded.observation_id,draft_id=excluded.draft_id,plan_id=excluded.plan_id,approving_human_id=excluded.approving_human_id,acknowledgement_id=excluded.acknowledgement_id,state_revision=excluded.state_revision,recovery_epoch=excluded.recovery_epoch WHERE managed_hosts.recovery_epoch<excluded.recovery_epoch`, d.Request.HostID, target.TargetID, d.Request.Confirmation.IdentityDigest, d.Request.Confirmation.IdentityKind, d.Request.Confirmation.IdentityClass, d.Request.ObservationID, target.ProfileID, d.ID, req.PlanID, human, ack, current.StateRevision, current.RecoveryEpoch)
+		if err != nil {
+			return err
+		}
+		changed, err := result.RowsAffected()
+		if err != nil || changed != 1 {
+			return adoptionError(generated.ErrorCodeStateConflict)
+		}
+		return nil
 	})
 	if err != nil {
 		return generated.ManagedHost{}, err
