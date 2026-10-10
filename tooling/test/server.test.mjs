@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -256,5 +256,48 @@ test("the server verifier confines #226 Unix syscalls to exact volume files", as
   for (const file of ["internal/debianbaseline/escape_linux.go", "internal/debianbaseline/volume_files_linux.go", "internal/other/volume_linux.go"]) {
     const rejected = await fixtureRepo(t, {[file]: source});
     assert.deepEqual((await verifyServer(rejected)).codes, ["SERVER_XSYS_SCOPE"], file);
+  }
+});
+
+test("the #228 fixture peer allows only its sealed loopback TLS listener", async (t) => {
+  const filename = "internal/qualification/slack_fixture_peer_linux.go";
+  const source = await readFile(path.join(process.cwd(), filename), "utf8");
+  const accepted = await fixtureRepo(t, {[filename]: source});
+  assert.deepEqual(await verifyServer(accepted), {status: "pass", codes: []});
+  for (const changed of [source.replace("127.0.0.1:443", "0.0.0.0:443"), source.replace("tls.VersionTLS13", "tls.VersionTLS12"), source.replace("deadline.Sub(issued) > 4*time.Hour", "deadline.Sub(issued) > 8*time.Hour")]) {
+    assert.notEqual(changed, source);
+    const root = await fixtureRepo(t, {[filename]: changed});
+    assert.ok((await verifyServer(root)).codes.includes("SERVER_TCP_LISTENER"));
+  }
+  const sibling = await fixtureRepo(t, {"internal/qualification/other_fixture_peer_linux.go": source});
+  assert.ok((await verifyServer(sibling)).codes.includes("SERVER_TCP_LISTENER"));
+});
+
+test("the #228 native syscall scopes reject siblings and altered sealed helpers", async (t) => {
+  const source = 'package qualification\nimport _ "golang.org/x/sys/unix"\n';
+  const named = [
+    "cleanup_linux.go", "confinement_linux.go", "control_setup_bootstrap_linux.go", "control_setup_profile_linux.go",
+    "control_setup_supervisor_linux.go", "disk_linux.go", "fixture_approval_linux.go", "observer_linux.go",
+    "owned_files_linux.go", "owned_guest_linux.go", "preparation_linux.go", "qmp_linux.go", "scope_linux.go",
+    "serial_linux.go", "slack_fixture_peer_linux.go", "transport_probe_linux.go",
+  ];
+  const sealed = [
+    "internal/debianaccess/native_observation_linux.go", "internal/debianbaseline/volume_native_cases_linux.go",
+    "internal/debianbaseline/volume_native_witness_linux.go", "internal/hostaction/native_receipt_unix.go",
+    "internal/linuxrole/native_recovery_recheck_linux.go", "internal/recovery/candidate_transfer_linux.go",
+    "internal/server/recovery_receive_linux.go",
+  ];
+  const files = Object.fromEntries(named.map(name => [`internal/qualification/${name}`, source]));
+  files["internal/debianaccess/sessions_linux.go"] = source;
+  for (const filename of sealed) files[filename] = await readFile(path.join(process.cwd(), filename), "utf8");
+  const accepted = await fixtureRepo(t, files);
+  assert.deepEqual(await verifyServer(accepted), {status: "pass", codes: []});
+  for (const filename of ["internal/qualification/escape_linux.go", "internal/qualification/serial_unix.go", "internal/debianaccess/sessions_unix.go", "internal/debianaccess/session_linux.go"]) {
+    const root = await fixtureRepo(t, {[filename]: source});
+    assert.deepEqual((await verifyServer(root)).codes, ["SERVER_XSYS_SCOPE"], filename);
+  }
+  for (const filename of sealed) {
+    const root = await fixtureRepo(t, {[filename]: files[filename] + "\n// altered implementation\n"});
+    assert.ok((await verifyServer(root)).codes.includes("SERVER_XSYS_SCOPE"), filename);
   }
 });

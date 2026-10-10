@@ -90,6 +90,7 @@ func analyze(root string) (analysis, error) {
 		isReviewedRemoteListener := relative == "internal/server/remote.go"
 		isReviewedRecoverySource := reviewedRecoveryUnixFile(relative, content)
 		isReviewedR2Loopback := reviewedR2LoopbackFile(relative, content)
+		isReviewedSlackFixturePeer := reviewedSlackFixturePeerFile(relative, content)
 		importAliases := make(map[string]string)
 		if isServer {
 			serverSource.Write(content)
@@ -129,9 +130,9 @@ func analyze(root string) (analysis, error) {
 			approvedHostActionFile := relative == "internal/hostaction/policy_unix.go" || relative == "internal/hostaction/receipt_unix.go" || relative == "internal/hostaction/pipe_unix.go"
 			// #225 confines native rollback, interface inspection and namespace probes
 			// to exact files; other Debian helpers remain outside this permission.
-			approvedAccessFile := relative == "internal/debianaccess/rollback_unix.go" || relative == "internal/debianaccess/observations_unix.go" || relative == "internal/debianaccess/source_probe_linux.go"
+			approvedAccessFile := relative == "internal/debianaccess/rollback_unix.go" || relative == "internal/debianaccess/observations_unix.go" || relative == "internal/debianaccess/source_probe_linux.go" || relative == "internal/debianaccess/sessions_linux.go"
 			approvedBaselineFile := relative == "internal/debianbaseline/volume_files_unix.go" || relative == "internal/debianbaseline/volume_recovery_linux.go" || relative == "internal/debianbaseline/volume_linux.go"
-			if importPath == "golang.org/x/sys/unix" && !(approvedClientFile || approvedLinuxFile || approvedBackupAdapterFile || approvedHostActionFile || approvedAccessFile || approvedBaselineFile || isReviewedRecoverySource || reviewedLinuxRoleUnixFile(relative, content)) {
+			if importPath == "golang.org/x/sys/unix" && !(approvedClientFile || approvedLinuxFile || approvedBackupAdapterFile || approvedHostActionFile || approvedAccessFile || approvedBaselineFile || reviewedQualificationUnixFile(relative) || reviewedNativeQualificationUnixFile(relative, content) || isReviewedRecoverySource || reviewedLinuxRoleUnixFile(relative, content)) {
 				result.XSysOutsideScope = true
 			}
 		}
@@ -157,7 +158,7 @@ func analyze(root string) (analysis, error) {
 			case importPath == "net/http" && (selector.Sel.Name == "ListenAndServe" || selector.Sel.Name == "ListenAndServeTLS"):
 				result.TCPListener = true
 			case importPath == "net" && selector.Sel.Name == "Listen":
-				if len(call.Args) == 0 || (stringLiteral(call.Args[0]) != "unix" && !approvedRemoteTCP[call.Pos()] && !(isReviewedR2Loopback && len(call.Args) == 2 && stringLiteral(call.Args[0]) == "tcp" && stringLiteral(call.Args[1]) == "127.0.0.1:0")) {
+				if len(call.Args) == 0 || (stringLiteral(call.Args[0]) != "unix" && !approvedRemoteTCP[call.Pos()] && !(isReviewedR2Loopback && len(call.Args) == 2 && stringLiteral(call.Args[0]) == "tcp" && stringLiteral(call.Args[1]) == "127.0.0.1:0") && !(isReviewedSlackFixturePeer && len(call.Args) == 2 && stringLiteral(call.Args[0]) == "tcp4" && stringLiteral(call.Args[1]) == "127.0.0.1:443")) {
 					result.TCPListener = true
 				}
 			case selector.Sel.Name == "Listen" && importPath == "":
@@ -303,6 +304,68 @@ func reviewedR2LoopbackFile(relative string, content []byte) bool {
 	}
 	sum := sha256.Sum256(content)
 	return fmt.Sprintf("%x", sum) == "0b0043524351900cecf26f85f976d0ca0fed446f68af05fe6f868769c03ce1e9"
+}
+
+// #228 permits descriptor/syscall access only in these reviewed native fixture files.
+// A sibling or platform-renamed file gains no permission.
+// These #228 preparation/observation helpers retain their reviewed full-file
+// boundaries; neither a sibling nor changed implementation inherits permission.
+func reviewedNativeQualificationUnixFile(relative string, content []byte) bool {
+	var expected string
+	switch relative {
+	case "internal/debianaccess/native_observation_linux.go":
+		expected = "3c62df662dc1f36f3bba417413c4022751cd2df9200767df595660c844e8429f"
+	case "internal/debianbaseline/volume_native_cases_linux.go":
+		expected = "d417af5e750cec34838ebfdf4ad4502ca2842cb3b14cf74c2b55a8e816e442e2"
+	case "internal/debianbaseline/volume_native_witness_linux.go":
+		expected = "c6834db40d50379601454c4d9bc74755f206fb34bb2091c83502755b0b8fdc5b"
+	case "internal/hostaction/native_receipt_unix.go":
+		expected = "e25aef7aad4e01faae123862076ed014f979f6f1faa7bc07d1b1817d72fac665"
+	case "internal/linuxrole/native_recovery_recheck_linux.go":
+		expected = "df7b853463a5d32763473f3860930bc9f8b3244fc9738a306e57a8d8ed70dd8f"
+	case "internal/recovery/candidate_transfer_linux.go":
+		expected = "da2e7ec6d8fe4a2cb1b8763669bf9f21bb82bf8f1c913dee99eb0aec2a5e0bde"
+	case "internal/server/recovery_receive_linux.go":
+		expected = "a76c77cd68c8431b4e32ff91a0228cd61c5bf1bb7284c8d3e2f9189175570eb3"
+	default:
+		return false
+	}
+	sum := sha256.Sum256(content)
+	return fmt.Sprintf("%x", sum) == expected
+}
+
+func reviewedQualificationUnixFile(relative string) bool {
+	switch relative {
+	case "internal/qualification/cleanup_linux.go",
+		"internal/qualification/confinement_linux.go",
+		"internal/qualification/control_setup_bootstrap_linux.go",
+		"internal/qualification/control_setup_profile_linux.go",
+		"internal/qualification/control_setup_supervisor_linux.go",
+		"internal/qualification/disk_linux.go",
+		"internal/qualification/fixture_approval_linux.go",
+		"internal/qualification/observer_linux.go",
+		"internal/qualification/owned_files_linux.go",
+		"internal/qualification/owned_guest_linux.go",
+		"internal/qualification/preparation_linux.go",
+		"internal/qualification/qmp_linux.go",
+		"internal/qualification/scope_linux.go",
+		"internal/qualification/serial_linux.go",
+		"internal/qualification/slack_fixture_peer_linux.go",
+		"internal/qualification/transport_probe_linux.go":
+		return true
+	default:
+		return false
+	}
+}
+
+// Seal the reviewed finite Slack fixture peer, including its fixed loopback TLS
+// listener and original scope deadline; this is not a control-plane listener.
+func reviewedSlackFixturePeerFile(relative string, content []byte) bool {
+	if relative != "internal/qualification/slack_fixture_peer_linux.go" {
+		return false
+	}
+	sum := sha256.Sum256(content)
+	return fmt.Sprintf("%x", sum) == "c0c5e71c66a599e740379e0f5c4e8c8750619210c18b429685954fb354cdbdb5"
 }
 
 func reviewedRemoteListener(file *ast.File, aliases map[string]string) (token.Pos, bool) {
