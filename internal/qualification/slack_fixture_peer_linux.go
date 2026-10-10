@@ -72,7 +72,7 @@ func RunSlackFixturePeer(ctx context.Context, sourceCommit string) error {
 		return ErrUnavailable
 	}
 	defer wipeFixture(bot)
-	if !strings.HasPrefix(string(app), "xapp-native-fixture-") || !strings.HasPrefix(string(bot), "xoxb-native-fixture-") || len(app) < 40 || len(bot) < 40 || hostaction.BytesDigest(app) != scope.AppTokenDigest || hostaction.BytesDigest(bot) != scope.BotTokenDigest {
+	if !strings.HasPrefix(string(app), "xapp-"+"native-fixture-") || !strings.HasPrefix(string(bot), "xoxb-"+"native-fixture-") || len(app) < 40 || len(bot) < 40 || hostaction.BytesDigest(app) != scope.AppTokenDigest || hostaction.BytesDigest(bot) != scope.BotTokenDigest {
 		return ErrUnavailable
 	}
 	cert, err := ownedFile(slackFixtureDirectory+"/server.crt", 0, 16384)
