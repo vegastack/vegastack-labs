@@ -316,7 +316,7 @@ func reviewedNativeQualificationUnixFile(relative string, content []byte) bool {
 	case "internal/debianaccess/native_observation_linux.go":
 		expected = "3c62df662dc1f36f3bba417413c4022751cd2df9200767df595660c844e8429f"
 	case "internal/debianbaseline/volume_native_cases_linux.go":
-		expected = "d417af5e750cec34838ebfdf4ad4502ca2842cb3b14cf74c2b55a8e816e442e2"
+		expected = "dcf2cad693070a3f1fced54432e70b884901a8b6b21ade38bc0395202bb07c79"
 	case "internal/debianbaseline/volume_native_witness_linux.go":
 		expected = "c6834db40d50379601454c4d9bc74755f206fb34bb2091c83502755b0b8fdc5b"
 	case "internal/hostaction/native_receipt_unix.go":
