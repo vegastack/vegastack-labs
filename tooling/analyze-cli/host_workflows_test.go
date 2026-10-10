@@ -11,7 +11,7 @@ import (
 func TestHostWorkflowClientSealRejectsDrift(t *testing.T) {
 	const module = "github.com/vegastack/vegastack-labs"
 	checked := 0
-	for key, seal := range hostWorkflowSourceSeals {
+	for key, seal := range phase228SourceSeals {
 		relative, joined, _ := strings.Cut(key, "|")
 		if relative != "internal/localapi" || !strings.Contains(joined, "authorization_grants.go") {
 			continue
@@ -32,11 +32,11 @@ func TestHostWorkflowClientSealRejectsDrift(t *testing.T) {
 		c.listed.ImportPath = module + "/" + relative
 		c.listed.GoFiles = names
 		c.listed.Imports = slices.Clone(seal.imports)
-		if !reviewedHostWorkflowPackage(c, module, relative) {
+		if !reviewedLocalAPISource(c) {
 			t.Fatal("current finite source closure rejected")
 		}
 		c.listed.Imports = append(c.listed.Imports, "net/rpc")
-		if reviewedHostWorkflowPackage(c, module, relative) {
+		if reviewedLocalAPISource(c) {
 			t.Fatal("widened imports accepted")
 		}
 		c.listed.Imports = slices.Clone(seal.imports)
@@ -47,7 +47,7 @@ func TestHostWorkflowClientSealRejectsDrift(t *testing.T) {
 		}
 		_, _ = f.WriteString("\n// unreviewed source mutation\n")
 		_ = f.Close()
-		if reviewedHostWorkflowPackage(c, module, relative) {
+		if reviewedLocalAPISource(c) {
 			t.Fatal("changed source accepted")
 		}
 		checked++

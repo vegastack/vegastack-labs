@@ -1,11 +1,86 @@
 package main
 
 import (
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestPhase228ReceiveSubprocessRejectsDriftAndSecondExecFile(t *testing.T) {
+	const server = "github.com/vegastack/vegastack-labs/internal/server"
+	dir := t.TempDir()
+	name := "recovery_receive_linux.go"
+	raw, err := os.ReadFile(filepath.Join("..", "..", "internal", "server", name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(dir, name), raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	c := checkedSourcePackage{sourcePackage: sourcePackage{listed: listedPackage{ImportPath: server, Dir: dir, GoFiles: []string{name}}}}
+	if !reviewedPhase228ReceiveProcess(c, server) {
+		t.Fatal("reviewed same-executable receiver refused")
+	}
+	if err = os.WriteFile(filepath.Join(dir, name), append(append([]byte(nil), raw...), []byte("\n// unreviewed process change\n")...), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if reviewedPhase228ReceiveProcess(c, server) {
+		t.Fatal("receiver source drift inherited process authority")
+	}
+	if err = os.WriteFile(filepath.Join(dir, name), raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(dir, "extra.go"), []byte("package server\nimport \"os/exec\"\nvar added=exec.Command\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	c.listed.GoFiles = append(c.listed.GoFiles, "extra.go")
+	if reviewedPhase228ReceiveProcess(c, server) {
+		t.Fatal("second subprocess file inherited receiver authority")
+	}
+}
+
+func TestPhase228GrantPredicatesAllowanceIsOneExactRange(t *testing.T) {
+	const module = "github.com/vegastack/vegastack-labs"
+	dir := t.TempDir()
+	name := "recovery_source_suspend.go"
+	raw, err := os.ReadFile(filepath.Join("..", "..", "internal", "store", name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(dir, name), raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	file, err := parser.ParseFile(token.NewFileSet(), name, raw, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := checkedSourcePackage{sourcePackage: sourcePackage{listed: listedPackage{ImportPath: module + "/internal/store", Dir: dir, GoFiles: []string{name}}, files: []*ast.File{file}}}
+	var literal *ast.CompositeLit
+	ast.Inspect(file, func(node ast.Node) bool {
+		if statement, ok := node.(*ast.RangeStmt); ok {
+			if value, ok := statement.X.(*ast.CompositeLit); ok && len(value.Elts) == 3 {
+				literal = value
+			}
+		}
+		return true
+	})
+	if literal == nil || !reviewedRecoveryGrantPredicates(c, file, literal, module+"/internal/generated") {
+		t.Fatal("exact grant-data range refused")
+	}
+	if reviewedRecoveryGrantPredicates(c, file, &ast.CompositeLit{Elts: literal.Elts}, module+"/internal/generated") {
+		t.Fatal("another registry inherited grant-data allowance")
+	}
+	if err = os.WriteFile(filepath.Join(dir, name), append(raw, []byte("\n// changed grant predicate\n")...), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if reviewedRecoveryGrantPredicates(c, file, literal, module+"/internal/generated") {
+		t.Fatal("changed predicates inherited allowance")
+	}
+}
 
 func TestReviewedNativeCredentialPackageIsExact(t *testing.T) {
 	// Current source is accepted through the separately sealed #223 wave.

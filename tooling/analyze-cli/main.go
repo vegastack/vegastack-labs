@@ -361,6 +361,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 	cliImport := modulePath + "/internal/cli"
 	clientFileImport := modulePath + "/internal/clientfile"
 	serverConfigImport := modulePath + "/internal/serverconfig"
+	qualificationImport := modulePath + "/internal/qualification"
 	if !containsPackage(inModule, mainImport) || !containsPackage(inModule, generatedImport) {
 		return analysis{}, errors.New("runtime dependency closure omits the executable or generated package")
 	}
@@ -391,11 +392,24 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 		controlClosure[importPath] = true
 	}
 	controlClosure[mainImport] = true
+	// The root-only finite native API child is a private executable mode.
+	// Prune only its main edge after both complete source closures are sealed;
+	// a portable CLI import or any drift still receives the ordinary checks.
+	sealedNativeMode := false
+	sealedMainMode := false
+	for _, candidate := range inModule {
+		current := checkedSourcePackage{listed: candidate}
+		sealedNativeMode = sealedNativeMode || reviewedPhase228Package(current, modulePath, "internal/qualification")
+		sealedMainMode = sealedMainMode || reviewedPhase228Package(current, modulePath, "cmd/vsk-labs")
+	}
 	for _, candidate := range inModule {
 		if candidate.ImportPath != mainImport {
 			continue
 		}
 		for _, imported := range candidate.Imports {
+			if imported == qualificationImport && sealedNativeMode && sealedMainMode {
+				continue
+			}
 			// The server and the exact reviewed backup-custody package are private
 			// executable modes, not portable CLI control capabilities. Both remain
 			// subject to their dedicated whole-package and subprocess guards.
@@ -444,16 +458,21 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 		// control client capability. Any source or import change breaks this seal.
 		sealedNativeCredential := reviewedNativeCredentialPackage(parsed, nativeCredentialImport, modulePath)
 		sealedHostAction := reviewedHostActionPackage(parsed, modulePath, "internal/hostaction")
+		sealedHostAction = sealedHostAction || reviewedPhase228Package(parsed, modulePath, "internal/hostaction")
 		sealedHostActionMain := reviewedHostActionPackage(parsed, modulePath, "cmd/vsk-labs")
+		sealedHostActionMain = sealedHostActionMain || reviewedPhase228Package(parsed, modulePath, "cmd/vsk-labs")
 		sealedDebianAccess := reviewedLinuxRolePackage(parsed, modulePath, "internal/linuxrole") || reviewedDebianAccessPackage(parsed, modulePath, "internal/debianaccess") || reviewedDebianBaselinePackage(parsed, modulePath, "internal/debianaccess") || reviewedDebianBaselinePackage(parsed, modulePath, "internal/debianbaseline")
+		sealedDebianAccess = sealedDebianAccess || reviewedPhase228Package(parsed, modulePath, "internal/linuxrole") || reviewedPhase228Package(parsed, modulePath, "internal/debianaccess") || reviewedPhase228Package(parsed, modulePath, "internal/debianbaseline")
 		sealedAccessAdapter := reviewedLinuxRolePackage(parsed, modulePath, "internal/adapter/hostaction") || reviewedDebianAccessPackage(parsed, modulePath, "internal/adapter/hostaction") || reviewedDebianBaselinePackage(parsed, modulePath, "internal/adapter/hostaction")
+		sealedAccessAdapter = sealedAccessAdapter || reviewedPhase228Package(parsed, modulePath, "internal/adapter/hostaction")
+		sealedQualification := reviewedPhase228Package(parsed, modulePath, "internal/qualification")
 		sealedRecoveryCustodian := candidate.ImportPath == recoveryImport && reviewedRecoveryCustodianPackage(parsed)
 		isControlCapabilityPackage := isControlPackage && !(localClosure[candidate.ImportPath] && !result.LocalClientBoundary) && !sealedNativeCredential && !sealedRecoveryCustodian && !sealedHostAction && !sealedDebianAccess
 		// The custodian command imports recovery's fixed protected pin/receipt
 		// source. Only this exact reviewed source closure may carry those paths.
 		inspectControlPaths := isControlPackage && candidate.ImportPath != generatedImport && candidate.ImportPath != serverConfigImport && !sealedNativeCredential && !sealedRecoveryCustodian && !sealedHostAction && !sealedHostActionMain && !sealedDebianAccess
 		for _, imported := range candidate.Imports {
-			if imported == "os/exec" && !isReleasePackage && !(candidate.ImportPath == sshTransportImport && reviewedSSHTransportPackage(parsed, localTransportImport)) && !reviewedNativeCredentialPackage(parsed, nativeCredentialImport, modulePath) && !reviewedBackupProcessPackage(parsed, backupImport) && !sealedDebianAccess && !sealedAccessAdapter {
+			if imported == "os/exec" && !isReleasePackage && !(candidate.ImportPath == sshTransportImport && reviewedSSHTransportPackage(parsed, localTransportImport)) && !reviewedNativeCredentialPackage(parsed, nativeCredentialImport, modulePath) && !reviewedBackupProcessPackage(parsed, backupImport) && !reviewedPhase228ReceiveProcess(parsed, serverImport) && !sealedDebianAccess && !sealedAccessAdapter && !sealedQualification {
 				result.ShellDispatch = true
 			}
 			switch imported {
@@ -517,7 +536,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 			}
 		}
 		if !sealedNativeCredential {
-			registryGeneratedOrReviewed := sealedHostAction || sealedHostActionMain || sealedDebianAccess || sealedAccessAdapter || candidate.ImportPath == apiImport || candidate.ImportPath == localAPIImport || (candidate.ImportPath == recoveryImport && reviewedRecoveryCustodianPackage(parsed)) ||
+			registryGeneratedOrReviewed := sealedHostAction || sealedHostActionMain || sealedDebianAccess || sealedAccessAdapter || sealedQualification || candidate.ImportPath == apiImport || candidate.ImportPath == localAPIImport || (candidate.ImportPath == recoveryImport && reviewedRecoveryCustodianPackage(parsed)) ||
 				(candidate.ImportPath == modulePath+"/internal/adapter/hostdiscovery" && reviewedHostDiscoveryCollectorPackage(parsed))
 			inspectPackage(parsed, generatedImport, stateExportImport, isReleasePackage, registryGeneratedOrReviewed, inspectControlPaths, &result)
 		}
@@ -560,11 +579,58 @@ func reviewedRestoreSource(path string, required, forbidden []string) bool {
 	return true
 }
 
+// #228 adds only these reviewed complete source/import closures. Historical
+// wave seals stay unchanged; another file, import or byte change fails closed.
+var phase228SourceSeals = map[string]hostActionSourceSeal{
+	"cmd/vsk-labs|access_rollback_linux.go,host_action_linux.go,main.go,native_probe_linux.go": {imports: []string{"context", "crypto/rand", "encoding/hex", "github.com/vegastack/vegastack-labs/internal/adapter/nativecredential", "github.com/vegastack/vegastack-labs/internal/backup", "github.com/vegastack/vegastack-labs/internal/cli", "github.com/vegastack/vegastack-labs/internal/clientfile", "github.com/vegastack/vegastack-labs/internal/debianaccess", "github.com/vegastack/vegastack-labs/internal/debianbaseline", "github.com/vegastack/vegastack-labs/internal/hostaction", "github.com/vegastack/vegastack-labs/internal/linuxrole", "github.com/vegastack/vegastack-labs/internal/qualification", "github.com/vegastack/vegastack-labs/internal/release", "github.com/vegastack/vegastack-labs/internal/result", "github.com/vegastack/vegastack-labs/internal/server", "os", "os/signal", "strconv", "syscall", "time"}, digest: "ef3009e4418226485a2beab3c65b166855cc1dc648ab05a88080fca1e3231cf7"},
+	"internal/qualification|api_child_linux.go,baseline_stage_evidence.go,cleanup_linux.go,client_profile.go,client_profile_linux.go,confinement_linux.go,control_handoff_evidence.go,control_setup_bootstrap_linux.go,control_setup_evidence.go,control_setup_observation_linux.go,control_setup_profile.go,control_setup_profile_linux.go,control_setup_service_linux.go,control_setup_supervisor_linux.go,controller_identity_linux.go,controller_selection.go,credential_stage_evidence.go,disk_linux.go,fail2ban.go,fail2ban_linux.go,fixture_approval.go,fixture_approval_linux.go,guest_identity_linux.go,native_credential_evidence.go,native_linux.go,observer.go,observer_linux.go,observer_outer_linux.go,owned_files_linux.go,owned_guest_linux.go,physical_host_linux.go,preparation_linux.go,protocol_stage_evidence.go,qmp_linux.go,reboot_linux.go,recovery_evidence.go,recovery_negative.go,recovery_negative_evidence.go,replacement_memory_linux.go,report.go,report_progress.go,role_stage_evidence.go,rollback_witness.go,scenario_witness.go,scope.go,scope_linux.go,serial_linux.go,slack_fixture_peer.go,slack_fixture_peer_linux.go,slot_transfer_linux.go,stage_evidence.go,stage_report.go,step_linux.go,step_validation.go,suitability.go,transport_probe_linux.go,volume_stage_evidence.go,witness_linux.go,witness_memory_linux.go": {imports: []string{"bufio", "bytes", "context", "crypto/rand", "crypto/sha256", "crypto/subtle", "crypto/tls", "crypto/x509", "encoding/base64", "encoding/hex", "encoding/json", "errors", "fmt", "github.com/coder/websocket", "github.com/vegastack/vegastack-labs/internal/adapter/hostdiscovery", "github.com/vegastack/vegastack-labs/internal/adapter/nativecredential", "github.com/vegastack/vegastack-labs/internal/credentialref", "github.com/vegastack/vegastack-labs/internal/debianaccess", "github.com/vegastack/vegastack-labs/internal/debianbaseline", "github.com/vegastack/vegastack-labs/internal/generated", "github.com/vegastack/vegastack-labs/internal/hostaction", "github.com/vegastack/vegastack-labs/internal/hostadoption", "github.com/vegastack/vegastack-labs/internal/hostdiscovery", "github.com/vegastack/vegastack-labs/internal/hostreplacement", "github.com/vegastack/vegastack-labs/internal/linuxrole", "github.com/vegastack/vegastack-labs/internal/localapi", "github.com/vegastack/vegastack-labs/internal/result", "github.com/vegastack/vegastack-labs/internal/serverconfig", "github.com/vegastack/vegastack-labs/internal/strictjson", "golang.org/x/crypto/ssh", "golang.org/x/sys/unix", "io", "net", "net/http", "net/netip", "os", "os/exec", "os/user", "path/filepath", "reflect", "regexp", "slices", "sort", "strconv", "strings", "sync", "syscall", "time"}, digest: "8c49874a219ceabd02dc9fa5ecc80376efda71d31c25739123f49dd460526e93"},
+	"internal/debianaccess|baseline.go,baseline_profiles_unix.go,baseline_unix.go,configuration.go,destinations_unix.go,draft.go,fail2ban.go,handler.go,input.go,native_observation.go,native_observation_linux.go,observations_unix.go,preparation.go,probe.go,probe_socket.go,probe_udp.go,rollback.go,rollback_unix.go,runner.go,runtime_unix.go,sequence.go,sequence_policy.go,sessions_linux.go,source_probe.go,source_probe_linux.go,sudo_policy.go,sudo_policy_unix.go,timer.go,timer_unix.go":                                                                                                                                                                                                                                                                                                                       {imports: []string{"bytes", "context", "crypto/ed25519", "crypto/rand", "crypto/sha256", "encoding/hex", "encoding/json", "errors", "fmt", "github.com/godbus/dbus/v5", "github.com/vegastack/vegastack-labs/internal/credentialref", "github.com/vegastack/vegastack-labs/internal/generated", "github.com/vegastack/vegastack-labs/internal/hostaction", "github.com/vegastack/vegastack-labs/internal/strictjson", "golang.org/x/crypto/ssh", "golang.org/x/sys/unix", "io", "net", "net/netip", "os", "os/exec", "path", "path/filepath", "regexp", "runtime", "sort", "strconv", "strings", "sync/atomic", "syscall", "time"}, digest: "151f58459dcfc945d5c9b7119639d4ea427e63387e0f9d1386b94faca6304dda"},
+	"internal/debianbaseline|aide.go,apparmor.go,apply_unix.go,apt_unix.go,audit.go,collect.go,fail2ban.go,handler.go,health.go,input.go,native_unix.go,policy.go,reader.go,time_unix.go,volume_files_unix.go,volume_linux.go,volume_mapping.go,volume_metadata.go,volume_native_cases_linux.go,volume_native_witness_linux.go,volume_recovery_linux.go,volume_recovery_unix.go":                                                                                                                                                                                                                                                                                                                                                                                                                                            {imports: []string{"bytes", "context", "crypto/sha256", "encoding/binary", "encoding/hex", "encoding/json", "errors", "fmt", "github.com/vegastack/vegastack-labs/internal/debianaccess", "github.com/vegastack/vegastack-labs/internal/generated", "github.com/vegastack/vegastack-labs/internal/hostaction", "github.com/vegastack/vegastack-labs/internal/strictjson", "golang.org/x/sys/unix", "io", "math", "net/netip", "os", "os/exec", "path", "path/filepath", "reflect", "regexp", "runtime", "slices", "sort", "strconv", "strings", "syscall", "time"}, digest: "add040d65a4dabd41c30b5fda0ebb4c82aefbed0208395affe8c7c0c306b7a23"},
+	"internal/linuxrole|boot_linux.go,collect_linux.go,control_handoff_linux.go,control_install.go,handler.go,input.go,isolation_linux.go,native_control_observation.go,native_control_observation_linux.go,native_recovery_destination_linux.go,native_recovery_recheck_linux.go,prepare.go,runtime_linux.go":                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              {imports: []string{"bytes", "context", "crypto/sha256", "encoding/hex", "encoding/json", "errors", "fmt", "github.com/vegastack/vegastack-labs/internal/debianaccess", "github.com/vegastack/vegastack-labs/internal/debianbaseline", "github.com/vegastack/vegastack-labs/internal/generated", "github.com/vegastack/vegastack-labs/internal/hostaction", "github.com/vegastack/vegastack-labs/internal/strictjson", "golang.org/x/sys/unix", "io", "net", "net/http", "os", "os/exec", "path", "reflect", "regexp", "runtime", "slices", "sort", "strconv", "strings", "syscall", "time"}, digest: "0bc27fb83e44084428f978aae6d8385c4210cc49d1eb4eb22c3e8570aa67eb7c"},
+	"internal/adapter/hostaction|access_render.go,access_render_lock.go,access_render_unix.go,access_sequence.go,adapter.go,baseline_render.go,linux_role_render.go,native_probe.go,profile_renderer.go,recovery_payload.go,ssh.go":                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         {imports: []string{"bufio", "bytes", "context", "encoding/base64", "encoding/json", "github.com/vegastack/vegastack-labs/ansible", "github.com/vegastack/vegastack-labs/internal/adapter", "github.com/vegastack/vegastack-labs/internal/credentialref", "github.com/vegastack/vegastack-labs/internal/debianaccess", "github.com/vegastack/vegastack-labs/internal/debianbaseline", "github.com/vegastack/vegastack-labs/internal/failure", "github.com/vegastack/vegastack-labs/internal/generated", "github.com/vegastack/vegastack-labs/internal/hostaction", "github.com/vegastack/vegastack-labs/internal/linuxrole", "github.com/vegastack/vegastack-labs/internal/strictjson", "golang.org/x/crypto/ssh", "io", "io/fs", "net", "os", "os/exec", "path/filepath", "strconv", "strings", "sync", "syscall", "time"}, digest: "a9d9e83e3f42638328036eae287238dbc7ebf2739a964b0cc2a83a004ef9a438"},
+	"internal/localapi|apply_bound.go,approval_client.go,audit_client.go,authorization_grants.go,backup_client.go,client.go,credential_client.go,credential_lifecycle_client.go,database_client.go,gates_client.go,hosts_client.go,listener.go,listener_linux.go,qualification_client.go,qualification_producer.go,restore_client.go,schedule_client.go":                                                                                                                                                                                                                                                                                                                                                                                                                                                                    {imports: []string{"bytes", "context", "crypto/sha256", "encoding/hex", "encoding/json", "errors", "github.com/vegastack/vegastack-labs/internal/credentialref", "github.com/vegastack/vegastack-labs/internal/failure", "github.com/vegastack/vegastack-labs/internal/generated", "github.com/vegastack/vegastack-labs/internal/hostaction", "github.com/vegastack/vegastack-labs/internal/localtransport", "github.com/vegastack/vegastack-labs/internal/principal", "github.com/vegastack/vegastack-labs/internal/result", "github.com/vegastack/vegastack-labs/internal/runprotocol", "github.com/vegastack/vegastack-labs/internal/serverconfig", "github.com/vegastack/vegastack-labs/internal/sshtransport", "golang.org/x/sys/unix", "io", "mime", "net", "os", "path/filepath", "runtime", "strconv", "strings", "sync", "time"}, digest: "e44917786a29e5f2a1d6f4a95fefa7d1951ee28fbf7ffaf7800b1ba246402904"},
+	"internal/recovery|artifact.go,audit_continuity.go,bound_canary_noop.go,canary.go,canary_capabilities.go,canary_ports.go,candidate.go,candidate_authority.go,candidate_destination.go,candidate_destination_linux.go,candidate_linux.go,candidate_transfer.go,candidate_transfer_linux.go,candidate_transfer_source_linux.go,collector.go,custody.go,fence.go,fence_admission.go,fence_coordinator.go,fence_evidence.go,fence_execution.go,fence_witness.go,host_generation_fence.go,host_replacement_continuity.go,manifest.go,manifest_file_unix.go,offsite_source.go,operations.go,package_file_unix.go,qualification.go,qualified_registry_linux.go,receipt_file_unix.go,source.go,source_admission.go,source_admission_file_unix.go,source_handoff.go,store_canary.go,store_operations.go,transport.go,witness.go": {imports: []string{"bytes", "context", "crypto/aes", "crypto/cipher", "crypto/ecdh", "crypto/ed25519", "crypto/hkdf", "crypto/rand", "crypto/sha256", "crypto/subtle", "encoding/hex", "encoding/json", "errors", "github.com/vegastack/vegastack-labs/internal/adapter", "github.com/vegastack/vegastack-labs/internal/adapter/recoverydenial", "github.com/vegastack/vegastack-labs/internal/audit", "github.com/vegastack/vegastack-labs/internal/authorization", "github.com/vegastack/vegastack-labs/internal/backup", "github.com/vegastack/vegastack-labs/internal/change", "github.com/vegastack/vegastack-labs/internal/failure", "github.com/vegastack/vegastack-labs/internal/generated", "github.com/vegastack/vegastack-labs/internal/hostaction", "github.com/vegastack/vegastack-labs/internal/hostreplacement", "github.com/vegastack/vegastack-labs/internal/identity", "github.com/vegastack/vegastack-labs/internal/linuxrole", "github.com/vegastack/vegastack-labs/internal/plan", "github.com/vegastack/vegastack-labs/internal/run", "github.com/vegastack/vegastack-labs/internal/store", "golang.org/x/sys/unix", "io", "io/fs", "math", "os", "path/filepath", "regexp", "sort", "strconv", "sync/atomic", "syscall", "time"}, digest: "5063481e92f75d383ddb3d15a3261cb43b8f9313a6cad97f0b64eac2f7de9205"},
+	"internal/debianaccess|baseline.go,baseline_profiles_unix.go,baseline_unix.go,configuration.go,destinations_unix.go,draft.go,fail2ban.go,handler.go,input.go,native_observation.go,native_observation_unsupported.go,observations_unix.go,preparation.go,probe.go,probe_socket.go,probe_udp.go,rollback.go,rollback_unix.go,runner.go,runtime_unix.go,sequence.go,sequence_policy.go,sessions_unsupported.go,source_probe.go,source_probe_unsupported.go,sudo_policy.go,sudo_policy_unix.go,timer.go,timer_unix.go":                                                                                                                                                                                                                                                                                                     {imports: []string{"bytes", "context", "crypto/ed25519", "crypto/rand", "crypto/sha256", "encoding/hex", "encoding/json", "errors", "fmt", "github.com/vegastack/vegastack-labs/internal/credentialref", "github.com/vegastack/vegastack-labs/internal/generated", "github.com/vegastack/vegastack-labs/internal/hostaction", "github.com/vegastack/vegastack-labs/internal/strictjson", "golang.org/x/crypto/ssh", "golang.org/x/sys/unix", "io", "net", "net/netip", "os", "os/exec", "path", "regexp", "runtime", "sort", "strconv", "strings", "sync/atomic", "syscall", "time"}, digest: "6510c2f2a659bf5d14e05b3de873675568030b05c50d401107604bce1d2f292b"},
+	"internal/linuxrole|control_install.go,handler.go,input.go,native_control_observation.go,native_control_observation_unsupported.go,native_recovery_destination_unsupported.go,prepare.go,runtime_unsupported.go":                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        {imports: []string{"context", "crypto/sha256", "encoding/hex", "encoding/json", "errors", "fmt", "github.com/vegastack/vegastack-labs/internal/debianaccess", "github.com/vegastack/vegastack-labs/internal/generated", "github.com/vegastack/vegastack-labs/internal/hostaction", "github.com/vegastack/vegastack-labs/internal/strictjson", "reflect", "regexp", "slices", "strings", "time"}, digest: "23087beaf21cb1bf7c659a62d29b4801ce793675bf5700ad75f24d3dc68c3c85"},
+	"internal/localapi|apply_bound.go,approval_client.go,audit_client.go,authorization_grants.go,backup_client.go,client.go,credential_client.go,credential_lifecycle_client.go,database_client.go,gates_client.go,hosts_client.go,listener.go,listener_unsupported.go,qualification_client.go,qualification_producer.go,restore_client.go,schedule_client.go":                                                                                                                                                                                                                                                                                                                                                                                                                                                              {imports: []string{"bytes", "context", "crypto/sha256", "encoding/hex", "encoding/json", "errors", "github.com/vegastack/vegastack-labs/internal/credentialref", "github.com/vegastack/vegastack-labs/internal/failure", "github.com/vegastack/vegastack-labs/internal/generated", "github.com/vegastack/vegastack-labs/internal/hostaction", "github.com/vegastack/vegastack-labs/internal/localtransport", "github.com/vegastack/vegastack-labs/internal/principal", "github.com/vegastack/vegastack-labs/internal/result", "github.com/vegastack/vegastack-labs/internal/runprotocol", "github.com/vegastack/vegastack-labs/internal/serverconfig", "github.com/vegastack/vegastack-labs/internal/sshtransport", "io", "mime", "net", "runtime", "strconv", "strings", "sync", "time"}, digest: "38742d70642dbf778c3d66ce65cd9cf7942edfef15e5f8bfc4c107b229a71f55"},
+	"internal/recovery|artifact.go,audit_continuity.go,bound_canary_noop.go,canary.go,canary_capabilities.go,canary_ports.go,candidate.go,candidate_authority.go,candidate_destination.go,candidate_transfer.go,candidate_transfer_unsupported.go,candidate_unsupported.go,collector.go,custody.go,fence.go,fence_admission.go,fence_coordinator.go,fence_evidence.go,fence_execution.go,fence_witness.go,host_generation_fence.go,host_replacement_continuity.go,manifest.go,manifest_file_unix.go,offsite_source.go,operations.go,package_file_unix.go,qualification.go,qualified_registry_unsupported.go,receipt_file_unix.go,source.go,source_admission.go,source_admission_file_unix.go,source_handoff.go,store_canary.go,store_operations.go,transport.go,witness.go":                                                 {imports: []string{"bytes", "context", "crypto/aes", "crypto/cipher", "crypto/ecdh", "crypto/ed25519", "crypto/hkdf", "crypto/rand", "crypto/sha256", "crypto/subtle", "encoding/hex", "encoding/json", "errors", "github.com/vegastack/vegastack-labs/internal/adapter", "github.com/vegastack/vegastack-labs/internal/adapter/recoverydenial", "github.com/vegastack/vegastack-labs/internal/audit", "github.com/vegastack/vegastack-labs/internal/authorization", "github.com/vegastack/vegastack-labs/internal/backup", "github.com/vegastack/vegastack-labs/internal/change", "github.com/vegastack/vegastack-labs/internal/failure", "github.com/vegastack/vegastack-labs/internal/generated", "github.com/vegastack/vegastack-labs/internal/hostaction", "github.com/vegastack/vegastack-labs/internal/hostreplacement", "github.com/vegastack/vegastack-labs/internal/identity", "github.com/vegastack/vegastack-labs/internal/linuxrole", "github.com/vegastack/vegastack-labs/internal/plan", "github.com/vegastack/vegastack-labs/internal/run", "github.com/vegastack/vegastack-labs/internal/store", "golang.org/x/sys/unix", "io", "os", "path/filepath", "regexp", "sort", "strconv", "sync/atomic", "time"}, digest: "5ffff4796a1572434e1ffb0a785e3acbe4e03f9992f0b9d1f7c6aee081bf728a"},
+	"internal/debianaccess|baseline.go,configuration.go,draft.go,fail2ban.go,handler.go,input.go,native_observation.go,native_observation_unsupported.go,preparation.go,probe.go,probe_socket.go,probe_udp.go,rollback.go,runner.go,sequence.go,sequence_policy.go,sessions_unsupported.go,source_probe.go,source_probe_unsupported.go,sudo_policy.go,timer.go":                                                                                                                                                                                                                                                                                                                                                                                                                                                             {imports: []string{"bytes", "context", "crypto/ed25519", "crypto/rand", "crypto/sha256", "encoding/hex", "encoding/json", "errors", "fmt", "github.com/vegastack/vegastack-labs/internal/credentialref", "github.com/vegastack/vegastack-labs/internal/generated", "github.com/vegastack/vegastack-labs/internal/hostaction", "github.com/vegastack/vegastack-labs/internal/strictjson", "golang.org/x/crypto/ssh", "io", "net", "net/netip", "os", "os/exec", "path", "regexp", "sort", "strconv", "strings", "sync/atomic", "syscall", "time"}, digest: "5fa4cf206888730d423bf290519b4eeebe7ae88184f945e4c92d93653b820254"},
+	"internal/adapter/hostaction|access_render.go,access_render_lock.go,access_render_unsupported.go,access_sequence.go,adapter.go,baseline_render.go,linux_role_render.go,native_probe.go,profile_renderer.go,recovery_payload.go,ssh.go":                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  {imports: []string{"bufio", "bytes", "context", "encoding/base64", "encoding/json", "github.com/vegastack/vegastack-labs/ansible", "github.com/vegastack/vegastack-labs/internal/adapter", "github.com/vegastack/vegastack-labs/internal/credentialref", "github.com/vegastack/vegastack-labs/internal/debianaccess", "github.com/vegastack/vegastack-labs/internal/debianbaseline", "github.com/vegastack/vegastack-labs/internal/failure", "github.com/vegastack/vegastack-labs/internal/generated", "github.com/vegastack/vegastack-labs/internal/hostaction", "github.com/vegastack/vegastack-labs/internal/linuxrole", "github.com/vegastack/vegastack-labs/internal/strictjson", "golang.org/x/crypto/ssh", "io", "io/fs", "net", "os", "os/exec", "path/filepath", "strconv", "strings", "sync", "time"}, digest: "45a15b492c48e8dcc487d169dea1deb7aab7b80ed8a37be049964421ca5234e0"},
+	"internal/recovery|artifact.go,audit_continuity.go,bound_canary_noop.go,canary.go,canary_capabilities.go,canary_ports.go,candidate.go,candidate_authority.go,candidate_destination.go,candidate_transfer.go,candidate_transfer_unsupported.go,candidate_unsupported.go,collector.go,custody.go,fence.go,fence_admission.go,fence_coordinator.go,fence_evidence.go,fence_execution.go,fence_witness.go,host_generation_fence.go,host_replacement_continuity.go,manifest.go,manifest_file_unsupported.go,offsite_source.go,operations.go,package_file_unsupported.go,qualification.go,qualified_registry_unsupported.go,receipt_file_unsupported.go,source.go,source_admission.go,source_admission_file_unsupported.go,source_handoff.go,store_canary.go,store_operations.go,transport.go,witness.go":                     {imports: []string{"bytes", "context", "crypto/aes", "crypto/cipher", "crypto/ecdh", "crypto/ed25519", "crypto/hkdf", "crypto/rand", "crypto/sha256", "crypto/subtle", "encoding/hex", "encoding/json", "errors", "github.com/vegastack/vegastack-labs/internal/adapter", "github.com/vegastack/vegastack-labs/internal/adapter/recoverydenial", "github.com/vegastack/vegastack-labs/internal/audit", "github.com/vegastack/vegastack-labs/internal/authorization", "github.com/vegastack/vegastack-labs/internal/backup", "github.com/vegastack/vegastack-labs/internal/change", "github.com/vegastack/vegastack-labs/internal/failure", "github.com/vegastack/vegastack-labs/internal/generated", "github.com/vegastack/vegastack-labs/internal/hostaction", "github.com/vegastack/vegastack-labs/internal/hostreplacement", "github.com/vegastack/vegastack-labs/internal/identity", "github.com/vegastack/vegastack-labs/internal/linuxrole", "github.com/vegastack/vegastack-labs/internal/plan", "github.com/vegastack/vegastack-labs/internal/run", "github.com/vegastack/vegastack-labs/internal/store", "io", "path/filepath", "regexp", "sort", "strconv", "sync/atomic", "time"}, digest: "8dca51e1b2809814f586c1b395769118d1c43846dfc2167804f8dc2bd70dc6a7"}, "internal/hostaction|bundle.go,native_producer_bundle.go,native_receipt.go,native_receipt_linux.go,native_receipt_unix.go,once.go,pipe_unix.go,policy_unix.go,receipt_unix.go,recovery_payload.go,request.go,result.go": {imports: []string{"bufio", "bytes", "context", "crypto/ed25519", "crypto/sha256", "encoding/base64", "encoding/hex", "encoding/json", "github.com/vegastack/vegastack-labs/internal/failure", "github.com/vegastack/vegastack-labs/internal/generated", "github.com/vegastack/vegastack-labs/internal/strictjson", "golang.org/x/sys/unix", "io", "os", "path/filepath", "regexp", "strings", "sync", "time"}, digest: "4b1781b8cec5f2b020db09995b171060aca93df7a663ffc4d8a026ef75621695"},
+	"internal/adapter/nativecredential|authority_linux.go,effective_policy_linux.go,encrypt_linux.go,inspect_linux.go,lifecycle_verifier_linux.go,loaded_observer.go,loaded_observer_linux.go,native_restart_linux.go,observation_linux.go,policy_check_linux.go,probe_linux.go,process_observer_linux.go,resolver_linux.go,systemd_linux.go,verify_recovery_linux.go": {imports: []string{"bytes", "context", "crypto/sha256", "crypto/subtle", "encoding/hex", "encoding/json", "errors", "fmt", "github.com/godbus/dbus/v5", "github.com/vegastack/vegastack-labs/internal/credentialref", "github.com/vegastack/vegastack-labs/internal/failure", "github.com/vegastack/vegastack-labs/internal/generated", "golang.org/x/sys/unix", "io", "os", "os/exec", "os/user", "path/filepath", "reflect", "regexp", "slices", "strconv", "strings", "syscall", "time"}, digest: "c067dd0b04d13035022942970653febf5ee0ed9b5ea0dacb6799f5292842ab01"},
+	"internal/hostaction|bundle.go,native_producer_bundle.go,native_receipt.go,native_receipt_unix.go,native_receipt_unsupported.go,once.go,pipe_unix.go,policy_unix.go,receipt_unix.go,recovery_payload.go,request.go,result.go":                                                                                                                                      {imports: []string{"bufio", "bytes", "context", "crypto/ed25519", "crypto/sha256", "encoding/base64", "encoding/hex", "encoding/json", "github.com/vegastack/vegastack-labs/internal/failure", "github.com/vegastack/vegastack-labs/internal/generated", "github.com/vegastack/vegastack-labs/internal/strictjson", "golang.org/x/sys/unix", "io", "os", "path/filepath", "regexp", "strings", "sync", "time"}, digest: "10e6363922976b3bcc4a084efa8ccd2f6b5b728a3c4e0ab2f64d2942837e3c1c"},
+	"internal/adapter/nativecredential|loaded_observer.go": {imports: []string{"context", "errors", "github.com/vegastack/vegastack-labs/internal/credentialref"}, digest: "0728e42adc1f0d2e805290e6d569b1e6934ebe53845094011e4ab499aab84a58"},
+	"internal/hostaction|bundle.go,native_producer_bundle.go,native_receipt.go,native_receipt_unsupported.go,once.go,pipe_other.go,platform_unsupported.go,recovery_payload.go,request.go,result.go": {imports: []string{"bufio", "context", "crypto/ed25519", "crypto/sha256", "encoding/base64", "encoding/hex", "encoding/json", "github.com/vegastack/vegastack-labs/internal/failure", "github.com/vegastack/vegastack-labs/internal/generated", "github.com/vegastack/vegastack-labs/internal/strictjson", "io", "os", "time"}, digest: "4936a886e4092bd26bfe947fd202d5403f69734c13b5594ac49af88e4996081d"},
+}
+
+func reviewedPhase228Package(c checkedSourcePackage, module, relative string) bool {
+	if c.listed.ImportPath != module+"/"+relative || len(c.listed.CgoFiles) != 0 {
+		return false
+	}
+	names := append([]string(nil), c.listed.GoFiles...)
+	sort.Strings(names)
+	seal, ok := phase228SourceSeals[relative+"|"+strings.Join(names, ",")]
+	if !ok {
+		return false
+	}
+	imports := append([]string(nil), c.listed.Imports...)
+	sort.Strings(imports)
+	expected := append([]string(nil), seal.imports...)
+	for i, name := range expected {
+		expected[i] = strings.Replace(name, "github.com/vegastack/vegastack-labs/", module+"/", 1)
+	}
+	sort.Strings(expected)
+	return strings.Join(imports, "\x00") == strings.Join(expected, "\x00") && digestSourceFiles(c.listed.Dir, names) == seal.digest
+}
+
 const reviewedMainCompositionDigest = "f029c8f3e41b0f66ee2984d971d5d35735a456a60d36fcae6c07ca8ff64ef2d3"
 const reviewedMainNativeLinuxDigest = "aabc6268605a8c4418b632d36247aa88071e4b024b76c71259e27c3f72a232fb"
 const reviewedMainNativeOtherDigest = "9637bd3d4b8bcffb7f66d6e053263af9b97194432feebc4c513f280a9e910e78"
 
 func reviewedMainComposition(candidate checkedSourcePackage, modulePath, cliImport, clientFileImport, releaseImport, serverImport string) bool {
+	if reviewedPhase228Package(candidate, modulePath, "cmd/vsk-labs") {
+		return true
+	}
 	if reviewedHostActionPackage(candidate, modulePath, "cmd/vsk-labs") {
 		return true
 	}
@@ -781,6 +847,7 @@ func reviewedLocalClientDependencies(closure map[string]bool, modulePath, localA
 		modulePath + "/internal/runprotocol":    true,
 		modulePath + "/internal/serverconfig":   true,
 		modulePath + "/internal/strictjson":     true,
+		modulePath + "/internal/hostaction":     true,
 	}
 	for importPath := range closure {
 		if !approved[importPath] {
@@ -791,6 +858,9 @@ func reviewedLocalClientDependencies(closure map[string]bool, modulePath, localA
 }
 
 func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, localAPIImport, localTransportImport, sshTransportImport string) bool {
+	if candidate.listed.ImportPath == modulePath+"/internal/hostaction" {
+		return reviewedPhase228Package(candidate, modulePath, "internal/hostaction")
+	}
 	approvedExternal := func(imported string) bool {
 		return imported == "golang.org/x/sys/unix" || imported == "github.com/go-jose/go-jose/v4" || imported == "github.com/go-jose/go-jose/v4/jwt"
 	}
@@ -934,6 +1004,9 @@ const (
 )
 
 func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
+	if reviewedPhase228Package(candidate, strings.TrimSuffix(candidate.listed.ImportPath, "/internal/localapi"), "internal/localapi") {
+		return true
+	}
 	if reviewedHostWorkflowPackage(candidate, strings.TrimSuffix(candidate.listed.ImportPath, "/internal/localapi"), "internal/localapi") || reviewedLinuxRolePackage(candidate, strings.TrimSuffix(candidate.listed.ImportPath, "/internal/localapi"), "internal/localapi") {
 		return true
 	}
@@ -1245,6 +1318,7 @@ func reviewedHostDiscoveryCollectorPackage(candidate checkedSourcePackage) bool 
 func reviewedRecoveryCustodianPackage(candidate checkedSourcePackage) bool {
 	names := append([]string(nil), candidate.listed.GoFiles...)
 	sort.Strings(names)
+	currentReviewed := reviewedPhase228Package(candidate, strings.TrimSuffix(candidate.listed.ImportPath, "/internal/recovery"), "internal/recovery")
 	var expected string
 	switch strings.Join(names, ",") {
 	case "artifact.go,audit_continuity.go,bound_canary_noop.go,canary.go,canary_capabilities.go,canary_ports.go,candidate.go,candidate_authority.go,candidate_destination.go,candidate_unsupported.go,collector.go,custody.go,fence.go,fence_admission.go,fence_coordinator.go,fence_evidence.go,fence_execution.go,fence_witness.go,host_generation_fence.go,host_replacement_continuity.go,manifest.go,manifest_file_unsupported.go,offsite_source.go,operations.go,package_file_unsupported.go,qualification.go,qualified_registry_unsupported.go,receipt_file_unsupported.go,source.go,source_admission.go,source_admission_file_unsupported.go,source_handoff.go,store_canary.go,store_operations.go,transport.go,witness.go":
@@ -1266,9 +1340,11 @@ func reviewedRecoveryCustodianPackage(candidate checkedSourcePackage) bool {
 	case "artifact.go,audit_continuity.go,bound_canary_noop.go,canary.go,canary_capabilities.go,canary_ports.go,candidate.go,candidate_authority.go,candidate_unsupported.go,collector.go,custody.go,fence.go,fence_admission.go,fence_coordinator.go,fence_evidence.go,fence_execution.go,fence_witness.go,manifest.go,manifest_file_unsupported.go,offsite_source.go,operations.go,package_file_unsupported.go,qualification.go,qualified_registry_unsupported.go,receipt_file_unsupported.go,source.go,source_admission.go,source_admission_file_unsupported.go,source_handoff.go,store_canary.go,store_operations.go,transport.go,witness.go":
 		expected = "60953df99739a99e33495a408772a4a6c28f137bf69b1e3e2ab9baf34eb6aa6c"
 	default:
-		return false
+		if !currentReviewed {
+			return false
+		}
 	}
-	if digestSourceFiles(candidate.listed.Dir, names) != expected {
+	if !currentReviewed && digestSourceFiles(candidate.listed.Dir, names) != expected {
 		return false
 	}
 	for _, name := range names {
@@ -1359,6 +1435,27 @@ func reviewedLocalCallbacks(candidate checkedSourcePackage) map[*types.Var]bool 
 		ast.Inspect(file, func(node ast.Node) bool {
 			switch typed := node.(type) {
 			case *ast.FuncDecl:
+				// #228's exact bound-apply validator is a local pure closure,
+				// called again when inspecting an uncertain ordinary run.
+				if typed.Name.Name == "ApplyBound" && typed.Body != nil && reviewedPhase228Package(candidate, strings.TrimSuffix(candidate.listed.ImportPath, "/internal/localapi"), "internal/localapi") {
+					ast.Inspect(typed.Body, func(node ast.Node) bool {
+						statement, ok := node.(*ast.AssignStmt)
+						if !ok || statement.Tok != token.DEFINE || len(statement.Lhs) != 1 || len(statement.Rhs) != 1 {
+							return true
+						}
+						name, ok := statement.Lhs[0].(*ast.Ident)
+						if !ok || name.Name != "valid" {
+							return true
+						}
+						if _, ok := statement.Rhs[0].(*ast.FuncLit); !ok {
+							return true
+						}
+						if variable, ok := candidate.info.Defs[name].(*types.Var); ok {
+							approved[variable] = true
+						}
+						return true
+					})
+				}
 				parameter := ""
 				switch typed.Name.Name {
 				case "validateTypedResponse", "databaseRequest":
@@ -1499,7 +1596,7 @@ func reviewedBackupProcessPackage(candidate checkedSourcePackage, backupImport s
 			if !usesExec || !strings.HasPrefix(string(source), "//go:build linux") {
 				return false
 			}
-			if digestSourceFiles(candidate.listed.Dir, []string{name}) != expected {
+			if digestSourceFiles(candidate.listed.Dir, []string{name}) != expected && !(name == "custody_systemd_linux.go" && digestSourceFiles(candidate.listed.Dir, []string{name}) == "0ef3b36c9e891b3905225e02c6dcfd6245c50756e9dfb97a3f75501158009242") {
 				return false
 			}
 			continue
@@ -1510,6 +1607,29 @@ func reviewedBackupProcessPackage(candidate checkedSourcePackage, backupImport s
 		}
 	}
 	return len(seen) == len(reviewedBackupSubprocesses)
+}
+
+// #228's receiver invokes only the reviewed same-executable sealed FD child.
+// A second server subprocess source cannot inherit this exception.
+func reviewedPhase228ReceiveProcess(candidate checkedSourcePackage, serverImport string) bool {
+	if candidate.listed.ImportPath != serverImport || len(candidate.listed.CgoFiles) != 0 {
+		return false
+	}
+	seen := false
+	for _, name := range candidate.listed.GoFiles {
+		usesExec, err := fileImportsOSExec(filepath.Join(candidate.listed.Dir, name))
+		if err != nil {
+			return false
+		}
+		if !usesExec {
+			continue
+		}
+		if name != "recovery_receive_linux.go" || digestSourceFiles(candidate.listed.Dir, []string{name}) != "95a5cebc74265cef5f1d09f3f277684c73a667b2313d159fe2eea3b5dd65c688" {
+			return false
+		}
+		seen = true
+	}
+	return seen
 }
 
 // fileImportsOSExec reports whether one Go source file imports os/exec, parsing
@@ -1536,6 +1656,9 @@ func fileImportsOSExec(path string) (bool, error) {
 const reviewedNativeCredentialDigest = "20872b9996adb7eed1e2b5fb907ee213377fe365943158065b31f58b4d533c26"
 
 func reviewedNativeCredentialPackage(candidate checkedSourcePackage, nativeCredentialImport, modulePath string) bool {
+	if reviewedPhase228Package(candidate, modulePath, "internal/adapter/nativecredential") {
+		return true
+	}
 	if reviewedHostActionPackage(candidate, modulePath, "internal/adapter/nativecredential") {
 		return true
 	}
@@ -1772,7 +1895,7 @@ func inspectPackage(candidate checkedSourcePackage, generatedImport, stateExport
 					result.StateExportTrust = true
 				}
 			case *ast.CompositeLit:
-				if candidate.listed.ImportPath != generatedImport && !isAPIPackage && isDispatchCollection(candidate.info.TypeOf(typed), context) {
+				if candidate.listed.ImportPath != generatedImport && !isAPIPackage && isDispatchCollection(candidate.info.TypeOf(typed), context) && !reviewedRecoveryGrantPredicates(candidate, file, typed, generatedImport) {
 					result.HandwrittenRegistry = true
 				}
 				if stateExportConfigProvidesTrust(typed, candidate.info, stateExportImport) {
@@ -1786,6 +1909,40 @@ func inspectPackage(candidate checkedSourcePackage, generatedImport, stateExport
 			return true
 		})
 	}
+}
+
+// The three acknowledgement/execution predicates are grant data, not routes.
+// Confine this allowance to that one range literal in its exact reviewed file.
+func reviewedRecoveryGrantPredicates(candidate checkedSourcePackage, file *ast.File, literal *ast.CompositeLit, generatedImport string) bool {
+	if candidate.listed.ImportPath != strings.TrimSuffix(generatedImport, "/internal/generated")+"/internal/store" {
+		return false
+	}
+	names := append(append([]string(nil), candidate.listed.GoFiles...), candidate.listed.CgoFiles...)
+	sort.Strings(names)
+	owner := false
+	for i, parsed := range candidate.files {
+		if parsed == file && i < len(names) && names[i] == "recovery_source_suspend.go" {
+			owner = true
+		}
+	}
+	if !owner || digestSourceFiles(candidate.listed.Dir, []string{"recovery_source_suspend.go"}) != "80f7931a6200199e53496471c54c364b03a6bb625c4729f8581bef37b5df2619" || len(literal.Elts) != 3 {
+		return false
+	}
+	for _, declaration := range file.Decls {
+		function, ok := declaration.(*ast.FuncDecl)
+		if !ok || function.Name.Name != "SuspendRecoverySource" || function.Body == nil {
+			continue
+		}
+		found := false
+		ast.Inspect(function.Body, func(node ast.Node) bool {
+			if statement, ok := node.(*ast.RangeStmt); ok && statement.X == literal {
+				found = true
+			}
+			return !found
+		})
+		return found
+	}
+	return false
 }
 
 // The finite first-setup grant copy is data, although its Action field resembles
