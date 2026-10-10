@@ -108,3 +108,40 @@ func TestNativePolicySeparatesCredentialNames(t *testing.T) {
 		t.Fatal("another name widened selected reader authority")
 	}
 }
+
+func TestNativePolicySeparatesCredentialUnits(t *testing.T) {
+	receipt, _ := loadedReceiptFixture()
+	b := receipt.Binding
+	r, d := b.NativeConsumers[0], b.NativeDeniedReaders[0]
+	other := credentialref.LoadedNameForVersion("backup-consumer", "backup-reference", "initial")
+	policy := probePolicy{Version: 1, MachineID: r.HostMachineID, Units: []string{"backup.service", r.UnitName}, Probes: []probeEnrollment{
+		{UnitName: "backup.service", CredentialName: other, UID: r.ServiceUID, GID: r.ServiceGID},
+		{UnitName: "backup.service", CredentialName: other, UID: d.ReaderUID, GID: d.ReaderGID},
+		{UnitName: r.UnitName, CredentialName: r.LoadedName, UID: r.ServiceUID, GID: r.ServiceGID},
+		{UnitName: r.UnitName, CredentialName: r.LoadedName, UID: d.ReaderUID, GID: d.ReaderGID},
+	}}
+	if err := matchNativePolicy(policy, b); err != nil {
+		t.Fatalf("independent credential unit rejected: %v", err)
+	}
+	for _, test := range []struct {
+		name   string
+		change func(*probePolicy)
+	}{
+		{"same-name-extra-unit", func(p *probePolicy) { p.Probes[0].CredentialName = r.LoadedName }},
+		{"same-name-extra-reader", func(p *probePolicy) {
+			p.Probes = append(p.Probes, probeEnrollment{UnitName: r.UnitName, CredentialName: r.LoadedName, UID: 3001, GID: 3001})
+		}},
+		{"missing-selected-unit", func(p *probePolicy) { p.Units = p.Units[:1] }},
+		{"wrong-machine", func(p *probePolicy) { p.MachineID = strings.Repeat("f", 32) }},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			changed := policy
+			changed.Units = append([]string(nil), policy.Units...)
+			changed.Probes = append([]probeEnrollment(nil), policy.Probes...)
+			test.change(&changed)
+			if matchNativePolicy(changed, b) == nil {
+				t.Fatal("changed selected authority accepted")
+			}
+		})
+	}
+}

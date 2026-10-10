@@ -117,7 +117,16 @@ func decodeAppliedUnit(unit string, unitProps, serviceProps map[string]dbus.Vari
 }
 
 func validateAppliedSource(snapshot AppliedUnitSnapshot, binding credentialref.LifecycleBinding, reader credentialref.NativeConsumerBinding, expectedPath string) error {
-	if snapshot.UnitName != reader.UnitName || snapshot.ActiveState != "active" || snapshot.NeedDaemonReload ||
+	if snapshot.ActiveState != "active" {
+		return errAppliedUnit
+	}
+	return validateUnitSources(snapshot, binding, reader, expectedPath)
+}
+
+// Before restart an enrolled consumer may be inactive; its applied source
+// declarations must already match. After restart the caller also requires active.
+func validateUnitSources(snapshot AppliedUnitSnapshot, binding credentialref.LifecycleBinding, reader credentialref.NativeConsumerBinding, expectedPath string) error {
+	if snapshot.UnitName != reader.UnitName || snapshot.NeedDaemonReload ||
 		reader.LoadedName == "" || reader.LoadedName != credentialref.LoadedNameForVersion(binding.NativeArtifactConsumerID, binding.ReferenceID, binding.MaterialVersion) ||
 		!filepath.IsAbs(expectedPath) || filepath.Clean(expectedPath) != expectedPath || len(snapshot.EncryptedSources) == 0 || len(snapshot.EncryptedSources) > 64 {
 		return errAppliedUnit
