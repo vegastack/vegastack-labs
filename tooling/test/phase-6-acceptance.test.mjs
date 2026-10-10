@@ -20,6 +20,6 @@ test('catalog rejects omitted duplicated and changed obligations',()=>{
   }
 });
 test('captured evidence rejects secrets and private material',()=>{
-  for(const value of ['-----BEGIN OPENSSH PRIVATE KEY-----','Authorization: Bearer secret','VSK_PRIVATE_CANARY','/home/operator/control.db','192.168.88.71','10.228.1.1','ghp_exampletoken']) assert.throws(()=>scanPhase6Captured(value));
+  for(const value of ['-----BEGIN '+'OPENSSH PRIVATE KEY-----','Authorization: Bearer secret','VSK_PRIVATE_CANARY','/home/operator/control.db','192.168.88.71','10.228.1.1','ghp_exampletoken']) assert.throws(()=>scanPhase6Captured(value));
   assert.equal(scanPhase6Captured({stdout:'synthetic-host sha256:'+'a'.repeat(64),stderr:''}),true);
 });
