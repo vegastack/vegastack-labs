@@ -2,6 +2,8 @@
 
 ## Working first — simplicity mandate
 
+Operator update on 10-10-2026: finish the working Linux workflows and defer advanced signed recovery-fence qualification. This supersedes the earlier complete-Linux instruction for the missing independent denial observer, additional signing/configuration and former-service/fresh-resolver qualification producers. Land completed source and software acceptance with explicit native limitations; do not close #228/#234 or claim native/full Phase 6 acceptance without their remaining evidence. Preserve existing authorization, acknowledgement, secret handling, data preservation and fail-closed gates.
+
 Operator update on 09-10-2026: finish all remaining Linux Phase 6 work without repeatedly reducing its scope. The instruction “do not simplify any thing … finish all the remaining phase 6” supersedes the earlier suspension for further simplification; “without over complicating … then plan and implement” preserves a small architecture. Restore outstanding Linux duties from reduced closed issues into their named owners and acceptance coverage. Mac/iMac remain explicitly deferred within v1.
 
 Reuse the existing `vsk-labs` executable, server-owned SQLite, API and exact plan/acknowledgement flow. The operator approved one protected action-signing key in the existing server; no additional signing service or setup signer is authorized. Do not add speculative daemons, services or generic frameworks. Administrator-verified machine/independent-console records prove that human prerequisite only; automated checks still require actual evidence. Registration, implementation and synthetic tests do not qualify host security, native behavior, workload admission or full Phase 6.

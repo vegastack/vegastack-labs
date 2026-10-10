@@ -1,6 +1,6 @@
 # Debian native qualification
 
-Status on 10-10-2026: implementation and isolated Linux software verification are in progress under issue #228. Complete native qualification, cleanup acceptance and the integrated Linux report (#234) remain pending. Mac/iMac remain deferred within v1. None of these records authorizes fleet deployment or access to protected hosts.
+Status on 10-10-2026: the operator selected delivery of the working Linux workflows and deferred advanced signed recovery-fence qualification. The completed implementation and software checks do not establish native qualification. The independent signed denial producer and former-service/fresh-resolver qualification remain deferred; baseline/role native runs, cleanup acceptance and the integrated Linux report (#234) remain pending until actual evidence exists. Issues #228 and #234 remain open. Mac/iMac remain deferred within v1; full Phase 6 and fleet activation remain pending. Existing runtime gates continue to refuse missing evidence.
 
 ## Evidence boundary
 
