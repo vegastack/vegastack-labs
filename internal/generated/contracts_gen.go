@@ -3584,6 +3584,7 @@ type NativePreparationResult struct {
 	SchemaVersion       string                              `json:"schemaVersion"`
 	Result              RunResult                           `json:"result"`
 	ExitCode            int64                               `json:"exitCode"`
+	ReceiptDigest       string                              `json:"receiptDigest,omitempty"`
 	Profile             *GateProfileDraftSubmission         `json:"profile,omitempty"`
 	CredentialImport    *CredentialImportSubmission         `json:"credentialImport,omitempty"`
 	GrantDeclaration    *DeclarationRevision                `json:"grantDeclaration,omitempty"`

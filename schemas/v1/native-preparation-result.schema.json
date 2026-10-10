@@ -4787,6 +4787,10 @@
         }
       ]
     },
+    "receiptDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
     "replacement": {
       "anyOf": [
         {

@@ -261,6 +261,7 @@ func dispatchPreparation(ctx context.Context, c localapi.Client, p serverconfig.
 		if e == nil && r.ExitCode == 0 {
 			out.ProducerReference = &r.Data.ProducerReference
 			out.ActionBundle = r.Data.ActionBundle
+			out.ReceiptDigest = r.Data.ReceiptDigest
 		}
 		return out, e
 	case "target":
