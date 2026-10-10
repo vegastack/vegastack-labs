@@ -107,6 +107,10 @@ func validateEndpoints(endpoints []EndpointDefinition, schemas map[string]struct
 			if endpoint.ID != "api.v1.credential-references.import-stream" || endpoint.Method != "POST" || endpoint.TransportScope != "local" || endpoint.MaxRequestBytes != 4096 || endpoint.RequestSchema != credentialImportRequestSchemaID || endpoint.DataSchema != credentialImportSubmissionSchemaID || seenAudiences[AudienceBrowser] || seenAudiences[AudienceExecutor] || !seenAudiences[AudienceOperator] {
 				return validationError("METADATA_INVALID", location+".requestEncoding")
 			}
+		} else if endpoint.ID == "api.v1.qualification.producer" {
+			if endpoint.Method != "POST" || endpoint.Path != "/api/v1/qualification/native/producer" || endpoint.TransportScope != "local" || endpoint.MaxRequestBytes != 8192 || endpoint.RequestSchema != "vegastack-labs.dev/native-producer-lookup-request" || endpoint.DataSchema != "vegastack-labs.dev/native-producer-lookup-data" || endpoint.RequestEncoding != "" || len(endpoint.Audiences) != 1 || !seenAudiences[AudienceOperator] {
+				return validationError("METADATA_INVALID", location+".requestEncoding")
+			}
 		} else if (endpoint.RequestEncoding != "" && endpoint.RequestEncoding != "json") || (endpoint.TransportScope != "" && endpoint.TransportScope != "any" && !((endpoint.ID == "api.v1.scheduled-occurrences.create" || endpoint.ID == "api.v1.scheduled-jobs.cancel") && endpoint.TransportScope == "local")) || endpoint.MaxRequestBytes != 0 {
 			return validationError("METADATA_INVALID", location+".requestEncoding")
 		}
@@ -211,7 +215,7 @@ func validateCommands(commands []CommandDefinition, schemas map[string]struct{})
 			switch name {
 			case "server run", "server api-ssh":
 				wantRisk = RiskLocalService
-			case "authorization grants draft", "node replacement prepare", "node role prepare", "node target prepare", "node action prepare", "node access prepare", "node add", "apply", "run cancel", "run resume", "gate evidence", "gate profile draft", "credential import", "backup policy draft", "backup retention-locks draft", "backup retirement draft", "backup offsite-retirement stage", "backup run", "backup verify", "restore plan", "restore run", "restore verify", "database backup", "database verify", "database restore", "database export", "credential stage", "credential activate", "credential rotate", "credential revoke", "credential recover", "recovery witness collect", "schedule policy draft", "schedule dispatch", "schedule cancel":
+			case "authorization grants draft", "qualification fixture-peer", "qualification native", "qualification step", "node replacement prepare", "node role prepare", "node target prepare", "node action prepare", "node access prepare", "node add", "apply", "run cancel", "run resume", "gate evidence", "gate profile draft", "credential import", "backup policy draft", "backup retention-locks draft", "backup retirement draft", "backup offsite-retirement stage", "backup run", "backup verify", "restore plan", "restore run", "restore verify", "database backup", "database verify", "database restore", "database export", "credential stage", "credential activate", "credential rotate", "credential revoke", "credential recover", "recovery witness collect", "schedule policy draft", "schedule dispatch", "schedule cancel":
 				wantRisk = RiskMutation
 			}
 			if command.Risk != wantRisk {

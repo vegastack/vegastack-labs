@@ -182,6 +182,15 @@ func workflowDeclarationTargets(row discoveryRow, d generated.DeclarationRevisio
 			}
 			requests = append(requests, draft.Request)
 			add("host.action.prepare", "host.read", "host", draft.Request.HostID)
+			if draft.Request.ActionID == ControlRecoveryReceiveAction {
+				var receive generated.ControlRecoveryReceiveInput
+				input := []byte(draft.Request.ActionInput)
+				if generated.ValidateContractJSON(generated.SchemaIDControlRecoveryReceiveInput, input, generated.ContractExact) != nil || json.Unmarshal(input, &receive) != nil || hostaction.BytesDigest(input) != draft.Request.ActionInputDigest || hostreplacement.ValidateInput(receive.Replacement) != nil || hostreplacement.BindRestore(receive.Replacement, receive.Binding) != nil || receive.Replacement.NewHostID != draft.Request.HostID {
+					return deny()
+				}
+				add("host.action.prepare", "host.read", "host", receive.Replacement.OldHostID)
+				add("host.action.prepare", "host.read", "host", receive.Replacement.NewHostID)
+			}
 			scope, err := debianbaseline.ScopeForRequest(draft.Request)
 			if err != nil {
 				return deny()

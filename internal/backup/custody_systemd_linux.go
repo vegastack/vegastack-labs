@@ -261,11 +261,22 @@ func exactCustodySudoAggregate(data []byte, executable string) bool {
 	listing := string(data)
 	const header = "\nUser vsk-controller may run the following commands on "
 	before, commands, found := strings.Cut(listing, header)
-	if !found || strings.Contains(before, "User vsk-controller may run") || strings.Count(commands, "\n") != 2 {
+	shared := false
+	if !found {
+		before, commands, found = strings.Cut(listing, "\nUser vsk-labs may run the following commands on ")
+		shared = true
+	}
+	if !found || strings.Contains(before, "User vsk-controller may run") || strings.Contains(before, "User vsk-labs may run") {
 		return false
 	}
 	line := commands[strings.IndexByte(commands, '\n')+1:]
-	return line == "    (root) NOPASSWD: "+executable+" "+CustodyPolicyCheckMode+"\n"
+	custody := "    (root) NOPASSWD: " + executable + " " + CustodyPolicyCheckMode + "\n"
+	if line == custody {
+		return true
+	}
+	return shared && executable == "/usr/local/bin/vsk-labs" && line ==
+		"    (root) NOPASSWD: "+executable+" __native-credential-access-probe\n"+
+			"    (root) NOPASSWD: "+executable+" __native-credential-policy-check\n"+custody
 }
 
 func readCustodySudoAggregate(ctx context.Context) ([]byte, error) {

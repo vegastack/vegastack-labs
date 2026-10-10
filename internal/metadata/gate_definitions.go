@@ -52,6 +52,9 @@ func CurrentGateDefinitions() []GateDefinitionSource {
 		definitions = append(definitions, definition)
 	}
 	definitions = append(definitions, phase6HostGateDefinitions()...)
+	for _, stage := range []string{"baseline", "role", "recovery"} {
+		definitions = append(definitions, GateDefinitionSource{GateID: "native." + stage, DefinitionVersion: "1.0.0", Layer: "platform", Applicability: "always", SubjectKinds: []string{"profile"}, PrerequisiteGateIDs: []string{}, EvidenceSchemaID: gateEvidenceSchemaID, EvaluatorVersion: "1.0.0", FreshnessSeconds: 86400, RecoveryEpochBound: true})
+	}
 	return definitions
 }
 

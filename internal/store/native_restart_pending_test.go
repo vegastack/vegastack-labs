@@ -16,7 +16,7 @@ import (
 func nativePendingFixture(t *testing.T) (*RunRepository, credentialref.NativeRestartPending, time.Time) {
 	t.Helper()
 	now := time.Date(2026, 10, 9, 8, 0, 0, 0, time.UTC)
-	r := openRunRepository(t, now)
+	r, plan := openRunRepository(t, now)
 	ctx := context.Background()
 	exec := func(q string, args ...any) {
 		t.Helper()
@@ -31,26 +31,21 @@ func nativePendingFixture(t *testing.T) (*RunRepository, credentialref.NativeRes
 	if !credentialref.ValidLifecycleBinding(b) {
 		t.Fatal("invalid lifecycle fixture")
 	}
-	var plan generated.Plan
 	var raw []byte
-	if err := r.store.conn.QueryRowContext(ctx, `SELECT canonical_bytes FROM immutable_plans WHERE plan_id='plan-run-test'`).Scan(&raw); err != nil {
-		t.Fatal(err)
-	}
-	if err := json.Unmarshal(raw, &plan); err != nil {
-		t.Fatal(err)
-	}
-	plan.PlanID, plan.PlanDigest, plan.AuthorizationBranch, plan.Risk = "native-plan", string(digestForText("native plan")), "human", "control-plane"
+	plan.AuthorizationBranch, plan.Risk = "human", "control-plane"
 	plan.Binding.DeclarationRevision = 2
 	exec(`INSERT INTO declaration_revisions SELECT declaration_id,2,declaration_type,state_revision,recovery_epoch,content_digest,reason_digest,'committed',canonical_bytes,created_at,created_by,agent_session_id FROM declaration_revisions WHERE declaration_id=? AND declaration_revision=1`, plan.DeclarationID)
 	plan.Operations = []generated.PlanOperation{{Sequence: 1, OperationID: b.OperationID, OperationType: string(b.Action), AdapterID: "core.credential", ExecutorID: "executor-central", TargetID: b.TargetID, InputDigest: fp, ArtifactDigest: fp, Idempotent: false}}
+	readable := "synthetic native activation plan"
+	plan = sealRunFixturePlan(t, plan, readable)
 	raw, _ = json.Marshal(plan)
-	exec(`INSERT INTO immutable_plans(plan_id,plan_digest,declaration_id,declaration_revision,state_revision,recovery_epoch,observation_fingerprint,idempotency_key_digest,request_digest,canonical_bytes,readable_plan,readable_digest,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, plan.PlanID, plan.PlanDigest, plan.DeclarationID, 2, 1, 0, plan.Binding.ObservationFingerprint, digestForText("native plan key"), digestForText("native plan request"), raw, "synthetic native activation plan", plan.ReadableDigest, now.Format(time.RFC3339), now.Add(30*time.Minute).Format(time.RFC3339))
+	exec(`INSERT INTO immutable_plans(plan_id,plan_digest,declaration_id,declaration_revision,state_revision,recovery_epoch,observation_fingerprint,idempotency_key_digest,request_digest,canonical_bytes,readable_plan,readable_digest,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, plan.PlanID, plan.PlanDigest, plan.DeclarationID, 2, 1, 0, plan.Binding.ObservationFingerprint, digestForText("native plan key"), digestForText("native plan request"), raw, readable, plan.ReadableDigest, now.Format(time.RFC3339), now.Add(30*time.Minute).Format(time.RFC3339))
 	raw, _ = json.Marshal(b)
 	exec(`INSERT INTO credential_lifecycle_bindings VALUES('native-binding',?,1,?,?,?,?,?,0,?)`, plan.DeclarationID, b.OperationID, string(b.Action), b.ReferenceID, b.Digest(), raw, now.Format(time.RFC3339))
 	exec(`INSERT INTO effective_authorization_principals VALUES('principal-run-test','human','active',1,'now','now')`)
 	exec(`INSERT INTO authorization_decisions VALUES('decision-native','principal-run-test','execute','credential.activate','execution-target',?,1,'human','allowed',1,1,0,?,?,'now','native-auth')`, b.TargetID, plan.PlanDigest, fp)
 	exec(`INSERT INTO acknowledgement_requests VALUES('ack-native',?,?,?,?, 'principal-run-test','slack-fixture',?,1,0,?,'approved',?,?,'now','now','now')`, plan.PlanID, plan.PlanDigest, plan.Binding.TargetDigest, plan.Binding.ReasonDigest, digestForText("native ack nonce"), plan.ExpiresAt, []byte(`{}`), []byte(`{}`))
-	run := testRun("run-native", "submit-native", now)
+	run := testRun(plan, "run-native", "submit-native", now)
 	run.PlanID, run.PlanDigest, run.AuthorizationDecisionID = plan.PlanID, plan.PlanDigest, "decision-native"
 	ack := "ack-native"
 	run.AcknowledgementID = &ack

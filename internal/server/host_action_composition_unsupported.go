@@ -9,7 +9,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/store"
 )
 
-func composeHostActions(_ context.Context, p serverconfig.Profile, _ string, _ *store.Store, _ *adapter.Registry) (func(), error) {
+func composeHostActions(_ context.Context, p serverconfig.Profile, _ string, _ *store.Store, _ *adapter.Registry, _ *store.GateRepository) (func(), error) {
 	if p.HostActionSignerPath != "" {
 		return func() {}, actionFailure()
 	}

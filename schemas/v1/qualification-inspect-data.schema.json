@@ -1,0 +1,178 @@
+{
+  "$defs": {
+    "suitability-facts": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
+        },
+        "guestOwnership": {
+          "enum": [
+            "yes",
+            "no",
+            "unknown"
+          ],
+          "type": "string"
+        },
+        "hostKeyMatch": {
+          "enum": [
+            "yes",
+            "no",
+            "unknown"
+          ],
+          "type": "string"
+        },
+        "hypervisor": {
+          "enum": [
+            "qemu",
+            "unknown"
+          ],
+          "type": "string"
+        },
+        "hypervisorVersion": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "identityMatch": {
+          "enum": [
+            "yes",
+            "no",
+            "unknown"
+          ],
+          "type": "string"
+        },
+        "memoryAvailableBytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "networkIsolation": {
+          "enum": [
+            "yes",
+            "no",
+            "unknown"
+          ],
+          "type": "string"
+        },
+        "observedAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "physicalHostIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/suitability-facts"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "storageAvailableBytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "targetDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "targetId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "targetRevision": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "virtualization": {
+          "enum": [
+            "yes",
+            "no",
+            "unknown"
+          ],
+          "type": "string"
+        },
+        "workloadsPresent": {
+          "enum": [
+            "yes",
+            "no",
+            "unknown"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "targetId",
+        "targetRevision",
+        "targetDigest",
+        "physicalHostIdentityDigest",
+        "identityMatch",
+        "hostKeyMatch",
+        "virtualization",
+        "networkIsolation",
+        "guestOwnership",
+        "workloadsPresent",
+        "architecture",
+        "memoryAvailableBytes",
+        "storageAvailableBytes",
+        "hypervisor",
+        "hypervisorVersion",
+        "observedAt"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/qualification-inspect-data",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "facts": {
+      "$ref": "#/$defs/suitability-facts"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "requestDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/qualification-inspect-data"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "stateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "facts",
+    "requestDigest",
+    "stateRevision",
+    "recoveryEpoch"
+  ],
+  "title": "VegaStack Labs qualification inspect data",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

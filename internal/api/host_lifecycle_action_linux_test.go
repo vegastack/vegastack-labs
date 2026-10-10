@@ -181,6 +181,7 @@ func lifecycleApplyRole(t *testing.T, f roleAdmissionFixture, at *time.Time, tar
 		var presentation generated.PlanPresentation
 		post("/api/v1/declarations/"+doc.DeclarationID+"/plans", generated.PlanCreateRequest{Schema: generated.SchemaIDPlanCreateRequest, SchemaVersion: "1.0.0", DeclarationID: doc.DeclarationID, DeclarationRevision: 1, ExpectedStateRevision: rev.StateRevision, RecoveryEpoch: rev.RecoveryEpoch, ObservationFingerprint: fp, IdempotencyKey: "plan-" + action, Extensions: doc.Extensions}, &presentation)
 		p := presentation.Plan
+		*at = time.Now().UTC().Truncate(time.Second)
 		var approval generated.ApprovalStatus
 		post("/api/v1/plans/"+p.PlanID+"/approval-request", generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: p.PlanID, PlanDigest: p.PlanDigest, RecoveryEpoch: p.Binding.RecoveryEpoch, IdempotencyKey: "approve-" + action, Extensions: []generated.ContractExtension{}}, &approval)
 		if approval.Status != "approved" || !approval.AuthorizationCurrent || !approval.CanApply {

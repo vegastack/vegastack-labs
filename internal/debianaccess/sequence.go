@@ -132,6 +132,9 @@ func Sequence(ops []generated.PlanOperation, requests []generated.HostActionRequ
 	if last.ActionID != "debian.access.confirm" || generated.ValidateContractJSON(generated.SchemaIDAccessConfirmInput, []byte(last.ActionInput), generated.ContractExact) != nil || json.Unmarshal([]byte(last.ActionInput), &confirm) != nil || confirm.HostID != apply.HostID || confirm.HostIdentityDigest != input.HostIdentityDigest || confirm.ProfileLockDigest != input.ProfileLockDigest || confirm.RollbackDigest != input.RollbackDigest || confirm.ApplyOperationID != ops[0].OperationID || confirm.ApplyDraftDigest != out.ApplyDraftDigest || confirm.ApplyInputDigest != apply.ActionInputDigest || confirm.ProbeSpecificationDigest != out.SpecificationDigest {
 		return out, errInput
 	}
+	if ValidateSessionRevocationConfirmation(confirm, last.CallerUID) != nil || confirm.RevokeAutomationSessionsRetainedPublicKey != input.RevokeAutomationSessionsRetainedPublicKey || (confirm.RevokeAutomationSessionsRetainedPublicKey != "" && confirm.AutomationUID != input.AutomationUID) {
+		return out, errInput
+	}
 	return out, nil
 }
 

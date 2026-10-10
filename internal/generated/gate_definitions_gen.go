@@ -30,6 +30,9 @@ var GeneratedGateDefinitions = []GateDefinition{
 	{Schema: SchemaIDGateDefinition, SchemaVersion: "1.1.0", GateID: "G-023", DefinitionVersion: "1.0.0", Layer: "deployment-profile", ProfileID: gateDefinitionPointer("vegastack-labs"), CapabilityID: nil, SubjectKinds: []string{"service"}, Applicability: "deferred", PrerequisiteGateIDs: []string{}, EvidenceSchemaID: "vegastack-labs.dev/gate-evidence", EvaluatorVersion: "1.0.0", FreshnessSeconds: 86400, RecoveryEpochBound: true},
 	{Schema: SchemaIDGateDefinition, SchemaVersion: "1.1.0", GateID: "host.hardening-baseline", DefinitionVersion: "1.1.0", Layer: "platform", ProfileID: nil, CapabilityID: nil, SubjectKinds: []string{"node"}, Applicability: "always", PrerequisiteGateIDs: []string{"platform-safety"}, EvidenceSchemaID: "vegastack-labs.dev/gate-evidence", EvaluatorVersion: "1.1.0", FreshnessSeconds: 86400, RecoveryEpochBound: true},
 	{Schema: SchemaIDGateDefinition, SchemaVersion: "1.1.0", GateID: "host.role-admission", DefinitionVersion: "1.1.0", Layer: "platform", ProfileID: nil, CapabilityID: nil, SubjectKinds: []string{"node"}, Applicability: "always", PrerequisiteGateIDs: []string{"host.hardening-baseline"}, EvidenceSchemaID: "vegastack-labs.dev/gate-evidence", EvaluatorVersion: "1.1.0", FreshnessSeconds: 86400, RecoveryEpochBound: true},
+	{Schema: SchemaIDGateDefinition, SchemaVersion: "1.1.0", GateID: "native.baseline", DefinitionVersion: "1.0.0", Layer: "platform", ProfileID: nil, CapabilityID: nil, SubjectKinds: []string{"profile"}, Applicability: "always", PrerequisiteGateIDs: []string{}, EvidenceSchemaID: "vegastack-labs.dev/gate-evidence", EvaluatorVersion: "1.0.0", FreshnessSeconds: 86400, RecoveryEpochBound: true},
+	{Schema: SchemaIDGateDefinition, SchemaVersion: "1.1.0", GateID: "native.recovery", DefinitionVersion: "1.0.0", Layer: "platform", ProfileID: nil, CapabilityID: nil, SubjectKinds: []string{"profile"}, Applicability: "always", PrerequisiteGateIDs: []string{}, EvidenceSchemaID: "vegastack-labs.dev/gate-evidence", EvaluatorVersion: "1.0.0", FreshnessSeconds: 86400, RecoveryEpochBound: true},
+	{Schema: SchemaIDGateDefinition, SchemaVersion: "1.1.0", GateID: "native.role", DefinitionVersion: "1.0.0", Layer: "platform", ProfileID: nil, CapabilityID: nil, SubjectKinds: []string{"profile"}, Applicability: "always", PrerequisiteGateIDs: []string{}, EvidenceSchemaID: "vegastack-labs.dev/gate-evidence", EvaluatorVersion: "1.0.0", FreshnessSeconds: 86400, RecoveryEpochBound: true},
 	{Schema: SchemaIDGateDefinition, SchemaVersion: "1.1.0", GateID: "platform-safety", DefinitionVersion: "1.0.0", Layer: "platform", ProfileID: nil, CapabilityID: nil, SubjectKinds: []string{"site", "node", "service"}, Applicability: "always", PrerequisiteGateIDs: []string{}, EvidenceSchemaID: "vegastack-labs.dev/gate-evidence", EvaluatorVersion: "1.0.0", FreshnessSeconds: 3600, RecoveryEpochBound: true},
 }
 
@@ -61,4 +64,16 @@ var GeneratedHostControlRequirements = []HostControlRequirement{
 	{ControlID: "linux.role-workload-isolation", ProducerID: "linux-role", ProducerControlIDs: []string{"linux.role-workload-isolation"}, Stage: "role", Roles: []string{"application", "ci"}, Applicability: "always"},
 	{ControlID: "linux.control-service", ProducerID: "linux-role", ProducerControlIDs: []string{"linux.control-service"}, Stage: "role", Roles: []string{"control"}, Applicability: "always"},
 	{ControlID: "linux.reserve-no-workloads", ProducerID: "linux-role", ProducerControlIDs: []string{"linux.reserve-no-workloads"}, Stage: "role", Roles: []string{"recovery-spare", "reserve"}, Applicability: "always"},
+}
+
+func NativeQualificationScenarios(stage string) []string {
+	switch stage {
+	case "baseline":
+		return []string{"baseline-access", "baseline-controls", "access-idempotence", "access-rollback-timeout", "access-rollback-reboot", "action-replay", "action-concurrency", "fail2ban-window", "container-network", "volume-effective-mapping", "volume-recovery-positive", "volume-wrong-key", "volume-wrong-header", "volume-wrong-slot", "volume-wrong-mapping", "volume-revoked-binding", "volume-unchanged-after-verification", "volume-inconsistent-redundant-header", "volume-status-no-original-repair", "volume-sealed-copy-write-refused", "native-credential-lifecycle"}
+	case "role":
+		return []string{"control-setup", "control-handoff", "role-application", "role-ci", "role-reserve"}
+	case "recovery":
+		return []string{"replacement-recovery"}
+	}
+	return nil
 }

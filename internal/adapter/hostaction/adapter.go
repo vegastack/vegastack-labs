@@ -36,15 +36,21 @@ type BundleSource interface {
 type Authority interface {
 	Authorize(context.Context, generated.HostActionEnvelope, generated.HostActionChallenge) (generated.HostActionAuthorization, error)
 }
+type NativeProbeSelector func(context.Context, generated.HostActionBundle) (string, error)
+
 type Adapter struct {
-	targets   TargetSource
-	bundles   BundleSource
-	authority Authority
-	mu        sync.Mutex
-	completed map[string]completedAccess
-	sequences AccessSequenceSource
-	probe     AccessLocalProbe
-	recorder  ControlResultRecorder
+	nativeProbe       NativeProbeSelector
+	recoveryPayload   RecoveryPayloadSource
+	recoveryFinalizer RecoveryReceiveFinalizer
+	targets           TargetSource
+	bundles           BundleSource
+	authority         Authority
+	mu                sync.Mutex
+	completed         map[string]completedAccess
+	nativeProtocol    map[string]generated.NativeActionProtocolWitness
+	sequences         AccessSequenceSource
+	probe             AccessLocalProbe
+	recorder          ControlResultRecorder
 }
 
 var _ adapter.Adapter = (*Adapter)(nil)
@@ -119,6 +125,9 @@ func (a *Adapter) ExecuteBoundWithCredentials(ctx context.Context, op adapter.Op
 	if err != nil || digestErr != nil || len(raw) > protocol.MaximumEnvelope || generated.ValidateContractJSON(generated.SchemaIDHostActionEnvelope, raw, generated.ContractExact) != nil || b.PlanID != binding.PlanID || b.PlanDigest != binding.PlanDigest || b.RunID != binding.RunID || b.StepID != binding.StepID || b.LeaseID != binding.LeaseID || b.StateRevision != binding.StateRevision || b.RecoveryEpoch != binding.RecoveryEpoch || b.HostID != op.TargetID || b.CredentialReferenceID != op.SecretReferences[0].ID || expiryErr != nil || !time.Now().Before(expiry) || expiry.After(deadline) {
 		return adapter.Effect{}, denied()
 	}
+	if b.ActionID == protocol.RecoveryReceiveAction && (a.recoveryPayload == nil || a.recoveryFinalizer == nil) {
+		return adapter.Effect{}, denied()
+	}
 	target, err := a.targets.Resolve(ctx, b)
 	if err != nil || !validTarget(target, b) {
 		return adapter.Effect{}, denied()
@@ -128,6 +137,12 @@ func (a *Adapter) ExecuteBoundWithCredentials(ctx context.Context, op adapter.Op
 		return adapter.Effect{EffectObserved: observed}, denied()
 	}
 	e := adapter.Effect{Status: result.Status, ResultDigest: result.ResultDigest, Changed: result.Changed, EffectObserved: result.EffectObserved}
+	if adapter.ValidateEffect(e) == nil && e.Status == "partial" && b.ActionID == "debian.access.confirm" && e.EffectObserved && len(result.ControlMeasurements) == 0 {
+		if err := a.remember(op, binding, e, result); err != nil {
+			return e, err
+		}
+		return e, nil
+	}
 	if adapter.ValidateEffect(e) == nil && e.Status != "succeeded" && linuxrole.IsAction(b.ActionID) {
 		if a.recorder == nil || len(result.ControlMeasurements) == 0 {
 			return e, denied()
@@ -142,6 +157,12 @@ func (a *Adapter) ExecuteBoundWithCredentials(ctx context.Context, op adapter.Op
 	}
 	if (strings.HasPrefix(b.ActionID, "debian.access.") || debianbaseline.IsAction(b.ActionID) || linuxrole.IsAction(b.ActionID)) && (len(result.ControlMeasurements) == 0 || a.recorder == nil) {
 		return adapter.Effect{EffectObserved: true}, denied()
+	}
+	if b.ActionID == protocol.RecoveryReceiveAction {
+		var descriptor generated.ControlRecoveryReceiveInput
+		if generated.ValidateContractJSON(generated.SchemaIDControlRecoveryReceiveInput, []byte(b.ActionInput), generated.ContractExact) != nil || json.Unmarshal([]byte(b.ActionInput), &descriptor) != nil || a.recoveryFinalizer(ctx, b, descriptor, result) != nil {
+			return adapter.Effect{EffectObserved: true}, denied()
+		}
 	}
 	if err := a.remember(op, binding, e, result); err != nil {
 		return adapter.Effect{EffectObserved: true}, err

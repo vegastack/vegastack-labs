@@ -58,6 +58,7 @@ func (r *GateRepository) resolveHostAdmission(ctx context.Context, tx ReadTx, ho
 		return
 	}
 	out.Bundles = map[string]generated.GateEvidenceBundle{}
+	out.NativeProducerBindings = map[string]HostNativeProducerBinding{}
 	out.AppliedBindings = map[string]HostAppliedBinding{}
 	out.PrerequisiteDigests = map[string]string{}
 	out.PrerequisiteEvidenceIDs = map[string]string{}
@@ -227,6 +228,9 @@ func (r *GateRepository) admissionMeasurements(ctx context.Context, tx ReadTx, o
 }
 
 func (r *GateRepository) admissionEvidence(ctx context.Context, tx ReadTx, out *HostAdmissionSnapshot) error {
+	return r.admissionEvidenceStages(ctx, tx, out, nil)
+}
+func (r *GateRepository) admissionEvidenceStages(ctx context.Context, tx ReadTx, out *HostAdmissionSnapshot, stages []string) error {
 	ids, e := admissionCurrentEvidenceIDs(ctx, tx, out)
 	if e != nil {
 		return e
@@ -239,7 +243,7 @@ func (r *GateRepository) admissionEvidence(ctx context.Context, tx ReadTx, out *
 	for _, id := range ids {
 		args = append(args, id)
 	}
-	rows, e := tx.query(ctx, `SELECT e.canonical_bytes,d.bundle_bytes,p.canonical_bytes,x.canonical_bytes,d.artifact_digest,p.readable_plan FROM gate_applied_evidence e JOIN gate_evidence_drafts d ON d.draft_id=e.draft_id JOIN immutable_plans p ON p.plan_id=e.plan_id AND p.plan_digest=e.plan_digest JOIN execution_receipts x ON x.run_id=e.run_id AND x.step_id=e.step_id AND x.status='succeeded' JOIN plan_run_steps s ON s.run_id=e.run_id AND s.step_id=e.step_id AND s.status='succeeded' AND s.effect_state='verified' WHERE e.evidence_id IN (`+marks+`) ORDER BY e.state_revision DESC,e.evidence_id DESC`, args...)
+	rows, e := tx.query(ctx, `SELECT e.canonical_bytes,d.bundle_bytes,p.canonical_bytes,x.canonical_bytes,d.artifact_digest,p.readable_plan,d.source_kind,d.proof_class,e.source_kind,e.proof_class FROM gate_applied_evidence e JOIN gate_evidence_drafts d ON d.draft_id=e.draft_id JOIN immutable_plans p ON p.plan_id=e.plan_id AND p.plan_digest=e.plan_digest JOIN execution_receipts x ON x.run_id=e.run_id AND x.step_id=e.step_id AND x.status='succeeded' JOIN plan_run_steps s ON s.run_id=e.run_id AND s.step_id=e.step_id AND s.status='succeeded' AND s.effect_state='verified' WHERE e.evidence_id IN (`+marks+`) ORDER BY e.state_revision DESC,e.evidence_id DESC`, args...)
 	if e != nil {
 		return e
 	}
@@ -249,12 +253,18 @@ func (r *GateRepository) admissionEvidence(ctx context.Context, tx ReadTx, out *
 	invalidEvidence := map[string]bool{}
 	for rows.Next() {
 		var raw, bundleRaw, planRaw, receiptRaw []byte
-		var draftArtifact, readablePlan string
+		var draftArtifact, readablePlan, draftSource, draftProof, appliedSource, appliedProof string
 		var ev generated.GateEvidence
 		var b generated.GateEvidenceBundle
 		var p generated.Plan
 		var receipt generated.ExecutionReceipt
-		if rows.Scan(&raw, &bundleRaw, &planRaw, &receiptRaw, &draftArtifact, &readablePlan) != nil || json.Unmarshal(raw, &ev) != nil || json.Unmarshal(bundleRaw, &b) != nil || json.Unmarshal(planRaw, &p) != nil || json.Unmarshal(receiptRaw, &receipt) != nil || generated.ValidateContractJSON(generated.SchemaIDGateEvidence, raw, generated.ContractExact) != nil || generated.ValidateContractJSON(generated.SchemaIDGateEvidenceBundle, bundleRaw, generated.ContractExact) != nil || ev.BundleDigest != hostaction.BytesDigest(bundleRaw) || receipt.PlanDigest != p.PlanDigest || receipt.RecoveryEpoch != out.Revision.RecoveryEpoch {
+		if rows.Scan(&raw, &bundleRaw, &planRaw, &receiptRaw, &draftArtifact, &readablePlan, &draftSource, &draftProof, &appliedSource, &appliedProof) != nil || json.Unmarshal(raw, &ev) != nil || json.Unmarshal(bundleRaw, &b) != nil || json.Unmarshal(planRaw, &p) != nil || json.Unmarshal(receiptRaw, &receipt) != nil || generated.ValidateContractJSON(generated.SchemaIDGateEvidence, raw, generated.ContractExact) != nil || generated.ValidateContractJSON(generated.SchemaIDGateEvidenceBundle, bundleRaw, generated.ContractExact) != nil || ev.BundleDigest != hostaction.BytesDigest(bundleRaw) || receipt.PlanDigest != p.PlanDigest || receipt.RecoveryEpoch != out.Revision.RecoveryEpoch {
+			return actionError(generated.ErrorCodeIntegrityFailure)
+		}
+		if stages != nil && !slices.Contains(stages, ev.GateID) {
+			continue
+		}
+		if ev.SourceKind != draftSource || ev.ProofClass != draftProof || ev.SourceKind != appliedSource || ev.ProofClass != appliedProof {
 			return actionError(generated.ErrorCodeIntegrityFailure)
 		}
 		if !validPlanDigests(p, readablePlan) {
@@ -276,9 +286,13 @@ func (r *GateRepository) admissionEvidence(ctx context.Context, tx ReadTx, out *
 			out.Blockers = append(out.Blockers, "host-binding-changed")
 			continue
 		}
+		expectedSubject := out.Host.HostID
+		if slices.Contains([]string{"native.baseline", "native.role", "native.recovery"}, ev.GateID) && ev.SubjectID == out.Profile.ProfileID {
+			expectedSubject = out.Profile.ProfileID
+		}
 		exact := false
 		for _, op := range p.Operations {
-			if op.OperationID == receipt.OperationID && op.TargetID == out.Host.HostID && op.AdapterID == "core.gate" && slices.Contains([]string{"gate.evidence.apply", "gate.evidence.supersede", "gate.evidence.revoke"}, op.OperationType) && op.InputDigest == ev.BundleDigest && op.ArtifactDigest == ev.BundleDigest && receipt.ArtifactDigest == op.ArtifactDigest {
+			if op.OperationID == receipt.OperationID && op.TargetID == expectedSubject && op.AdapterID == "core.gate" && slices.Contains([]string{"gate.evidence.apply", "gate.evidence.supersede", "gate.evidence.revoke"}, op.OperationType) && op.InputDigest == ev.BundleDigest && op.ArtifactDigest == ev.BundleDigest && receipt.ArtifactDigest == op.ArtifactDigest {
 				exact = true
 			}
 		}
@@ -297,6 +311,11 @@ func (r *GateRepository) admissionEvidence(ctx context.Context, tx ReadTx, out *
 		out.Evidence = append(out.Evidence, ev)
 		out.Bundles[ev.EvidenceID] = b
 		out.AppliedBindings[ev.EvidenceID] = HostAppliedBinding{DeclarationID: p.DeclarationID, DeclarationRevision: declaration.Revision, ArtifactDigest: draftArtifact, BundleDigest: ev.BundleDigest, StateRevision: ev.StateRevision, RecoveryEpoch: ev.RecoveryEpoch, ReleaseBuildID: r.store.config.BuildVersion, ToolVersion: p.Binding.ToolVersion}
+		if b.NativeQualification != nil && ev.SourceKind == "local" && ev.ProofClass == "live" && ev.CollectorID == "native-debian-228" && slices.Contains([]string{"native.baseline", "native.role", "native.recovery", "platform-safety", "host.hardening-baseline", "host.role-admission"}, ev.GateID) {
+			if binding, e := r.resolveNativeApplied(ctx, tx, *out, ev, b); e == nil {
+				out.NativeProducerBindings[ev.EvidenceID] = binding
+			}
+		}
 		if ev.Status == "revoked" {
 			blockedProofGates[ev.GateID] = true
 			continue
@@ -309,25 +328,31 @@ func (r *GateRepository) admissionEvidence(ctx context.Context, tx ReadTx, out *
 			}
 			if proof.Qualification != nil {
 				q := *proof.Qualification
-				if seenProof["qualification:"+q.Stage] {
-					continue
-				}
-				seenProof["qualification:"+q.Stage] = true
 				if q.EvidenceID != ev.EvidenceID || q.ProfileDigest != out.ProfileLockDigest || q.RecoveryEpoch != out.Revision.RecoveryEpoch || !slices.Contains([]string{"baseline", "role", "recovery"}, q.Stage) {
 					return actionError(generated.ErrorCodeIntegrityFailure)
 				}
-				out.Qualifications = append(out.Qualifications, q)
-				out.QualificationDigests = append(out.QualificationDigests, ev.BundleDigest)
+				if !seenProof["qualification:"+q.Stage] {
+					seenProof["qualification:"+q.Stage] = true
+					out.Qualifications = append(out.Qualifications, q)
+					out.QualificationDigests = append(out.QualificationDigests, ev.BundleDigest)
+				}
 			}
+			prerequisites := append([]HostPrerequisiteProof(nil), proof.Prerequisites...)
 			if proof.PrerequisiteID != "" {
-				if !slices.Contains([]string{"identity-console", "recovery-access", "physical-capacity", "physical-thermal-power", "qualified-virtual"}, proof.PrerequisiteID) || proof.PrerequisiteDigest == "" {
+				prerequisites = append(prerequisites, HostPrerequisiteProof{proof.PrerequisiteID, proof.PrerequisiteDigest})
+			}
+			if len(prerequisites) > 5 {
+				return actionError(generated.ErrorCodeIntegrityFailure)
+			}
+			for _, prerequisite := range prerequisites {
+				if !slices.Contains([]string{"identity-console", "recovery-access", "physical-capacity", "physical-thermal-power", "qualified-virtual"}, prerequisite.ID) || prerequisite.Digest == "" {
 					return actionError(generated.ErrorCodeIntegrityFailure)
 				}
-				if _, exists := out.PrerequisiteDigests[proof.PrerequisiteID]; exists {
+				if _, exists := out.PrerequisiteDigests[prerequisite.ID]; exists {
 					continue
 				}
-				out.PrerequisiteDigests[proof.PrerequisiteID] = proof.PrerequisiteDigest
-				out.PrerequisiteEvidenceIDs[proof.PrerequisiteID] = ev.EvidenceID
+				out.PrerequisiteDigests[prerequisite.ID] = prerequisite.Digest
+				out.PrerequisiteEvidenceIDs[prerequisite.ID] = ev.EvidenceID
 			}
 		}
 	}
@@ -425,13 +450,14 @@ func hostAdmissionProofDigest(s HostAdmissionSnapshot) string {
 		Measurements                         []HostAdmissionMeasurement
 		Evidence                             []generated.GateEvidence
 		Qualifications                       []HostNativeQualification
+		NativeBindings                       map[string]HostNativeProducerBinding
 		Prerequisites                        map[string]string
 		Storage                              HostStoragePrerequisites
 		Blockers                             []string
 		RoleBlockers                         []string
 		VolumeIDs                            []string
 		NetworkingRequired, StandbyRequired  bool
-	}{s.BindingDigest, s.RoleBindingDigest, s.AppliedProfileDigest, s.Revision.RecoveryEpoch, s.RoleIntentRevision, s.Measurements, s.Evidence, s.Qualifications, s.PrerequisiteDigests, s.Storage, s.Blockers, s.RoleBlockers, s.VolumeIDs, s.NetworkingRequired, s.StandbyRequired})
+	}{s.BindingDigest, s.RoleBindingDigest, s.AppliedProfileDigest, s.Revision.RecoveryEpoch, s.RoleIntentRevision, s.Measurements, s.Evidence, s.Qualifications, s.NativeProducerBindings, s.PrerequisiteDigests, s.Storage, s.Blockers, s.RoleBlockers, s.VolumeIDs, s.NetworkingRequired, s.StandbyRequired})
 }
 
 // A later attempted mutation invalidates earlier measurements even if it failed
@@ -575,22 +601,28 @@ func admissionCurrentEvidenceIDs(ctx context.Context, tx ReadTx, out *HostAdmiss
 	keys = slices.Compact(keys)
 	selected := map[string]bool{}
 	for _, gate := range []string{"platform-safety", "host.hardening-baseline", "host.role-admission", "native.baseline", "native.role", "native.recovery"} {
-		for _, key := range keys {
-			var id string
-			var revoked, superseded sql.NullString
-			e := tx.queryRow(ctx, `SELECT e.evidence_id,e.revokes_evidence_id,e.supersedes_evidence_id FROM gate_applied_evidence e JOIN gate_evidence_drafts d ON d.draft_id=e.draft_id WHERE e.subject_id=? AND e.gate_id=? AND e.recovery_epoch=? AND e.state_revision<=? AND NOT EXISTS(SELECT 1 FROM json_each(d.bundle_bytes,'$.facts') f WHERE json_extract(f.value,'$.factId') IN ('host.profile-lock','native.profile-lock') AND json_extract(f.value,'$.valueDigest')!=?) AND ((?='' AND json_array_length(d.bundle_bytes,'$.checks')=0) OR EXISTS(SELECT 1 FROM json_each(d.bundle_bytes,'$.checks') c WHERE json_extract(c.value,'$.checkId')=?) OR EXISTS(SELECT 1 FROM gate_applied_evidence prior JOIN gate_evidence_drafts pd ON pd.draft_id=prior.draft_id JOIN json_each(pd.bundle_bytes,'$.checks') c WHERE prior.evidence_id=e.revokes_evidence_id AND json_extract(c.value,'$.checkId')=? AND NOT EXISTS(SELECT 1 FROM json_each(pd.bundle_bytes,'$.facts') f WHERE json_extract(f.value,'$.factId') IN ('host.profile-lock','native.profile-lock') AND json_extract(f.value,'$.valueDigest')!=?))) ORDER BY e.state_revision DESC,e.evidence_id DESC LIMIT 1`, out.Host.HostID, gate, out.Revision.RecoveryEpoch, out.Revision.StateRevision, out.ProfileLockDigest, key, key, key, out.ProfileLockDigest).Scan(&id, &revoked, &superseded)
-			if e == sql.ErrNoRows {
-				continue
-			}
-			if e != nil {
-				return nil, e
-			}
-			selected[id] = true
-			if revoked.Valid {
-				selected[revoked.String] = true
-			}
-			if superseded.Valid {
-				selected[superseded.String] = true
+		subjects := []string{out.Host.HostID}
+		if slices.Contains([]string{"native.baseline", "native.role", "native.recovery"}, gate) && out.Profile.ProfileID != "" && out.Profile.ProfileID != out.Host.HostID {
+			subjects = append(subjects, out.Profile.ProfileID)
+		}
+		for _, subject := range subjects {
+			for _, key := range keys {
+				var id string
+				var revoked, superseded sql.NullString
+				e := tx.queryRow(ctx, `SELECT e.evidence_id,e.revokes_evidence_id,e.supersedes_evidence_id FROM gate_applied_evidence e JOIN gate_evidence_drafts d ON d.draft_id=e.draft_id WHERE e.subject_id=? AND e.gate_id=? AND e.recovery_epoch=? AND e.state_revision<=? AND NOT EXISTS(SELECT 1 FROM json_each(d.bundle_bytes,'$.facts') f WHERE json_extract(f.value,'$.factId') IN ('host.profile-lock','native.profile-lock') AND json_extract(f.value,'$.valueDigest')!=?) AND ((?='' AND json_array_length(d.bundle_bytes,'$.checks')=0) OR EXISTS(SELECT 1 FROM json_each(d.bundle_bytes,'$.checks') c WHERE json_extract(c.value,'$.checkId')=?) OR EXISTS(SELECT 1 FROM gate_applied_evidence prior JOIN gate_evidence_drafts pd ON pd.draft_id=prior.draft_id JOIN json_each(pd.bundle_bytes,'$.checks') c WHERE prior.evidence_id=e.revokes_evidence_id AND json_extract(c.value,'$.checkId')=? AND NOT EXISTS(SELECT 1 FROM json_each(pd.bundle_bytes,'$.facts') f WHERE json_extract(f.value,'$.factId') IN ('host.profile-lock','native.profile-lock') AND json_extract(f.value,'$.valueDigest')!=?))) ORDER BY e.state_revision DESC,e.evidence_id DESC LIMIT 1`, subject, gate, out.Revision.RecoveryEpoch, out.Revision.StateRevision, out.ProfileLockDigest, key, key, key, out.ProfileLockDigest).Scan(&id, &revoked, &superseded)
+				if e == sql.ErrNoRows {
+					continue
+				}
+				if e != nil {
+					return nil, e
+				}
+				selected[id] = true
+				if revoked.Valid {
+					selected[revoked.String] = true
+				}
+				if superseded.Valid {
+					selected[superseded.String] = true
+				}
 			}
 		}
 	}

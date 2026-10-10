@@ -459,3 +459,111 @@ func TestOwnedFirewallJumpMustPrecedeParentRules(t *testing.T) {
 		}
 	}
 }
+
+func TestNativeSessionRevocationFollowsDurableConfirmation(t *testing.T) {
+	for _, kind := range []string{"success", "backend-unavailable", "partial-termination", "timer-stop-failure", "wrong-uid", "missing-intent", "installed-key-drift"} {
+		t.Run(kind, func(t *testing.T) {
+			f := nativeFixtureNew(t)
+			f.input.RevokeAutomationSessionsRetainedPublicKey = f.input.Accounts[0].PublicKeys[0]
+			raw, _ := json.Marshal(f.input)
+			f.bundle.ActionInput, f.bundle.ActionInputDigest = string(raw), digestBytes(raw)
+			called := false
+			f.n.revokeSessions = func(_ context.Context, uid int64) (bool, error) {
+				called = true
+				var record RollbackRecord
+				bytes, _ := os.ReadFile(filepath.Join(f.root, rollbackRecordPath))
+				json.Unmarshal(bytes, &record)
+				if record.State != "confirmed" || uid != f.input.AutomationUID || len(f.events) == 0 || f.events[len(f.events)-1] != "/usr/bin/systemctl stop vsk-access-rollback.timer" {
+					t.Fatal("containment preceded durable confirmation/timer stop or changed UID")
+				}
+				if kind == "backend-unavailable" {
+					return false, errAccess
+				}
+				if kind == "partial-termination" {
+					return true, errAccess
+				}
+				return true, nil
+			}
+			apply, _ := NewHandler("debian.access.apply", f.n)
+			if _, err := apply.Execute(context.Background(), f.bundle); err != nil {
+				t.Fatal(err)
+			}
+			record := *f.n.armed
+			digest := digestBytes([]byte("current-persisted-probes"))
+			input := generated.AccessConfirmInput{Schema: generated.SchemaIDAccessConfirmInput, SchemaVersion: "1.0.0", HostID: f.input.HostID, HostIdentityDigest: f.input.HostIdentityDigest, ProfileLockDigest: f.input.ProfileLockDigest, RollbackDigest: f.input.RollbackDigest, ApplyOperationID: "apply", ApplyDraftDigest: digest, ApplyInputDigest: f.bundle.ActionInputDigest, ProbeSpecificationDigest: digest, AutomationUID: f.input.AutomationUID, RevokeAutomationSessionsRetainedPublicKey: f.input.RevokeAutomationSessionsRetainedPublicKey}
+			if kind == "wrong-uid" {
+				input.AutomationUID++
+			}
+			if kind == "missing-intent" {
+				input.AutomationUID = 0
+				input.RevokeAutomationSessionsRetainedPublicKey = ""
+			}
+			if kind == "installed-key-drift" {
+				os.WriteFile(filepath.Join(f.root, "etc/vsk-labs/authorized_keys/automation"), []byte("foreign-key"), 0600)
+			}
+			if kind == "timer-stop-failure" {
+				original := f.n.run
+				f.n.run = func(ctx context.Context, executable string, args []string, stdin []byte) ([]byte, error) {
+					if executable == "/usr/bin/systemctl" && strings.Join(args, " ") == "stop vsk-access-rollback.timer" {
+						return nil, errAccess
+					}
+					return original(ctx, executable, args, stdin)
+				}
+			}
+			verification := generated.AccessVerificationEvidence{Schema: generated.SchemaIDAccessVerificationEvidence, SchemaVersion: "1.0.0", ApplyReceiptDigest: digest, RollbackRecordDigest: record.Digest(), ProbeResultsDigest: digest, SequenceDigest: digest, ExpiresAt: f.n.now().Add(time.Minute).Format(time.RFC3339)}
+			bundle := f.bundle
+			bundle.ActionID, bundle.StepID = "debian.access.confirm", "confirm"
+			raw, _ = json.Marshal(input)
+			bundle.ActionInput, bundle.ActionInputDigest = string(raw), digestBytes(raw)
+			bundle.VerificationEvidence, bundle.VerificationEvidenceDigest = &verification, hostaction.Digest(verification)
+			confirm, _ := NewHandler("debian.access.confirm", f.n)
+			result, err := confirm.Execute(context.Background(), bundle)
+			precommit := kind == "wrong-uid" || kind == "missing-intent" || kind == "installed-key-drift"
+			partial := kind == "backend-unavailable" || kind == "partial-termination" || kind == "timer-stop-failure"
+			if precommit {
+				if err == nil || called {
+					t.Fatal("invalid revocation changed confirmation or called backend")
+				}
+				return
+			}
+			if err != nil {
+				keys, _ := os.ReadFile(filepath.Join(f.root, "etc/vsk-labs/authorized_keys/automation"))
+				state, _ := os.ReadFile(filepath.Join(f.root, rollbackRecordPath))
+				var persisted RollbackRecord
+				json.Unmarshal(state, &persisted)
+				t.Fatalf("confirm: %v called=%t UID=%d/%d/%d account=%s input=%t rollback=%t key=%t pair=%t result=%s", err, called, input.AutomationUID, record.AutomationUID, persisted.AutomationUID, persisted.AutomationAccount, persisted.InputDigest == input.ApplyInputDigest, persisted.Digest() == verification.RollbackRecordDigest, SamePublicKey(strings.TrimPrefix(strings.TrimSpace(string(keys)), "restrict "), input.RevokeAutomationSessionsRetainedPublicKey), persisted.RevokeAutomationSessionsRetainedPublicKey == input.RevokeAutomationSessionsRetainedPublicKey, result.Status)
+			}
+			if partial && (result.Status != "partial" || !result.EffectObserved || !result.Changed || len(result.ControlMeasurements) != 0) {
+				t.Fatalf("postcommit failure lost effect or emitted proof: %+v", result)
+			}
+			if !partial && (result.Status != "succeeded" || !called || len(result.ControlMeasurements) != 1) {
+				t.Fatalf("revocation not completed: %+v", result)
+			}
+			if called != (kind != "timer-stop-failure") {
+				t.Fatal("backend ordering changed")
+			}
+			if err := f.n.restore(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+			keys, _ := os.ReadFile(filepath.Join(f.root, "etc/vsk-labs/authorized_keys/automation"))
+			if !SamePublicKey(strings.TrimPrefix(strings.TrimSpace(string(keys)), "restrict "), f.input.RevokeAutomationSessionsRetainedPublicKey) {
+				t.Fatal("postcommit failure restored revoked access")
+			}
+		})
+	}
+}
+
+func TestNativeInspectionReadsOriginalContainerTuple(t *testing.T) {
+	f := nativeFixtureNew(t)
+	f.n.run = func(_ context.Context, _ string, _ []string, _ []byte) ([]byte, error) {
+		return []byte("-N DOCKER-USER\n-N VSK-ACCESS-DKR\n-A DOCKER-USER -j VSK-ACCESS-DKR\n-A VSK-ACCESS-DKR -i eth0 -p tcp -m tcp -m conntrack --ctorigdst 192.0.2.2 --ctorigsrc 192.0.2.1 --ctorigdstport 18080 --ctdir ORIGINAL -j RETURN\n"), nil
+	}
+	state, err := f.n.inspectChain(context.Background(), "ipv4", "VSK-ACCESS-DKR")
+	if err != nil || !state.ParentPresent || !state.Present || !state.JumpPresent || len(state.Rules) != 1 {
+		t.Fatalf("existing observed-rule parser rejected conntrack tuple: %+v %v", state, err)
+	}
+	want := []string{"-i", "eth0", "-p", "tcp", "-m", "conntrack", "--ctorigsrc", "192.0.2.1/32", "--ctorigdst", "192.0.2.2/32", "--ctorigdstport", "18080", "--ctdir", "ORIGINAL", "-j", "RETURN"}
+	if strings.Join(state.Rules[0], " ") != strings.Join(want, " ") {
+		t.Fatalf("save normalization differs: %v", state.Rules[0])
+	}
+}

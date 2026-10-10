@@ -9,6 +9,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"github.com/vegastack/vegastack-labs/internal/strictjson"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -18,6 +19,8 @@ const MaximumInput = 32768
 const ActionVersion = "1.0.0"
 
 var errInput = errors.New("invalid Linux role input")
+var controlCredentialName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,126}$`)
+var controlEncryptedName = regexp.MustCompile(`^credential-[a-f0-9]{32}$`)
 var ControlIDs = []string{"linux.role-identity-paths", "linux.role-service-resources", "linux.role-network-boundary", "linux.role-workload-isolation", "linux.control-service", "linux.reserve-no-workloads"}
 
 func decode(raw []byte) (generated.LinuxRoleInput, error) {
@@ -87,7 +90,9 @@ func ValidateDesiredInput(in generated.LinuxRoleInput) error {
 	if a.Selector != account || a.UID > 4294967295 || a.GID > 4294967295 || a.UID < 1 || a.GID < 1 {
 		return errInput
 	}
-	if in.RoleID == "control" && (!a.Existing || a.UID != in.AutomationUID) {
+	// The canonical service account is independently observed by the runtime.
+	// AutomationUID names the scoped action caller, not the systemd service UID.
+	if in.RoleID == "control" && !a.Existing {
 		return errInput
 	}
 	if in.RoleID != "control" && a.UID == in.AutomationUID {
@@ -98,6 +103,23 @@ func ValidateDesiredInput(in generated.LinuxRoleInput) error {
 	}
 	if in.StandbyRequired != (account == "standby") {
 		return errInput
+	}
+
+	if len(in.ControlPlainCredentials)+len(in.ControlEncryptedCredentials) > 16 || in.RoleID != "control" && (len(in.ControlPlainCredentials) > 0 || len(in.ControlEncryptedCredentials) > 0 || in.ControlLocalBackup) {
+		return errInput
+	}
+	names := map[string]bool{}
+	for _, name := range in.ControlPlainCredentials {
+		if !controlCredentialName.MatchString(name) || names[name] {
+			return errInput
+		}
+		names[name] = true
+	}
+	for _, name := range in.ControlEncryptedCredentials {
+		if !controlEncryptedName.MatchString(name) || names[name] {
+			return errInput
+		}
+		names[name] = true
 	}
 	r := in.Resources
 	if r.MemoryMaxBytes < 16<<20 || r.MemoryMaxBytes > r.CapacityMemoryBytes || r.CapacityMemoryBytes > 1<<50 || r.CPUQuotaPercent > r.CapacityCPUPercent || r.CapacityCPUPercent > 10000 || r.TasksMax > r.CapacityTasks || r.CapacityTasks > 1048576 || r.MinimumFreeBytes < 1<<30 || r.MinimumFreePercent < 10 || r.MinimumFreePercent > 100 {
@@ -203,6 +225,10 @@ func RoleBindingDigest(in generated.LinuxRoleInput) string {
 		in.Directories[i].ExpectedState = ""
 		in.Directories[i].ExpectedDigest = ""
 	}
+	in.ControlPlainCredentials = slices.Clone(in.ControlPlainCredentials)
+	slices.Sort(in.ControlPlainCredentials)
+	in.ControlEncryptedCredentials = slices.Clone(in.ControlEncryptedCredentials)
+	slices.Sort(in.ControlEncryptedCredentials)
 	slices.SortFunc(in.Accounts, func(a, b generated.LinuxRoleAccount) int { return strings.Compare(a.Selector, b.Selector) })
 	slices.SortFunc(in.Directories, func(a, b generated.LinuxRoleDirectory) int { return strings.Compare(a.Selector, b.Selector) })
 	return hostaction.Digest(in)

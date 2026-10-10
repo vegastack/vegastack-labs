@@ -60,3 +60,29 @@ func TestTypedAppliedUnitProperties(t *testing.T) {
 		t.Fatal("missing process start accepted")
 	}
 }
+
+func TestAppliedMultipleEncryptedSources(t *testing.T) {
+	b := credentialref.LifecycleBinding{ReferenceID: "reference-a", MaterialVersion: "version-a", NativeArtifactConsumerID: "consumer-a"}
+	name := credentialref.LoadedNameForVersion("consumer-a", "reference-a", "version-a")
+	other := credentialref.LoadedNameForVersion("consumer-a", "reference-b", "version-a")
+	r := credentialref.NativeConsumerBinding{UnitName: "control.service", LoadedName: name}
+	x := AppliedUnitSnapshot{UnitName: r.UnitName, ActiveState: "active", EncryptedSources: []CredentialSource{{ID: other, AbsolutePath: "/sealed/" + other}, {ID: name, AbsolutePath: "/sealed/" + name}}}
+	if err := validateAppliedSource(x, b, r, "/sealed/"+name); err != nil {
+		t.Fatalf("independently named target sources rejected: %v", err)
+	}
+	for kind, change := range map[string]func(*AppliedUnitSnapshot){
+		"duplicate":        func(s *AppliedUnitSnapshot) { s.EncryptedSources = append(s.EncryptedSources, s.EncryptedSources[0]) },
+		"foreign-root":     func(s *AppliedUnitSnapshot) { s.EncryptedSources[0].AbsolutePath = "/foreign/" + other },
+		"swapped-name":     func(s *AppliedUnitSnapshot) { s.EncryptedSources[0].ID = name },
+		"missing-selected": func(s *AppliedUnitSnapshot) { s.EncryptedSources = s.EncryptedSources[:1] },
+	} {
+		t.Run(kind, func(t *testing.T) {
+			changed := x
+			changed.EncryptedSources = append([]CredentialSource(nil), x.EncryptedSources...)
+			change(&changed)
+			if validateAppliedSource(changed, b, r, "/sealed/"+name) == nil {
+				t.Fatal("invalid source set accepted")
+			}
+		})
+	}
+}

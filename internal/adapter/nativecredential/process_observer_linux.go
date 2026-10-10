@@ -47,8 +47,7 @@ func (o invocationObserver) observe(ctx context.Context, binding credentialref.L
 	path := filepath.Join(o.root, reader.LoadedName)
 	first, err := o.units.ObserveAppliedUnit(ctx, reader.UnitName)
 	if err != nil || first.MachineID != reader.HostMachineID || first.BootID == "" || first.UnitName != reader.UnitName ||
-		first.NeedDaemonReload || first.EncryptedSources == nil || len(first.EncryptedSources) != 1 ||
-		first.EncryptedSources[0].ID != reader.LoadedName || first.EncryptedSources[0].AbsolutePath != path {
+		validateUnitSources(first, binding, reader, path) != nil {
 		return NativeInvocationProof{}, fmt.Errorf("%w: applied-before", errNativeInvocation)
 	}
 	before, err := o.inspect(ctx, InspectRequest{Name: reader.LoadedName, CiphertextDirectory: o.root, ExpectedUID: o.ownerUID})

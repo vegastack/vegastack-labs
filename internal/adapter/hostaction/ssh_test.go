@@ -68,7 +68,7 @@ func (a *authorityFixture) Authorize(_ context.Context, e generated.HostActionEn
 	v.Signature = base64.StdEncoding.EncodeToString(ed25519.Sign(a.key, protocol.AuthorizationMessage(v)))
 	return v, nil
 }
-func fixture(t *testing.T, mode string) (*Adapter, adapter.Operation, adapter.ExactExecutionBinding, *credentialref.Value, *authorityFixture, *targetFixture, *atomic.Int32) {
+func fixture(t *testing.T, mode string, mutations ...func(*generated.HostActionBundle, ssh.PublicKey)) (*Adapter, adapter.Operation, adapter.ExactExecutionBinding, *credentialref.Value, *authorityFixture, *targetFixture, *atomic.Int32) {
 	t.Helper()
 	_, key, _ := ed25519.GenerateKey(rand.Reader)
 	signer, _ := ssh.NewSignerFromKey(key)
@@ -81,6 +81,9 @@ func fixture(t *testing.T, mode string) (*Adapter, adapter.Operation, adapter.Ex
 	now := time.Now().UTC().Truncate(time.Second)
 	d := "sha256:" + strings.Repeat("a", 64)
 	b := generated.HostActionBundle{Schema: generated.SchemaIDHostActionBundle, SchemaVersion: "1.0.0", ActionID: "test.noop", ActionVersion: "1.0.0", ActionInput: "{}", ActionInputDigest: protocol.BytesDigest([]byte("{}")), BundleID: "bundle-a", PlanID: "plan-a", PlanDigest: d, RunID: "run-a", StepID: "step-a", LeaseID: "lease-a", HostID: "host-a", HostIdentityDigest: d, DeclarationID: "declaration-a", DeclarationRevision: 1, StateRevision: 2, RecoveryEpoch: 0, AutomationPrincipalID: "automation-a", CallerUID: 1001, CredentialReferenceID: "credential-a", CredentialMaterialVersion: "version-a", ConsoleConfirmationDigest: d, IssuedAt: now.Format(time.RFC3339), ExpiresAt: now.Add(time.Minute).Format(time.RFC3339)}
+	for _, mutate := range mutations {
+		mutate(&b, signer.PublicKey())
+	}
 	raw, err := protocol.SignEnvelope(b, "key-a", key)
 	if err != nil {
 		t.Fatal(err)
@@ -188,6 +191,10 @@ func fixture(t *testing.T, mode string) (*Adapter, adapter.Operation, adapter.Ex
 						result.ControlMeasurements[0].Status = "failed"
 					}
 				}
+				if mode == "confirmed-partial" {
+					result.Status, result.Changed, result.Reason = "partial", true, "access-confirm-incomplete"
+					result.ResultDigest = protocol.ResultDigest(result)
+				}
 				if mode == "wrong-result" {
 					result.BundleDigest = protocol.BytesDigest([]byte("wrong"))
 				}
@@ -262,6 +269,60 @@ func TestBoundSSHProtocol(t *testing.T) {
 				if auth.calls != 0 {
 					t.Fatal("signed invalid challenge")
 				}
+			}
+		})
+	}
+}
+
+func TestConfirmRevocationRequiresActualSelectedCredentialKey(t *testing.T) {
+	for _, kind := range []string{"matching-key-comment", "wrong-key", "wrong-uid", "absent", "postcommit-partial"} {
+		t.Run(kind, func(t *testing.T) {
+			mode := "measured"
+			if kind == "postcommit-partial" {
+				mode = "confirmed-partial"
+			}
+			a, op, binding, value, authority, _, connections := fixture(t, mode, func(bundle *generated.HostActionBundle, selected ssh.PublicKey) {
+				d := bundle.PlanDigest
+				input := generated.AccessConfirmInput{Schema: generated.SchemaIDAccessConfirmInput, SchemaVersion: "1.0.0", HostID: bundle.HostID, HostIdentityDigest: bundle.HostIdentityDigest, ProfileLockDigest: d, RollbackDigest: d, ApplyOperationID: "apply", ApplyDraftDigest: d, ApplyInputDigest: d, ProbeSpecificationDigest: d, AutomationUID: bundle.CallerUID, RevokeAutomationSessionsRetainedPublicKey: strings.TrimSpace(string(ssh.MarshalAuthorizedKey(selected))) + " retained-key-comment"}
+				if kind == "wrong-key" {
+					pub, _, err := ed25519.GenerateKey(rand.Reader)
+					if err != nil {
+						t.Fatal(err)
+					}
+					key, err := ssh.NewPublicKey(pub)
+					if err != nil {
+						t.Fatal(err)
+					}
+					input.RevokeAutomationSessionsRetainedPublicKey = strings.TrimSpace(string(ssh.MarshalAuthorizedKey(key)))
+				}
+				if kind == "wrong-uid" {
+					input.AutomationUID++
+				}
+				if kind == "absent" {
+					input.AutomationUID = 0
+					input.RevokeAutomationSessionsRetainedPublicKey = ""
+				}
+				raw, _ := json.Marshal(input)
+				bundle.ActionID, bundle.ActionInput, bundle.ActionInputDigest = "debian.access.confirm", string(raw), protocol.BytesDigest(raw)
+				verification := generated.AccessVerificationEvidence{Schema: generated.SchemaIDAccessVerificationEvidence, SchemaVersion: "1.0.0", ApplyReceiptDigest: d, RollbackRecordDigest: d, ProbeResultsDigest: d, SequenceDigest: d, ExpiresAt: bundle.ExpiresAt}
+				bundle.VerificationEvidence, bundle.VerificationEvidenceDigest = &verification, protocol.Digest(verification)
+			})
+			a.recorder = &recordingControls{}
+			effect, err := a.ExecuteBoundWithCredentials(context.Background(), op, binding, []*credentialref.Value{value})
+			if kind == "wrong-key" || kind == "wrong-uid" {
+				if err == nil || connections.Load() != 0 || authority.calls != 0 || effect.EffectObserved {
+					t.Fatal("credential mismatch reached SSH or caused an effect")
+				}
+				return
+			}
+			if err != nil || connections.Load() != 1 {
+				t.Fatalf("bound credential refused: %+v %v", effect, err)
+			}
+			if kind == "postcommit-partial" && (effect.Status != "partial" || !effect.Changed || !effect.EffectObserved) {
+				t.Fatalf("partial confirmation lost: %+v", effect)
+			}
+			if _, err = a.Verify(context.Background(), op, effect); err != nil {
+				t.Fatal(err)
 			}
 		})
 	}

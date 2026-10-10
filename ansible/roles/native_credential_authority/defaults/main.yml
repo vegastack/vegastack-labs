@@ -3,3 +3,4 @@ native_credential_enrolled_units: []
 native_credential_probe_bindings: []
 native_credential_host_machine_id: ''
 native_credential_binary_path: /usr/local/bin/vsk-labs
+native_credential_backup_custody: false

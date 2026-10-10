@@ -15,6 +15,7 @@ import (
 type hostAccessComposition struct {
 	store   *store.Store
 	hosts   *store.HostActionRepository
+	gates   *store.GateRepository
 	allowed []string
 }
 
@@ -55,7 +56,10 @@ func (c hostAccessComposition) RecordVerifiedControlResults(ctx context.Context,
 			if err != nil {
 				return err
 			}
-			gates := store.NewGateRepository(c.store)
+			gates := c.gates
+			if gates == nil {
+				gates = store.NewGateRepository(c.store)
+			}
 			readCtx, err := c.store.HostRunReadContext(ctx, b.RunID)
 			if err != nil {
 				return err

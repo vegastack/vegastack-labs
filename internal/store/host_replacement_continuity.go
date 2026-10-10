@@ -35,11 +35,19 @@ func (s *Store) HostAliasHighWatermark(ctx context.Context) (n int64, err error)
 	return
 }
 func (s *Store) LoadHostReplacementContinuity(ctx context.Context, replacementID string, reference generated.HostReplacementContinuityReference) (out HostReplacementContinuity, err error) {
+	err = s.Read(ctx, func(tx ReadTx) error {
+		var e error
+		out, e = loadHostReplacementContinuity(ctx, tx, replacementID, reference)
+		return e
+	})
+	return
+}
+func loadHostReplacementContinuity(ctx context.Context, tx ReadTx, replacementID string, reference generated.HostReplacementContinuityReference) (out HostReplacementContinuity, err error) {
 	out.Reference = reference
 	if reference.ReplacementID != replacementID || reference.SourceAliasHighWatermark < 0 || reference.SourcePointID == "" || reference.SourceBindingDigest == "" {
 		return out, replacementError(generated.ErrorCodeInputInvalid)
 	}
-	err = s.Read(ctx, func(tx ReadTx) error {
+	err = func() error {
 		row := func(q string, a ...any) *sql.Row { return tx.queryRow(ctx, q, a...) }
 		if e := row(`SELECT COALESCE(MAX(event_ordinal),0) FROM host_alias_history`).Scan(&out.Reference.CurrentAliasHighWatermark); e != nil {
 			return e
@@ -201,7 +209,7 @@ func (s *Store) LoadHostReplacementContinuity(ctx context.Context, replacementID
 		}
 		out.Reference.Digest = HostReplacementContinuityDigest(out)
 		return validateReplacementContinuity(out)
-	})
+	}()
 	return
 }
 func validateReplacementContinuity(c HostReplacementContinuity) error {

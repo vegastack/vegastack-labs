@@ -1,0 +1,95 @@
+{
+  "$id": "vegastack-labs.dev/qualification-guest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "cpus": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "diskBytes": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "diskDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "firmwareDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "guestId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "hostId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "hostIdentityDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "instanceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "machineId": {
+      "pattern": "^[0-9a-f]{32}$",
+      "type": "string"
+    },
+    "memoryBytes": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "role": {
+      "enum": [
+        "controller",
+        "subject",
+        "custodian",
+        "replacement"
+      ],
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/qualification-guest"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "snapshotId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "sshHostKeyDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "guestId",
+    "hostId",
+    "hostIdentityDigest",
+    "instanceId",
+    "sshHostKeyDigest",
+    "role",
+    "snapshotId",
+    "diskDigest",
+    "firmwareDigest",
+    "cpus",
+    "memoryBytes",
+    "diskBytes"
+  ],
+  "title": "VegaStack Labs qualification guest",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

@@ -42,7 +42,7 @@ func (planner StoreRestorePlanner) CreateRestorePlan(ctx context.Context, reques
 	}
 	document.CreatedAt, document.CreatedBy, document.AgentSessionID = now.Truncate(time.Second).Format(time.RFC3339), principal.ID, "restore-plan"
 	requestBytes, _ := json.Marshal(request)
-	stored, err := planner.Declarations.CreateRevision(ctx, store.DeclarationRevisionRequest{Document: document, ReasonDigest: request.AuditDecisionDigest, Expected: store.RevisionToken{StateRevision: request.ExpectedStateRevision, RecoveryEpoch: request.RecoveryEpoch}, KeyDigest: semanticDigest([]byte("restore-declaration\x00" + request.IdempotencyKey)), RequestDigest: semanticDigest(requestBytes), Attribution: audit.Attribution{AuthenticatedPrincipalID: principal.ID, AuthenticatedPrincipalMethod: principal.Method}})
+	stored, err := planner.Declarations.CreateRevision(ctx, store.DeclarationRevisionRequest{RestoreRequest: &request, Document: document, ReasonDigest: request.AuditDecisionDigest, Expected: store.RevisionToken{StateRevision: request.ExpectedStateRevision, RecoveryEpoch: request.RecoveryEpoch}, KeyDigest: semanticDigest([]byte("restore-declaration\x00" + request.IdempotencyKey)), RequestDigest: semanticDigest(requestBytes), Attribution: audit.Attribution{AuthenticatedPrincipalID: principal.ID, AuthenticatedPrincipalMethod: principal.Method}})
 	if err != nil {
 		return generated.RestoreBinding{}, err
 	}

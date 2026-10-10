@@ -1,0 +1,4869 @@
+{
+  "$defs": {
+    "access-target-identity": {
+      "additionalProperties": false,
+      "properties": {
+        "hostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "identityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/access-target-identity"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "hostId",
+        "identityDigest"
+      ],
+      "type": "object"
+    },
+    "access-verification-evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "applyReceiptDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "expiresAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "probeResultsDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "rollbackRecordDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/access-verification-evidence"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "sequenceDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "applyReceiptDigest",
+        "rollbackRecordDigest",
+        "probeResultsDigest",
+        "sequenceDigest",
+        "expiresAt"
+      ],
+      "type": "object"
+    },
+    "approval-status": {
+      "additionalProperties": false,
+      "properties": {
+        "authorizationCurrent": {
+          "type": "boolean"
+        },
+        "canApply": {
+          "type": "boolean"
+        },
+        "channel": {
+          "enum": [
+            "slack"
+          ],
+          "type": "string"
+        },
+        "expiresAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "observedAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "owner": {
+          "enum": [
+            "assigned-maintainer"
+          ],
+          "type": "string"
+        },
+        "planDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "planId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/approval-status"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "stateRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "pending",
+            "approved",
+            "rejected",
+            "expired"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "planId",
+        "planDigest",
+        "status",
+        "authorizationCurrent",
+        "canApply",
+        "channel",
+        "owner",
+        "stateRevision",
+        "recoveryEpoch",
+        "expiresAt",
+        "observedAt"
+      ],
+      "type": "object"
+    },
+    "authorization-grant-batch-request": {
+      "additionalProperties": false,
+      "properties": {
+        "changes": {
+          "items": {
+            "$ref": "#/$defs/authorization-grant-change"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "type": "array"
+        },
+        "expectedDeclarationRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "expectedGrantRevision": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "expectedStateRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "idempotencyKey": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "principalId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "reasonDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/authorization-grant-batch-request"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "principalId",
+        "expectedGrantRevision",
+        "expectedDeclarationRevision",
+        "expectedStateRevision",
+        "recoveryEpoch",
+        "idempotencyKey",
+        "reasonDigest",
+        "changes"
+      ],
+      "type": "object"
+    },
+    "authorization-grant-change": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "enum": [
+            "read",
+            "author",
+            "acknowledge",
+            "execute"
+          ],
+          "type": "string"
+        },
+        "branch": {
+          "enum": [
+            "",
+            "human"
+          ],
+          "type": "string"
+        },
+        "capability": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "change": {
+          "enum": [
+            "add",
+            "revoke"
+          ],
+          "type": "string"
+        },
+        "grantId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "resourceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "resourceKind": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "roleId": {
+          "enum": [
+            "reader",
+            "author",
+            "maintainer",
+            "infrastructure-admin",
+            "control-plane-admin"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/authorization-grant-change"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "grantId",
+        "change",
+        "roleId",
+        "action",
+        "capability",
+        "resourceKind",
+        "resourceId",
+        "branch"
+      ],
+      "type": "object"
+    },
+    "backup-job": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "sourceKind": {
+                "const": "fixture"
+              }
+            },
+            "required": [
+              "sourceKind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "proofClass": {
+                "const": "fixture"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "verified"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "pointId": {
+                "type": "string"
+              },
+              "verificationDigest": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "jobId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "pointId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "policyId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "proofClass": {
+          "enum": [
+            "fixture",
+            "live"
+          ],
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "runId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/backup-job"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.1.0"
+          ],
+          "type": "string"
+        },
+        "sourceKind": {
+          "enum": [
+            "fixture",
+            "local",
+            "independent"
+          ],
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "queued",
+            "running",
+            "pending",
+            "failed",
+            "verified",
+            "uncertain"
+          ],
+          "type": "string"
+        },
+        "verificationDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "jobId",
+        "policyId",
+        "sourceKind",
+        "proofClass",
+        "pointId",
+        "status",
+        "runId",
+        "recoveryEpoch",
+        "verificationDigest"
+      ],
+      "type": "object"
+    },
+    "backup-policy-draft-submission": {
+      "additionalProperties": false,
+      "properties": {
+        "draftId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "policyDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "policyId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/backup-policy-draft-submission"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.1.0"
+          ],
+          "type": "string"
+        },
+        "stateRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "draft"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "draftId",
+        "policyId",
+        "policyDigest",
+        "status",
+        "stateRevision",
+        "recoveryEpoch"
+      ],
+      "type": "object"
+    },
+    "contract-extension": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "pattern": "^x-[a-z][a-z0-9.-]{0,62}$",
+          "type": "string"
+        },
+        "valueDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "valueDigest"
+      ],
+      "type": "object"
+    },
+    "credential-import-submission": {
+      "additionalProperties": false,
+      "properties": {
+        "ciphertextFingerprint": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "draftId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "referenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/credential-import-submission"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.1.0"
+          ],
+          "type": "string"
+        },
+        "stateRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "draft"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "draftId",
+        "referenceId",
+        "ciphertextFingerprint",
+        "status",
+        "stateRevision",
+        "recoveryEpoch"
+      ],
+      "type": "object"
+    },
+    "credential-lifecycle-submission": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "enum": [
+            "credential.stage",
+            "credential.activate",
+            "credential.rotate",
+            "credential.revoke",
+            "credential.recover"
+          ],
+          "type": "string"
+        },
+        "changeId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "operationId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "referenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/credential-lifecycle-submission"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.2.0"
+          ],
+          "type": "string"
+        },
+        "stateRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "draft"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "changeId",
+        "operationId",
+        "referenceId",
+        "action",
+        "status",
+        "stateRevision",
+        "recoveryEpoch"
+      ],
+      "type": "object"
+    },
+    "database-status-data": {
+      "additionalProperties": false,
+      "properties": {
+        "integrityStatus": {
+          "enum": [
+            "unknown",
+            "verified",
+            "failed"
+          ],
+          "type": "string"
+        },
+        "lastIntegrityCheckAt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "mode": {
+          "enum": [
+            "ready",
+            "safe-mode"
+          ],
+          "type": "string"
+        },
+        "mutationEnabled": {
+          "type": "boolean"
+        },
+        "recoveryPending": {
+          "type": "boolean"
+        },
+        "safeModeReason": {
+          "type": "string"
+        },
+        "schemaVersion": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "sqliteVersion": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode",
+        "schemaVersion",
+        "sqliteVersion",
+        "mutationEnabled",
+        "recoveryPending",
+        "integrityStatus",
+        "lastIntegrityCheckAt",
+        "safeModeReason"
+      ],
+      "type": "object"
+    },
+    "declaration-operation": {
+      "additionalProperties": false,
+      "properties": {
+        "adapterId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "artifactDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "idempotent": {
+          "type": "boolean"
+        },
+        "inputDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "offsiteRunSpec": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/offsite-run-spec"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "operationId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "operationType": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "sequence": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "targetId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sequence",
+        "operationId",
+        "operationType",
+        "adapterId",
+        "targetId",
+        "inputDigest",
+        "artifactDigest",
+        "idempotent"
+      ],
+      "type": "object"
+    },
+    "declaration-revision": {
+      "additionalProperties": false,
+      "properties": {
+        "agentSessionId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "contentDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "createdAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "createdBy": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "declarationId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "declarationType": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "extensions": {
+          "items": {
+            "$ref": "#/$defs/contract-extension"
+          },
+          "maxItems": 64,
+          "type": "array"
+        },
+        "grantBatch": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/authorization-grant-batch-request"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hostAliasClaim": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/host-alias-claim-request"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "operations": {
+          "items": {
+            "$ref": "#/$defs/declaration-operation"
+          },
+          "maxItems": 256,
+          "minItems": 1,
+          "type": "array"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "revision": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/declaration-revision"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "stateRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "committed",
+            "draft",
+            "superseded"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "declarationId",
+        "declarationType",
+        "revision",
+        "stateRevision",
+        "recoveryEpoch",
+        "contentDigest",
+        "status",
+        "operations",
+        "createdAt",
+        "createdBy",
+        "agentSessionId",
+        "extensions"
+      ],
+      "type": "object"
+    },
+    "gate-definition": {
+      "additionalProperties": false,
+      "properties": {
+        "applicability": {
+          "enum": [
+            "always",
+            "capability",
+            "profile",
+            "subject",
+            "deferred"
+          ],
+          "type": "string"
+        },
+        "capabilityId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "definitionVersion": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
+          "type": "string"
+        },
+        "evaluatorVersion": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
+          "type": "string"
+        },
+        "evidenceSchemaId": {
+          "pattern": "^[a-z0-9][a-z0-9./-]*$",
+          "type": "string"
+        },
+        "freshnessSeconds": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "gateId": {
+          "pattern": "^(G-[0-9]{3}|[a-z][a-z0-9._:-]{0,127})$",
+          "type": "string"
+        },
+        "layer": {
+          "enum": [
+            "platform",
+            "adapter",
+            "deployment-profile",
+            "site"
+          ],
+          "type": "string"
+        },
+        "prerequisiteGateIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "profileId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "recoveryEpochBound": {
+          "type": "boolean"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/gate-definition"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.1.0"
+          ],
+          "type": "string"
+        },
+        "subjectKinds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "gateId",
+        "definitionVersion",
+        "layer",
+        "profileId",
+        "capabilityId",
+        "subjectKinds",
+        "applicability",
+        "prerequisiteGateIds",
+        "evidenceSchemaId",
+        "evaluatorVersion",
+        "freshnessSeconds",
+        "recoveryEpochBound"
+      ],
+      "type": "object"
+    },
+    "gate-evaluation": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "outcome": {
+                "const": "passed"
+              }
+            },
+            "required": [
+              "outcome"
+            ]
+          },
+          "then": {
+            "properties": {
+              "evidenceIds": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "definitionVersion": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
+          "type": "string"
+        },
+        "evaluatedAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "evaluationId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "evaluatorVersion": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
+          "type": "string"
+        },
+        "evidenceIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "evidenceSource": {
+          "enum": [
+            "none",
+            "fixture",
+            "local",
+            "independent"
+          ],
+          "type": "string"
+        },
+        "gateId": {
+          "pattern": "^(G-[0-9]{3}|[a-z][a-z0-9._:-]{0,127})$",
+          "type": "string"
+        },
+        "outcome": {
+          "enum": [
+            "passed",
+            "blocked",
+            "not-applicable",
+            "stale",
+            "unknown"
+          ],
+          "type": "string"
+        },
+        "readyForInput": {
+          "type": "boolean"
+        },
+        "reasonCode": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/gate-evaluation"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.1.0"
+          ],
+          "type": "string"
+        },
+        "subjectId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "evaluationId",
+        "gateId",
+        "subjectId",
+        "definitionVersion",
+        "evaluatorVersion",
+        "evidenceIds",
+        "evaluatedAt",
+        "recoveryEpoch",
+        "outcome",
+        "reasonCode",
+        "evidenceSource",
+        "readyForInput"
+      ],
+      "type": "object"
+    },
+    "gate-profile-draft-submission": {
+      "additionalProperties": false,
+      "properties": {
+        "bindingId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "changeId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "draftId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/gate-profile-draft-submission"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.1.0"
+          ],
+          "type": "string"
+        },
+        "stateRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "draft"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "draftId",
+        "changeId",
+        "bindingId",
+        "status",
+        "stateRevision",
+        "recoveryEpoch"
+      ],
+      "type": "object"
+    },
+    "gate-view": {
+      "additionalProperties": false,
+      "properties": {
+        "applicabilityReasonCode": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "definition": {
+          "$ref": "#/$defs/gate-definition"
+        },
+        "evaluation": {
+          "$ref": "#/$defs/gate-evaluation"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/gate-view"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.1.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "definition",
+        "evaluation",
+        "applicabilityReasonCode"
+      ],
+      "type": "object"
+    },
+    "host-access-probe-step": {
+      "additionalProperties": false,
+      "properties": {
+        "draftDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "local-probe",
+            "source-probe",
+            "collect"
+          ],
+          "type": "string"
+        },
+        "operationId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-access-probe-step"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "sourceContextDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "sourceHostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "sourceIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "specificationDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "operationId",
+        "kind",
+        "sourceHostId",
+        "sourceIdentityDigest",
+        "sourceContextDigest",
+        "draftDigest",
+        "specificationDigest"
+      ],
+      "type": "object"
+    },
+    "host-access-sequence": {
+      "additionalProperties": false,
+      "properties": {
+        "actions": {
+          "items": {
+            "$ref": "#/$defs/host-action-request"
+          },
+          "maxItems": 18,
+          "type": "array"
+        },
+        "applyDraftDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "applyOperationId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "auxiliaryTargets": {
+          "items": {
+            "$ref": "#/$defs/access-target-identity"
+          },
+          "maxItems": 64,
+          "type": "array"
+        },
+        "confirmDraftDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "confirmOperationId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "probeSteps": {
+          "items": {
+            "$ref": "#/$defs/host-access-probe-step"
+          },
+          "maxItems": 16,
+          "type": "array"
+        },
+        "profileLockDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-access-sequence"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "specificationDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "subjectHostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "subjectIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "actions",
+        "auxiliaryTargets",
+        "subjectHostId",
+        "subjectIdentityDigest",
+        "profileLockDigest",
+        "applyOperationId",
+        "applyDraftDigest",
+        "probeSteps",
+        "confirmOperationId",
+        "confirmDraftDigest",
+        "specificationDigest"
+      ],
+      "type": "object"
+    },
+    "host-action-bundle": {
+      "additionalProperties": false,
+      "properties": {
+        "actionId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "actionInput": {
+          "maxLength": 32768,
+          "minLength": 1,
+          "type": "string"
+        },
+        "actionInputDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "actionVersion": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
+          "type": "string"
+        },
+        "automationPrincipalId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "bundleId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "callerUid": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "consoleConfirmationDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "credentialMaterialVersion": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "credentialReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "declarationId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "declarationRevision": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "expiresAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "hostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "hostIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "issuedAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "leaseId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "planDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "planId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "runId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-action-bundle"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "stateRevision": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "stepId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "verificationEvidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/access-verification-evidence"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "verificationEvidenceDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "actionId",
+        "actionVersion",
+        "actionInputDigest",
+        "actionInput",
+        "bundleId",
+        "planId",
+        "runId",
+        "stepId",
+        "leaseId",
+        "hostId",
+        "declarationId",
+        "automationPrincipalId",
+        "credentialReferenceId",
+        "credentialMaterialVersion",
+        "planDigest",
+        "hostIdentityDigest",
+        "consoleConfirmationDigest",
+        "declarationRevision",
+        "stateRevision",
+        "recoveryEpoch",
+        "callerUid",
+        "issuedAt",
+        "expiresAt"
+      ],
+      "type": "object"
+    },
+    "host-action-console-confirmation": {
+      "additionalProperties": false,
+      "properties": {
+        "hostIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "method": {
+          "enum": [
+            "administrator-verified-console"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-action-console-confirmation"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "targetDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "method",
+        "targetDigest",
+        "hostIdentityDigest"
+      ],
+      "type": "object"
+    },
+    "host-action-credential-confirmation": {
+      "additionalProperties": false,
+      "properties": {
+        "hostIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "method": {
+          "enum": [
+            "administrator-verified-console"
+          ],
+          "type": "string"
+        },
+        "nativeConsumerMachineId": {
+          "pattern": "^[a-f0-9]{32}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-action-credential-confirmation"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "targetDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "targetRevision": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "method",
+        "targetDigest",
+        "hostIdentityDigest",
+        "targetRevision",
+        "nativeConsumerMachineId"
+      ],
+      "type": "object"
+    },
+    "host-action-request": {
+      "additionalProperties": false,
+      "properties": {
+        "actionId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "actionInput": {
+          "maxLength": 32768,
+          "minLength": 1,
+          "type": "string"
+        },
+        "actionInputDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "actionVersion": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
+          "type": "string"
+        },
+        "automationPrincipalId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "callerUid": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "consoleConfirmation": {
+          "$ref": "#/$defs/host-action-console-confirmation"
+        },
+        "credentialMaterialVersion": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "credentialReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "expectedStateRevision": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "hostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "idempotencyKey": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-action-request"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "targetDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "targetRevision": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "actionId",
+        "actionVersion",
+        "actionInputDigest",
+        "actionInput",
+        "hostId",
+        "targetRevision",
+        "targetDigest",
+        "automationPrincipalId",
+        "callerUid",
+        "credentialReferenceId",
+        "credentialMaterialVersion",
+        "consoleConfirmation",
+        "expectedStateRevision",
+        "recoveryEpoch",
+        "idempotencyKey"
+      ],
+      "type": "object"
+    },
+    "host-action-submission": {
+      "additionalProperties": false,
+      "properties": {
+        "contentDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "declarationId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "draftId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "originalRequestDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-action-submission"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "stateRevision": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "originalRequestDigest",
+        "draftId",
+        "declarationId",
+        "contentDigest",
+        "stateRevision",
+        "recoveryEpoch"
+      ],
+      "type": "object"
+    },
+    "host-adoption-request": {
+      "additionalProperties": false,
+      "properties": {
+        "confirmation": {
+          "$ref": "#/$defs/host-identity-confirmation"
+        },
+        "expectedStateRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "hostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "idempotencyKey": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "observationDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "observationId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-adoption-request"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "hostId",
+        "observationId",
+        "observationDigest",
+        "idempotencyKey",
+        "expectedStateRevision",
+        "recoveryEpoch",
+        "confirmation"
+      ],
+      "type": "object"
+    },
+    "host-adoption-submission": {
+      "additionalProperties": false,
+      "properties": {
+        "contentDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "declarationId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "draftId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-adoption-submission"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "stateRevision": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "draftId",
+        "declarationId",
+        "contentDigest",
+        "stateRevision",
+        "recoveryEpoch"
+      ],
+      "type": "object"
+    },
+    "host-alias-claim-request": {
+      "additionalProperties": false,
+      "properties": {
+        "aliasIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "expectedStateRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "hostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "hostIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "idempotencyKey": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-alias-claim-request"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "hostId",
+        "idempotencyKey",
+        "hostIdentityDigest",
+        "aliasIds",
+        "expectedStateRevision",
+        "recoveryEpoch"
+      ],
+      "type": "object"
+    },
+    "host-baseline-scope": {
+      "additionalProperties": false,
+      "properties": {
+        "controlIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 8,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "executionHostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "executionIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "priorVolumeReceiptDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "profileId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "profileLockDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "roleId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-baseline-scope"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "subjectHostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "subjectIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "subjectHostId",
+        "subjectIdentityDigest",
+        "executionHostId",
+        "executionIdentityDigest",
+        "profileId",
+        "profileLockDigest",
+        "roleId",
+        "controlIds"
+      ],
+      "type": "object"
+    },
+    "host-discovery-console-confirmation": {
+      "additionalProperties": false,
+      "properties": {
+        "method": {
+          "enum": [
+            "administrator-verified-console"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-discovery-console-confirmation"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "targetDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "targetDigest",
+        "method"
+      ],
+      "type": "object"
+    },
+    "host-discovery-fact": {
+      "additionalProperties": false,
+      "properties": {
+        "capturedAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "name": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "operation": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-discovery-fact"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "value": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "name",
+        "value",
+        "operation",
+        "capturedAt"
+      ],
+      "type": "object"
+    },
+    "host-discovery-submission": {
+      "additionalProperties": false,
+      "properties": {
+        "created": {
+          "type": "boolean"
+        },
+        "observation": {
+          "$ref": "#/$defs/host-observation"
+        },
+        "originalRequestDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-discovery-submission"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "originalRequestDigest",
+        "observation",
+        "created"
+      ],
+      "type": "object"
+    },
+    "host-discovery-target": {
+      "additionalProperties": false,
+      "properties": {
+        "address": {
+          "maxLength": 45,
+          "minLength": 1,
+          "type": "string"
+        },
+        "assetId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "credentialMode": {
+          "enum": [
+            null,
+            "preloaded-discovery"
+          ],
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "credentialPublicKeyDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "credentialReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "expectedArchitecture": {
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
+        },
+        "expectedOs": {
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
+        },
+        "expectedVersion": {
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
+        },
+        "hostKey": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "type": "string"
+        },
+        "inventoryDraftId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "inventoryDraftRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "materialVersion": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "port": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "profileId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "revision": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-discovery-target"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "targetId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "user": {
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "targetId",
+        "revision",
+        "address",
+        "port",
+        "user",
+        "hostKey",
+        "profileId",
+        "credentialReferenceId",
+        "materialVersion",
+        "expectedOs",
+        "expectedVersion",
+        "expectedArchitecture",
+        "inventoryDraftId",
+        "inventoryDraftRevision",
+        "assetId",
+        "recoveryEpoch"
+      ],
+      "type": "object"
+    },
+    "host-discovery-target-draft-request": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "enum": [
+            "activate",
+            "revoke"
+          ],
+          "type": "string"
+        },
+        "consoleConfirmation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/host-discovery-console-confirmation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expectedStateRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "expectedTargetRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "idempotencyKey": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-discovery-target-draft-request"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/$defs/host-discovery-target"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "target",
+        "action",
+        "expectedTargetRevision",
+        "expectedStateRevision",
+        "idempotencyKey"
+      ],
+      "type": "object"
+    },
+    "host-discovery-target-draft-submission": {
+      "additionalProperties": false,
+      "properties": {
+        "contentDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "declarationId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "draftId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-discovery-target-draft-submission"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "stateRevision": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "draftId",
+        "declarationId",
+        "contentDigest",
+        "stateRevision",
+        "recoveryEpoch"
+      ],
+      "type": "object"
+    },
+    "host-identity-confirmation": {
+      "additionalProperties": false,
+      "properties": {
+        "confirmedAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "identityClass": {
+          "enum": [
+            "physical",
+            "qualified-virtual"
+          ],
+          "type": "string"
+        },
+        "identityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "identityKind": {
+          "enum": [
+            "product-serial",
+            "product-uuid"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-identity-confirmation"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "targetDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "targetRevision": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "targetDigest",
+        "targetRevision",
+        "identityDigest",
+        "identityClass",
+        "identityKind",
+        "confirmedAt"
+      ],
+      "type": "object"
+    },
+    "host-observation": {
+      "additionalProperties": false,
+      "properties": {
+        "blockers": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "type": "array"
+        },
+        "collector": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "collectorVersion": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
+          "type": "string"
+        },
+        "contentDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "expiresAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "facts": {
+          "items": {
+            "$ref": "#/$defs/host-discovery-fact"
+          },
+          "maxItems": 768,
+          "type": "array"
+        },
+        "observationId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "observedAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-observation"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "stateRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "untrusted",
+            "incomplete"
+          ],
+          "type": "string"
+        },
+        "targetDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "targetId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "targetRevision": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "observationId",
+        "targetId",
+        "targetRevision",
+        "targetDigest",
+        "collector",
+        "collectorVersion",
+        "observedAt",
+        "expiresAt",
+        "status",
+        "facts",
+        "blockers",
+        "contentDigest",
+        "stateRevision",
+        "recoveryEpoch"
+      ],
+      "type": "object"
+    },
+    "host-replacement-alias-binding": {
+      "additionalProperties": false,
+      "properties": {
+        "aliasId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "ownerHostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "ownerIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "ownerRevision": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ownershipGeneration": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-replacement-alias-binding"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "aliasId",
+        "ownerHostId",
+        "ownerIdentityDigest",
+        "ownerRevision",
+        "ownershipGeneration"
+      ],
+      "type": "object"
+    },
+    "host-replacement-continuity-reference": {
+      "additionalProperties": false,
+      "properties": {
+        "currentAliasHighWatermark": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "replacementId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-replacement-continuity-reference"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "sourceAliasHighWatermark": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "sourceBindingDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "sourcePointId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "replacementId",
+        "sourcePointId",
+        "digest",
+        "sourceBindingDigest",
+        "sourceAliasHighWatermark",
+        "currentAliasHighWatermark"
+      ],
+      "type": "object"
+    },
+    "host-replacement-os-preparation": {
+      "additionalProperties": false,
+      "properties": {
+        "confirmedAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "hostIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "method": {
+          "enum": [
+            "administrator-prepared"
+          ],
+          "type": "string"
+        },
+        "observationDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "observationId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-replacement-os-preparation"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "method",
+        "observationId",
+        "observationDigest",
+        "hostIdentityDigest",
+        "confirmedAt"
+      ],
+      "type": "object"
+    },
+    "host-replacement-request": {
+      "additionalProperties": false,
+      "properties": {
+        "aliasBindings": {
+          "items": {
+            "$ref": "#/$defs/host-replacement-alias-binding"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "type": "array"
+        },
+        "expectedDeclarationRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "expectedStateRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "idempotencyKey": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "newHostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "newIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "newSshHostKeyDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "newTargetDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "newTargetRevision": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "oldHostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "oldIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "oldRoleBindingDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "oldSshHostKeyDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "oldTargetDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "oldTargetRevision": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "operation": {
+          "enum": [
+            "freeze",
+            "commit"
+          ],
+          "type": "string"
+        },
+        "osPreparation": {
+          "$ref": "#/$defs/host-replacement-os-preparation"
+        },
+        "payloadIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "minItems": 0,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "preservedPreimageDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "profileId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "profileLockDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "proposedRoleBindingDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "proposedRoleDeclarationId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "proposedRoleDeclarationRevision": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "replacementId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "resourceIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "minItems": 0,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "restorationClass": {
+          "enum": [
+            "control-database",
+            "stateless-role"
+          ],
+          "type": "string"
+        },
+        "roleDeclarationId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "roleDeclarationRevision": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-replacement-request"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/host-replacement-source-reference"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "volumeIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 0,
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "replacementId",
+        "oldHostId",
+        "newHostId",
+        "profileId",
+        "roleDeclarationId",
+        "proposedRoleDeclarationId",
+        "idempotencyKey",
+        "oldIdentityDigest",
+        "newIdentityDigest",
+        "oldTargetDigest",
+        "newTargetDigest",
+        "oldSshHostKeyDigest",
+        "newSshHostKeyDigest",
+        "profileLockDigest",
+        "oldRoleBindingDigest",
+        "proposedRoleBindingDigest",
+        "preservedPreimageDigest",
+        "oldTargetRevision",
+        "newTargetRevision",
+        "roleDeclarationRevision",
+        "proposedRoleDeclarationRevision",
+        "expectedDeclarationRevision",
+        "expectedStateRevision",
+        "recoveryEpoch",
+        "operation",
+        "restorationClass",
+        "aliasBindings",
+        "payloadIds",
+        "volumeIds",
+        "resourceIds",
+        "osPreparation"
+      ],
+      "type": "object"
+    },
+    "host-replacement-source-reference": {
+      "additionalProperties": false,
+      "properties": {
+        "custodyBindingDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "custodyReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "manifestDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "pointId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-replacement-source-reference"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "sourceBindingDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "pointId",
+        "custodyReferenceId",
+        "manifestDigest",
+        "sourceBindingDigest",
+        "custodyBindingDigest"
+      ],
+      "type": "object"
+    },
+    "host-replacement-state": {
+      "additionalProperties": false,
+      "properties": {
+        "admissionSnapshotDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "aliasBindings": {
+          "items": {
+            "$ref": "#/$defs/host-replacement-alias-binding"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "type": "array"
+        },
+        "bindingDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "blockers": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "continuityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "declarationId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "declarationRevision": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "freezeEventDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "newHostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "newIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "nextAction": {
+          "enum": [
+            "approve-freeze",
+            "resolve-fences",
+            "stage-restore",
+            "restart-candidate",
+            "verify-restore",
+            "qualify-replacement",
+            "prepare-commit",
+            "none"
+          ],
+          "type": "string"
+        },
+        "oldHostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "oldIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "planId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "priorOwnershipGeneration": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "proposedOwnershipGeneration": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "replacementId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "restorationClass": {
+          "enum": [
+            "control-database",
+            "stateless-role"
+          ],
+          "type": "string"
+        },
+        "restorationReceiptDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "restorePlanId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "roleBindingDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "roleIntentRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "runId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-replacement-state"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "stateRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "staged",
+            "frozen",
+            "restore-pending",
+            "verification-required",
+            "qualification-required",
+            "committed"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "replacementId",
+        "declarationId",
+        "oldHostId",
+        "newHostId",
+        "bindingDigest",
+        "oldIdentityDigest",
+        "newIdentityDigest",
+        "roleBindingDigest",
+        "declarationRevision",
+        "priorOwnershipGeneration",
+        "proposedOwnershipGeneration",
+        "roleIntentRevision",
+        "stateRevision",
+        "recoveryEpoch",
+        "status",
+        "restorationClass",
+        "aliasBindings",
+        "nextAction",
+        "blockers",
+        "planId",
+        "runId",
+        "restorePlanId"
+      ],
+      "type": "object"
+    },
+    "host-replacement-submission": {
+      "additionalProperties": false,
+      "properties": {
+        "contentDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "declarationId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "draftId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "replacementId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-replacement-submission"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "stateRevision": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "replacementId",
+        "draftId",
+        "declarationId",
+        "contentDigest",
+        "stateRevision",
+        "recoveryEpoch"
+      ],
+      "type": "object"
+    },
+    "host-role-foundation": {
+      "additionalProperties": false,
+      "properties": {
+        "blockers": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "roleBindingDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "roleId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-role-foundation"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "serviceState": {
+          "enum": [
+            "not-applicable",
+            "pending-handoff",
+            "unverified",
+            "active"
+          ],
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "unconfigured",
+            "pending",
+            "installed",
+            "partial",
+            "recovery-required"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "roleId",
+        "status",
+        "serviceState",
+        "blockers"
+      ],
+      "type": "object"
+    },
+    "host-role-scope": {
+      "additionalProperties": false,
+      "properties": {
+        "affectedBaselineControlIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 16,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "baselineSnapshotDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "controlIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 6,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "currentRoleBindingDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "executionHostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "executionIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "networkingRequired": {
+          "type": "boolean"
+        },
+        "profileId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "profileLockDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "roleBindingDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "roleId": {
+          "enum": [
+            "control",
+            "application",
+            "ci",
+            "recovery-spare",
+            "reserve"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/host-role-scope"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "standbyRequired": {
+          "type": "boolean"
+        },
+        "subjectHostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "subjectIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "subjectHostId",
+        "subjectIdentityDigest",
+        "executionHostId",
+        "executionIdentityDigest",
+        "profileId",
+        "profileLockDigest",
+        "roleId",
+        "controlIds",
+        "affectedBaselineControlIds",
+        "baselineSnapshotDigest",
+        "roleBindingDigest",
+        "networkingRequired",
+        "standbyRequired"
+      ],
+      "type": "object"
+    },
+    "managed-host": {
+      "additionalProperties": false,
+      "properties": {
+        "hostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "identityClass": {
+          "enum": [
+            "physical",
+            "qualified-virtual"
+          ],
+          "type": "string"
+        },
+        "observationId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "profileId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "roleFoundation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/host-role-foundation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/managed-host"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "stateRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "adopted-unadmitted"
+          ],
+          "type": "string"
+        },
+        "targetId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "hostId",
+        "targetId",
+        "observationId",
+        "profileId",
+        "identityClass",
+        "status",
+        "stateRevision",
+        "recoveryEpoch"
+      ],
+      "type": "object"
+    },
+    "native-producer-reference": {
+      "additionalProperties": false,
+      "properties": {
+        "hostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "leaseId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "planDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "planId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "runId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "scenarioId": {
+          "enum": [
+            "baseline-access",
+            "baseline-controls",
+            "access-idempotence",
+            "access-rollback-timeout",
+            "access-rollback-reboot",
+            "action-replay",
+            "action-concurrency",
+            "fail2ban-window",
+            "container-network",
+            "volume-effective-mapping",
+            "volume-recovery-positive",
+            "volume-wrong-key",
+            "volume-wrong-header",
+            "volume-wrong-slot",
+            "volume-wrong-mapping",
+            "volume-revoked-binding",
+            "volume-unchanged-after-verification",
+            "volume-inconsistent-redundant-header",
+            "volume-status-no-original-repair",
+            "volume-sealed-copy-write-refused",
+            "native-credential-lifecycle",
+            "control-setup",
+            "control-handoff",
+            "role-application",
+            "role-ci",
+            "role-reserve",
+            "replacement-recovery"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/native-producer-reference"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "stepId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "scenarioId",
+        "hostId",
+        "planId",
+        "planDigest",
+        "runId",
+        "stepId",
+        "leaseId"
+      ],
+      "type": "object"
+    },
+    "native-restart-presentation": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedInvocationDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "pendingDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "priorRunId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "priorStepId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/native-restart-presentation"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "priorRunId",
+        "priorStepId",
+        "pendingDigest",
+        "expectedInvocationDigest"
+      ],
+      "type": "object"
+    },
+    "offsite-run-spec": {
+      "additionalProperties": false,
+      "properties": {
+        "g008EvidenceDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "generationId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "maximumBytes": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "maximumLists": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "maximumPuts": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "maximumRetainedGenerations": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "observerReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "parentReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "repositoryKeyReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "repositoryUrl": {
+          "maxLength": 4096,
+          "minLength": 12,
+          "type": "string"
+        },
+        "retentionSeconds": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ruleDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "ruleLimit": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "sessionTtlSeconds": {
+          "maximum": 900,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "snapshotPath": {
+          "maxLength": 4096,
+          "minLength": 2,
+          "pattern": "^/[^\\x00]*$",
+          "type": "string"
+        },
+        "sourcePointId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "sourceRevision": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "generationId",
+        "sourcePointId",
+        "sourceRevision",
+        "snapshotPath",
+        "repositoryUrl",
+        "parentReferenceId",
+        "repositoryKeyReferenceId",
+        "observerReferenceId",
+        "ruleDigest",
+        "g008EvidenceDigest",
+        "maximumBytes",
+        "maximumPuts",
+        "maximumLists",
+        "maximumRetainedGenerations",
+        "ruleLimit",
+        "retentionSeconds",
+        "sessionTtlSeconds"
+      ],
+      "type": "object"
+    },
+    "plan": {
+      "additionalProperties": false,
+      "properties": {
+        "authorizationBranch": {
+          "enum": [
+            "human",
+            "preauthorized"
+          ],
+          "type": "string"
+        },
+        "binding": {
+          "$ref": "#/$defs/plan-binding"
+        },
+        "createdAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "declarationId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "executorId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "executorMode": {
+          "enum": [
+            "central",
+            "external"
+          ],
+          "type": "string"
+        },
+        "expiresAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "extensions": {
+          "items": {
+            "$ref": "#/$defs/contract-extension"
+          },
+          "maxItems": 64,
+          "type": "array"
+        },
+        "grantBatch": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/authorization-grant-batch-request"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hostAccessSequence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/host-access-sequence"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hostAction": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/host-action-request"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hostActionConsole": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/host-action-credential-confirmation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hostActionNativeUnit": {
+          "maxLength": 256,
+          "type": "string"
+        },
+        "hostAdoption": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/host-adoption-request"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hostAliasClaim": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/host-alias-claim-request"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hostBaselineScope": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/host-baseline-scope"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hostDiscoveryTarget": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/host-discovery-target-draft-request"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hostReplacement": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/host-replacement-request"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hostRoleScope": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/host-role-scope"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "nativeRestart": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/native-restart-presentation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "operations": {
+          "items": {
+            "$ref": "#/$defs/plan-operation"
+          },
+          "maxItems": 256,
+          "minItems": 1,
+          "type": "array"
+        },
+        "planDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "planId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "readableDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "replacementContinuity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/host-replacement-continuity-reference"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "risk": {
+          "enum": [
+            "control-plane",
+            "destructive",
+            "infrastructure",
+            "production-like",
+            "routine"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/plan"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "approved",
+            "awaiting-acknowledgement",
+            "cancelled",
+            "expired",
+            "planned"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "planId",
+        "planDigest",
+        "declarationId",
+        "binding",
+        "operations",
+        "status",
+        "risk",
+        "authorizationBranch",
+        "executorMode",
+        "executorId",
+        "createdAt",
+        "expiresAt",
+        "readableDigest",
+        "extensions"
+      ],
+      "type": "object"
+    },
+    "plan-binding": {
+      "additionalProperties": false,
+      "properties": {
+        "contractVersion": {
+          "pattern": "^1\\.[0-9]+\\.[0-9]+$",
+          "type": "string"
+        },
+        "declarationRevision": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "observationFingerprint": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "policyVersion": {
+          "pattern": "^1\\.[0-9]+\\.[0-9]+$",
+          "type": "string"
+        },
+        "priorStateRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "reasonDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "stateRevision": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "targetDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "toolVersion": {
+          "maxLength": 64,
+          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(\\+([0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*))?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "recoveryEpoch",
+        "priorStateRevision",
+        "stateRevision",
+        "declarationRevision",
+        "observationFingerprint",
+        "targetDigest",
+        "reasonDigest",
+        "policyVersion",
+        "toolVersion",
+        "contractVersion"
+      ],
+      "type": "object"
+    },
+    "plan-operation": {
+      "additionalProperties": false,
+      "properties": {
+        "adapterId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "artifactDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "executorId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "idempotent": {
+          "type": "boolean"
+        },
+        "inputDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "operationId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "operationType": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "sequence": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "targetId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sequence",
+        "operationId",
+        "operationType",
+        "adapterId",
+        "executorId",
+        "targetId",
+        "inputDigest",
+        "artifactDigest",
+        "idempotent"
+      ],
+      "type": "object"
+    },
+    "restore-binding": {
+      "additionalProperties": false,
+      "properties": {
+        "auditDecisionDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "canaryBindingDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "canaryChallengeId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "canaryLeaseId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "canaryReceiptId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "canaryRunId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "canaryStepId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "candidateDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "ciphertextFingerprint": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "dependencyIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 256,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "fenceQualificationDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "fenceSetDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "formerHostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "humanAcknowledgementId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "newInstanceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "nextRecoveryEpoch": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "planDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "planId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "pointId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "priorInstanceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "priorRecoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "recoveryChallengeId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryDraftId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryLeaseId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryReceiptId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryRunId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryStepId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "replacementContinuity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/host-replacement-continuity-reference"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "replacementHostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/restore-binding"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.1.0"
+          ],
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/restore-source-binding"
+        },
+        "sourceAdmissionDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "planned",
+            "fenced",
+            "restoring",
+            "verification-required",
+            "verified",
+            "failed",
+            "uncertain"
+          ],
+          "type": "string"
+        },
+        "targetDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "targetIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "source",
+        "pointId",
+        "dependencyIds",
+        "targetIds",
+        "targetDigest",
+        "planId",
+        "planDigest",
+        "humanAcknowledgementId",
+        "fenceSetDigest",
+        "auditDecisionDigest",
+        "candidateDigest",
+        "formerHostId",
+        "replacementHostId",
+        "recoveryDraftId",
+        "ciphertextFingerprint",
+        "sourceAdmissionDigest",
+        "fenceQualificationDigest",
+        "recoveryRunId",
+        "recoveryStepId",
+        "recoveryLeaseId",
+        "recoveryChallengeId",
+        "recoveryReceiptId",
+        "canaryRunId",
+        "canaryStepId",
+        "canaryLeaseId",
+        "canaryChallengeId",
+        "canaryReceiptId",
+        "canaryBindingDigest",
+        "priorInstanceId",
+        "newInstanceId",
+        "priorRecoveryEpoch",
+        "nextRecoveryEpoch",
+        "status"
+      ],
+      "type": "object"
+    },
+    "restore-canary-result": {
+      "additionalProperties": false,
+      "properties": {
+        "auditCheckpointId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "backupPointId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "formerWriterDenied": {
+          "type": "boolean"
+        },
+        "noopRunId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "oldEpochDenied": {
+          "type": "boolean"
+        },
+        "readVerified": {
+          "type": "boolean"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/restore-canary-result"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.1.0"
+          ],
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "pending",
+            "verified",
+            "failed"
+          ],
+          "type": "string"
+        },
+        "verifiedAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "readVerified",
+        "oldEpochDenied",
+        "noopRunId",
+        "auditCheckpointId",
+        "backupPointId",
+        "formerWriterDenied",
+        "status",
+        "verifiedAt"
+      ],
+      "type": "object"
+    },
+    "restore-dependency-binding": {
+      "additionalProperties": false,
+      "properties": {
+        "dependencyId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "binary",
+            "schema",
+            "config",
+            "image",
+            "signature"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "dependencyId",
+        "kind",
+        "digest"
+      ],
+      "type": "object"
+    },
+    "restore-source-binding": {
+      "additionalProperties": false,
+      "properties": {
+        "createdAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "declaredRpoSeconds": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "dependencyDigests": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 256,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "keyReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "manifestDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "pointDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "pointId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "repositoryGenerationId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "requiredDependencies": {
+          "items": {
+            "$ref": "#/$defs/restore-dependency-binding"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/restore-source-binding"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.1.0"
+          ],
+          "type": "string"
+        },
+        "sourceClass": {
+          "enum": [
+            "local",
+            "off-site"
+          ],
+          "type": "string"
+        },
+        "targetReleaseBuildId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "targetSchemaVersion": {
+          "maxLength": 20,
+          "pattern": "^[1-9][0-9]*$",
+          "type": "string"
+        },
+        "targetToolVersion": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
+          "type": "string"
+        },
+        "verificationDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "verifiedAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "pointId",
+        "pointDigest",
+        "manifestDigest",
+        "verificationDigest",
+        "sourceClass",
+        "repositoryGenerationId",
+        "keyReferenceId",
+        "declaredRpoSeconds",
+        "createdAt",
+        "verifiedAt",
+        "recoveryEpoch",
+        "dependencyDigests",
+        "requiredDependencies",
+        "targetReleaseBuildId",
+        "targetToolVersion",
+        "targetSchemaVersion"
+      ],
+      "type": "object"
+    },
+    "restore-verification": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "verified"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "auditVerified": {
+                "const": true
+              },
+              "databaseVerified": {
+                "const": true
+              },
+              "fenceVerified": {
+                "const": true
+              },
+              "verifiedAt": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "auditDecisionDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "auditVerified": {
+          "type": "boolean"
+        },
+        "canary": {
+          "$ref": "#/$defs/restore-canary-result"
+        },
+        "candidateDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "databaseVerified": {
+          "type": "boolean"
+        },
+        "fenceSetDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "fenceVerified": {
+          "type": "boolean"
+        },
+        "newInstanceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "nextRecoveryEpoch": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "planDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "planId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "pointId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "priorInstanceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "priorRecoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/restore-verification"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.1.0"
+          ],
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/restore-source-binding"
+        },
+        "status": {
+          "enum": [
+            "failed",
+            "incomplete",
+            "verified"
+          ],
+          "type": "string"
+        },
+        "targetDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "verifiedAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "source",
+        "planId",
+        "planDigest",
+        "pointId",
+        "targetDigest",
+        "fenceVerified",
+        "databaseVerified",
+        "auditVerified",
+        "verifiedAt",
+        "priorInstanceId",
+        "newInstanceId",
+        "priorRecoveryEpoch",
+        "nextRecoveryEpoch",
+        "fenceSetDigest",
+        "auditDecisionDigest",
+        "candidateDigest",
+        "canary",
+        "status"
+      ],
+      "type": "object"
+    },
+    "result-error": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "enum": [
+            "APPROVAL_REQUIRED",
+            "AUTHENTICATION_REQUIRED",
+            "AUTHORIZATION_DENIED",
+            "DEPENDENCY_UNAVAILABLE",
+            "EVIDENCE_EXPIRED",
+            "EVIDENCE_INVALID",
+            "EXECUTION_FAILED",
+            "EXECUTION_PARTIAL",
+            "GATE_BLOCKED",
+            "INPUT_INVALID",
+            "INTEGRITY_FAILURE",
+            "INTERRUPTED",
+            "MIGRATION_BLOCKED",
+            "PLAN_STALE",
+            "PREREQUISITE_BLOCKED",
+            "RATE_LIMITED",
+            "RECOVERY_EPOCH_MISMATCH",
+            "RECOVERY_REQUIRED",
+            "RESOURCE_NOT_FOUND",
+            "SCHEMA_UNSUPPORTED",
+            "SESSION_EXPIRED",
+            "STATE_CONFLICT",
+            "TARGET_UNREACHABLE",
+            "UNSUPPORTED_PLATFORM",
+            "VERSION_INCOMPATIBLE"
+          ],
+          "type": "string"
+        },
+        "retryable": {
+          "type": "boolean"
+        },
+        "target": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "target",
+        "retryable"
+      ],
+      "type": "object"
+    },
+    "run-result": {
+      "additionalProperties": false,
+      "properties": {
+        "changed": {
+          "type": "boolean"
+        },
+        "command": {
+          "type": "string"
+        },
+        "data": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "errors": {
+          "items": {
+            "$ref": "#/$defs/result-error"
+          },
+          "type": "array"
+        },
+        "planId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "recoveryEpoch": {
+          "type": "integer"
+        },
+        "releaseBuildId": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "runId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/run-result"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "snapshotDigest": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sourceRevision": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "stateRevision": {
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "blocked",
+            "cancelled",
+            "failed",
+            "interrupted",
+            "partial",
+            "succeeded"
+          ],
+          "type": "string"
+        },
+        "toolVersion": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "toolVersion",
+        "command",
+        "requestId",
+        "runId",
+        "status",
+        "changed",
+        "recoveryEpoch",
+        "stateRevision",
+        "snapshotDigest",
+        "releaseBuildId",
+        "sourceRevision",
+        "planId",
+        "errors",
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/native-preparation-result",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "action": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/host-action-submission"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "actionBundle": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/host-action-bundle"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "adoption": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/host-adoption-submission"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "approval": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/approval-status"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "backupJob": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/backup-job"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "backupPolicy": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/backup-policy-draft-submission"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "credentialImport": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/credential-import-submission"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "credentialLifecycle": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/credential-lifecycle-submission"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "databaseStatus": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/database-status-data"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "discovery": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/host-discovery-submission"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "exitCode": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "gate": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/gate-view"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "grantDeclaration": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/declaration-revision"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "host": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/managed-host"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "plan": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/plan"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "producerReference": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/native-producer-reference"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "profile": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/gate-profile-draft-submission"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "receiptDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "replacement": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/host-replacement-submission"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "replacementState": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/host-replacement-state"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "restoreBinding": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/restore-binding"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "restoreVerification": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/restore-verification"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "result": {
+      "$ref": "#/$defs/run-result"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/native-preparation-result"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "target": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/host-discovery-target-draft-submission"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "result",
+    "exitCode"
+  ],
+  "title": "VegaStack Labs native preparation result",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

@@ -36,19 +36,22 @@ type BaselineProfile struct {
 	Digest string `json:"digest"`
 }
 type RollbackRecord struct {
-	BaselineProfileStates map[string]string `json:"baselineProfileStates,omitempty"`
-	BaselineProfiles      []BaselineProfile `json:"baselineProfiles,omitempty"`
-	RunID                 string            `json:"runId"`
-	HostID                string            `json:"hostId"`
-	HostIdentityDigest    string            `json:"hostIdentityDigest"`
-	PlanID                string            `json:"planId"`
-	InputDigest           string            `json:"inputDigest"`
-	AuthorizationDigest   string            `json:"authorizationDigest"`
-	BundleDigest          string            `json:"bundleDigest"`
-	BootID                string            `json:"bootId"`
-	ArmedAt               time.Time         `json:"armedAt"`
-	Deadline              time.Time         `json:"deadline"`
-	Files                 []RollbackFile    `json:"files"`
+	AutomationUID                             int64             `json:"automationUid,omitempty"`
+	AutomationAccount                         string            `json:"automationAccount,omitempty"`
+	RevokeAutomationSessionsRetainedPublicKey string            `json:"revokeAutomationSessionsRetainedPublicKey,omitempty"`
+	BaselineProfileStates                     map[string]string `json:"baselineProfileStates,omitempty"`
+	BaselineProfiles                          []BaselineProfile `json:"baselineProfiles,omitempty"`
+	RunID                                     string            `json:"runId"`
+	HostID                                    string            `json:"hostId"`
+	HostIdentityDigest                        string            `json:"hostIdentityDigest"`
+	PlanID                                    string            `json:"planId"`
+	InputDigest                               string            `json:"inputDigest"`
+	AuthorizationDigest                       string            `json:"authorizationDigest"`
+	BundleDigest                              string            `json:"bundleDigest"`
+	BootID                                    string            `json:"bootId"`
+	ArmedAt                                   time.Time         `json:"armedAt"`
+	Deadline                                  time.Time         `json:"deadline"`
+	Files                                     []RollbackFile    `json:"files"`
 	// Firewall snapshots contain only the finite owned chain, never shared tables.
 	Firewall              []RollbackFirewall  `json:"firewall,omitempty"`
 	State                 string              `json:"state"`
@@ -83,6 +86,13 @@ func ownedFile(path string) bool {
 	return baselineOwnedFile(path) || path == "etc/vsk-labs/service_authorized_keys/root" || path == "etc/ssh/sshd_config.d/70-vsk-access.conf" || (strings.HasPrefix(path, "etc/vsk-labs/authorized_keys/") && accessName.MatchString(strings.TrimPrefix(path, "etc/vsk-labs/authorized_keys/")))
 }
 func validRollback(r RollbackRecord) bool {
+	if r.RevokeAutomationSessionsRetainedPublicKey != "" {
+		if r.AutomationUID <= 0 || r.AutomationUID > 4294967295 || !accessName.MatchString(r.AutomationAccount) || r.AutomationAccount == "root" || !validPublicKey(r.RevokeAutomationSessionsRetainedPublicKey) {
+			return false
+		}
+	} else if r.AutomationUID != 0 || r.AutomationAccount != "" {
+		return false
+	}
 	if r.HostID == "" || r.PlanID == "" || r.BootID == "" || len(r.BootID) > 128 || len(r.ReconciledBootID) > 128 || !digestRE.MatchString(r.HostIdentityDigest) || !digestRE.MatchString(r.InputDigest) || !digestRE.MatchString(r.AuthorizationDigest) || !digestRE.MatchString(r.BundleDigest) || r.ArmedAt.IsZero() || r.Deadline.Sub(r.ArmedAt) != 600*time.Second || (len(r.Files) == 0 && len(r.BaselineProfiles) == 0) || len(r.Files) > 40 || len(r.Firewall) > 4 {
 		return false
 	}

@@ -4,9 +4,12 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/change"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/store"
 )
 
 func TestRestorePlanPreservesExactFenceAuditAndAuthorityBinding(t *testing.T) {
@@ -25,6 +28,24 @@ func TestRestorePlanPreservesExactFenceAuditAndAuthorityBinding(t *testing.T) {
 	result, binding, err := BuildRestorePlan(context.Background(), declaration, request, source, fences, decision)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if risk, err := authorization.ClassifyPlan(result); err != nil || risk != authorization.RiskControlPlane {
+		t.Fatalf("actual restore plan cannot enter human approval: risk=%s error=%v", risk, err)
+	}
+	repository := &fakePlanRepository{declaration: declaration, current: store.RevisionToken{StateRevision: result.Binding.StateRevision, RecoveryEpoch: result.Binding.RecoveryEpoch}}
+	observations, err := NewStateObservationReader(repository)
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, _ := time.Parse(time.RFC3339, result.CreatedAt)
+	service := newTestService(t, repository, observations, func() time.Time { return created.Add(time.Second) })
+	if err := service.ValidateCurrent(context.Background(), result); err != nil {
+		t.Fatalf("actual restore plan rejected by ordinary approval freshness: %v", err)
+	}
+	changedSource := source
+	changedSource.VerificationDigest = "sha256:" + strings.Repeat("b", 64)
+	if _, _, err := BuildRestorePlan(context.Background(), declaration, request, changedSource, fences, decision); err == nil {
+		t.Fatal("source verification substitution accepted")
 	}
 	if result.Status != "planned" || result.AuthorizationBranch != "human" || result.ExecutorMode != "central" || result.Risk != "control-plane" || len(result.Operations) != 2 || result.Operations[1].OperationType != "recovery.canary.noop" || result.Operations[1].OperationID != request.CanaryStepID || result.Operations[1].InputDigest != request.CanaryBindingDigest || binding.PlanID != result.PlanID || binding.PlanDigest != result.PlanDigest || binding.FenceSetDigest != request.FenceSetDigest || binding.AuditDecisionDigest != request.AuditDecisionDigest || binding.PriorInstanceID != request.PriorInstanceID || binding.NewInstanceID != request.NewInstanceID || binding.NextRecoveryEpoch != binding.PriorRecoveryEpoch+1 || binding.FormerHostID != request.FormerHostID || binding.RecoveryRunID != request.RecoveryRunID || binding.CanaryRunID != request.CanaryRunID || binding.SourceAdmissionDigest != request.SourceAdmissionDigest {
 		t.Fatalf("plan=%#v binding=%#v", result, binding)

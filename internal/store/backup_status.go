@@ -57,7 +57,7 @@ func (repository *BackupRepository) ListRecoveryPoints(ctx context.Context, scop
 		if err := tx.queryRow(ctx, `SELECT state_revision,recovery_epoch FROM system_meta WHERE id=1`).Scan(&revision.StateRevision, &revision.RecoveryEpoch); err != nil {
 			return err
 		}
-		rows, err := tx.query(ctx, `SELECT point_id,source_kind,proof_class,content_digest,manifest_digest,created_at,verified_at,verification_status,recovery_epoch FROM recovery_points WHERE recovery_epoch=? AND point_id>? ORDER BY point_id LIMIT ?`, revision.RecoveryEpoch, afterID, limit)
+		rows, err := tx.query(ctx, `SELECT point_id,source_kind,proof_class,content_digest,manifest_digest,created_at,verified_at,verification_status,recovery_epoch,policy_id,repository_id,inventory_digest FROM recovery_points WHERE recovery_epoch=? AND point_id>? ORDER BY point_id LIMIT ?`, revision.RecoveryEpoch, afterID, limit)
 		if err != nil {
 			return err
 		}
@@ -65,7 +65,7 @@ func (repository *BackupRepository) ListRecoveryPoints(ctx context.Context, scop
 		for rows.Next() {
 			var item generated.BrowserRecoveryPoint
 			item.Schema, item.SchemaVersion = generated.SchemaIDBrowserRecoveryPoint, "1.0.0"
-			if err := rows.Scan(&item.PointID, &item.SourceKind, &item.ProofClass, &item.ContentDigest, &item.ManifestDigest, &item.CreatedAt, &item.VerifiedAt, &item.VerificationStatus, &item.RecoveryEpoch); err != nil {
+			if err := rows.Scan(&item.PointID, &item.SourceKind, &item.ProofClass, &item.ContentDigest, &item.ManifestDigest, &item.CreatedAt, &item.VerifiedAt, &item.VerificationStatus, &item.RecoveryEpoch, &item.PolicyID, &item.RepositoryID, &item.InventoryDigest); err != nil {
 				return err
 			}
 			item.ReasonCode = "verification-" + item.VerificationStatus

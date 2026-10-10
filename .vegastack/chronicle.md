@@ -2,6 +2,26 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 10-10-2026 — Phase 6 acceptance distinguishes working software from current native proof ([#234](https://github.com/vegastack/vegastack-labs/issues/234))
+
+- **What:** A finite acceptance command reuses the host lifecycle, baseline, role, replacement and operator scenarios. Its scoped exit reports Linux software, current native qualification, deferred Mac work and full phase acceptance independently.
+- **Why:** A merged feature or a successful fixture must not imply that a real machine, the complete phase or the fleet is ready.
+- **How it went:** Grounding the catalog found that the existing baseline server scenario collects time only; the other control obligations now name their actual owning collector tests, with one missing resource/kernel observation boundary added. Native exports remain diagnostic; the report requires current server gates and their applied declaration/plan/run lineage. Full-run diagnostics also exposed fixture clock and startup-readiness mismatches; the tests now use their existing controlled clock and readiness hooks without changing production deadlines.
+- **Changed:** Explicit obligation catalog · grouped focused Go scenarios · fresh single-worker Console checks · bounded evidence sanitizer · current read-only native lineage · Linux/full exit codes. Native #228, Mac #227 and operator acceptance remain separately pending until their actual proofs exist.
+- **Decisions:** The operator selected working Linux delivery and deferred advanced signed recovery-fence qualification on 10-10-2026. All software obligations and native missing-proof denials remain required; native, Mac and full Phase 6 acceptance remain pending.
+
+— approved by (omkarmohanta09) · built by Codex · branch chore/6.7-native-debian-qualification
+
+## 10-10-2026 — Linux qualification uses actual server receipts and preserves missing-proof denials ([#228](https://github.com/vegastack/vegastack-labs/issues/228))
+
+- **What:** Native preparation, current qualification reads and recovery transfer use the existing server, approved plans and protected action path. Access confirmation can explicitly revoke other managed automation SSH sessions after key rotation while preserving the confirmation session.
+- **Why:** Integrating the Linux workflows exposed gaps in receipt lineage, host admission ordering, service identity and normal session teardown.
+- **How it went:** Focused Linux tests and critical correction reviews found and fixed those boundaries. Basic native input preparation also exposed incompatible volume action/rotation predicates and Docker rules comparing a translated packet with its original destination; those were corrected in the existing validators and renderer. Isolated native preparation repeatedly stopped when unrelated CI became active; no native pass is claimed. The operator chose to defer the missing advanced signed recovery qualification rather than add its observer and signing machinery now.
+- **Changed:** Typed native preparation and current evidence reads, including the existing canonical receipt digest needed by volume verification · recovery destination/data guards · volume mapping/rotation lineage with the physical revocation witness attached only to its current action · original-connection container firewall rules · managed session revocation · finite scenario bounds · operator procedures. Native qualification, deferred Mac and full Phase 6 remain incomplete.
+- **Decisions:** Delivery scope follows the operator's explicit working-Linux choice; existing authorization and missing-proof denials remain in force.
+
+— approved by (omkarmohanta09) · built by Codex · branch chore/6.7-native-debian-qualification
+
 ## 10-10-2026 — A fresh operator can grant resource access through an approved plan ([#247](https://github.com/vegastack/vegastack-labs/issues/247))
 
 - **What:** The operator can draft a bounded set of exact permission additions or revocations for an existing principal, then acknowledge and apply its plan. Host workflow navigation uses the underlying resources, so the operator does not have to predict generated plan IDs.
@@ -899,3 +919,5 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 — approved by (omkarmohanta09) · built by Codex · branch feat/110-phase5-operator-surfaces
 
 The critical authorization review of issue #247 found omitted nested owners, alias host execution/acknowledgement scope, an incompatible resume target and a missing grant recovery precheck. Corrections use all sealed subject/probe owners, host plus alias projection, matching resume projection, and the existing SQLite snapshot/isolated-restore methods. Local recovery preimages are private and do not qualify node-loss recovery.
+
+The final source-boundary check exposed the shared volume-lineage change in the Darwin baseline closure. Its exact current source/import seal is recorded alongside Linux, and the server boundary records the corrected native volume case file hash, preserving historical seals and unsupported behavior. No runtime change or native qualification is claimed.

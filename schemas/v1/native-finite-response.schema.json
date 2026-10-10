@@ -1,0 +1,56 @@
+{
+  "$id": "vegastack-labs.dev/native-finite-response",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "changed": {
+      "type": "boolean"
+    },
+    "errorCode": {
+      "maxLength": 64,
+      "minLength": 1,
+      "type": "string"
+    },
+    "errorTarget": {
+      "maxLength": 128,
+      "minLength": 1,
+      "type": "string"
+    },
+    "exitCode": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "responseCommand": {
+      "maxLength": 256,
+      "minLength": 1,
+      "type": "string"
+    },
+    "responseRequestId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/native-finite-response"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "responseCommand",
+    "responseRequestId",
+    "exitCode",
+    "changed"
+  ],
+  "title": "VegaStack Labs native finite response",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

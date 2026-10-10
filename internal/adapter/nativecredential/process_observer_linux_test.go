@@ -93,6 +93,35 @@ func TestInvocationExactProof(t *testing.T) {
 	}
 }
 
+func TestInvocationMultipleAppliedSources(t *testing.T) {
+	observer, binding, reader, units, authority := nativeInvocationFixture()
+	other := credentialref.LoadedNameForVersion("consumer-a", "reference-b", "version-a")
+	for i := range units.items {
+		units.items[i].EncryptedSources = append(append([]CredentialSource(nil), units.items[i].EncryptedSources...), CredentialSource{ID: other, AbsolutePath: filepath.Join(observer.root, other)})
+	}
+	units.items[0].ActiveState = "inactive"
+	if _, err := observer.observe(context.Background(), binding, reader); err != nil || authority.probes != 2 {
+		t.Fatalf("independent applied source rejected: %v", err)
+	}
+	for _, test := range []struct {
+		name   string
+		change func(*AppliedUnitSnapshot)
+	}{
+		{"duplicate", func(s *AppliedUnitSnapshot) { s.EncryptedSources = append(s.EncryptedSources, s.EncryptedSources[0]) }},
+		{"foreign-root", func(s *AppliedUnitSnapshot) { s.EncryptedSources[1].AbsolutePath = "/foreign/" + other }},
+		{"missing", func(s *AppliedUnitSnapshot) { s.EncryptedSources = s.EncryptedSources[1:] }},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			o, b, r, sequence, a := nativeInvocationFixture()
+			sequence.items[0].EncryptedSources = append([]CredentialSource(nil), units.items[0].EncryptedSources...)
+			test.change(&sequence.items[0])
+			if _, err := o.observe(context.Background(), b, r); err == nil || a.probes != 0 || sequence.next != 1 {
+				t.Fatal("invalid initial source reached restart or proof")
+			}
+		})
+	}
+}
+
 func TestProcessStatusIdentity(t *testing.T) {
 	if !procStatusIdentityMatches("Name:\ttest\nUid:\t1001\t1001\t1001\t1001\nGid:\t1002\t1002\t1002\t1002\n", 1001, 1002) {
 		t.Fatal("exact process identity rejected")

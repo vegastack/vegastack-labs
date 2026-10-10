@@ -16,12 +16,13 @@ import (
 )
 
 type DeclarationRevisionRequest struct {
-	Document      generated.DeclarationRevision
-	ReasonDigest  string
-	Expected      RevisionToken
-	KeyDigest     string
-	RequestDigest string
-	Attribution   audit.Attribution
+	RestoreRequest *generated.RestoreRequest
+	Document       generated.DeclarationRevision
+	ReasonDigest   string
+	Expected       RevisionToken
+	KeyDigest      string
+	RequestDigest  string
+	Attribution    audit.Attribution
 }
 
 type DeclarationRevisionResult struct {
@@ -65,7 +66,9 @@ func (repository *DeclarationRepository) CreateRevision(ctx context.Context, req
 		// Credential bindings are sealed immediately after this inert declaration;
 		// their own writer rechecks the actual reference grant.
 		var err error
-		if request.Document.DeclarationType != "credential.lifecycle" {
+		if request.Document.DeclarationType == "recovery.restore" {
+			owners, err = restoreDraftAuthorizationTargets(ctx, row, request)
+		} else if request.Document.DeclarationType != "credential.lifecycle" {
 			owners, err = workflowDeclarationTargets(row, request.Document, authorization.ActionAuthor)
 		}
 		if err != nil {

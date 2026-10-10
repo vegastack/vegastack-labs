@@ -33,3 +33,17 @@ func TestDiscoveryPlanKeepsPrivateMaterialOutOfBrowserGraph(t *testing.T) {
 		}
 	}
 }
+
+func TestControlDeliveryNamesDoNotPermitCredentialMaterial(t *testing.T) {
+	for _, name := range []string{"controlPlainCredentialBytes", "controlEncryptedCredentialBytes", "controlPlainCredentialsExtra"} {
+		r := metadata.Current()
+		for i := range r.Schemas {
+			if r.Schemas[i].ID == "vegastack-labs.dev/linux-role-input" {
+				r.Schemas[i].Fields = append(r.Schemas[i].Fields, metadata.FieldDefinition{JSONName: name, GoName: "Unsafe", Kind: metadata.ValueString, Required: true})
+			}
+		}
+		if _, err := Generate(r); err == nil || !strings.Contains(err.Error(), "GENERATED_BROWSER_SCHEMA_UNSAFE") {
+			t.Fatalf("material field accepted: %s %v", name, err)
+		}
+	}
+}

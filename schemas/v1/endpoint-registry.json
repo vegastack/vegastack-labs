@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/endpoint-registry",
-  "schemaVersion": "1.26.0",
+  "schemaVersion": "1.29.0",
   "endpoints": [
     {
       "id": "api.v1.audit-checkpoints.create",
@@ -856,6 +856,47 @@
         "browser",
         "operator"
       ]
+    },
+    {
+      "id": "api.v1.qualification.collect",
+      "method": "POST",
+      "path": "/api/v1/qualification/collect",
+      "availability": "available",
+      "ownerPhase": "6",
+      "requestSchema": "vegastack-labs.dev/native-collect-request",
+      "dataSchema": "vegastack-labs.dev/native-collect-data",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.qualification.inspect",
+      "method": "POST",
+      "path": "/api/v1/qualification/inspect",
+      "availability": "available",
+      "ownerPhase": "6",
+      "requestSchema": "vegastack-labs.dev/qualification-inspect-request",
+      "dataSchema": "vegastack-labs.dev/qualification-inspect-data",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.qualification.producer",
+      "method": "POST",
+      "path": "/api/v1/qualification/native/producer",
+      "availability": "available",
+      "ownerPhase": "6",
+      "requestSchema": "vegastack-labs.dev/native-producer-lookup-request",
+      "dataSchema": "vegastack-labs.dev/native-producer-lookup-data",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ],
+      "transportScope": "local",
+      "maxRequestBytes": 8192
     },
     {
       "id": "api.v1.recovery-points.list",

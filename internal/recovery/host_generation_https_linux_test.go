@@ -76,6 +76,66 @@ func TestHostGenerationUsesQualifiedSignedHTTPSEndpoint(t *testing.T) {
 	if e != nil || len(receipt.Transcripts) != 2 || probes != 2 {
 		t.Fatalf("%+v calls %d: %v", receipt, probes, e)
 	}
+	pin, binding, _, _ := witnessFixture(t)
+	binding.FenceQualificationDigest = q.qualificationDigest
+	pin.manifestBinding, pin.Requirements, pin.adminRootDigest = binding, required, q.adminRootDigest
+	pin.ExpiresAt = at.Add(30 * time.Second)
+	pin.pinSeal = pin.seal()
+	clock := func() time.Time { return at }
+	collectors, e := qualifiedWitnessAdapters(pin, binding, q, clock)
+	if e != nil || len(collectors) != 1 {
+		t.Fatalf("qualified collector unavailable: %v", e)
+	}
+	challenge := recoverydenial.Challenge{ChallengeID: binding.ChallengeID, Kind: r.Kind, SubjectID: r.SubjectID, TargetID: r.TargetID, AdapterID: r.AdapterID, FormerIdentityID: r.FormerIdentityID, ProbeID: r.ProbeID, Deadline: b.Deadline.Add(time.Minute)}
+	observed, e := collectors[r.AdapterID].Probe(context.Background(), challenge)
+	if e != nil || probes != 3 || !observed.ExpiresAt.Equal(pin.ExpiresAt) {
+		t.Fatalf("collector failed exact HTTPS probe/expiry bound: %+v calls=%d %v", observed, probes, e)
+	}
+	for _, denial := range []string{"unqualified", "wrong-root", "wrong-qualification", "wrong-boundary", "partial-boundary", "expired"} {
+		t.Run("collector-"+denial, func(t *testing.T) {
+			candidate, registry := pin, q
+			switch denial {
+			case "unqualified":
+				registry.sourceQualified = false
+			case "wrong-root":
+				registry.adminRootDigest = b.NewIdentityDigest
+			case "wrong-qualification":
+				registry.qualificationDigest = b.NewIdentityDigest
+			case "wrong-boundary":
+				candidate.Requirements = append([]BoundaryRequirement(nil), required...)
+				for i := range candidate.Requirements {
+					candidate.Requirements[i].TargetID = "other"
+				}
+			case "partial-boundary":
+				candidate.Requirements = required[:1]
+			case "expired":
+				registry.qualificationExpiry = at
+			}
+			candidate.pinSeal = candidate.seal()
+			if _, e := qualifiedWitnessAdapters(candidate, binding, registry, clock); e == nil {
+				t.Fatal("unqualified collection admitted")
+			}
+		})
+	}
+	canceled, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, e := collectors[r.AdapterID].Probe(canceled, challenge); e == nil {
+		t.Fatal("canceled collection probed")
+	}
+	foreign := challenge
+	foreign.ProbeID = "arbitrary-probe"
+	if _, e := collectors[r.AdapterID].Probe(context.Background(), foreign); e == nil {
+		t.Fatal("unqualified probe selected")
+	}
+	if probes != 3 {
+		t.Fatal("denied collection contacted endpoint", probes)
+	}
+	at = pin.ExpiresAt
+	if _, e := collectors[r.AdapterID].Probe(context.Background(), challenge); e == nil || probes != 3 {
+		t.Fatal("collector outlived manifest")
+	}
+	at = b.IssuedAt
+
 	wrong = true
 	if _, e = VerifyHostGenerationFences(context.Background(), b, required, q, at); e == nil {
 		t.Fatal("signed response for different consumer accepted")

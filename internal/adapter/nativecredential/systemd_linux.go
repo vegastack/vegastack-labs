@@ -8,11 +8,14 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/godbus/dbus/v5"
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
 )
+
+var nativeHashedCredentialName = regexp.MustCompile(`^credential-[a-f0-9]{32}$`)
 
 var errAppliedUnit = errors.New("native credential applied unit unavailable")
 
@@ -114,13 +117,32 @@ func decodeAppliedUnit(unit string, unitProps, serviceProps map[string]dbus.Vari
 }
 
 func validateAppliedSource(snapshot AppliedUnitSnapshot, binding credentialref.LifecycleBinding, reader credentialref.NativeConsumerBinding, expectedPath string) error {
-	if snapshot.UnitName != reader.UnitName || snapshot.ActiveState != "active" || snapshot.NeedDaemonReload ||
-		reader.LoadedName == "" || reader.LoadedName != credentialref.LoadedNameForVersion(binding.NativeArtifactConsumerID, binding.ReferenceID, binding.MaterialVersion) ||
-		!filepath.IsAbs(expectedPath) || filepath.Clean(expectedPath) != expectedPath || len(snapshot.EncryptedSources) != 1 {
+	if snapshot.ActiveState != "active" {
 		return errAppliedUnit
 	}
-	source := snapshot.EncryptedSources[0]
-	if source.ID != reader.LoadedName || source.AbsolutePath != expectedPath {
+	return validateUnitSources(snapshot, binding, reader, expectedPath)
+}
+
+// Before restart an enrolled consumer may be inactive; its applied source
+// declarations must already match. After restart the caller also requires active.
+func validateUnitSources(snapshot AppliedUnitSnapshot, binding credentialref.LifecycleBinding, reader credentialref.NativeConsumerBinding, expectedPath string) error {
+	if snapshot.UnitName != reader.UnitName || snapshot.NeedDaemonReload ||
+		reader.LoadedName == "" || reader.LoadedName != credentialref.LoadedNameForVersion(binding.NativeArtifactConsumerID, binding.ReferenceID, binding.MaterialVersion) ||
+		!filepath.IsAbs(expectedPath) || filepath.Clean(expectedPath) != expectedPath || len(snapshot.EncryptedSources) == 0 || len(snapshot.EncryptedSources) > 64 {
+		return errAppliedUnit
+	}
+	seen := map[string]bool{}
+	matched := false
+	for _, source := range snapshot.EncryptedSources {
+		if !nativeHashedCredentialName.MatchString(source.ID) || seen[source.ID] || source.AbsolutePath != filepath.Join(filepath.Dir(expectedPath), source.ID) {
+			return errAppliedUnit
+		}
+		seen[source.ID] = true
+		if source.ID == reader.LoadedName {
+			matched = source.AbsolutePath == expectedPath
+		}
+	}
+	if !matched {
 		return errAppliedUnit
 	}
 	return nil

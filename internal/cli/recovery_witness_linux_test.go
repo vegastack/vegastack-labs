@@ -103,7 +103,12 @@ func TestRecoveryWitnessCollectCLIEmitsOnlySignedAndSealedArtifacts(t *testing.T
 			app.witnessPinLoader = func(expected recovery.WitnessBinding) (recovery.PinnedWitness, error) {
 				return recovery.ParseSignedRecoveryManifest(manifestBytes, adminPublic, expected, time.Now().UTC())
 			}
-			app.witnessAdapters = map[string]recoverydenial.Adapter{"fixture-adapter": witnessCLIAdapter{}}
+			app.witnessAdapterLoader = func(ctx context.Context, pin recovery.PinnedWitness, expected recovery.WitnessBinding, at time.Time) (map[string]recoverydenial.Adapter, error) {
+				if ctx.Err() != nil || !bytes.Equal(mustWitnessBindingJSON(t, expected), mustWitnessBindingJSON(t, binding)) || len(pin.Requirements) != len(required) || at.IsZero() {
+					return nil, recovery.ErrWitnessUnavailable
+				}
+				return map[string]recoverydenial.Adapter{"fixture-adapter": witnessCLIAdapter{}}, nil
+			}
 		})
 	if code != 0 || stderr != "" || bytes.Contains([]byte(stdout), []byte(canary)) {
 		t.Fatalf("collection result: code=%d stderr=%q stdout=%q", code, stderr, stdout)
@@ -123,5 +128,41 @@ func TestRecoveryWitnessCollectCLIEmitsOnlySignedAndSealedArtifacts(t *testing.T
 	}
 	if _, err := recovery.DecodeSignedWitness(artifact); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func mustWitnessBindingJSON(t *testing.T, binding recovery.WitnessBinding) []byte {
+	t.Helper()
+	encoded, err := json.Marshal(binding)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return encoded
+}
+
+func TestRecoveryWitnessCollectRequiresInstalledQualification(t *testing.T) {
+	for _, failure := range []string{"missing-loader", "unavailable-qualification"} {
+		t.Run(failure, func(t *testing.T) {
+			called := false
+			code, stdout, _ := runTestAppWithOptions(t, context.Background(), []string{"recovery", "witness", "collect", "--file", "input.json", "--signing-key-fd", "999998", "--material-fd", "999999", "--output", "json"}, nil,
+				WithControlOperations(nil, &stubFileReader{content: []byte(`{"binding":{}}`)}),
+				func(app *App) {
+					if app.witnessAdapterLoader == nil {
+						t.Fatal("ordinary qualification loader missing")
+					}
+					app.witnessPinLoader = func(recovery.WitnessBinding) (recovery.PinnedWitness, error) { return recovery.PinnedWitness{}, nil }
+					if failure == "missing-loader" {
+						app.witnessAdapterLoader = nil
+					} else {
+						app.witnessAdapterLoader = func(context.Context, recovery.PinnedWitness, recovery.WitnessBinding, time.Time) (map[string]recoverydenial.Adapter, error) {
+							called = true
+							return nil, recovery.ErrWitnessUnavailable
+						}
+					}
+				})
+			if code == 0 || !strings.Contains(stdout, "PREREQUISITE_BLOCKED") || called != (failure == "unavailable-qualification") {
+				t.Fatalf("missing qualification accepted or bypassed: code=%d called=%t stdout=%s", code, called, stdout)
+			}
+		})
 	}
 }

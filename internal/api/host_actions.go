@@ -24,13 +24,17 @@ type BaselineRenderer interface {
 type RolePreparer interface {
 	PrepareRole(context.Context, string, generated.LinuxRoleInput) (generated.LinuxRoleInput, error)
 }
+type RecoveryReceivePreparer interface {
+	PrepareRecoveryReceive(context.Context, generated.HostActionRequest) (generated.HostActionRequest, error)
+}
 type HostActionOperations struct {
-	RolePreparer     RolePreparer
-	BaselineRenderer BaselineRenderer
-	Hosts            *store.HostActionRepository
-	Declarations     *change.Service
-	Credentials      *store.CredentialRepository
-	Results          *result.Factory
+	RecoveryReceivePreparer RecoveryReceivePreparer
+	RolePreparer            RolePreparer
+	BaselineRenderer        BaselineRenderer
+	Hosts                   *store.HostActionRepository
+	Declarations            *change.Service
+	Credentials             *store.CredentialRepository
+	Results                 *result.Factory
 }
 
 func RegisterHostActionOperations(app *Application, c HostActionOperations) error {
@@ -57,6 +61,22 @@ func (app *Application) hostActionDraft(c HostActionOperations) func(http.Respon
 		if generated.ValidateContractJSON(generated.SchemaIDHostActionRequest, raw, generated.ContractExact) != nil {
 			app.failure(w, operation, apiFailure(generated.ErrorCodeInputInvalid, "host-action"))
 			return
+		}
+		if input.ActionID == store.ControlRecoveryReceiveAction {
+			if _, err := app.authorizeAction(r, authorization.ActionAuthor, authorization.Target{Capability: "host.action.prepare", ResourceKind: "host", ResourceID: input.HostID}); err != nil {
+				app.failure(w, operation, err)
+				return
+			}
+			if c.RecoveryReceivePreparer == nil {
+				app.failure(w, operation, apiFailure(generated.ErrorCodePrerequisiteBlocked, "recovery-receive"))
+				return
+			}
+			prepared, err := c.RecoveryReceivePreparer.PrepareRecoveryReceive(r.Context(), input)
+			if err != nil {
+				app.failure(w, operation, err)
+				return
+			}
+			input = prepared
 		}
 		if debianbaseline.IsAction(input.ActionID) {
 			if _, err := app.authorizeAction(r, authorization.ActionAuthor, authorization.Target{Capability: "host.action.prepare", ResourceKind: "host", ResourceID: input.HostID}); err != nil {

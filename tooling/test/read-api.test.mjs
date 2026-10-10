@@ -253,3 +253,26 @@ test("the reviewed #247 grants route remains an exact inert operator draft", asy
     assert.ok((await verifyReadAPI(root)).codes.includes("READ_API_ENDPOINT_DRIFT"), variant);
   }
 });
+
+// Qualification remains local/operator-only; no field or sibling route is implied.
+test("the reviewed #228 qualification endpoints retain exact bounded metadata", async (t) => {
+  const registry = JSON.parse(await readFile(path.join(process.cwd(), "schemas/v1/endpoint-registry.json"), "utf8"));
+  assert.equal((await verifyReadAPI()).status, "pass");
+  for (const action of ["collect", "inspect", "producer"]) {
+    const id = `api.v1.qualification.${action}`;
+    const fields = ["id", "method", "path", "availability", "ownerPhase", "requestSchema", "dataSchema", "stream", "audiences"];
+    if (action === "producer") fields.push("transportScope", "maxRequestBytes");
+    for (const mutation of ["remove", "duplicate", "extra-field", "sibling", "historical", ...fields]) {
+      const copy = structuredClone(registry);
+      const endpoint = copy.endpoints.find(value => value.id === id);
+      if (mutation === "remove") copy.endpoints = copy.endpoints.filter(value => value.id !== id);
+      else if (mutation === "duplicate") copy.endpoints.push({...endpoint});
+      else if (mutation === "extra-field") endpoint.allowDirectExecution = true;
+      else if (mutation === "sibling") copy.endpoints.push({...endpoint, id: "api.v1.qualification.execute"});
+      else if (mutation === "historical") copy.endpoints = copy.endpoints.filter(value => value.id !== "api.v1.summary.get");
+      else endpoint[mutation] = mutation === "audiences" ? ["operator", "browser"] : mutation === "maxRequestBytes" ? 16384 : "unreviewed";
+      const root = await fixtureRepo(t, {"schemas/v1/endpoint-registry.json": JSON.stringify(copy)});
+      assert.ok((await verifyReadAPI(root)).codes.includes("READ_API_ENDPOINT_DRIFT"), `${id}/${mutation}`);
+    }
+  }
+});

@@ -1,0 +1,321 @@
+{
+  "$defs": {
+    "native-control-setup-attempt": {
+      "additionalProperties": false,
+      "properties": {
+        "afterDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "beforeDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "errorCode": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "instanceId": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "incomplete-refusal",
+            "fresh",
+            "populated-refusal",
+            "writer-refusal",
+            "restart",
+            "crash-restart",
+            "signer-restart"
+          ],
+          "type": "string"
+        },
+        "observedAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+          "type": "string"
+        },
+        "pid": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/native-control-setup-attempt"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "startIdentity": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "kind",
+        "beforeDigest",
+        "afterDigest",
+        "pid",
+        "observedAt"
+      ],
+      "type": "object"
+    },
+    "native-slack-fixture-scope": {
+      "additionalProperties": false,
+      "properties": {
+        "appTokenDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "approveActionId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "botTokenDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "channelId": {
+          "pattern": "^[A-Z][A-Z0-9]{1,63}$",
+          "type": "string"
+        },
+        "controlServiceGid": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "controlServiceUid": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "executableDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "expiresAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "guestInstanceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "hostIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "issuedAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "rejectActionId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "runControlSetup": {
+          "type": "boolean"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/native-slack-fixture-scope"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "setupHostIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "setupPlanDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "setupPlanId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "setupRequestDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "sourceCommit": {
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
+        "sshHostKeyDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "tlsCertificateDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "userId": {
+          "pattern": "^[A-Z][A-Z0-9]{1,63}$",
+          "type": "string"
+        },
+        "workspaceId": {
+          "pattern": "^[A-Z][A-Z0-9]{1,63}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "guestInstanceId",
+        "hostIdentityDigest",
+        "sshHostKeyDigest",
+        "setupHostIdentityDigest",
+        "sourceCommit",
+        "executableDigest",
+        "issuedAt",
+        "expiresAt",
+        "workspaceId",
+        "userId",
+        "channelId",
+        "approveActionId",
+        "rejectActionId",
+        "setupPlanId",
+        "setupPlanDigest",
+        "setupRequestDigest",
+        "appTokenDigest",
+        "botTokenDigest",
+        "tlsCertificateDigest"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/native-control-setup-witness",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "approvalDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "attempts": {
+      "items": {
+        "$ref": "#/$defs/native-control-setup-attempt"
+      },
+      "maxItems": 8,
+      "type": "array"
+    },
+    "finalPid": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "finalProfileDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "finalStartIdentity": {
+      "maxLength": 256,
+      "minLength": 1,
+      "type": "string"
+    },
+    "fixtureScope": {
+      "$ref": "#/$defs/native-slack-fixture-scope"
+    },
+    "initialPid": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "initialProfileDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "initialStartIdentity": {
+      "maxLength": 256,
+      "minLength": 1,
+      "type": "string"
+    },
+    "instanceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "observedAt": {
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "peerPid": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "peerStartIdentity": {
+      "maxLength": 256,
+      "minLength": 1,
+      "type": "string"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/native-control-setup-witness"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "scopeDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "setupId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "setupRequestDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "setupReviewDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "fixtureScope",
+    "scopeDigest",
+    "peerPid",
+    "peerStartIdentity",
+    "setupId",
+    "setupRequestDigest",
+    "setupReviewDigest",
+    "approvalDigest",
+    "initialProfileDigest",
+    "finalProfileDigest",
+    "instanceId",
+    "recoveryEpoch",
+    "initialPid",
+    "initialStartIdentity",
+    "finalPid",
+    "finalStartIdentity",
+    "observedAt",
+    "attempts"
+  ],
+  "title": "VegaStack Labs native control setup witness",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

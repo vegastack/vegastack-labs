@@ -5,6 +5,7 @@ import "github.com/vegastack/vegastack-labs/internal/generated"
 // HostAdmissionSnapshot is resolved from one authoritative read transaction.
 // Fields describe provenance, never a caller-set admission decision.
 type HostAdmissionSnapshot struct {
+	NativeProducerBindings                       map[string]HostNativeProducerBinding
 	RoleIntentRevision                           int64
 	AppliedProfileDigest                         string
 	Host                                         generated.ManagedHost
@@ -61,9 +62,12 @@ type HostAdmissionProvenance interface {
 }
 type HostEvidenceProvenance struct {
 	Qualification      *HostNativeQualification
+	Prerequisites      []HostPrerequisiteProof
 	PrerequisiteID     string
 	PrerequisiteDigest string
 }
+
+type HostPrerequisiteProof struct{ ID, Digest string }
 
 func NewGateRepositoryWithHostProvenance(authority *Store, verifier HostAdmissionProvenance) *GateRepository {
 	return &GateRepository{store: authority, hostProvenance: verifier}

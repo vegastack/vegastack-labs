@@ -160,3 +160,7 @@ Execution estimates belong to each detailed phase/batch once issue scope, depend
 19. Completed on 14-09-2026: merge Issue 4.10 through PR #100, pass exact Debian `main` runs 34787342900 and 34787841878 with the same digest, and record explicit Phase 4 acceptance at `6bbb81231644c84ef34c8633e9de5671a4186180`.
 20. Completed on 24-09-2026: merge Phase 5 Issues 5.1 through 5.10 with focused checks and exact final-head independent reviews; close the 47-scenario hostile/recovery catalog.
 21. Completed on 28-09-2026: Issue 5.11 integrated Phase 5 and the operator accepted exact `main` commit `9a433b43b59030285607435a8326814a311f3687` after its Debian proof. Phase 6 remains a separate planning checkpoint.
+
+### Current Linux Phase 6 acceptance (10-10-2026)
+
+The operator authorized completion of the remaining Linux Phase 6 batch, including dependency-aware parallel development and routine PR/merge continuation after the required checks. The [integrated acceptance procedure](phase-6-acceptance.md) uses existing feature-owner scenarios and keeps software, exact native qualification, deferred Mac/iMac, operator phase acceptance and fleet activation separate. Native #228 and reporting #234 remain the acceptance owners; Mac/iMac #227 stay required within v1 and deferred. These commands authorize no host, provider, CI, release or deployment operation.

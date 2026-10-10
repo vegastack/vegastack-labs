@@ -38,7 +38,7 @@ func ReadFrame(r *bufio.Reader, maximum int) ([]byte, error) {
 
 // RunOnce has no trust/configuration discovery. Production supplies a root-owned
 // policy and fixed dispatcher; tests can supply harmless handlers explicitly.
-func RunOnce(ctx context.Context, input io.Reader, output io.Writer, policy Policy, receipts *Receipts, dispatcher Dispatcher, now func() time.Time, random io.Reader) error {
+func RunOnce(ctx context.Context, input io.Reader, output io.Writer, policy Policy, receipts *Receipts, dispatcher Dispatcher, now func() time.Time, random io.Reader) (runErr error) {
 	if ctx == nil || input == nil || output == nil || receipts == nil || dispatcher == nil || now == nil || random == nil {
 		return blocked()
 	}
@@ -60,6 +60,21 @@ func RunOnce(ctx context.Context, input io.Reader, output io.Writer, policy Poli
 		defer cleanup()
 		output = wrapped
 	}
+	parentContext := ctx
+	denial := generated.HostActionDenial{Schema: generated.SchemaIDHostActionDenial, SchemaVersion: "1.0.0", Code: generated.ErrorCodeAuthorizationDenied, Phase: "envelope"}
+	defer func() {
+		if runErr != nil && parentContext.Err() == nil {
+			deadline, cancel := context.WithTimeout(context.Background(), time.Second)
+			stop := context.AfterFunc(deadline, func() {
+				if closer, ok := output.(io.Closer); ok {
+					_ = closer.Close()
+				}
+			})
+			_ = WriteFrame(output, denial, MaximumFrame)
+			stop()
+			cancel()
+		}
+	}()
 	// Production input is a pipe. Closing it on cancellation interrupts blocked
 	// reads without spawning a goroutine for each frame.
 	operationContext := ctx
@@ -83,11 +98,15 @@ func RunOnce(ctx context.Context, input io.Reader, output io.Writer, policy Poli
 	if err != nil {
 		return err
 	}
+	denial.Phase = "dispatch"
+	denial.BundleDigest, _ = BundleDigest(bundle)
+	denial.ExecutionDigest = ExecutionDigest(bundle)
 	handler, ok := dispatcher.Lookup(bundle.ActionID, bundle.ActionVersion)
 	if !ok || handler == nil {
 		return blocked()
 	}
 	digest, _ := BundleDigest(bundle)
+	denial.Phase = "authorization"
 	nonce := make([]byte, 32)
 	if _, err = io.ReadFull(random, nonce); err != nil {
 		return blocked()
@@ -100,16 +119,32 @@ func RunOnce(ctx context.Context, input io.Reader, output io.Writer, policy Poli
 	if err != nil || ctx.Err() != nil || VerifyAuthorization(raw, challenge, bundle, policy, now()) != nil {
 		return blocked()
 	}
-	// The sender closes stdin after the one authorization; extra frames deny.
-	if _, err = reader.ReadByte(); err != io.EOF || ctx.Err() != nil {
+	// Only the finite recovery receiver carries binary bytes after fresh
+	// authorization. Every other action still requires immediate EOF.
+	recoveryPayload := bundle.ActionID == RecoveryReceiveAction
+	if recoveryPayload {
+		if _, ok := handler.(RecoveryPayloadHandler); !ok {
+			return blocked()
+		}
+	} else if _, err = reader.ReadByte(); err != io.EOF || ctx.Err() != nil {
 		return blocked()
 	}
 	if VerifyAuthorization(raw, challenge, bundle, policy, now()) != nil {
 		return blocked()
 	}
+	denial.Phase = "execution-claim"
 	if err = receipts.ClaimExecution(ExecutionDigest(bundle), digest); err != nil {
+		if reader, ok := any(receipts).(interface {
+			inspectExecution(generated.HostActionBundle) (NativeExecutionObservation, error)
+		}); ok {
+			if observed, e := reader.inspectExecution(bundle); e == nil {
+				denial.ClaimDigest = observed.ClaimDigest
+				denial.ResultDigest = observed.ResultDigest
+			}
+		}
 		return err
 	}
+	denial.Phase = "handler"
 	if ctx.Err() != nil {
 		return blocked()
 	}
@@ -132,10 +167,22 @@ func RunOnce(ctx context.Context, input io.Reader, output io.Writer, policy Poli
 	})
 	defer actionStop()
 	ctx = actionContext
-	result, err := handler.Execute(ctx, bundle)
+	denial.Phase = "handler"
+	var result generated.HostActionResult
+	if recoveryPayload {
+		result, err = handler.(RecoveryPayloadHandler).ExecuteRecoveryPayload(ctx, bundle, reader)
+		if err == nil {
+			if _, e := reader.ReadByte(); e != io.EOF {
+				return blocked()
+			}
+		}
+	} else {
+		result, err = handler.Execute(ctx, bundle)
+	}
 	if err != nil || ctx.Err() != nil || result.BundleDigest != digest || handler.Verify(ctx, bundle, result) != nil {
 		return blocked()
 	}
+	denial.Phase = "result"
 	if receipts.FinishExecution(ExecutionDigest(bundle), digest, result) != nil {
 		return blocked()
 	}

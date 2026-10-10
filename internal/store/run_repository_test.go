@@ -4,6 +4,8 @@ package store
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"sync"
 	"testing"
@@ -16,8 +18,8 @@ import (
 
 func TestRunStateAndRetentionNeverEraseRequiredSummary(t *testing.T) {
 	now := time.Date(2026, 9, 13, 0, 0, 0, 0, time.UTC)
-	repository := openRunRepository(t, now)
-	run := testRun("run-retention", "submit-retention", now.Add(-179*24*time.Hour))
+	repository, plan := openRunRepository(t, now)
+	run := testRun(plan, "run-retention", "submit-retention", now.Add(-179*24*time.Hour))
 	created, err := repository.Create(context.Background(), RunCreateRequest{
 		Run: run, SubmitKeyDigest: digestForText("submit-retention"), RequestDigest: digestForText("request-retention"), Attribution: runAttribution(t),
 	})
@@ -43,7 +45,7 @@ func TestRunStateAndRetentionNeverEraseRequiredSummary(t *testing.T) {
 	if _, err := repository.Get(context.Background(), run.RunID); err != nil {
 		t.Fatalf("179-day summary missing: %v", err)
 	}
-	longRunning := testRun("run-long-running", "submit-long-running", now.Add(-181*24*time.Hour))
+	longRunning := testRun(plan, "run-long-running", "submit-long-running", now.Add(-181*24*time.Hour))
 	if _, err := repository.Create(context.Background(), RunCreateRequest{Run: longRunning, SubmitKeyDigest: digestForText("submit-long-running"), RequestDigest: digestForText("request-long-running"), Attribution: runAttribution(t)}); err != nil {
 		t.Fatal(err)
 	}
@@ -60,7 +62,7 @@ func TestRunStateAndRetentionNeverEraseRequiredSummary(t *testing.T) {
 		t.Fatalf("recently completed long-running summary missing: %v", err)
 	}
 
-	veryOld := testRun("run-expired", "submit-expired", now.Add(-181*24*time.Hour))
+	veryOld := testRun(plan, "run-expired", "submit-expired", now.Add(-181*24*time.Hour))
 	if _, err := repository.Create(context.Background(), RunCreateRequest{Run: veryOld, SubmitKeyDigest: digestForText("submit-expired"), RequestDigest: digestForText("request-expired"), Attribution: runAttribution(t)}); err != nil {
 		t.Fatal(err)
 	}
@@ -92,8 +94,8 @@ func TestRunStateAndRetentionNeverEraseRequiredSummary(t *testing.T) {
 
 func TestRunSubmitLeaseAndReceiptAreDurableIdempotentAndExclusive(t *testing.T) {
 	now := time.Date(2026, 9, 13, 0, 0, 0, 0, time.UTC)
-	repository := openRunRepository(t, now)
-	run := testRun("run-one", "submit-one", now)
+	repository, plan := openRunRepository(t, now)
+	run := testRun(plan, "run-one", "submit-one", now)
 	request := RunCreateRequest{Run: run, SubmitKeyDigest: digestForText("submit-one"), RequestDigest: digestForText("request-one"), Attribution: runAttribution(t)}
 	first, err := repository.Create(context.Background(), request)
 	if err != nil || !first.Created {
@@ -155,8 +157,8 @@ func TestRunSubmitLeaseAndReceiptAreDurableIdempotentAndExclusive(t *testing.T) 
 
 func TestConcurrentTargetLeaseClaimsHaveOneAuthoritativeWinner(t *testing.T) {
 	now := time.Date(2026, 9, 13, 0, 0, 0, 0, time.UTC)
-	repository := openRunRepository(t, now)
-	run := testRun("run-race", "submit-race", now)
+	repository, plan := openRunRepository(t, now)
+	run := testRun(plan, "run-race", "submit-race", now)
 	if _, err := repository.Create(context.Background(), RunCreateRequest{Run: run, SubmitKeyDigest: digestForText("submit-race"), RequestDigest: digestForText("request-race"), Attribution: runAttribution(t)}); err != nil {
 		t.Fatal(err)
 	}
@@ -198,8 +200,8 @@ func TestConcurrentTargetLeaseClaimsHaveOneAuthoritativeWinner(t *testing.T) {
 
 func TestRunOperationKeyPersistsExactResultAndRejectsChangedReuse(t *testing.T) {
 	now := time.Date(2026, 9, 13, 0, 0, 0, 0, time.UTC)
-	repository := openRunRepository(t, now)
-	run := testRun("run-operation-key", "submit-operation-key", now)
+	repository, plan := openRunRepository(t, now)
+	run := testRun(plan, "run-operation-key", "submit-operation-key", now)
 	if _, err := repository.Create(context.Background(), RunCreateRequest{Run: run, SubmitKeyDigest: digestForText("submit-operation-key"), RequestDigest: digestForText("request-operation-key"), Attribution: runAttribution(t)}); err != nil {
 		t.Fatal(err)
 	}
@@ -237,7 +239,7 @@ func runAttribution(t *testing.T) audit.Attribution {
 	return value
 }
 
-func openRunRepository(t *testing.T, now time.Time) *RunRepository {
+func openRunRepository(t *testing.T, now time.Time) (*RunRepository, generated.Plan) {
 	t.Helper()
 	config := testConfig(t)
 	config.Clock = func() time.Time { return now }
@@ -249,27 +251,45 @@ func openRunRepository(t *testing.T, now time.Time) *RunRepository {
 	if _, err := authority.conn.ExecContext(context.Background(), `UPDATE system_meta SET state_revision=1 WHERE id=1`); err != nil {
 		t.Fatal(err)
 	}
-	seedRunPlan(t, authority, now)
-	return NewRunRepository(authority)
+	plan := seedRunPlan(t, authority, now)
+	return NewRunRepository(authority), plan
 }
 
-func seedRunPlan(t *testing.T, authority *Store, now time.Time) {
+func seedRunPlan(t *testing.T, authority *Store, now time.Time) generated.Plan {
 	t.Helper()
-	digest := digestForText("plan")
 	declaration := generated.DeclarationRevision{Schema: generated.SchemaIDDeclarationRevision, SchemaVersion: "1.0.0", DeclarationID: "declaration-run-test", DeclarationType: "application", Revision: 1, StateRevision: 1, RecoveryEpoch: 0, ContentDigest: string(digestForText("content")), Status: "committed", Operations: []generated.DeclarationOperation{}, CreatedAt: now.Format(time.RFC3339), CreatedBy: "principal-run-test", AgentSessionID: "session-run-test", Extensions: []generated.ContractExtension{}}
 	declarationBytes, _ := json.Marshal(declaration)
 	if _, err := authority.conn.ExecContext(context.Background(), `INSERT INTO declaration_revisions(declaration_id,declaration_revision,declaration_type,state_revision,recovery_epoch,content_digest,reason_digest,status,canonical_bytes,created_at,created_by,agent_session_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, declaration.DeclarationID, declaration.Revision, declaration.DeclarationType, declaration.StateRevision, declaration.RecoveryEpoch, declaration.ContentDigest, digestForText("reason"), declaration.Status, declarationBytes, declaration.CreatedAt, declaration.CreatedBy, declaration.AgentSessionID); err != nil {
 		t.Fatal(err)
 	}
-	plan := generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", PlanID: "plan-run-test", PlanDigest: string(digest), DeclarationID: declaration.DeclarationID, Binding: generated.PlanBinding{RecoveryEpoch: 0, PriorStateRevision: 0, StateRevision: 1, DeclarationRevision: 1, ObservationFingerprint: string(digestForText("observation")), TargetDigest: string(digestForText("target")), ReasonDigest: string(digestForText("reason")), PolicyVersion: "1.0.0", ToolVersion: "1.0.0", ContractVersion: "1.0.0"}, Operations: []generated.PlanOperation{{Sequence: 1, OperationID: "operation-run-test", OperationType: "application.deploy.low-risk", AdapterID: "adapter-test", ExecutorID: "executor-central", TargetID: "target-run-test", InputDigest: string(digestForText("input")), ArtifactDigest: string(digestForText("artifact")), Idempotent: true}}, Status: "planned", Risk: "routine", AuthorizationBranch: "preauthorized", ExecutorMode: "central", ExecutorID: nil, CreatedAt: now.Format(time.RFC3339), ExpiresAt: now.Add(30 * time.Minute).Format(time.RFC3339), ReadableDigest: string(digestForText("readable")), Extensions: []generated.ContractExtension{}}
+	plan := generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", DeclarationID: declaration.DeclarationID, Binding: generated.PlanBinding{RecoveryEpoch: 0, PriorStateRevision: 0, StateRevision: 1, DeclarationRevision: 1, ObservationFingerprint: string(digestForText("observation")), TargetDigest: string(digestForText("target")), ReasonDigest: string(digestForText("reason")), PolicyVersion: "1.0.0", ToolVersion: "1.0.0", ContractVersion: "1.0.0"}, Operations: []generated.PlanOperation{{Sequence: 1, OperationID: "operation-run-test", OperationType: "application.deploy.low-risk", AdapterID: "adapter-test", ExecutorID: "executor-central", TargetID: "target-run-test", InputDigest: string(digestForText("input")), ArtifactDigest: string(digestForText("artifact")), Idempotent: true}}, Status: "planned", Risk: "routine", AuthorizationBranch: "preauthorized", ExecutorMode: "central", ExecutorID: nil, CreatedAt: now.Format(time.RFC3339), ExpiresAt: now.Add(30 * time.Minute).Format(time.RFC3339), Extensions: []generated.ContractExtension{}}
+	readable := "test plan"
+	plan = sealRunFixturePlan(t, plan, readable)
 	planBytes, _ := json.Marshal(plan)
-	if _, err := authority.conn.ExecContext(context.Background(), `INSERT INTO immutable_plans(plan_id,plan_digest,declaration_id,declaration_revision,state_revision,recovery_epoch,observation_fingerprint,idempotency_key_digest,request_digest,canonical_bytes,readable_plan,readable_digest,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, plan.PlanID, plan.PlanDigest, plan.DeclarationID, plan.Binding.DeclarationRevision, plan.Binding.StateRevision, plan.Binding.RecoveryEpoch, plan.Binding.ObservationFingerprint, digestForText("plan-key"), digestForText("plan-request"), planBytes, "test plan", plan.ReadableDigest, plan.CreatedAt, plan.ExpiresAt); err != nil {
+	if _, err := authority.conn.ExecContext(context.Background(), `INSERT INTO immutable_plans(plan_id,plan_digest,declaration_id,declaration_revision,state_revision,recovery_epoch,observation_fingerprint,idempotency_key_digest,request_digest,canonical_bytes,readable_plan,readable_digest,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, plan.PlanID, plan.PlanDigest, plan.DeclarationID, plan.Binding.DeclarationRevision, plan.Binding.StateRevision, plan.Binding.RecoveryEpoch, plan.Binding.ObservationFingerprint, digestForText("plan-key"), digestForText("plan-request"), planBytes, readable, plan.ReadableDigest, plan.CreatedAt, plan.ExpiresAt); err != nil {
 		t.Fatal(err)
 	}
+	return plan
 }
 
-func testRun(runID, submit string, at time.Time) generated.Run {
-	return generated.Run{Schema: generated.SchemaIDRun, SchemaVersion: "1.0.0", RunID: runID, PlanID: "plan-run-test", PlanDigest: string(digestForText("plan")), AuthorizationDecisionID: "decision-run-test", AcknowledgementID: nil, PolicyVersion: "1.0.0", ExecutorMode: "central", ExecutorID: "executor-central", ExecutorBindingDigest: string(digestForText("executor-binding")), Status: "queued", Steps: []generated.RunStep{{Sequence: 1, OperationID: "operation-run-test", OperationType: "application.deploy.low-risk", AdapterID: "adapter-test", ExecutorID: "executor-central", TargetID: "target-run-test", InputDigest: string(digestForText("input")), ArtifactDigest: string(digestForText("artifact")), Idempotent: true, StepID: "step-" + runID, Status: "queued", EffectState: "not-started"}}, CancellationRequested: false, RollbackStatus: "not-requested", VerificationStatus: "pending", VerificationDigest: nil, Changed: false, StateRevision: 1, RecoveryEpoch: 0, CreatedAt: at.Format(time.RFC3339), UpdatedAt: at.Format(time.RFC3339), Extensions: []generated.ContractExtension{}}
+// Seal the actual fixture plan and readable bytes using the ordinary plan protocol.
+func sealRunFixturePlan(t *testing.T, plan generated.Plan, readable string) generated.Plan {
+	t.Helper()
+	plan.PlanID, plan.PlanDigest = "", ""
+	readableSum := sha256.Sum256([]byte(readable))
+	plan.ReadableDigest = "sha256:" + hex.EncodeToString(readableSum[:])
+	preimage, err := json.Marshal(plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	planSum := sha256.Sum256(preimage)
+	plan.PlanDigest = "sha256:" + hex.EncodeToString(planSum[:])
+	plan.PlanID = "plan-" + hex.EncodeToString(planSum[:16])
+	return plan
+}
+
+func testRun(plan generated.Plan, runID, submit string, at time.Time) generated.Run {
+	return generated.Run{Schema: generated.SchemaIDRun, SchemaVersion: "1.0.0", RunID: runID, PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, AuthorizationDecisionID: "decision-run-test", AcknowledgementID: nil, PolicyVersion: "1.0.0", ExecutorMode: "central", ExecutorID: "executor-central", ExecutorBindingDigest: string(digestForText("executor-binding")), Status: "queued", Steps: []generated.RunStep{{Sequence: 1, OperationID: "operation-run-test", OperationType: "application.deploy.low-risk", AdapterID: "adapter-test", ExecutorID: "executor-central", TargetID: "target-run-test", InputDigest: string(digestForText("input")), ArtifactDigest: string(digestForText("artifact")), Idempotent: true, StepID: "step-" + runID, Status: "queued", EffectState: "not-started"}}, CancellationRequested: false, RollbackStatus: "not-requested", VerificationStatus: "pending", VerificationDigest: nil, Changed: false, StateRevision: 1, RecoveryEpoch: 0, CreatedAt: at.Format(time.RFC3339), UpdatedAt: at.Format(time.RFC3339), Extensions: []generated.ContractExtension{}}
 }
 
 func testLease(run generated.Run, step generated.RunStep, at time.Time) generated.ExecutorLease {

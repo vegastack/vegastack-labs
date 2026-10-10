@@ -198,6 +198,13 @@ function classifyPath(file, selected, reasons) {
     }
     return null;
   }
+  // Phase 6 runner edits select their narrow Node tests through the existing
+  // tooling lane. Native execution and prior phase acceptance are explicit.
+  if (/^tooling\/(?:verify-phase-6(?:-exit)?\.mjs|phase-6-evidence\.json|lib\/phase-6-native-evidence\.mjs|(?:test|testdata)\/phase-6[/-])/.test(file)) {
+    selected.add("tooling");
+    reasons.add("phase6-acceptance-tooling");
+    return null;
+  }
   if (file.startsWith("tooling/")) {
     selected.add("tooling");
     reasons.add("tooling-source");

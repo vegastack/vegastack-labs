@@ -78,3 +78,27 @@ func TestAccessInputSemantics(t *testing.T) {
 		})
 	}
 }
+
+func TestAccessSessionRevocationRequiresDedicatedRetainedKey(t *testing.T) {
+	for _, kind := range []string{"valid", "comment", "foreign-key", "two-retained-keys", "automation-not-allowed"} {
+		t.Run(kind, func(t *testing.T) {
+			in := validInput(t)
+			in.RevokeAutomationSessionsRetainedPublicKey = in.Accounts[0].PublicKeys[0]
+			switch kind {
+			case "comment":
+				in.RevokeAutomationSessionsRetainedPublicKey += " retained-new-key"
+			case "foreign-key":
+				in.RevokeAutomationSessionsRetainedPublicKey = "not-a-key"
+			case "two-retained-keys":
+				in.Accounts[0].PublicKeys = append(in.Accounts[0].PublicKeys, in.Accounts[0].PublicKeys[0])
+				in.Accounts[0].PublicKeyDigests = append(in.Accounts[0].PublicKeyDigests, in.Accounts[0].PublicKeyDigests[0])
+			case "automation-not-allowed":
+				in.SSHUsers = nil
+			}
+			err := ValidateDesiredInput(in)
+			if (kind == "valid" || kind == "comment") != (err == nil) {
+				t.Fatalf("session revocation input %s: %v", kind, err)
+			}
+		})
+	}
+}

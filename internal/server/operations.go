@@ -364,7 +364,7 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 			}
 		}
 	}
-	gateRepository := store.NewGateRepository(authority)
+	gateRepository := nativeGateRepository(authority, operations.build)
 	roleComposition := hostRoleComposition{gates: gateRepository, render: roletransport.RenderLinuxRole, clock: time.Now}
 	runRepository.ConfigureHostRoles(gateRepository, roleComposition)
 	if err := api.RegisterGateOperations(application, api.GateOperations{Gates: gateRepository, Revisions: planRepository, Declarations: declarations, Results: factory, Build: operations.build, Clock: time.Now}); err != nil {
@@ -406,17 +406,17 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 	if err := api.RegisterHostAdoptionOperations(application, api.HostAdoptionOperations{Hosts: store.NewHostAdoptionRepository(authority), Declarations: declarations, Results: factory}); err != nil {
 		return err
 	}
-	if err := registerHostDiscovery(application, authority, adapters, declarations, factory, profile.SocketOwnerUID); err != nil {
+	if err := registerHostDiscovery(application, authority, adapters, declarations, factory, profile.SocketOwnerUID, gateRepository); err != nil {
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	if err := api.RegisterHostActionOperations(application, api.HostActionOperations{RolePreparer: roleComposition, BaselineRenderer: hostAccessComposition{}, Hosts: store.NewHostActionRepository(authority), Declarations: declarations, Credentials: credentialRepository, Results: factory}); err != nil {
+	if err := api.RegisterHostActionOperations(application, api.HostActionOperations{RecoveryReceivePreparer: NewRecoveryReceivePreparer(authority, gateRepository, operations.databasePath, profile.SocketOwnerUID, time.Now), RolePreparer: roleComposition, BaselineRenderer: hostAccessComposition{}, Hosts: store.NewHostActionRepository(authority), Declarations: declarations, Credentials: credentialRepository, Results: factory}); err != nil {
 		return err
 	}
 	if err := api.RegisterHostAccessOperations(application, api.HostAccessOperations{Hosts: store.NewHostActionRepository(authority), Declarations: declarations, Credentials: credentialRepository, Renderer: hostAccessComposition{}, Results: factory}); err != nil {
 		return err
 	}
-	hostActionCleanup, err := composeHostActions(ctx, profile, operations.databasePath, authority, adapters)
+	hostActionCleanup, err := composeHostActions(ctx, profile, operations.databasePath, authority, adapters, gateRepository)
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err
@@ -644,6 +644,12 @@ func (operations *Operations) openAuthorityWithPromotion(ctx context.Context, pr
 			_ = authority.Close()
 			return nil, err
 		}
+		return authority, nil
+	}
+	// A distinct-host replacement is staged here only for authenticated transfer.
+	// Restarting the source must never promote it onto the original machine.
+	// The replacement receiver independently verifies and cold-promotes its copy.
+	if pending.Binding.ReplacementContinuity != nil {
 		return authority, nil
 	}
 	if err := authority.Close(); err != nil {

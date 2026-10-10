@@ -501,6 +501,9 @@ export interface BrowserDeclarationRevision {
 export interface BrowserRecoveryPoint {
   readonly "schema": "vegastack-labs.dev/browser-recovery-point";
   readonly "schemaVersion": "1.0.0";
+  readonly "policyId"?: string;
+  readonly "repositoryId"?: string;
+  readonly "inventoryDigest"?: string;
   readonly "pointId": string;
   readonly "sourceKind": "fixture" | "local" | "independent";
   readonly "proofClass": "fixture" | "live";
@@ -696,6 +699,7 @@ export interface DatabaseStatusData {
 export interface DebianAccessInput {
   readonly "schema": "vegastack-labs.dev/debian-access-input";
   readonly "schemaVersion": "1.0.0";
+  readonly "revokeAutomationSessionsRetainedPublicKey"?: string;
   readonly "hostId": string;
   readonly "hostIdentityDigest": string;
   readonly "profileId": string;
@@ -847,6 +851,7 @@ export interface GateEvidenceBundle {
   readonly "attachments": ReadonlyArray<GateEvidenceAttachment>;
   readonly "collectorId": string;
   readonly "observedAt": string;
+  readonly "nativeQualification"?: NativeQualification | null;
 }
 
 export interface GateEvidenceCheck {
@@ -1397,6 +1402,9 @@ export interface LinuxRoleInput {
   readonly "expectedUnitDigest"?: string;
   readonly "expectedTmpfilesDigest"?: string;
   readonly "handoff"?: ControlHandoffInput | null;
+  readonly "controlLocalBackup"?: boolean;
+  readonly "controlPlainCredentials"?: ReadonlyArray<string>;
+  readonly "controlEncryptedCredentials"?: ReadonlyArray<string>;
 }
 
 export interface LinuxRoleResources {
@@ -1424,6 +1432,114 @@ export interface ManagedHost {
   readonly "status": "adopted-unadmitted";
   readonly "stateRevision": number;
   readonly "recoveryEpoch": number;
+}
+
+export interface NativeControllerIdentity {
+  readonly "schema": "vegastack-labs.dev/native-controller-identity";
+  readonly "schemaVersion": "1.0.0";
+  readonly "hostId": string;
+  readonly "hostIdentityDigest": string;
+  readonly "hostMachineId": string;
+  readonly "controllerInstanceId": string;
+  readonly "scopeDigest": string;
+  readonly "executableDigest": string;
+}
+
+export interface NativeHostObservation {
+  readonly "schema": "vegastack-labs.dev/native-host-observation";
+  readonly "schemaVersion": "1.0.0";
+  readonly "binding": NativeObservationBinding;
+  readonly "bootId": string;
+  readonly "qemuPid": number;
+  readonly "qemuStartTimeTicks": number;
+  readonly "executableDigest": string;
+  readonly "diskDigest": string;
+  readonly "firmwareDigest": string;
+  readonly "observedAt": string;
+  readonly "processState": "running" | "stopped";
+  readonly "consoleState": "healthy" | "unavailable";
+  readonly "channelDigest": string;
+}
+
+export interface NativeHostProof {
+  readonly "schema": "vegastack-labs.dev/native-host-proof";
+  readonly "schemaVersion": "1.0.0";
+  readonly "hostId": string;
+  readonly "hostIdentityDigest": string;
+  readonly "hostBindingDigest": string;
+  readonly "discoveryDigest": string;
+  readonly "controlsDigest": string;
+  readonly "recoveryAccessDigest": string;
+  readonly "scope": QualificationScope;
+  readonly "observation": NativeHostObservation;
+}
+
+export interface NativeObservationBinding {
+  readonly "schema": "vegastack-labs.dev/native-observation-binding";
+  readonly "schemaVersion": "1.0.0";
+  readonly "scopeDigest": string;
+  readonly "guestId": string;
+  readonly "scenarioId": "baseline-access" | "baseline-controls" | "access-idempotence" | "access-rollback-timeout" | "access-rollback-reboot" | "action-replay" | "action-concurrency" | "fail2ban-window" | "container-network" | "volume-effective-mapping" | "volume-recovery-positive" | "volume-wrong-key" | "volume-wrong-header" | "volume-wrong-slot" | "volume-wrong-mapping" | "volume-revoked-binding" | "volume-unchanged-after-verification" | "volume-inconsistent-redundant-header" | "volume-status-no-original-repair" | "volume-sealed-copy-write-refused" | "native-credential-lifecycle" | "control-setup" | "control-handoff" | "role-application" | "role-ci" | "role-reserve" | "replacement-recovery";
+  readonly "ordinal": number;
+  readonly "controllerInstanceId": string;
+  readonly "recoveryEpoch": number;
+  readonly "planId": string;
+  readonly "planDigest": string;
+  readonly "runId": string;
+  readonly "stepId": string;
+  readonly "leaseId": string;
+  readonly "nonce": string;
+  readonly "deadline": string;
+}
+
+export interface NativeProducerReference {
+  readonly "schema": "vegastack-labs.dev/native-producer-reference";
+  readonly "schemaVersion": "1.0.0";
+  readonly "scenarioId": "baseline-access" | "baseline-controls" | "access-idempotence" | "access-rollback-timeout" | "access-rollback-reboot" | "action-replay" | "action-concurrency" | "fail2ban-window" | "container-network" | "volume-effective-mapping" | "volume-recovery-positive" | "volume-wrong-key" | "volume-wrong-header" | "volume-wrong-slot" | "volume-wrong-mapping" | "volume-revoked-binding" | "volume-unchanged-after-verification" | "volume-inconsistent-redundant-header" | "volume-status-no-original-repair" | "volume-sealed-copy-write-refused" | "native-credential-lifecycle" | "control-setup" | "control-handoff" | "role-application" | "role-ci" | "role-reserve" | "replacement-recovery";
+  readonly "hostId": string;
+  readonly "planId": string;
+  readonly "planDigest": string;
+  readonly "runId": string;
+  readonly "stepId": string;
+  readonly "leaseId": string;
+}
+
+export interface NativeQualification {
+  readonly "schema": "vegastack-labs.dev/native-qualification";
+  readonly "schemaVersion": "1.0.0";
+  readonly "hostProof"?: NativeHostProof | null;
+  readonly "controllerIdentity"?: NativeControllerIdentity | null;
+  readonly "prerequisites"?: ReadonlyArray<NativeQualificationPrerequisite>;
+  readonly "stage": "baseline" | "role" | "recovery";
+  readonly "scopeDigest": string;
+  readonly "profileId": string;
+  readonly "profileLockDigest": string;
+  readonly "sourceCommit": string;
+  readonly "sourceDigest": string;
+  readonly "executableDigest": string;
+  readonly "controllerInstanceId": string;
+  readonly "recoveryEpoch": number;
+  readonly "observedAt": string;
+  readonly "expiresAt": string;
+  readonly "observerDigest": string;
+  readonly "producers": ReadonlyArray<NativeQualificationProducer>;
+}
+
+export interface NativeQualificationPrerequisite {
+  readonly "schema": "vegastack-labs.dev/native-qualification-prerequisite";
+  readonly "schemaVersion": "1.0.0";
+  readonly "stage": "baseline" | "role";
+  readonly "evidenceId": string;
+  readonly "bundleDigest": string;
+  readonly "artifactDigest": string;
+}
+
+export interface NativeQualificationProducer {
+  readonly "schema": "vegastack-labs.dev/native-qualification-producer";
+  readonly "schemaVersion": "1.0.0";
+  readonly "reference": NativeProducerReference;
+  readonly "hostIdentityDigest": string;
+  readonly "receiptDigest": string;
 }
 
 export interface NativeRestartPresentation {
@@ -1548,6 +1664,57 @@ export interface PlanReferenceRequest {
   readonly "recoveryEpoch": number;
   readonly "idempotencyKey": string;
   readonly "extensions": ReadonlyArray<ContractExtension>;
+}
+
+export interface QualificationGuest {
+  readonly "schema": "vegastack-labs.dev/qualification-guest";
+  readonly "schemaVersion": "1.0.0";
+  readonly "machineId"?: string;
+  readonly "guestId": string;
+  readonly "hostId": string;
+  readonly "hostIdentityDigest": string;
+  readonly "instanceId": string;
+  readonly "sshHostKeyDigest": string;
+  readonly "role": "controller" | "subject" | "custodian" | "replacement";
+  readonly "snapshotId": string;
+  readonly "diskDigest": string;
+  readonly "firmwareDigest": string;
+  readonly "cpus": number;
+  readonly "memoryBytes": number;
+  readonly "diskBytes": number;
+}
+
+export interface QualificationResources {
+  readonly "schema": "vegastack-labs.dev/qualification-resources";
+  readonly "schemaVersion": "1.0.0";
+  readonly "cpus": number;
+  readonly "memoryBytes": number;
+  readonly "storageBytes": number;
+}
+
+export interface QualificationScope {
+  readonly "schema": "vegastack-labs.dev/qualification-scope";
+  readonly "schemaVersion": "1.0.0";
+  readonly "runId": string;
+  readonly "purpose": "native-debian";
+  readonly "controllerInstanceId": string;
+  readonly "controlServiceUid": number;
+  readonly "controlServiceGid": number;
+  readonly "physicalHostId": string;
+  readonly "physicalHostBootId": string;
+  readonly "physicalHostIdentityDigest": string;
+  readonly "sourceCommit": string;
+  readonly "executableDigest": string;
+  readonly "imageDigest": string;
+  readonly "profileId": string;
+  readonly "profileLockDigest": string;
+  readonly "consoleReferenceDigest": string;
+  readonly "outputRoot": string;
+  readonly "maximumDurationSeconds": number;
+  readonly "issuedAt": string;
+  readonly "expiresAt": string;
+  readonly "resources": QualificationResources;
+  readonly "guests": ReadonlyArray<QualificationGuest>;
 }
 
 export interface RenderedAccess {
@@ -4378,6 +4545,30 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         ]
       },
       {
+        "name": "policyId",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "repositoryId",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "inventoryDigest",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
         "name": "pointId",
         "kind": "string",
         "required": true,
@@ -5622,6 +5813,15 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         ]
       },
       {
+        "name": "revokeAutomationSessionsRetainedPublicKey",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "minLength": 1,
+        "maxLength": 2048
+      },
+      {
         "name": "hostId",
         "kind": "string",
         "required": true,
@@ -6642,6 +6842,14 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      {
+        "name": "nativeQualification",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "omitEmpty": true,
+        "ref": "vegastack-labs.dev/native-qualification"
       }
     ]
   },
@@ -10146,6 +10354,33 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "nullable": true,
         "omitEmpty": true,
         "ref": "vegastack-labs.dev/control-handoff-input"
+      },
+      {
+        "name": "controlLocalBackup",
+        "kind": "boolean",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true
+      },
+      {
+        "name": "controlPlainCredentials",
+        "kind": "array",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "itemKind": "string",
+        "maxItems": 16,
+        "uniqueItems": true
+      },
+      {
+        "name": "controlEncryptedCredentials",
+        "kind": "array",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "itemKind": "string",
+        "maxItems": 16,
+        "uniqueItems": true
       }
     ]
   },
@@ -10317,6 +10552,740 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "minimum": 0
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/native-controller-identity",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/native-controller-identity"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "hostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "hostIdentityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "hostMachineId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9a-f]{32}$"
+      },
+      {
+        "name": "controllerInstanceId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "scopeDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "executableDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/native-host-observation",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/native-host-observation"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "binding",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/native-observation-binding"
+      },
+      {
+        "name": "bootId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "qemuPid",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "qemuStartTimeTicks",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "executableDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "diskDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "firmwareDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "observedAt",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      {
+        "name": "processState",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "running",
+          "stopped"
+        ]
+      },
+      {
+        "name": "consoleState",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "healthy",
+          "unavailable"
+        ]
+      },
+      {
+        "name": "channelDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/native-host-proof",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/native-host-proof"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "hostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "hostIdentityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "hostBindingDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "discoveryDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "controlsDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "recoveryAccessDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "scope",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/qualification-scope"
+      },
+      {
+        "name": "observation",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/native-host-observation"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/native-observation-binding",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/native-observation-binding"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "scopeDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "guestId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "scenarioId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "baseline-access",
+          "baseline-controls",
+          "access-idempotence",
+          "access-rollback-timeout",
+          "access-rollback-reboot",
+          "action-replay",
+          "action-concurrency",
+          "fail2ban-window",
+          "container-network",
+          "volume-effective-mapping",
+          "volume-recovery-positive",
+          "volume-wrong-key",
+          "volume-wrong-header",
+          "volume-wrong-slot",
+          "volume-wrong-mapping",
+          "volume-revoked-binding",
+          "volume-unchanged-after-verification",
+          "volume-inconsistent-redundant-header",
+          "volume-status-no-original-repair",
+          "volume-sealed-copy-write-refused",
+          "native-credential-lifecycle",
+          "control-setup",
+          "control-handoff",
+          "role-application",
+          "role-ci",
+          "role-reserve",
+          "replacement-recovery"
+        ]
+      },
+      {
+        "name": "ordinal",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "controllerInstanceId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "planId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "planDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "runId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "stepId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "leaseId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "nonce",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "deadline",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/native-producer-reference",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/native-producer-reference"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "scenarioId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "baseline-access",
+          "baseline-controls",
+          "access-idempotence",
+          "access-rollback-timeout",
+          "access-rollback-reboot",
+          "action-replay",
+          "action-concurrency",
+          "fail2ban-window",
+          "container-network",
+          "volume-effective-mapping",
+          "volume-recovery-positive",
+          "volume-wrong-key",
+          "volume-wrong-header",
+          "volume-wrong-slot",
+          "volume-wrong-mapping",
+          "volume-revoked-binding",
+          "volume-unchanged-after-verification",
+          "volume-inconsistent-redundant-header",
+          "volume-status-no-original-repair",
+          "volume-sealed-copy-write-refused",
+          "native-credential-lifecycle",
+          "control-setup",
+          "control-handoff",
+          "role-application",
+          "role-ci",
+          "role-reserve",
+          "replacement-recovery"
+        ]
+      },
+      {
+        "name": "hostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "planId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "planDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "runId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "stepId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "leaseId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/native-qualification",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/native-qualification"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "hostProof",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "omitEmpty": true,
+        "ref": "vegastack-labs.dev/native-host-proof"
+      },
+      {
+        "name": "controllerIdentity",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "omitEmpty": true,
+        "ref": "vegastack-labs.dev/native-controller-identity"
+      },
+      {
+        "name": "prerequisites",
+        "kind": "array",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "itemRef": "vegastack-labs.dev/native-qualification-prerequisite",
+        "maxItems": 2
+      },
+      {
+        "name": "stage",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "baseline",
+          "role",
+          "recovery"
+        ]
+      },
+      {
+        "name": "scopeDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "profileId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "profileLockDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "sourceCommit",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9a-f]{40}$"
+      },
+      {
+        "name": "sourceDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "executableDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "controllerInstanceId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "observedAt",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      {
+        "name": "expiresAt",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      {
+        "name": "observerDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "producers",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/native-qualification-producer",
+        "maxItems": 64
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/native-qualification-prerequisite",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/native-qualification-prerequisite"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "stage",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "baseline",
+          "role"
+        ]
+      },
+      {
+        "name": "evidenceId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "bundleDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "artifactDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/native-qualification-producer",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/native-qualification-producer"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "reference",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/native-producer-reference"
+      },
+      {
+        "name": "hostIdentityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "receiptDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
       }
     ]
   },
@@ -11103,6 +12072,338 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "nullable": false,
         "itemRef": "vegastack-labs.dev/contract-extension",
         "maxItems": 64
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/qualification-guest",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/qualification-guest"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "machineId",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "pattern": "^[0-9a-f]{32}$"
+      },
+      {
+        "name": "guestId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "hostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "hostIdentityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "instanceId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "sshHostKeyDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "role",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "controller",
+          "subject",
+          "custodian",
+          "replacement"
+        ]
+      },
+      {
+        "name": "snapshotId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "diskDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "firmwareDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "cpus",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "memoryBytes",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "diskBytes",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/qualification-resources",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/qualification-resources"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "cpus",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "memoryBytes",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "storageBytes",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/qualification-scope",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/qualification-scope"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "runId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "purpose",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "native-debian"
+        ]
+      },
+      {
+        "name": "controllerInstanceId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "controlServiceUid",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "controlServiceGid",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "physicalHostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "physicalHostBootId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+      },
+      {
+        "name": "physicalHostIdentityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "sourceCommit",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9a-f]{40}$"
+      },
+      {
+        "name": "executableDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "imageDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "profileId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "profileLockDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "consoleReferenceDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "outputRoot",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 512
+      },
+      {
+        "name": "maximumDurationSeconds",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1,
+        "maximum": 14400
+      },
+      {
+        "name": "issuedAt",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      {
+        "name": "expiresAt",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      {
+        "name": "resources",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/qualification-resources"
+      },
+      {
+        "name": "guests",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/qualification-guest",
+        "maxItems": 4
       }
     ]
   },
@@ -12147,6 +13448,38 @@ function decodeManagedHost(value: unknown): ManagedHost {
   return decodeSchema("vegastack-labs.dev/managed-host", value) as unknown as ManagedHost;
 }
 
+function decodeNativeControllerIdentity(value: unknown): NativeControllerIdentity {
+  return decodeSchema("vegastack-labs.dev/native-controller-identity", value) as unknown as NativeControllerIdentity;
+}
+
+function decodeNativeHostObservation(value: unknown): NativeHostObservation {
+  return decodeSchema("vegastack-labs.dev/native-host-observation", value) as unknown as NativeHostObservation;
+}
+
+function decodeNativeHostProof(value: unknown): NativeHostProof {
+  return decodeSchema("vegastack-labs.dev/native-host-proof", value) as unknown as NativeHostProof;
+}
+
+function decodeNativeObservationBinding(value: unknown): NativeObservationBinding {
+  return decodeSchema("vegastack-labs.dev/native-observation-binding", value) as unknown as NativeObservationBinding;
+}
+
+function decodeNativeProducerReference(value: unknown): NativeProducerReference {
+  return decodeSchema("vegastack-labs.dev/native-producer-reference", value) as unknown as NativeProducerReference;
+}
+
+function decodeNativeQualification(value: unknown): NativeQualification {
+  return decodeSchema("vegastack-labs.dev/native-qualification", value) as unknown as NativeQualification;
+}
+
+function decodeNativeQualificationPrerequisite(value: unknown): NativeQualificationPrerequisite {
+  return decodeSchema("vegastack-labs.dev/native-qualification-prerequisite", value) as unknown as NativeQualificationPrerequisite;
+}
+
+function decodeNativeQualificationProducer(value: unknown): NativeQualificationProducer {
+  return decodeSchema("vegastack-labs.dev/native-qualification-producer", value) as unknown as NativeQualificationProducer;
+}
+
 function decodeNativeRestartPresentation(value: unknown): NativeRestartPresentation {
   return decodeSchema("vegastack-labs.dev/native-restart-presentation", value) as unknown as NativeRestartPresentation;
 }
@@ -12181,6 +13514,18 @@ function decodePlanPresentation(value: unknown): PlanPresentation {
 
 function decodePlanReferenceRequest(value: unknown): PlanReferenceRequest {
   return decodeSchema("vegastack-labs.dev/plan-reference-request", value) as unknown as PlanReferenceRequest;
+}
+
+function decodeQualificationGuest(value: unknown): QualificationGuest {
+  return decodeSchema("vegastack-labs.dev/qualification-guest", value) as unknown as QualificationGuest;
+}
+
+function decodeQualificationResources(value: unknown): QualificationResources {
+  return decodeSchema("vegastack-labs.dev/qualification-resources", value) as unknown as QualificationResources;
+}
+
+function decodeQualificationScope(value: unknown): QualificationScope {
+  return decodeSchema("vegastack-labs.dev/qualification-scope", value) as unknown as QualificationScope;
 }
 
 function decodeRenderedAccess(value: unknown): RenderedAccess {

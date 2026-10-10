@@ -11,7 +11,7 @@ import (
 func TestLinuxRoleSourceSealRejectsDrift(t *testing.T) {
 	const module = "github.com/vegastack/vegastack-labs"
 	checked := 0
-	for key, seal := range linuxRoleSourceSeals {
+	for key, seal := range phase228SourceSeals {
 		relative, joined, _ := strings.Cut(key, "|")
 		if relative != "internal/linuxrole" {
 			continue
@@ -32,11 +32,11 @@ func TestLinuxRoleSourceSealRejectsDrift(t *testing.T) {
 		c.listed.ImportPath = module + "/" + relative
 		c.listed.GoFiles = names
 		c.listed.Imports = slices.Clone(seal.imports)
-		if !reviewedLinuxRolePackage(c, module, relative) {
+		if !reviewedPhase228Package(c, module, relative) {
 			t.Fatal("current finite source closure rejected")
 		}
 		c.listed.Imports = append(c.listed.Imports, "net/rpc")
-		if reviewedLinuxRolePackage(c, module, relative) {
+		if reviewedPhase228Package(c, module, relative) {
 			t.Fatal("widened imports accepted")
 		}
 		c.listed.Imports = slices.Clone(seal.imports)
@@ -47,7 +47,7 @@ func TestLinuxRoleSourceSealRejectsDrift(t *testing.T) {
 		}
 		_, _ = f.WriteString("\n// unreviewed source mutation\n")
 		_ = f.Close()
-		if reviewedLinuxRolePackage(c, module, relative) {
+		if reviewedPhase228Package(c, module, relative) {
 			t.Fatal("changed source accepted")
 		}
 		checked++

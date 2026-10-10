@@ -1,0 +1,132 @@
+{
+  "$id": "vegastack-labs.dev/native-slack-fixture-scope",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "appTokenDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "approveActionId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "botTokenDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "channelId": {
+      "pattern": "^[A-Z][A-Z0-9]{1,63}$",
+      "type": "string"
+    },
+    "controlServiceGid": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "controlServiceUid": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "executableDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "expiresAt": {
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": "string"
+    },
+    "guestInstanceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "hostIdentityDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "issuedAt": {
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": "string"
+    },
+    "rejectActionId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "runControlSetup": {
+      "type": "boolean"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/native-slack-fixture-scope"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "setupHostIdentityDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "setupPlanDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "setupPlanId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "setupRequestDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "sourceCommit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "type": "string"
+    },
+    "sshHostKeyDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "tlsCertificateDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "userId": {
+      "pattern": "^[A-Z][A-Z0-9]{1,63}$",
+      "type": "string"
+    },
+    "workspaceId": {
+      "pattern": "^[A-Z][A-Z0-9]{1,63}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "guestInstanceId",
+    "hostIdentityDigest",
+    "sshHostKeyDigest",
+    "setupHostIdentityDigest",
+    "sourceCommit",
+    "executableDigest",
+    "issuedAt",
+    "expiresAt",
+    "workspaceId",
+    "userId",
+    "channelId",
+    "approveActionId",
+    "rejectActionId",
+    "setupPlanId",
+    "setupPlanDigest",
+    "setupRequestDigest",
+    "appTokenDigest",
+    "botTokenDigest",
+    "tlsCertificateDigest"
+  ],
+  "title": "VegaStack Labs native slack fixture scope",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

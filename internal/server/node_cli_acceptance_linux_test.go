@@ -290,8 +290,9 @@ func runNodeCLIScenario(t *testing.T) {
 		plan := presentation.Plan
 		grant("plan.read", "plan", plan.PlanID, "read")
 		exec(`INSERT INTO read_grants VALUES('operator-a','plan.read','plan',?,1,'active','now','now')`, plan.PlanID)
+		exec(`INSERT OR IGNORE INTO read_grants VALUES('operator-a','host.read','host',?,1,'active','now','now')`, plan.HostAdoption.HostID)
 		for _, g := range []struct{ action, cap, kind string }{{"acknowledge", "plan.acknowledge", "plan-target"}, {"execute", "host.adopt", "execution-target"}} {
-			exec(`INSERT INTO effective_authorization_grants VALUES(?,'operator-a','control-plane-admin',?,?,?,?,'human',1,'active','now','now')`, g.action+"-"+draft.DraftID, g.action, g.cap, g.kind, draft.DraftID)
+			exec(`INSERT INTO effective_authorization_grants VALUES(?,'operator-a','control-plane-admin',?,?,?,?,'human',1,'active','now','now')`, g.action+"-"+draft.DraftID, g.action, g.cap, g.kind, plan.HostAdoption.HostID)
 		}
 		human := identity.Principal{ID: "operator-a", Method: identity.SlackSocketModeMethod, Kind: identity.PrincipalHuman}
 		card, err := acknowledger.Request(ctx, acknowledgement.Scope{Human: human, AuthorityID: "fixture-authority", Nonce: "fixture-nonce-" + plan.PlanID}, plan.PlanID)

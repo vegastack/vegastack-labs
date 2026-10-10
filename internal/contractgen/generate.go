@@ -653,6 +653,11 @@ func renderGoGateDefinitions(definitions []metadata.GateDefinitionSource) ([]byt
 		fmt.Fprintf(&output, "{ControlID:%q,ProducerID:%q,ProducerControlIDs:%s,Stage:%q,Roles:%s,Applicability:%q},\n", r.ControlID, r.ProducerID, stringSlice(r.ProducerControlIDs), r.Stage, stringSlice(r.Roles), r.Applicability)
 	}
 	output.WriteString("}\n")
+	output.WriteString("func NativeQualificationScenarios(stage string) []string { switch stage {\n")
+	for _, stage := range []string{"baseline", "role", "recovery"} {
+		fmt.Fprintf(&output, "case %q: return %s\n", stage, stringSlice(metadata.NativeQualificationScenarios(stage)))
+	}
+	output.WriteString("}; return nil }\n")
 	formatted, err := format.Source(output.Bytes())
 	if err != nil {
 		return nil, artifactError("GENERATED_GO_INVALID", "internal/generated/gate_definitions_gen.go")

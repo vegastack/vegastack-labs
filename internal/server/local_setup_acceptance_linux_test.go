@@ -20,6 +20,7 @@ import (
 
 	"github.com/vegastack/vegastack-labs/internal/acknowledgement"
 	"github.com/vegastack/vegastack-labs/internal/adapters/slack"
+	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/identity"
 	"github.com/vegastack/vegastack-labs/internal/result"
@@ -203,6 +204,18 @@ func (f *setupAcceptance) ready(done <-chan error, want int) {
 			if code != want {
 				f.t.Fatalf("status %d want%d: %s", code, want, body)
 			}
+			if want == http.StatusOK {
+				// The database route is available before the service's initial
+				// health check finishes. Wait for ready before cancelling it.
+				status, raw, healthErr := f.call("GET", "/api/v1/health", nil)
+				var envelope struct {
+					Data generated.ServerStatusData `json:"data"`
+				}
+				if healthErr != nil || status != http.StatusOK || json.Unmarshal(raw, &envelope) != nil || envelope.Data.State != string(StateReady) {
+					time.Sleep(10 * time.Millisecond)
+					continue
+				}
+			}
 			return
 		}
 		time.Sleep(10 * time.Millisecond)
@@ -214,7 +227,7 @@ func (f *setupAcceptance) stop(cancel context.CancelFunc, done <-chan error) {
 	cancel()
 	select {
 	case err := <-done:
-		if err != nil {
+		if stable, ok := failure.As(err); err != nil && (!ok || stable.Code != generated.ErrorCodeInterrupted) {
 			f.t.Fatalf("server stop: %v", err)
 		}
 	case <-time.After(8 * time.Second):
@@ -275,9 +288,10 @@ func TestLocalSetupFirstStartAndRestart(t *testing.T) {
 	if err := json.Unmarshal(body, &submitted); err != nil {
 		t.Fatal(err)
 	}
-	request.ExpectedStateRevision = submitted.Data.StateRevision
-	request.BindingID = "unapproved"
-	code, _, _ = f.call("POST", "/api/v1/gates/profile-drafts", request)
+	// Profile-draft authoring is an explicitly declared capability. Test a
+	// different declaration.author target rather than an unscoped binding ID.
+	undeclared := generated.DeclarationRevisionRequest{Schema: generated.SchemaIDDeclarationRevisionRequest, SchemaVersion: "1.0.0", DeclarationID: "gate-profile-unapproved", DeclarationType: "gate.profile", ExpectedRevision: 1, ExpectedStateRevision: submitted.Data.StateRevision, RecoveryEpoch: request.RecoveryEpoch, ReasonDigest: digest, Extensions: []generated.ContractExtension{}, Operations: []generated.DeclarationOperation{{Sequence: 1, OperationID: "unapproved", OperationType: "gate.profile.activate", AdapterID: "core.gate", TargetID: "profile-unapproved", InputDigest: digest, ArtifactDigest: digest, Idempotent: true}}}
+	code, _, _ = f.call("POST", "/api/v1/declarations/gate-profile-unapproved/revisions", undeclared)
 	if code != http.StatusForbidden {
 		t.Fatalf("undeclared scope status %d", code)
 	}

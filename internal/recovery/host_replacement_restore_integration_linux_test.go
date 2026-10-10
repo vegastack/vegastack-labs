@@ -26,7 +26,14 @@ import (
 // External checkpoint, backup, and former-writer capabilities are synthetic in
 // this software acceptance. SQLite, ownership transfer, candidate files, startup
 // promotion, exact no-op execution, and authority enabling use production code.
-func TestReplacementSnapshotPromotionAndCanary(t *testing.T) {
+func TestReplacementSnapshotPromotionAndCanary(t *testing.T) { testReplacementPromotion(t, false) }
+func TestReplacementColdReceiverPromotionAndCanary(t *testing.T) {
+	if os.Geteuid() == 0 || os.Getegid() == 0 {
+		t.Skip("cold receiver requires actual non-root service identity")
+	}
+	testReplacementPromotion(t, true)
+}
+func testReplacementPromotion(t *testing.T, crossGuest bool) {
 	principal := identity.Principal{ID: "restore-human", Method: identity.LocalOSPeerMethod}
 	ctx := identity.WithVerifiedPrincipal(context.Background(), principal)
 	dir := t.TempDir()
@@ -34,7 +41,7 @@ func TestReplacementSnapshotPromotionAndCanary(t *testing.T) {
 		t.Fatal(err)
 	}
 	path := filepath.Join(dir, "control.db")
-	now := time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC)
+	now := time.Now().UTC().Truncate(time.Second)
 	clock := func() time.Time { return now }
 	config := func(path string, mode store.OpenMode) store.Config {
 		return store.Config{DatabasePath: path, Mode: mode, BusyTimeout: time.Second, ExpectedUID: uint32(os.Geteuid()), ToolVersion: "test", BuildVersion: "test", Clock: clock}
@@ -57,7 +64,12 @@ func TestReplacementSnapshotPromotionAndCanary(t *testing.T) {
 	rawDB := replacementRestoreDB(t, path)
 	replacementRestoreExec(t, rawDB, `CREATE TABLE replacement_restore_marker(value TEXT NOT NULL) STRICT`)
 	replacementRestoreExec(t, rawDB, `INSERT INTO replacement_restore_marker VALUES('backed-up-marker')`)
-	q := seedReplacementRestoreHosts(t, rawDB, binding.Source)
+	var q generated.HostReplacementRequest
+	if crossGuest {
+		q = seedReplacementRestoreHosts(t, rawDB, binding.Source, int64(os.Geteuid()), int64(os.Getegid()))
+	} else {
+		q = seedReplacementRestoreHosts(t, rawDB, binding.Source)
+	}
 	binding.FormerHostID = q.OldHostID
 	binding.ReplacementHostID = q.NewHostID
 	binding.RecoveryDraftID = q.Source.CustodyReferenceID
@@ -149,10 +161,8 @@ func TestReplacementSnapshotPromotionAndCanary(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rawDB = replacementRestoreDB(t, path)
-	replacementRestoreExec(t, rawDB, `INSERT INTO acknowledgement_requests(acknowledgement_id,plan_id,plan_digest,target_digest,reason_digest,human_id,authority_id,nonce_digest,state_revision,recovery_epoch,expires_at,status,request_bytes,pending_bytes,created_at,decided_at,consumed_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,'approved',?,?,?, ?,NULL)`, "restore-ack", binding.PlanID, binding.PlanDigest, binding.TargetDigest, storedPlan.Plan.Binding.ReasonDigest, principal.ID, "simulated-slack", hostaction.Digest("nonce"), storedPlan.Plan.Binding.StateRevision, binding.PriorRecoveryEpoch, storedPlan.Plan.ExpiresAt, []byte(`{}`), []byte(`{}`), storedPlan.Plan.CreatedAt, storedPlan.Plan.CreatedAt)
-	_ = rawDB.Close()
-	binding.HumanAcknowledgementID = "restore-ack"
+	approved := approveTransferPlan(t, ctx, authority, path, storedPlan.Plan, clock)
+	binding.HumanAcknowledgementID = approved.AcknowledgementID
 	expected := store.RevisionToken{StateRevision: storedPlan.Plan.Binding.StateRevision, RecoveryEpoch: binding.PriorRecoveryEpoch}
 	sessions := StoreRestoreSessions{Repository: restores}
 	if err := sessions.CreateRestoreSession(ctx, binding, expected); err != nil {
@@ -174,13 +184,64 @@ func TestReplacementSnapshotPromotionAndCanary(t *testing.T) {
 	if receipt.BundleDigest == "" {
 		t.Fatal("candidate omitted authority bundle")
 	}
-	if err := authority.Close(); err != nil {
-		t.Fatal(err)
+	if crossGuest {
+		db := replacementRestoreDB(t, path)
+		var requestBytes []byte
+		if e := db.QueryRow(`SELECT canonical_bytes FROM host_action_drafts WHERE draft_id=?`, q.ProposedRoleDeclarationID).Scan(&requestBytes); e != nil {
+			t.Fatal(e)
+		}
+		db.Close()
+		var action generated.HostActionRequest
+		var role generated.LinuxRoleInput
+		if json.Unmarshal(requestBytes, &action) != nil || json.Unmarshal([]byte(action.ActionInput), &role) != nil {
+			t.Fatal("stored role input")
+		}
+		descriptor := CandidateTransferDescriptor{Binding: binding, Replacement: q, RoleInput: role, ServiceUID: int64(os.Geteuid()), ServiceGID: int64(os.Getegid()), DestinationIdentityKind: "product-serial", DatabaseDigest: sourceDigest, JournalDigest: receipt.JournalDigest, BundleDigest: receipt.BundleDigest}
+		transfer, e := OpenCandidateTransfer(ctx, path, uint32(os.Geteuid()), descriptor)
+		if e != nil {
+			t.Fatalf("export: %v", e)
+		}
+		defer transfer.Close()
+		destination := filepath.Join(t.TempDir(), "control.db")
+		if e = os.Chmod(filepath.Dir(destination), 0700); e != nil {
+			t.Fatal(e)
+		}
+		receiver := CandidateTransferReceiver{DatabasePath: destination, ExpectedUID: uint32(os.Geteuid()), Authority: StoreCandidateAuthority{Open: opener}, Bundles: bundles, Destination: replacementColdDestinationFixture{}}
+		promotedReceipt, e := receiver.Receive(ctx, transfer.Descriptor, transfer.Candidate, transfer.Journal)
+		if e != nil {
+			t.Fatalf("cold receive: %v", e)
+		}
+		if promotedReceipt.FormerPreserved || promotedReceipt.InstanceID != binding.NewInstanceID {
+			t.Fatalf("cold receipt: %+v", promotedReceipt)
+		}
+		original, e := authority.CurrentAuthority(ctx)
+		if e != nil || original.InstanceID != binding.PriorInstanceID || original.RecoveryEpoch != binding.PriorRecoveryEpoch {
+			t.Fatalf("source authority modified: %+v %v", original, e)
+		}
+		sourceDB := replacementRestoreDB(t, path)
+		var marker string
+		if e = sourceDB.QueryRow(`SELECT value FROM replacement_restore_marker`).Scan(&marker); e != nil || marker != "newer-live-marker" {
+			t.Fatalf("source data: %q %v", marker, e)
+		}
+		sourceDB.Close()
+		coldPaths, _ := DeriveCandidatePaths(destination, binding.PlanID)
+		if _, e = os.Lstat(coldPaths.PreservedAuthority); !os.IsNotExist(e) {
+			t.Fatal("invented former database on destination")
+		}
+		if _, e = receiver.Receive(ctx, transfer.Descriptor, transfer.Candidate, transfer.Journal); e == nil {
+			t.Fatal("existing destination overwritten")
+		}
+		path = destination
+	} else {
+		if err := authority.Close(); err != nil {
+			t.Fatal(err)
+		}
+		_, err = manager.PromoteAtStartup(ctx, StartupExpectation{Binding: binding, DatabaseDigest: sourceDigest, JournalDigest: receipt.JournalDigest, BundleDigest: receipt.BundleDigest})
+		if err != nil {
+			t.Fatalf("promote: %v", err)
+		}
 	}
-	_, err = manager.PromoteAtStartup(ctx, StartupExpectation{Binding: binding, DatabaseDigest: sourceDigest, JournalDigest: receipt.JournalDigest, BundleDigest: receipt.BundleDigest})
-	if err != nil {
-		t.Fatalf("promote: %v", err)
-	}
+
 	promoted, err := opener(ctx, path)
 	if err != nil {
 		t.Fatal(err)
@@ -305,4 +366,12 @@ func (s replacementRestoreSnapshot) InspectHostAliasWatermark(ctx context.Contex
 	var n int64
 	err = db.QueryRowContext(ctx, `SELECT COALESCE(MAX(event_ordinal),0) FROM host_alias_history`).Scan(&n)
 	return n, err
+}
+
+// Only physical destination inspection is synthetic in the cold receiver test;
+// candidate authority, recovered bundle, journal and canary are production paths.
+type replacementColdDestinationFixture struct{}
+
+func (replacementColdDestinationFixture) VerifyCandidateTransferDestination(context.Context, CandidateTransferDescriptor) error {
+	return nil
 }

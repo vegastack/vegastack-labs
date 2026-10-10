@@ -1,0 +1,71 @@
+{
+  "$id": "vegastack-labs.dev/native-volume-seal-witness",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "copyAfterDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "copyBeforeDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "headerAfterDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "headerBeforeDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "observedAt": {
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "type": "string"
+    },
+    "reopenWriteErrno": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "resizeErrno": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/native-volume-seal-witness"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "seals": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "writeErrno": {
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "headerBeforeDigest",
+    "headerAfterDigest",
+    "copyBeforeDigest",
+    "copyAfterDigest",
+    "seals",
+    "writeErrno",
+    "resizeErrno",
+    "reopenWriteErrno",
+    "observedAt"
+  ],
+  "title": "VegaStack Labs native volume seal witness",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

@@ -149,3 +149,14 @@ Generated-client and browser fixtures verify the software boundary, not actual h
 Issue #247 adds bounded approved grant batches and stored resource owner resolution needed by a fresh Linux setup. It reuses the current executable, API, desired/effective/read grant tables, plan/Slack acknowledgement and run engine. It adds no service, database table, signer or trust registry. See [approved resource grants](../../platform-lifecycle.md#approved-resource-grants--10-10-2026).
 
 The remaining Linux sequence is #247 authorization completion, #228 actual native Debian qualification, then #234 integrated Linux acceptance. Source and synthetic Linux checks do not pass native qualification. Mac/iMac and full-v1 acceptance remain pending; nodes04/05 remain excluded and no code merge grants deployment authority.
+### Native qualification and distinct receiver integration — 10-10-2026
+
+Issues #230, #233 and #239 are merged. Issue #228 is implementing the finite native driver and real recovery integration; no full native result or teardown acceptance is recorded yet. Its [native procedure](../phase-6-native-qualification.md) distinguishes Linux software checks, virtual native evidence, physical facts and live deployment authority.
+
+The distinct replacement receives the exact staged candidate through an approved existing host-action plan. A root launcher measures identity and protected state; a bounded child under the control UID performs SQLite work. Existing destination data causes refusal. The source becomes read-only through its existing authority mode and retains its complete database; ordinary fencing and the recovery canary still govern successor authority. Source restart does not locally promote a candidate belonging to another machine. Incomplete finalization after source suspension remains visible.
+
+The native collector requires actual current producer receipts and fresh observations. Baseline, role and recovery drafts use the ordinary applied gate path. A diagnostic report or synthetic transport fixture is not admission evidence. Recovered controller routing preserves the original approved scope and expiry; physical kernel boot identity and prepared per-guest machine identity are measured bindings, not new authority. #234 remains pending until the required integrated evidence exists.
+
+## Integrated acceptance command (10-10-2026)
+
+Issue [#234](https://github.com/vegastack/vegastack-labs/issues/234) adds the finite `pnpm check:phase-6` software catalog and `pnpm check:phase-6-exit --scope linux|full` report. See the [acceptance procedure](../phase-6-acceptance.md). Existing software fixtures are reused; native #228 authority comes only from the current applied baseline/role/recovery gates and their exact immutable execution bindings. Missing native authority remains pending. Linux completion does not close the deferred Mac/iMac obligations, full Phase 6, Phase 11 or any fleet activation gate.

@@ -121,3 +121,56 @@ func TestAccessSequenceRequiresExactCompleteWorkflow(t *testing.T) {
 		})
 	}
 }
+
+func TestAccessSessionRevocationCarriesExactApplyIntent(t *testing.T) {
+	_, requests := accessSequenceFixture(t)
+	var input generated.DebianAccessInput
+	if err := json.Unmarshal([]byte(requests[0].ActionInput), &input); err != nil {
+		t.Fatal(err)
+	}
+	input.RevokeAutomationSessionsRetainedPublicKey = input.Accounts[0].PublicKeys[0]
+	draft := generated.HostAccessDraftRequest{Schema: generated.SchemaIDHostAccessDraftRequest, SchemaVersion: "1.0.0", Subject: requests[0], Input: input}
+	for _, request := range requests[1 : len(requests)-1] {
+		kind := "collect"
+		if request.ActionID == "debian.access.probe.local" {
+			kind = "local-probe"
+		}
+		if request.ActionID == "debian.access.probe-source" {
+			kind = "source-probe"
+		}
+		draft.Probes = append(draft.Probes, generated.HostAccessProbeRequest{Schema: generated.SchemaIDHostAccessProbeRequest, SchemaVersion: "1.0.0", Kind: kind, Request: request})
+	}
+	compiled, err := BuildDraft(draft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	last := len(compiled.Requests) - 1
+	var confirmation generated.AccessConfirmInput
+	json.Unmarshal([]byte(compiled.Requests[last].ActionInput), &confirmation)
+	if confirmation.AutomationUID != input.AutomationUID || confirmation.RevokeAutomationSessionsRetainedPublicKey != input.RevokeAutomationSessionsRetainedPublicKey {
+		t.Fatal("draft dropped explicit key/UID intent")
+	}
+	for _, mutation := range []string{"missing-key", "missing-uid", "human-uid", "different-key"} {
+		t.Run(mutation, func(t *testing.T) {
+			changed := confirmation
+			switch mutation {
+			case "missing-key":
+				changed.RevokeAutomationSessionsRetainedPublicKey = ""
+			case "missing-uid":
+				changed.AutomationUID = 0
+			case "human-uid":
+				changed.AutomationUID++
+			case "different-key":
+				changed.RevokeAutomationSessionsRetainedPublicKey += " changed-intent"
+			}
+			ops := append([]generated.PlanOperation(nil), compiled.Operations...)
+			reqs := append([]generated.HostActionRequest(nil), compiled.Requests...)
+			raw, _ := json.Marshal(changed)
+			reqs[last].ActionInput, reqs[last].ActionInputDigest = string(raw), hostaction.BytesDigest(raw)
+			ops[last].ArtifactDigest = hostaction.Digest(reqs[last])
+			if _, err := Sequence(ops, reqs); err == nil {
+				t.Fatal("changed explicit revocation intent accepted")
+			}
+		})
+	}
+}

@@ -202,6 +202,8 @@ func lifecycleAdoptedFixtureWithGrants(t *testing.T, at *time.Time, transport li
 			grant(fmt.Sprintf("execute-%s-%d", id, i), "execute", p.Operations[0].OperationType, "execution-target", target, "human")
 			grant(fmt.Sprintf("ack-%s-%d", id, i), "acknowledge", "plan.acknowledge", "plan-target", target, "human")
 		}
+		// The real Slack decoder timestamps its decision from the wall clock.
+		*at = time.Now().UTC().Truncate(time.Second)
 		var approval generated.ApprovalStatus
 		post("/api/v1/plans/"+p.PlanID+"/approval-request", generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: p.PlanID, PlanDigest: p.PlanDigest, RecoveryEpoch: p.Binding.RecoveryEpoch, IdempotencyKey: "approve-" + id, Extensions: []generated.ContractExtension{}}, &approval)
 		var presentationRun generated.RunPresentation

@@ -1,11 +1,27 @@
 package debianbaseline
 
 import (
+	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"math"
 	"strconv"
 	"strings"
 )
+
+// VolumeRecoveryRotationMatches allows only the normal new policy/declaration
+// and its separately recorded mapping receipt. It grants no evidence authority;
+// producer resolution and each execution still verify their own stored joins.
+func VolumeRecoveryRotationMatches(current, prior generated.VolumeRecoveryInput) bool {
+	if current.RecoveryReferenceID != prior.RecoveryReferenceID || current.RecoveryMaterialVersion == prior.RecoveryMaterialVersion || current.Binding.RecoveryReferenceDigest == prior.Binding.RecoveryReferenceDigest ||
+		current.Binding.DeclarationID != prior.Binding.DeclarationID || current.Binding.DeclarationRevision <= prior.Binding.DeclarationRevision || current.PriorVolumeReceiptDigest == prior.PriorVolumeReceiptDigest {
+		return false
+	}
+	current.RecoveryMaterialVersion, prior.RecoveryMaterialVersion = "", ""
+	current.Binding.RecoveryReferenceDigest, prior.Binding.RecoveryReferenceDigest = "", ""
+	current.Binding.DeclarationRevision, prior.Binding.DeclarationRevision = 0, 0
+	current.PriorVolumeReceiptDigest, prior.PriorVolumeReceiptDigest = "", ""
+	return hostaction.Digest(current) == hostaction.Digest(prior)
+}
 
 type volumeMount struct{ ID, Parent, Device, Root, Path, Options, FSType, Source string }
 

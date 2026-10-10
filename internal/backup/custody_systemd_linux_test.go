@@ -12,6 +12,26 @@ import (
 	"time"
 )
 
+func TestCustodySudoAggregateWithExistingNativeHelpers(t *testing.T) {
+	listing := "Matching Defaults entries for vsk-labs on host:\n    env_reset\n\nUser vsk-labs may run the following commands on host:\n" +
+		"    (root) NOPASSWD: /usr/local/bin/vsk-labs __native-credential-access-probe\n" +
+		"    (root) NOPASSWD: /usr/local/bin/vsk-labs __native-credential-policy-check\n" +
+		"    (root) NOPASSWD: /usr/local/bin/vsk-labs __backup-custody-policy-check\n"
+	if !exactCustodySudoAggregate([]byte(listing), "/usr/local/bin/vsk-labs") {
+		t.Fatal("shared control helpers rejected")
+	}
+	for _, changed := range []string{
+		listing + "    (root) NOPASSWD: /usr/bin/true\n",
+		strings.ReplaceAll(listing, "__native-credential-access-probe", "__native-credential-access-probe extra"),
+		strings.ReplaceAll(listing, "__native-credential-policy-check", "__backup-custody-supervisor"),
+		strings.ReplaceAll(listing, "User vsk-labs ", "User vsk-controller "),
+	} {
+		if exactCustodySudoAggregate([]byte(changed), "/usr/local/bin/vsk-labs") {
+			t.Fatal("widened custody sudo surface accepted")
+		}
+	}
+}
+
 func TestEffectiveCustodyStartPolicyRequiresExactNarrowGrant(t *testing.T) {
 	unit := "vsk-labs-backup-custody@0123456789abcdef0123456789abcdef.service"
 	subject := "123,456,21164"

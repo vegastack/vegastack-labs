@@ -1051,6 +1051,10 @@ func browserType(field metadata.FieldDefinition) string {
 // These exact discovery plan fields carry references and a public fingerprint,
 // never private key bytes. Other credential-shaped browser fields remain denied.
 func discoveryPublicPlanField(schemaID, name string) bool {
+	// These finite arrays carry only service credential file names, never bytes.
+	if schemaID == "vegastack-labs.dev/linux-role-input" {
+		return name == "controlPlainCredentials" || name == "controlEncryptedCredentials"
+	}
 	if schemaID == "vegastack-labs.dev/host-action-request" {
 		return name == "credentialReferenceId" || name == "credentialMaterialVersion"
 	}

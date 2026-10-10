@@ -19,8 +19,8 @@ type witnessCollectionInput struct {
 	Binding recovery.WitnessBinding `json:"binding"`
 }
 
-// This command is a finite custodian operation. A production adapter registry
-// is deliberately absent until each direct-denial boundary is qualified.
+// This command is a finite custodian operation. Its ordinary probes require
+// the installed, current qualification for every exact denial boundary.
 func (app *App) runRecoveryWitnessCollect(ctx context.Context, mode outputMode, parsed parsedArguments) int {
 	const command = generated.CommandNameRecoveryWitnessCollect
 	if runtime.GOOS != "linux" || mode != outputJSON || app.files == nil || app.witnessPinLoader == nil {
@@ -45,6 +45,16 @@ func (app *App) runRecoveryWitnessCollect(ctx context.Context, mode outputMode, 
 	if err != nil {
 		return app.fail(mode, command, generated.ErrorCodePrerequisiteBlocked, "recovery-witness", generated.RunStatusBlocked, false)
 	}
+	adapters := app.witnessAdapters
+	if adapters == nil {
+		if app.witnessAdapterLoader == nil {
+			return app.fail(mode, command, generated.ErrorCodePrerequisiteBlocked, "recovery-witness", generated.RunStatusBlocked, false)
+		}
+		adapters, err = app.witnessAdapterLoader(ctx, pin, input.Binding, time.Now().UTC())
+		if err != nil {
+			return app.fail(mode, command, generated.ErrorCodePrerequisiteBlocked, "recovery-witness", generated.RunStatusBlocked, false)
+		}
+	}
 	key, err := openCredentialDescriptor(keyFD)
 	if err != nil {
 		return app.fail(mode, command, generated.ErrorCodePrerequisiteBlocked, "recovery-witness", generated.RunStatusBlocked, false)
@@ -55,7 +65,7 @@ func (app *App) runRecoveryWitnessCollect(ctx context.Context, mode outputMode, 
 		return app.fail(mode, command, generated.ErrorCodePrerequisiteBlocked, "recovery-witness", generated.RunStatusBlocked, false)
 	}
 	signed, envelope, err := recovery.CollectWitness(ctx, recovery.CollectRequest{
-		Pin: pin, Binding: input.Binding, Required: pin.Requirements, Adapters: app.witnessAdapters,
+		Pin: pin, Binding: input.Binding, Required: pin.Requirements, Adapters: adapters,
 		SigningKey: key, Material: material, Now: time.Now,
 	})
 	if err != nil {

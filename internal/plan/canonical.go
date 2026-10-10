@@ -118,6 +118,9 @@ func readablePlan(plan generated.Plan) string {
 		fmt.Fprintf(&body, "Finite Debian access sequence and all contacted targets: %s\nApply keeps a 600-second local rollback armed until fresh independent probes and exact confirm succeed. All named subject/source/witness identities are included in this acknowledgement.\n", raw)
 	}
 	if plan.HostAction != nil {
+		if plan.HostAction.ActionID == "debian.control.recovery-receive" {
+			body.WriteString("Control recovery transfer: this approved action suspends the former controller's mutation authority, preserves its database, and sends only the exact staged candidate and journal to the named cold replacement. The receiver remains recovery-required; verification, canary and former-host fencing are required before authority is enabled. Alias ownership is unchanged until a separately approved replacement commit.\n")
+		}
 		raw, _, _ := stateexport.CanonicalJSON(plan.HostAction)
 		fmt.Fprintf(&body, "Exact privileged host action and current console confirmation: %s\nAdministrator attestation: I independently verified this machine, pinned key and available console recovery access. This approves only the displayed action, not host admission.\n", raw)
 	}

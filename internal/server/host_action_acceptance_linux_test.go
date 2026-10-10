@@ -63,6 +63,7 @@ type hostActionEnrollmentFixture struct {
 	DB                  *sql.DB
 	Clock               func() time.Time
 	AdvanceClock        func(time.Duration)
+	UseWallClock        func()
 	Declarations        *change.Service
 	App                 *api.Application
 	Results             *result.Factory
@@ -84,7 +85,13 @@ func hostActionAcceptance(t *testing.T, actionMode string, options ...hostAction
 	ctx := identity.WithVerifiedPrincipal(context.Background(), principal)
 	captureStart := time.Now().UTC().Truncate(time.Second)
 	fixtureNow := captureStart
-	clock := func() time.Time { return fixtureNow }
+	wallClock := false
+	clock := func() time.Time {
+		if wallClock {
+			return time.Now()
+		}
+		return fixtureNow
+	}
 	directory := t.TempDir()
 	if err := os.Chmod(directory, 0700); err != nil {
 		t.Fatal(err)
@@ -245,7 +252,7 @@ func hostActionAcceptance(t *testing.T, actionMode string, options ...hostAction
 	}
 	plan := created.Plan
 	for _, g := range []struct{ action, cap, kind string }{{"acknowledge", "plan.acknowledge", "plan-target"}, {"execute", "host.adopt", "execution-target"}} {
-		exec(`INSERT INTO effective_authorization_grants VALUES(?,'operator-a','control-plane-admin',?,?,?,?,'human',1,'active','now','now')`, g.action+"-host", g.action, g.cap, g.kind, draft.DraftID)
+		exec(`INSERT INTO effective_authorization_grants VALUES(?,'operator-a','control-plane-admin',?,?,?,?,'human',1,'active','now','now')`, g.action+"-host", g.action, g.cap, g.kind, plan.HostAdoption.HostID)
 	}
 	if !strings.Contains(created.Readable, "Administrator attestation") || plan.HostAdoption == nil {
 		t.Fatal("missing informed confirmation")
@@ -269,7 +276,7 @@ func hostActionAcceptance(t *testing.T, actionMode string, options ...hostAction
 		t.Fatal(err)
 	}
 	branch := "human"
-	decision := generated.AuthorizationDecision{Schema: generated.SchemaIDAuthorizationDecision, SchemaVersion: "1.0.0", DecisionID: "decision-discovery", PrincipalID: human.ID, Action: "execute", TargetID: plan.Operations[0].TargetID, Allowed: true, Branch: &branch, ReasonCode: authorization.ReasonAllowed, GrantRevision: 1, PlanDigest: plan.PlanDigest, DecidedAt: time.Now().UTC().Truncate(time.Second).Format(time.RFC3339), Extensions: []generated.ContractExtension{}}
+	decision := generated.AuthorizationDecision{Schema: generated.SchemaIDAuthorizationDecision, SchemaVersion: "1.0.0", DecisionID: "decision-discovery", PrincipalID: human.ID, Action: "execute", TargetID: authorization.ExecutionResourceIDs(plan, plan.Operations[0])[0], Allowed: true, Branch: &branch, ReasonCode: authorization.ReasonAllowed, GrantRevision: 1, PlanDigest: plan.PlanDigest, DecidedAt: time.Now().UTC().Truncate(time.Second).Format(time.RFC3339), Extensions: []generated.ContractExtension{}}
 	submission := runengine.SubmitRequest{Reference: generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, IdempotencyKey: "run-a", Extensions: []generated.ContractExtension{}}, Authorization: decision, Acknowledgement: &approved, Attribution: audit.Attribution{AuthenticatedPrincipalID: principal.ID, AuthenticatedPrincipalMethod: principal.Method, ResponsibleHumanPrincipalID: &human.ID}}
 	applied, err := engine.Submit(ctx, submission)
 
@@ -295,7 +302,7 @@ func hostActionAcceptance(t *testing.T, actionMode string, options ...hostAction
 	}
 	var credentialResolver adapter.CredentialResolver = hostActionAcceptanceCredential{key: pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: pk})}
 	if hooks.Enrollment != nil {
-		credentialResolver = hooks.Enrollment(t, hostActionEnrollmentFixture{Context: ctx, Authority: authority, DB: db, Clock: clock, AdvanceClock: func(d time.Duration) { fixtureNow = fixtureNow.Add(d) }, Declarations: declarations, App: app, Results: factory, Key: pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: pk}), DestinationIdentity: hostadoption.IdentityDigest("product-serial", "synthetic-serial"), TargetDigest: digest, Target: target, Signer: actionSigner, Directory: directory})
+		credentialResolver = hooks.Enrollment(t, hostActionEnrollmentFixture{Context: ctx, Authority: authority, DB: db, Clock: clock, AdvanceClock: func(d time.Duration) { fixtureNow = fixtureNow.Add(d) }, UseWallClock: func() { wallClock = true }, Declarations: declarations, App: app, Results: factory, Key: pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: pk}), DestinationIdentity: hostadoption.IdentityDigest("product-serial", "synthetic-serial"), TargetDigest: digest, Target: target, Signer: actionSigner, Directory: directory})
 
 		if hooks.EnrollmentOnly {
 			return
@@ -352,7 +359,7 @@ func hostActionAcceptance(t *testing.T, actionMode string, options ...hostAction
 		t.Fatalf("host action has no matching production risk classification: %s %v", risk, classifyErr)
 	}
 	for _, g := range []struct{ action, cap, kind string }{{"acknowledge", "plan.acknowledge", "plan-target"}, {"execute", "host.action.execute", "execution-target"}} {
-		if hooks.Enrollment != nil && g.action == "acknowledge" {
+		if g.action == "acknowledge" {
 			var existing int
 			if err := db.QueryRow(`SELECT COUNT(*) FROM effective_authorization_grants WHERE principal_id='operator-a' AND role_id='control-plane-admin' AND action=? AND capability=? AND resource_kind=? AND resource_id='synthetic-host' AND branch='human' AND grant_revision=1 AND status='active'`, g.action, g.cap, g.kind).Scan(&existing); err != nil {
 				t.Fatal(err)
@@ -554,12 +561,17 @@ type hostActionAcceptanceSlackCredential struct{}
 func (hostActionAcceptanceSlackCredential) Resolve(context.Context, credentialref.Reference) ([]byte, error) {
 	return []byte("synthetic-token-for-local-test"), nil
 }
-func hostActionAcceptanceSlackApproval(t *testing.T, service *acknowledgement.Service, card acknowledgement.RequestCard) generated.Acknowledgement {
+func hostActionAcceptanceSlackApproval(t *testing.T, service *acknowledgement.Service, card acknowledgement.RequestCard, fixtureClock ...func() time.Time) generated.Acknowledgement {
 	t.Helper()
 	wire := &setupAcceptanceTransport{cards: make(chan acknowledgement.RequestCard, 1), incoming: make(chan []byte, 1)}
 	results := make(chan generated.Acknowledgement, 1)
 	failures := make(chan error, 1)
 	sink := slack.CandidateSinkFuncs{SubmitFunc: func(ctx context.Context, c acknowledgement.Candidate) error {
+		if len(fixtureClock) == 1 {
+			// Keep the simulated provider receipt timestamp on the same
+			// controlled clock as this fixture's acknowledgement service.
+			c.DecidedAt = fixtureClock[0]()
+		}
 		a, err := service.Decide(ctx, c)
 		if err != nil {
 			failures <- err

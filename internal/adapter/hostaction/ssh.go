@@ -2,6 +2,7 @@ package hostaction
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
+	"github.com/vegastack/vegastack-labs/internal/debianaccess"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	protocol "github.com/vegastack/vegastack-labs/internal/hostaction"
 	"golang.org/x/crypto/ssh"
@@ -18,7 +20,7 @@ import (
 
 const command = "/usr/bin/sudo -n -- /usr/local/bin/vsk-labs host-action-once"
 
-func (a *Adapter) exchange(ctx context.Context, target Target, envelope generated.HostActionEnvelope, digest string, value *credentialref.Value) (generated.HostActionResult, bool, error) {
+func (a *Adapter) exchangeOne(ctx context.Context, target Target, envelope generated.HostActionEnvelope, digest string, value *credentialref.Value, ready chan<- struct{}, release <-chan struct{}, refusal *generated.HostActionDenial, negative string) (generated.HostActionResult, bool, error) {
 	fail := func(observed bool) (generated.HostActionResult, bool, error) {
 		return generated.HostActionResult{}, observed, denied()
 	}
@@ -29,6 +31,18 @@ func (a *Adapter) exchange(ctx context.Context, target Target, envelope generate
 	signer, err := ssh.ParsePrivateKey(value.Bytes())
 	if err != nil {
 		return fail(false)
+	}
+	if envelope.Bundle.ActionID == "debian.access.confirm" {
+		var confirmation generated.AccessConfirmInput
+		if generated.ValidateContractJSON(generated.SchemaIDAccessConfirmInput, []byte(envelope.Bundle.ActionInput), generated.ContractExact) != nil || json.Unmarshal([]byte(envelope.Bundle.ActionInput), &confirmation) != nil || debianaccess.ValidateSessionRevocationConfirmation(confirmation, envelope.Bundle.CallerUID) != nil {
+			return fail(false)
+		}
+		if confirmation.RevokeAutomationSessionsRetainedPublicKey != "" {
+			retained, _, _, _, err := ssh.ParseAuthorizedKey([]byte(confirmation.RevokeAutomationSessionsRetainedPublicKey))
+			if err != nil || !bytes.Equal(retained.Marshal(), signer.PublicKey().Marshal()) {
+				return fail(false)
+			}
+		}
 	}
 	conn, err := (&net.Dialer{Timeout: 10 * time.Second}).DialContext(ctx, "tcp", net.JoinHostPort(target.Address, strconv.Itoa(int(target.Port))))
 	if err != nil {
@@ -68,11 +82,52 @@ func (a *Adapter) exchange(ctx context.Context, target Target, envelope generate
 	if session.Start(command) != nil {
 		return fail(false)
 	}
-	if protocol.WriteFrame(input, envelope, protocol.MaximumEnvelope) != nil {
+	if negative != "" {
+		mutated := envelope
+		switch negative {
+		case "malformed-envelope":
+		case "wrong-host":
+			mutated.Bundle.HostID = "native-unbound-host"
+		case "wrong-plan":
+			mutated.Bundle.PlanID = "native-unbound-plan"
+		case "wrong-epoch":
+			mutated.Bundle.RecoveryEpoch++
+		case "invalid-signature":
+			mutated.Signature = base64.StdEncoding.EncodeToString(make([]byte, 64))
+		default:
+			return fail(false)
+		}
+		if negative == "malformed-envelope" {
+			if _, err = input.Write([]byte("{\n")); err != nil {
+				return fail(false)
+			}
+		} else if protocol.WriteFrame(input, mutated, protocol.MaximumEnvelope) != nil {
+			return fail(false)
+		}
+		if input.Close() != nil {
+			return fail(false)
+		}
+	} else if protocol.WriteFrame(input, envelope, protocol.MaximumEnvelope) != nil {
 		return fail(false)
 	}
 	reader := bufio.NewReaderSize(output, protocol.MaximumResultFrame+2)
 	raw, err := protocol.ReadFrame(reader, protocol.MaximumFrame)
+	if negative != "" {
+		var d generated.HostActionDenial
+		if refusal == nil || err != nil || generated.ValidateContractJSON(generated.SchemaIDHostActionDenial, raw, generated.ContractExact) != nil || json.Unmarshal(raw, &d) != nil || d.Code != generated.ErrorCodeAuthorizationDenied || d.Phase != "envelope" || d.BundleDigest != "" || d.ExecutionDigest != "" {
+			return fail(false)
+		}
+		if _, e := reader.ReadByte(); e != io.EOF || ctx.Err() != nil {
+			return fail(false)
+		}
+		if e := session.Wait(); e != nil {
+			if exit, ok := e.(*ssh.ExitError); ok && exit.ExitStatus() == 1 {
+				*refusal = d
+				return generated.HostActionResult{}, false, nil
+			}
+		}
+		return fail(false)
+	}
 	var challenge generated.HostActionChallenge
 	if err != nil || generated.ValidateContractJSON(generated.SchemaIDHostActionChallenge, raw, generated.ContractExact) != nil || json.Unmarshal(raw, &challenge) != nil || challenge.BundleDigest != digest || challenge.HostID != target.HostID {
 		return fail(false)
@@ -107,11 +162,45 @@ func (a *Adapter) exchange(ctx context.Context, target Target, envelope generate
 	if conn.SetDeadline(actionDeadline) != nil {
 		return fail(false)
 	}
+	if ready != nil {
+		select {
+		case ready <- struct{}{}:
+		case <-ctx.Done():
+			return fail(false)
+		}
+		select {
+		case <-release:
+		case <-ctx.Done():
+			return fail(false)
+		}
+	}
 	// From the first authorization byte onward the remote action may have started.
-	if protocol.WriteFrame(input, authorization, protocol.MaximumFrame) != nil || input.Close() != nil {
+	if protocol.WriteFrame(input, authorization, protocol.MaximumFrame) != nil {
+		return fail(true)
+	}
+	if envelope.Bundle.ActionID == protocol.RecoveryReceiveAction {
+		if err = a.writeRecoveryPayload(ctx, input, envelope.Bundle); err != nil {
+			return fail(true)
+		}
+	}
+	if input.Close() != nil {
 		return fail(true)
 	}
 	raw, err = protocol.ReadFrame(reader, protocol.MaximumResultFrame)
+	if refusal != nil && err == nil && generated.ValidateContractJSON(generated.SchemaIDHostActionDenial, raw, generated.ContractExact) == nil {
+		var deniedResult generated.HostActionDenial
+		if json.Unmarshal(raw, &deniedResult) == nil && deniedResult.Code == generated.ErrorCodeAuthorizationDenied && deniedResult.Phase == "execution-claim" && deniedResult.BundleDigest == digest && deniedResult.ExecutionDigest == protocol.ExecutionDigest(envelope.Bundle) {
+			if _, e := reader.ReadByte(); e == io.EOF && ctx.Err() == nil {
+				if e = session.Wait(); e != nil {
+					if exit, ok := e.(*ssh.ExitError); ok && exit.ExitStatus() == 1 {
+						*refusal = deniedResult
+						return generated.HostActionResult{}, false, nil
+					}
+				}
+			}
+		}
+		return fail(true)
+	}
 	var result generated.HostActionResult
 	if err != nil || generated.ValidateContractJSON(generated.SchemaIDHostActionResult, raw, generated.ContractExact) != nil || json.Unmarshal(raw, &result) != nil || result.BundleDigest != digest || protocol.ValidateResult(result) != nil {
 		return fail(true)

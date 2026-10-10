@@ -3,18 +3,20 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 	"testing"
 )
 
 func TestReviewedRecoveryCustodianClosureRejectsSigningAndSourceDrift(t *testing.T) {
-	common := []string{"artifact.go", "audit_continuity.go", "bound_canary_noop.go", "canary.go", "canary_capabilities.go", "canary_ports.go", "candidate.go", "candidate_authority.go", "candidate_destination.go", "collector.go", "custody.go", "fence.go", "fence_admission.go", "fence_coordinator.go", "fence_evidence.go", "fence_execution.go", "fence_witness.go", "host_generation_fence.go", "host_replacement_continuity.go", "manifest.go", "offsite_source.go", "operations.go", "qualification.go", "source.go", "source_admission.go", "source_handoff.go", "store_canary.go", "store_operations.go", "transport.go", "witness.go"}
+	common := []string{"artifact.go", "audit_continuity.go", "bound_canary_noop.go", "canary.go", "canary_capabilities.go", "canary_ports.go", "candidate.go", "candidate_authority.go", "candidate_destination.go", "candidate_transfer.go", "collector.go", "custody.go", "fence.go", "fence_admission.go", "fence_coordinator.go", "fence_evidence.go", "fence_execution.go", "fence_witness.go", "host_generation_fence.go", "host_replacement_continuity.go", "manifest.go", "offsite_source.go", "operations.go", "qualification.go", "source.go", "source_admission.go", "source_handoff.go", "store_canary.go", "store_operations.go", "transport.go", "witness.go"}
 	for _, platform := range []struct {
 		name  string
 		files []string
 	}{
-		{"unix", []string{"candidate_linux.go", "candidate_destination_linux.go", "manifest_file_unix.go", "package_file_unix.go", "qualified_registry_linux.go", "receipt_file_unix.go", "source_admission_file_unix.go"}},
-		{"darwin", []string{"candidate_unsupported.go", "manifest_file_unix.go", "package_file_unix.go", "qualified_registry_unsupported.go", "receipt_file_unix.go", "source_admission_file_unix.go"}},
-		{"unsupported", []string{"candidate_unsupported.go", "manifest_file_unsupported.go", "package_file_unsupported.go", "qualified_registry_unsupported.go", "receipt_file_unsupported.go", "source_admission_file_unsupported.go"}},
+		{"unix", []string{"candidate_destination_linux.go", "candidate_linux.go", "candidate_transfer_linux.go", "candidate_transfer_source_linux.go", "manifest_file_unix.go", "package_file_unix.go", "qualified_registry_linux.go", "receipt_file_unix.go", "source_admission_file_unix.go"}},
+		{"darwin", []string{"candidate_transfer_unsupported.go", "candidate_unsupported.go", "manifest_file_unix.go", "package_file_unix.go", "qualified_registry_unsupported.go", "receipt_file_unix.go", "source_admission_file_unix.go"}},
+		{"unsupported", []string{"candidate_transfer_unsupported.go", "candidate_unsupported.go", "manifest_file_unsupported.go", "package_file_unsupported.go", "qualified_registry_unsupported.go", "receipt_file_unsupported.go", "source_admission_file_unsupported.go"}},
 	} {
 		t.Run(platform.name, func(t *testing.T) {
 			directory := t.TempDir()
@@ -28,7 +30,12 @@ func TestReviewedRecoveryCustodianClosureRejectsSigningAndSourceDrift(t *testing
 					t.Fatal(err)
 				}
 			}
-			candidate := checkedSourcePackage{sourcePackage: sourcePackage{listed: listedPackage{Dir: directory, GoFiles: names}}}
+			sort.Strings(names)
+			seal, ok := phase228SourceSeals["internal/recovery|"+strings.Join(names, ",")]
+			if !ok {
+				t.Fatal("current recovery source seal missing")
+			}
+			candidate := checkedSourcePackage{sourcePackage: sourcePackage{listed: listedPackage{ImportPath: "github.com/vegastack/vegastack-labs/internal/recovery", Dir: directory, GoFiles: names, Imports: append([]string(nil), seal.imports...)}}}
 			if !reviewedRecoveryCustodianPackage(candidate) {
 				t.Fatal("exact custodian recovery source was rejected")
 			}

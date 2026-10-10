@@ -37,6 +37,9 @@ func (n *nativeRuntime) armTimer(ctx context.Context, r RollbackRecord) error {
 	return nil
 }
 func (n *nativeRuntime) Confirm(ctx context.Context, b generated.HostActionBundle, in generated.AccessConfirmInput) (RoleResult, error) {
+	if ValidateSessionRevocationConfirmation(in, b.CallerUID) != nil {
+		return RoleResult{}, errAccess
+	}
 	ev := b.VerificationEvidence
 	if ev == nil || hostaction.Digest(*ev) != b.VerificationEvidenceDigest || in.HostID != b.HostID || in.HostIdentityDigest != b.HostIdentityDigest {
 		return RoleResult{}, errAccess
@@ -61,6 +64,35 @@ func (n *nativeRuntime) Confirm(ctx context.Context, b generated.HostActionBundl
 	if e != nil || strings.TrimSpace(string(boot)) != record.BootID || record.HostID != in.HostID || record.HostIdentityDigest != in.HostIdentityDigest || record.PlanID != b.PlanID || record.RunID != b.RunID || record.InputDigest != in.ApplyInputDigest || record.AuthorizationDigest != in.RollbackDigest || record.Digest() != ev.RollbackRecordDigest {
 		return RoleResult{}, errAccess
 	}
+	if in.RevokeAutomationSessionsRetainedPublicKey != record.RevokeAutomationSessionsRetainedPublicKey || in.AutomationUID != record.AutomationUID {
+		return RoleResult{}, errAccess
+	}
+	if in.RevokeAutomationSessionsRetainedPublicKey != "" {
+		if n.revokeSessions == nil || record.AutomationUID != b.CallerUID {
+			return RoleResult{}, errAccess
+		}
+		passwd, err := n.read("etc/passwd")
+		if err != nil {
+			return RoleResult{}, errAccess
+		}
+		matches := 0
+		for _, line := range strings.Split(string(passwd), "\n") {
+			fields := strings.Split(line, ":")
+			if len(fields) == 7 && (fields[0] == record.AutomationAccount || fields[2] == strconv.FormatInt(in.AutomationUID, 10)) {
+				if fields[0] != record.AutomationAccount || fields[2] != strconv.FormatInt(in.AutomationUID, 10) {
+					return RoleResult{}, errAccess
+				}
+				matches++
+			}
+		}
+		if matches != 1 {
+			return RoleResult{}, errAccess
+		}
+		keys, err := n.read("etc/vsk-labs/authorized_keys/" + record.AutomationAccount)
+		if err != nil || !strings.HasPrefix(strings.TrimSpace(string(keys)), "restrict ") || !SamePublicKey(strings.TrimPrefix(strings.TrimSpace(string(keys)), "restrict "), in.RevokeAutomationSessionsRetainedPublicKey) {
+			return RoleResult{}, errAccess
+		}
+	}
 	for _, fw := range record.Firewall {
 		got, err := n.inspectChain(ctx, fw.Family, fw.Chain)
 		if err != nil || hostaction.Digest(got) != hostaction.Digest(fw.After) {
@@ -68,10 +100,23 @@ func (n *nativeRuntime) Confirm(ctx context.Context, b generated.HostActionBundl
 		}
 	}
 	if e = confirmAt(ctx, n.root, record.Digest(), b.VerificationEvidenceDigest, n.now()); e != nil {
-		return RoleResult{}, e
+		// Atomic persistence can report an error after the rename. A confirmed
+		// record remains irreversible even when directory sync failed.
+		fs, openErr := os.OpenRoot(n.root)
+		if openErr != nil {
+			return RoleResult{Changed: true}, e
+		}
+		current, readErr := readRollback(fs)
+		_ = fs.Close()
+		return RoleResult{Changed: readErr != nil || (current.State == "confirmed" && current.Digest() == record.Digest())}, e
 	}
 	if _, e = n.run(ctx, "/usr/bin/systemctl", []string{"stop", "vsk-access-rollback.timer"}, nil); e != nil {
-		return RoleResult{}, e
+		return RoleResult{Changed: true}, e
+	}
+	if in.RevokeAutomationSessionsRetainedPublicKey != "" {
+		if _, e = n.revokeSessions(ctx, in.AutomationUID); e != nil {
+			return RoleResult{Changed: true}, e
+		}
 	}
 	m := generated.AccessMeasurement{Schema: generated.SchemaIDAccessMeasurement, SchemaVersion: "1.0.0", ControlID: "debian-access-confirm", Kind: "identity", Status: "passed", SubjectHostID: in.HostID, SubjectIdentityDigest: in.HostIdentityDigest, ProfileLockDigest: in.ProfileLockDigest, ProducerID: "debian-access-native", ProducerVersion: "1.0.0", ObservedAt: n.now().Format(time.RFC3339), ConfigurationDigest: in.ApplyInputDigest, PositiveProbeDigest: ev.ProbeResultsDigest, NegativeProbeDigest: ev.ProbeResultsDigest, Reason: "independent-probes-confirmed", RollbackRecordDigest: record.Digest()}
 	return RoleResult{Changed: true, Measurements: []generated.AccessMeasurement{m}}, nil

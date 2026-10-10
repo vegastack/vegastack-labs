@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/adapter/recoverydenial"
 	"github.com/vegastack/vegastack-labs/internal/apissh"
@@ -190,6 +191,7 @@ type App struct {
 	openCredentialDescriptor CredentialDescriptorOpener
 	witnessPinLoader         func(recovery.WitnessBinding) (recovery.PinnedWitness, error)
 	witnessAdapters          map[string]recoverydenial.Adapter
+	witnessAdapterLoader     func(context.Context, recovery.PinnedWitness, recovery.WitnessBinding, time.Time) (map[string]recoverydenial.Adapter, error)
 }
 
 func New(stdout, stderr io.Writer, build BuildInfo, requestIDs RequestIDSource, options ...Option) *App {
@@ -200,7 +202,7 @@ func New(stdout, stderr io.Writer, build BuildInfo, requestIDs RequestIDSource, 
 		revision := *build.SourceRevision
 		build.SourceRevision = &revision
 	}
-	app := &App{stdin: strings.NewReader(""), stdout: stdout, stderr: stderr, build: build, requestIDs: requestIDs, openCredentialDescriptor: openCredentialDescriptor, witnessPinLoader: recovery.LoadSystemWitnessManifest, witnessAdapters: disposableWitnessAdapters()}
+	app := &App{stdin: strings.NewReader(""), stdout: stdout, stderr: stderr, build: build, requestIDs: requestIDs, openCredentialDescriptor: openCredentialDescriptor, witnessPinLoader: recovery.LoadSystemWitnessManifest, witnessAdapters: disposableWitnessAdapters(), witnessAdapterLoader: recovery.LoadSystemWitnessAdapters}
 	for _, option := range options {
 		if option != nil {
 			option(app)
@@ -464,6 +466,8 @@ func (app *App) Run(ctx context.Context, args []string) int {
 		return app.handlePlanResponse(mode, response)
 	case generated.CommandNameAuthorizationGrantsDraft:
 		return app.runGrantBatchDraft(ctx, mode, parsed)
+	case generated.CommandNameQualificationFixturePeer, generated.CommandNameQualificationInspect, generated.CommandNameQualificationNative, generated.CommandNameQualificationStep:
+		return app.runQualification(ctx, mode, parsed)
 	case generated.CommandNameNodeRolePrepare, generated.CommandNameServerPrepare:
 		return app.runRolePrepare(ctx, mode, parsed)
 	case generated.CommandNameNodeReplacementPrepare, generated.CommandNameNodeReplacementInspect, generated.CommandNameNodeTargetPrepare, generated.CommandNameNodeActionPrepare, generated.CommandNameNodeAccessPrepare, generated.CommandNameNodeObservationInspect:
@@ -577,7 +581,8 @@ func (app *App) failAPISSH(err error) int {
 func emptyRun(value generated.RunPresentation) bool { return value.Run.RunID == "" }
 
 var serverErrorTargets = map[string]struct{}{
-	"host-replacement": {}, "replacement-id": {},
+	"qualification-native": {},
+	"host-replacement":     {}, "replacement-id": {},
 	"application-health": {}, "application-shutdown": {}, "application-start": {},
 	"context": {}, "control-operations": {}, "control-service": {}, "control-service-drain": {}, "control-service-lock": {}, "control-service-request": {},
 	"control-service-response": {}, "control-socket": {}, "control-socket-parent": {},

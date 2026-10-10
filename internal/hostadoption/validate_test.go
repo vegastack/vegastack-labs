@@ -95,3 +95,38 @@ func TestRegistrationQualifiedVirtualAndPointVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestRegistrationVirtualSerialUsesObservedIdentity(t *testing.T) {
+	for _, name := range []string{"observed", "wrong-digest", "wrong-kind", "missing", "physical-uuid"} {
+		t.Run(name, func(t *testing.T) {
+			r, o, b, n := registrationFixture(t)
+			r.Confirmation.IdentityClass = "qualified-virtual"
+			switch name {
+			case "wrong-digest":
+				r.Confirmation.IdentityDigest = IdentityDigest("product-uuid", "synthetic-serial")
+			case "wrong-kind":
+				r.Confirmation.IdentityKind = "product-uuid"
+			case "missing":
+				o.Facts = o.Facts[:3]
+				o.ContentDigest = ""
+				o.ContentDigest = hostdiscovery.Digest(o)
+				r.ObservationDigest = o.ContentDigest
+			case "physical-uuid":
+				r.Confirmation.IdentityClass = "physical"
+				r.Confirmation.IdentityKind = "product-uuid"
+				o.Facts[3].Name, o.Facts[3].Operation = "product-uuid", "product-uuid"
+				r.Confirmation.IdentityDigest = IdentityDigest("product-uuid", o.Facts[3].Value)
+				o.ContentDigest = ""
+				o.ContentDigest = hostdiscovery.Digest(o)
+				r.ObservationDigest = o.ContentDigest
+			}
+			err := Validate(r, o, b, n)
+			if name == "observed" && err != nil {
+				t.Fatal(err)
+			}
+			if name != "observed" && err == nil {
+				t.Fatal("unverified identity accepted")
+			}
+		})
+	}
+}

@@ -412,6 +412,16 @@ func (f *preloadedDiscoveryAcceptance) exec(q string, args ...any) {
 }
 func (f *preloadedDiscoveryAcceptance) grant(cap, kind, id, action string, branch any) {
 	f.t.Helper()
+	var count int
+	if err := f.db.QueryRow(`SELECT COUNT(*) FROM effective_authorization_grants WHERE principal_id='operator-a' AND role_id='control-plane-admin' AND action=? AND capability=? AND resource_kind=? AND resource_id=? AND branch IS ? AND grant_revision=1 AND status='active'`, action, cap, kind, id, branch).Scan(&count); err != nil {
+		f.t.Fatal(err)
+	}
+	if count == 1 {
+		return
+	}
+	if count != 0 {
+		f.t.Fatal("ambiguous fixture grant")
+	}
 	f.exec(`INSERT INTO effective_authorization_grants VALUES(?,'operator-a','control-plane-admin',?,?,?,?,?,1,'active','now','now')`, "grant-"+hostdiscovery.Digest([]string{cap, id})[7:25], action, cap, kind, id, branch)
 }
 func (f *preloadedDiscoveryAcceptance) profile(binding, profile string, revision int64) {
@@ -490,8 +500,8 @@ func (f *preloadedDiscoveryAcceptance) plan(d generated.HostDiscoveryTargetDraft
 			f.t.Fatal("plan views omit exact target confirmation")
 		}
 	}
-	f.grant("plan.acknowledge", "plan-target", d.DraftID, "acknowledge", "human")
-	f.grant(p.Operations[0].OperationType, "execution-target", d.DraftID, "execute", "human")
+	f.grant("plan.acknowledge", "plan-target", authorization.ExecutionResourceIDs(p, p.Operations[0])[0], "acknowledge", "human")
+	f.grant(p.Operations[0].OperationType, "execution-target", authorization.ExecutionResourceIDs(p, p.Operations[0])[0], "execute", "human")
 	return p
 }
 func (f *preloadedDiscoveryAcceptance) approve(p generated.Plan) {

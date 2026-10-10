@@ -77,7 +77,13 @@ func (r *HostActionRepository) StageDraft(ctx context.Context, req generated.Hos
 			return HostActionDraft{}, err
 		}
 	}
-	validate := func(row discoveryRow) error {
+	validate := func(tx ReadTx) error {
+		row := func(q string, args ...any) *sql.Row { return tx.queryRow(ctx, q, args...) }
+		if req.ActionID == ControlRecoveryReceiveAction {
+			if err := validateRecoveryReceiveDraft(ctx, tx, req); err != nil {
+				return err
+			}
+		}
 		if _, err := actionTarget(row, req); err != nil {
 			return err
 		}
@@ -91,7 +97,7 @@ func (r *HostActionRepository) StageDraft(ctx context.Context, req generated.Hos
 		return nil
 	}
 	if err := r.store.Read(ctx, func(tx ReadTx) error {
-		return validate(func(q string, args ...any) *sql.Row { return tx.queryRow(ctx, q, args...) })
+		return validate(tx)
 	}); err != nil {
 		return HostActionDraft{}, err
 	}
@@ -100,7 +106,7 @@ func (r *HostActionRepository) StageDraft(ctx context.Context, req generated.Hos
 	intent := discoveryIntent(a, "host.action.drafted", d.ID, hostdiscovery.Digest([]string{a.AuthenticatedPrincipalID, req.IdempotencyKey}), d.Digest)
 	intent.Expected = &RevisionToken{StateRevision: req.ExpectedStateRevision, RecoveryEpoch: req.RecoveryEpoch}
 	_, err := r.store.executeAuditIntent(ctx, intent, false, func(ctx context.Context, tx *sql.Tx) error {
-		if err := validate(func(q string, args ...any) *sql.Row { return tx.QueryRowContext(ctx, q, args...) }); err != nil {
+		if err := validate(ReadTx{handle: tx}); err != nil {
 			return err
 		}
 		_, err := tx.ExecContext(ctx, `INSERT INTO host_action_drafts VALUES(?,?,?,?,?,?) ON CONFLICT(draft_id) DO NOTHING`, d.ID, d.Digest, raw, a.AuthenticatedPrincipalID, req.ExpectedStateRevision, req.RecoveryEpoch)
@@ -193,6 +199,18 @@ func (r *HostActionRepository) CurrentExecution(ctx context.Context, op adapter.
 			return actionError(generated.ErrorCodeApprovalRequired)
 		}
 
+		if d.Request.ActionID == ControlRecoveryReceiveAction {
+			actorContext, e := hostRunReadContext(ctx, row, b.RunID)
+			if e != nil {
+				return e
+			}
+			if e = validateRecoveryReceiveDraft(actorContext, tx, d.Request); e != nil {
+				return e
+			}
+			if e = authorizeRecoveryReceiveScope(actorContext, row, p, b.RunID, human, d.Request); e != nil {
+				return e
+			}
+		}
 		if p.HostRoleScope != nil {
 			if e := validateRoleCurrent(row, p); e != nil {
 				return e

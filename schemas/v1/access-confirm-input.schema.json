@@ -15,6 +15,11 @@
       "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
       "type": "string"
     },
+    "automationUid": {
+      "maximum": 4294967295,
+      "minimum": 1,
+      "type": "integer"
+    },
     "hostId": {
       "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
       "type": "string"
@@ -29,6 +34,11 @@
     },
     "profileLockDigest": {
       "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "revokeAutomationSessionsRetainedPublicKey": {
+      "maxLength": 2048,
+      "minLength": 1,
       "type": "string"
     },
     "rollbackDigest": {
