@@ -919,3 +919,5 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 — approved by (omkarmohanta09) · built by Codex · branch feat/110-phase5-operator-surfaces
 
 The critical authorization review of issue #247 found omitted nested owners, alias host execution/acknowledgement scope, an incompatible resume target and a missing grant recovery precheck. Corrections use all sealed subject/probe owners, host plus alias projection, matching resume projection, and the existing SQLite snapshot/isolated-restore methods. Local recovery preimages are private and do not qualify node-loss recovery.
+
+The final source-boundary check exposed the shared volume-lineage change in the Darwin baseline closure. Its exact current source/import seal is recorded alongside Linux, preserving historical seals and unsupported behavior. No runtime change or native qualification is claimed.
