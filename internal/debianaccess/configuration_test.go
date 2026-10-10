@@ -11,8 +11,8 @@ import (
 func TestContainerFirewallUsesOriginalConnectionTuple(t *testing.T) {
 	in := validInput(t)
 	for _, tc := range []struct{ family, src, published, direct string }{
-		{"ipv4", "192.0.2.1/32", "192.0.2.2/32", "172.28.228.11/32"},
-		{"ipv6", "2001:db8::1/128", "2001:db8::2/128", "fd28:228:100::11/128"},
+		{"ipv4", "192.0.2.1/32", "192.0.2.2/32", "203.0.113.11/32"},
+		{"ipv6", "2001:db8::1/128", "2001:db8::2/128", "2001:db8:1::11/128"},
 	} {
 		t.Run(tc.family, func(t *testing.T) {
 			in.ContainerFlows = []generated.AccessFlow{
