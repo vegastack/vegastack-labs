@@ -1,3 +1,7 @@
+# Project chronicle
+
+Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
+
 ## 10-10-2026 — Phase 6 acceptance distinguishes working software from current native proof ([#234](https://github.com/vegastack/vegastack-labs/issues/234))
 
 - **What:** A finite acceptance command reuses the host lifecycle, baseline, role, replacement and operator scenarios. Its scoped exit reports Linux software, current native qualification, deferred Mac work and full phase acceptance independently.
@@ -6,11 +10,7 @@
 - **Changed:** Explicit obligation catalog · grouped focused Go scenarios · fresh single-worker Console checks · bounded evidence sanitizer · current read-only native lineage · Linux/full exit codes. Native #228, Mac #227 and operator acceptance remain separately pending until their actual proofs exist.
 - **Decisions:** The operator selected working Linux delivery and deferred advanced signed recovery-fence qualification on 10-10-2026. All software obligations and native missing-proof denials remain required; native, Mac and full Phase 6 acceptance remain pending.
 
-— approved by (omkarmohanta09) · built by Codex · branch chore/6.12-phase6-acceptance
-
-# Project chronicle
-
-Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
+— approved by (omkarmohanta09) · built by Codex · branch chore/6.7-native-debian-qualification
 
 ## 10-10-2026 — Linux qualification uses actual server receipts and preserves missing-proof denials ([#228](https://github.com/vegastack/vegastack-labs/issues/228))
 
