@@ -18,27 +18,28 @@ func validateVolumeCaseExecutions(scenario string, executions []ProducerExecutio
 	if len(executions) != count || len(observations) != count {
 		return ErrUnavailable
 	}
-	w := observations[len(observations)-1].VolumeCase
+	var w *generated.NativeVolumeCaseWitness
+	for _, o := range observations {
+		if o.VolumeCase != nil {
+			if w != nil {
+				return ErrUnavailable
+			}
+			w = o.VolumeCase
+		}
+	}
 	if w == nil || !exactNativeJSON(generated.SchemaIDNativeVolumeCaseWitness, *w) || w.ScenarioID != scenario || w.HeaderBeforeDigest != w.HeaderAfterDigest || w.OriginalPolicyDigest != w.OriginalPolicyAfterDigest || w.TestedCopyBeforeDigest != w.TestedCopyAfterDigest {
 		return ErrUnavailable
 	}
 	seenCurrent, seenPrior := false, false
 	for i, e := range executions {
 		o := observations[i]
-		if o.VolumeCase == nil || hostaction.Digest(*o.VolumeCase) != hostaction.Digest(*w) {
-			return ErrUnavailable
-		}
-		at, err := time.Parse(time.RFC3339, o.ObservedAt)
-		measured, me := time.Parse(time.RFC3339, w.ObservedAt)
-		if err != nil || me != nil || at.Before(measured) || at.Sub(measured) > 30*time.Second {
-			return ErrUnavailable
-		}
 		r, err := producerAction(e)
 		if err != nil {
 			return err
 		}
 		var b generated.HostVolumeBinding
 		var kind string
+		priorExecution := false
 		switch scenario {
 		case "volume-effective-mapping", "volume-wrong-mapping", "volume-status-no-original-repair":
 			if r.ActionID != "debian.volume.observe" || w.BaselineInput == nil || w.RecoveryInput != nil || w.PriorRecoveryInput != nil || len(w.BaselineInput.Volumes) != 1 || hostaction.Digest(*w.BaselineInput) != w.InputDigest {
@@ -69,11 +70,28 @@ func validateVolumeCaseExecutions(scenario string, executions []ProducerExecutio
 					return ErrUnavailable
 				}
 				seenPrior = true
+				priorExecution = true
 			} else {
 				return ErrUnavailable
 			}
 			b = in.Binding
 			kind = "recovery"
+		}
+		if priorExecution {
+			// The prior successful action supplies its immutable input and receipt;
+			// the postrotation physical test belongs only to the current action.
+			if o.VolumeCase != nil {
+				return ErrUnavailable
+			}
+		} else {
+			if o.VolumeCase == nil || hostaction.Digest(*o.VolumeCase) != hostaction.Digest(*w) {
+				return ErrUnavailable
+			}
+			at, err := time.Parse(time.RFC3339, o.ObservedAt)
+			measured, me := time.Parse(time.RFC3339, w.ObservedAt)
+			if err != nil || me != nil || at.Before(measured) || at.Sub(measured) > 30*time.Second {
+				return ErrUnavailable
+			}
 		}
 		currentBinding := b
 		if scenario == "volume-revoked-binding" {

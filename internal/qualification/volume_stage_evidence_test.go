@@ -86,11 +86,49 @@ func TestNativeRevokedVolumeRequiresRealRevisionAndReceiptLineage(t *testing.T) 
 	o.VolumeCase = &w
 	old := volumeProducerInput(t, e, "debian.volume-recovery.verify", prior, prior.Binding, "recovery")
 	now := volumeProducerInput(t, e, "debian.volume-recovery.verify", current, current.Binding, "recovery")
-	if err := validateVolumeCaseExecutions(w.ScenarioID, []ProducerExecution{old, now}, []generated.NativeObservation{o, o}); err != nil {
+	if err := validateVolumeCaseExecutions(w.ScenarioID, []ProducerExecution{old, now}, []generated.NativeObservation{func() generated.NativeObservation {
+		priorObservation := o
+		priorObservation.VolumeCase = nil
+		priorObservation.ObservedAt = "2000-01-01T00:00:00Z"
+		return priorObservation
+	}(), o}); err != nil {
 		t.Fatal(err)
 	}
 	if err := validateVolumeCaseExecutions(w.ScenarioID, []ProducerExecution{now, now}, []generated.NativeObservation{o, o}); err == nil {
 		t.Fatal("invented prior producer accepted")
+	}
+	priorObservation := o
+	priorObservation.VolumeCase = nil
+	for _, name := range []string{"missing-current-witness", "current-clone", "prior-only-witness", "mismatched-prior", "failed-prior", "stale-current", "wrong-observation-order"} {
+		t.Run(name, func(t *testing.T) {
+			executions := []ProducerExecution{old, now}
+			observations := []generated.NativeObservation{priorObservation, o}
+			switch name {
+			case "missing-current-witness":
+				observations[1].VolumeCase = nil
+			case "current-clone":
+				observations[0].VolumeCase = &w
+			case "prior-only-witness":
+				observations[0].VolumeCase = &w
+				observations[1].VolumeCase = nil
+			case "mismatched-prior":
+				v := prior
+				v.PriorVolumeReceiptDigest = hostaction.Digest("unrelated-receipt")
+				executions[0] = volumeProducerInput(t, e, "debian.volume-recovery.verify", v, v.Binding, "recovery")
+			case "failed-prior":
+				executions[0].Receipt.Status = "failed"
+			case "stale-current":
+				observations[1].ObservedAt = time.Now().UTC().Add(time.Minute).Format(time.RFC3339)
+			case "wrong-observation-order":
+				observations[0], observations[1] = observations[1], observations[0]
+			}
+			if err := validateVolumeCaseExecutions(w.ScenarioID, executions, observations); err == nil {
+				t.Fatal("missing/foreign current witness or prior producer accepted")
+			}
+		})
+	}
+	if err := validateVolumeCaseExecutions(w.ScenarioID, []ProducerExecution{now, old}, []generated.NativeObservation{o, priorObservation}); err != nil {
+		t.Fatal("exact reordered joins rejected", err)
 	}
 }
 
