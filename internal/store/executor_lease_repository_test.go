@@ -417,8 +417,9 @@ func openExecutorLeaseFixture(t *testing.T, now time.Time) *executorLeaseFixture
 	if _, err := authority.conn.ExecContext(context.Background(), `UPDATE system_meta SET state_revision=1 WHERE id=1`); err != nil {
 		t.Fatal(err)
 	}
-	seedExternalRunPlan(t, authority, now)
+	plan := seedExternalRunPlan(t, authority, now)
 	fixture.run = externalTestRun(now)
+	fixture.run.PlanID, fixture.run.PlanDigest = plan.PlanID, plan.PlanDigest
 	if _, err := fixture.runs.Create(context.Background(), RunCreateRequest{Run: fixture.run, SubmitKeyDigest: digestForText("external-submit"), RequestDigest: digestForText("external-request"), Attribution: fixture.attribution}); err != nil {
 		t.Fatal(err)
 	}
@@ -464,7 +465,7 @@ func (fixture *executorLeaseFixture) receipt(lease generated.ExecutorLease, at t
 	return generated.ExecutionReceiptRequest{Schema: generated.SchemaIDExecutionReceiptRequest, SchemaVersion: "1.0.0", Receipt: receipt, ExpectedBindingDigest: lease.BindingDigest, Extensions: []generated.ContractExtension{}}
 }
 
-func seedExternalRunPlan(t *testing.T, authority *Store, now time.Time) {
+func seedExternalRunPlan(t *testing.T, authority *Store, now time.Time) generated.Plan {
 	t.Helper()
 	declaration := generated.DeclarationRevision{Schema: generated.SchemaIDDeclarationRevision, SchemaVersion: "1.0.0", DeclarationID: "declaration-external-test", DeclarationType: "application", Revision: 1, StateRevision: 1, RecoveryEpoch: 0, ContentDigest: string(digestForText("external-content")), Status: "committed", Operations: []generated.DeclarationOperation{}, CreatedAt: now.Format(time.RFC3339), CreatedBy: "principal-run-test", AgentSessionID: "session-run-test", Extensions: []generated.ContractExtension{}}
 	declarationBytes, _ := json.Marshal(declaration)
@@ -472,11 +473,16 @@ func seedExternalRunPlan(t *testing.T, authority *Store, now time.Time) {
 		t.Fatal(err)
 	}
 	executorID := "executor-external"
-	plan := generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", PlanID: "plan-external-test", PlanDigest: string(digestForText("external-plan")), DeclarationID: declaration.DeclarationID, Binding: generated.PlanBinding{RecoveryEpoch: 0, PriorStateRevision: 0, StateRevision: 1, DeclarationRevision: 1, ObservationFingerprint: string(digestForText("external-observation")), TargetDigest: string(digestForText("external-target")), ReasonDigest: string(digestForText("external-reason")), PolicyVersion: "1.0.0", ToolVersion: "1.0.0", ContractVersion: "1.0.0"}, Operations: []generated.PlanOperation{{Sequence: 1, OperationID: "operation-external-test", OperationType: "application.deploy.low-risk", AdapterID: "adapter-test", ExecutorID: executorID, TargetID: "target-external-test", InputDigest: string(digestForText("external-input")), ArtifactDigest: string(digestForText("external-artifact")), Idempotent: true}}, Status: "planned", Risk: "routine", AuthorizationBranch: "preauthorized", ExecutorMode: "external", ExecutorID: &executorID, CreatedAt: now.Format(time.RFC3339), ExpiresAt: now.Add(30 * time.Minute).Format(time.RFC3339), ReadableDigest: string(digestForText("external-readable")), Extensions: []generated.ContractExtension{}}
+	plan := generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", DeclarationID: declaration.DeclarationID, Binding: generated.PlanBinding{RecoveryEpoch: 0, PriorStateRevision: 0, StateRevision: 1, DeclarationRevision: 1, ObservationFingerprint: string(digestForText("external-observation")), TargetDigest: string(digestForText("external-target")), ReasonDigest: string(digestForText("external-reason")), PolicyVersion: "1.0.0", ToolVersion: "1.0.0", ContractVersion: "1.0.0"}, Operations: []generated.PlanOperation{{Sequence: 1, OperationID: "operation-external-test", OperationType: "application.deploy.low-risk", AdapterID: "adapter-test", ExecutorID: executorID, TargetID: "target-external-test", InputDigest: string(digestForText("external-input")), ArtifactDigest: string(digestForText("external-artifact")), Idempotent: true}}, Status: "planned", Risk: "routine", AuthorizationBranch: "preauthorized", ExecutorMode: "external", ExecutorID: &executorID, CreatedAt: now.Format(time.RFC3339), ExpiresAt: now.Add(30 * time.Minute).Format(time.RFC3339), Extensions: []generated.ContractExtension{}}
+	// Preserve the external-run scenario, sealing its actual bytes exactly as
+	// the ordinary plan repository requires before run authorization.
+	readable := "external test plan"
+	plan = sealRunFixturePlan(t, plan, readable)
 	planBytes, _ := json.Marshal(plan)
-	if _, err := authority.conn.ExecContext(context.Background(), `INSERT INTO immutable_plans(plan_id,plan_digest,declaration_id,declaration_revision,state_revision,recovery_epoch,observation_fingerprint,idempotency_key_digest,request_digest,canonical_bytes,readable_plan,readable_digest,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, plan.PlanID, plan.PlanDigest, plan.DeclarationID, plan.Binding.DeclarationRevision, plan.Binding.StateRevision, plan.Binding.RecoveryEpoch, plan.Binding.ObservationFingerprint, digestForText("external-plan-key"), digestForText("external-plan-request"), planBytes, "external test plan", plan.ReadableDigest, plan.CreatedAt, plan.ExpiresAt); err != nil {
+	if _, err := authority.conn.ExecContext(context.Background(), `INSERT INTO immutable_plans(plan_id,plan_digest,declaration_id,declaration_revision,state_revision,recovery_epoch,observation_fingerprint,idempotency_key_digest,request_digest,canonical_bytes,readable_plan,readable_digest,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, plan.PlanID, plan.PlanDigest, plan.DeclarationID, plan.Binding.DeclarationRevision, plan.Binding.StateRevision, plan.Binding.RecoveryEpoch, plan.Binding.ObservationFingerprint, digestForText("external-plan-key"), digestForText("external-plan-request"), planBytes, readable, plan.ReadableDigest, plan.CreatedAt, plan.ExpiresAt); err != nil {
 		t.Fatal(err)
 	}
+	return plan
 }
 
 func externalTestRun(at time.Time) generated.Run {
