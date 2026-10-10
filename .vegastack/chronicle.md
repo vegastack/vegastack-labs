@@ -17,7 +17,7 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 - **What:** Native preparation, current qualification reads and recovery transfer use the existing server, approved plans and protected action path. Access confirmation can explicitly revoke other managed automation SSH sessions after key rotation while preserving the confirmation session.
 - **Why:** Integrating the Linux workflows exposed gaps in receipt lineage, host admission ordering, service identity and normal session teardown.
 - **How it went:** Focused Linux tests and critical correction reviews found and fixed those boundaries. Isolated native preparation repeatedly stopped when unrelated CI became active; no native pass is claimed. The operator chose to defer the missing advanced signed recovery qualification rather than add its observer and signing machinery now.
-- **Changed:** Typed native preparation and current evidence reads · recovery destination/data guards · managed session revocation · finite scenario bounds · operator procedures. Native qualification, deferred Mac and full Phase 6 remain incomplete.
+- **Changed:** Typed native preparation and current evidence reads, including the existing canonical receipt digest needed by volume verification · recovery destination/data guards · managed session revocation · finite scenario bounds · operator procedures. Native qualification, deferred Mac and full Phase 6 remain incomplete.
 - **Decisions:** Delivery scope follows the operator's explicit working-Linux choice; existing authorization and missing-proof denials remain in force.
 
 — approved by (omkarmohanta09) · built by Codex · branch chore/6.7-native-debian-qualification
