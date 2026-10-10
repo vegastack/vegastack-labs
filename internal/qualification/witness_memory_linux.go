@@ -238,7 +238,13 @@ func (d *ownedGuestLifecycle) attachWitness(b generated.NativeObservationBinding
 	}
 	key := witnessKey(generated.NativeStepRequest{GuestID: b.GuestID, ScopeDigest: b.ScopeDigest, ControllerInstanceID: b.ControllerInstanceID, RecoveryEpoch: b.RecoveryEpoch, PlanDigest: b.PlanDigest, ScenarioID: b.ScenarioID, PlanID: b.PlanID, RunID: b.RunID, StepID: b.StepID, LeaseID: b.LeaseID})
 	w := d.witnesses[key]
-	if w == nil || w.guest != b.GuestID {
+	if w == nil {
+		return
+	}
+	if w.guest != b.GuestID {
+		if d.recoveredSetupWitnessMatches(b, w) {
+			out.ControlSetup = w.setup
+		}
 		return
 	}
 	if w.credentialSamples == 3 {
@@ -255,4 +261,22 @@ func (d *ownedGuestLifecycle) attachWitness(b generated.NativeObservationBinding
 	if w.phase == 7 {
 		out.Fail2banCycle = w.fail
 	}
+}
+
+// Only initialization lineage may cross from the still-live original peer to
+// the verified replacement producer. Current role/restore authority remains
+// independently checked by the server; no other witness crosses this join.
+func (d *ownedGuestLifecycle) recoveredSetupWitnessMatches(b generated.NativeObservationBinding, w *nativeWitnessMemory) bool {
+	if b.ScenarioID != "control-setup" || w.setup == nil || d.recoveredBinding == nil || d.recoveredController == nil {
+		return false
+	}
+	original, originalOK := d.scope.guests[w.guest]
+	replacement, replacementOK := d.scope.guests[b.GuestID]
+	r, c, f := d.recoveredBinding, d.recoveredController, w.setup.FixtureScope
+	return originalOK && replacementOK && original.Role == "controller" && replacement.Role == "replacement" && b.GuestID == d.activeController &&
+		r.PriorInstanceID == d.scope.value.ControllerInstanceID && r.PriorInstanceID == w.setup.InstanceID && r.PriorRecoveryEpoch == w.setup.RecoveryEpoch && r.NextRecoveryEpoch == r.PriorRecoveryEpoch+1 && r.NextRecoveryEpoch == b.RecoveryEpoch &&
+		r.ReplacementHostID == replacement.HostID && r.NewInstanceID != "" && r.NewInstanceID != r.PriorInstanceID && c.ControllerInstanceID == r.NewInstanceID &&
+		c.HostID == replacement.HostID && c.HostIdentityDigest == replacement.HostIdentityDigest && replacement.MachineID != "" && c.HostMachineID == replacement.MachineID && c.ScopeDigest == d.scope.digest && c.ExecutableDigest == d.scope.value.ExecutableDigest &&
+		f.RunControlSetup && f.GuestInstanceID == original.InstanceID && f.HostIdentityDigest == original.HostIdentityDigest && f.SSHHostKeyDigest == original.SSHHostKeyDigest && f.ControlServiceUID == d.scope.value.ControlServiceUID && f.ControlServiceGID == d.scope.value.ControlServiceGID &&
+		f.SourceCommit == d.scope.value.SourceCommit && f.ExecutableDigest == d.scope.value.ExecutableDigest && f.IssuedAt == d.scope.value.IssuedAt && f.ExpiresAt == d.scope.value.ExpiresAt && w.setup.ScopeDigest == hostaction.Digest(f)
 }
