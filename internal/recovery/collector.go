@@ -10,6 +10,76 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/adapter/recoverydenial"
 )
 
+// LoadSystemWitnessAdapters exposes probes only from the existing protected,
+// administrator-qualified registry for this exact authenticated manifest.
+func LoadSystemWitnessAdapters(ctx context.Context, pin PinnedWitness, binding WitnessBinding, now time.Time) (map[string]recoverydenial.Adapter, error) {
+	qualified, err := LoadSystemQualifiedAdapters(ctx, pin.Requirements, now)
+	if err != nil {
+		return nil, ErrWitnessUnavailable
+	}
+	return qualifiedWitnessAdapters(pin, binding, qualified, time.Now)
+}
+
+func qualifiedWitnessAdapters(pin PinnedWitness, binding WitnessBinding, qualified QualifiedAdapters, clock func() time.Time) (map[string]recoverydenial.Adapter, error) {
+	if clock == nil || !pin.matchesBinding(binding) || !validCompleteRequirements(pin.Requirements) {
+		return nil, ErrWitnessUnavailable
+	}
+	now := clock().UTC()
+	digest, expiry, err := HostGenerationQualification(qualified, now)
+	if err != nil || digest != binding.FenceQualificationDigest || qualified.adminRootDigest != pin.adminRootDigest || !now.Before(pin.ExpiresAt) {
+		return nil, ErrWitnessUnavailable
+	}
+	if pin.ExpiresAt.Before(expiry) {
+		expiry = pin.ExpiresAt
+	}
+	allowed := make(map[BoundaryRequirement]bool, len(pin.Requirements))
+	groups := map[string]bool{}
+	adapters := map[string]recoverydenial.Adapter{}
+	for _, requirement := range pin.Requirements {
+		group, ok := qualified.entries[requirement.AdapterID].(qualifiedGroupVerifier)
+		key := requirementQualificationKey(requirement)
+		if !ok || group.groups[key] == nil {
+			return nil, ErrWitnessUnavailable
+		}
+		if _, ok := group.groups[key].(hostGenerationProber); !ok {
+			return nil, ErrWitnessUnavailable
+		}
+		allowed[requirement] = true
+		groups[key] = true
+		adapters[requirement.AdapterID] = qualifiedWitnessAdapter{prober: group, allowed: allowed, expiresAt: expiry, clock: clock}
+	}
+	count := 0
+	for _, verifier := range qualified.entries {
+		group, ok := verifier.(qualifiedGroupVerifier)
+		if !ok {
+			return nil, ErrWitnessUnavailable
+		}
+		count += len(group.groups)
+	}
+	if count != len(groups) {
+		return nil, ErrWitnessUnavailable
+	}
+	return adapters, nil
+}
+
+type qualifiedWitnessAdapter struct {
+	prober    hostGenerationProber
+	allowed   map[BoundaryRequirement]bool
+	expiresAt time.Time
+	clock     func() time.Time
+}
+
+func (adapter qualifiedWitnessAdapter) Probe(ctx context.Context, challenge recoverydenial.Challenge) (recoverydenial.Result, error) {
+	requirement := BoundaryRequirement{Kind: challenge.Kind, SubjectID: challenge.SubjectID, TargetID: challenge.TargetID, AdapterID: challenge.AdapterID, FormerIdentityID: challenge.FormerIdentityID, ProbeID: challenge.ProbeID}
+	if ctx == nil || ctx.Err() != nil || adapter.clock == nil || adapter.prober == nil || !adapter.allowed[requirement] || !adapter.clock().UTC().Before(adapter.expiresAt) {
+		return recoverydenial.Result{}, ErrWitnessUnavailable
+	}
+	if challenge.Deadline.After(adapter.expiresAt) {
+		challenge.Deadline = adapter.expiresAt
+	}
+	return adapter.prober.probeHostGeneration(ctx, challenge)
+}
+
 // CollectRequest is a finite custodian-side input. Pin must originate from an
 // administrator-authenticated protected manifest. Required must exactly match
 // the manifest's independently sealed set; the replacement rederives it.

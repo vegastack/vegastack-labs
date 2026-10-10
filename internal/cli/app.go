@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/adapter/recoverydenial"
 	"github.com/vegastack/vegastack-labs/internal/apissh"
@@ -190,6 +191,7 @@ type App struct {
 	openCredentialDescriptor CredentialDescriptorOpener
 	witnessPinLoader         func(recovery.WitnessBinding) (recovery.PinnedWitness, error)
 	witnessAdapters          map[string]recoverydenial.Adapter
+	witnessAdapterLoader     func(context.Context, recovery.PinnedWitness, recovery.WitnessBinding, time.Time) (map[string]recoverydenial.Adapter, error)
 }
 
 func New(stdout, stderr io.Writer, build BuildInfo, requestIDs RequestIDSource, options ...Option) *App {
@@ -200,7 +202,7 @@ func New(stdout, stderr io.Writer, build BuildInfo, requestIDs RequestIDSource, 
 		revision := *build.SourceRevision
 		build.SourceRevision = &revision
 	}
-	app := &App{stdin: strings.NewReader(""), stdout: stdout, stderr: stderr, build: build, requestIDs: requestIDs, openCredentialDescriptor: openCredentialDescriptor, witnessPinLoader: recovery.LoadSystemWitnessManifest, witnessAdapters: disposableWitnessAdapters()}
+	app := &App{stdin: strings.NewReader(""), stdout: stdout, stderr: stderr, build: build, requestIDs: requestIDs, openCredentialDescriptor: openCredentialDescriptor, witnessPinLoader: recovery.LoadSystemWitnessManifest, witnessAdapters: disposableWitnessAdapters(), witnessAdapterLoader: recovery.LoadSystemWitnessAdapters}
 	for _, option := range options {
 		if option != nil {
 			option(app)
