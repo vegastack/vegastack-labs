@@ -893,6 +893,7 @@ func phase5RequestSchemas() []SchemaDefinition {
 			FieldDefinition{JSONName: "safeNextAction", GoName: "SafeNextAction", Kind: ValueString, Required: true, MinLength: intPointer(1), MaxLength: intPointer(256)},
 		),
 		phase5Schema(browserRecoveryPointSchemaID,
+			FieldDefinition{JSONName: "policyId", GoName: "PolicyID", Kind: ValueString, OmitEmpty: true, Pattern: "^[a-z][a-z0-9._:-]{0,127}$"}, FieldDefinition{JSONName: "repositoryId", GoName: "RepositoryID", Kind: ValueString, OmitEmpty: true, Pattern: "^[a-z][a-z0-9._:-]{0,127}$"}, baselineOptionalDigest("inventoryDigest", "InventoryDigest"),
 			phase5ID("pointId", "PointID"), phase5Enum("sourceKind", "SourceKind", "fixture", "local", "independent"),
 			phase5Enum("proofClass", "ProofClass", "fixture", "live"), phase5Digest("contentDigest", "ContentDigest"), phase5Digest("manifestDigest", "ManifestDigest"),
 			phase5Timestamp("createdAt", "CreatedAt"), phase5NullableTimestamp("verifiedAt", "VerifiedAt"),

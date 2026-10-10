@@ -62,9 +62,12 @@ type HostAdmissionProvenance interface {
 }
 type HostEvidenceProvenance struct {
 	Qualification      *HostNativeQualification
+	Prerequisites      []HostPrerequisiteProof
 	PrerequisiteID     string
 	PrerequisiteDigest string
 }
+
+type HostPrerequisiteProof struct{ ID, Digest string }
 
 func NewGateRepositoryWithHostProvenance(authority *Store, verifier HostAdmissionProvenance) *GateRepository {
 	return &GateRepository{store: authority, hostProvenance: verifier}

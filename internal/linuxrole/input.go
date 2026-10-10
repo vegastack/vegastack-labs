@@ -90,7 +90,9 @@ func ValidateDesiredInput(in generated.LinuxRoleInput) error {
 	if a.Selector != account || a.UID > 4294967295 || a.GID > 4294967295 || a.UID < 1 || a.GID < 1 {
 		return errInput
 	}
-	if in.RoleID == "control" && (!a.Existing || a.UID != in.AutomationUID) {
+	// The canonical service account is independently observed by the runtime.
+	// AutomationUID names the scoped action caller, not the systemd service UID.
+	if in.RoleID == "control" && !a.Existing {
 		return errInput
 	}
 	if in.RoleID != "control" && a.UID == in.AutomationUID {

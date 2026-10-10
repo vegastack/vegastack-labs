@@ -1,15 +1,31 @@
 {
   "$defs": {
-    "native-producer-reference": {
+    "native-observation-binding": {
       "additionalProperties": false,
       "properties": {
-        "hostId": {
+        "controllerInstanceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "deadline": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "guestId": {
           "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
           "type": "string"
         },
         "leaseId": {
           "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
           "type": "string"
+        },
+        "nonce": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "ordinal": {
+          "minimum": 0,
+          "type": "integer"
         },
         "planDigest": {
           "pattern": "^sha256:[a-f0-9]{64}$",
@@ -18,6 +34,10 @@
         "planId": {
           "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
           "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
         },
         "runId": {
           "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
@@ -57,7 +77,7 @@
         },
         "schema": {
           "enum": [
-            "vegastack-labs.dev/native-producer-reference"
+            "vegastack-labs.dev/native-observation-binding"
           ],
           "type": "string"
         },
@@ -65,6 +85,10 @@
           "enum": [
             "1.0.0"
           ],
+          "type": "string"
+        },
+        "scopeDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
           "type": "string"
         },
         "stepId": {
@@ -75,63 +99,79 @@
       "required": [
         "schema",
         "schemaVersion",
+        "scopeDigest",
+        "guestId",
         "scenarioId",
-        "hostId",
+        "ordinal",
+        "controllerInstanceId",
+        "recoveryEpoch",
         "planId",
         "planDigest",
         "runId",
         "stepId",
-        "leaseId"
+        "leaseId",
+        "nonce",
+        "deadline"
       ],
       "type": "object"
     }
   },
-  "$id": "vegastack-labs.dev/native-collect-request",
+  "$id": "vegastack-labs.dev/native-host-observation",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
-    "evidenceId": {
+    "binding": {
+      "$ref": "#/$defs/native-observation-binding"
+    },
+    "bootId": {
       "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
       "type": "string"
     },
-    "expectedStateRevision": {
-      "minimum": 0,
-      "type": "integer"
+    "channelDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
     },
-    "hostGateId": {
+    "consoleState": {
       "enum": [
-        "platform-safety",
-        "host.hardening-baseline",
-        "host.role-admission"
+        "healthy",
+        "unavailable"
       ],
       "type": "string"
     },
-    "hostId": {
-      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+    "diskDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
       "type": "string"
     },
-    "idempotencyKey": {
-      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+    "executableDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
       "type": "string"
     },
-    "producers": {
-      "items": {
-        "$ref": "#/$defs/native-producer-reference"
-      },
-      "maxItems": 48,
-      "type": "array"
-    },
-    "profileId": {
-      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+    "firmwareDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
       "type": "string"
     },
-    "recoveryEpoch": {
-      "minimum": 0,
+    "observedAt": {
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": "string"
+    },
+    "processState": {
+      "enum": [
+        "running",
+        "stopped"
+      ],
+      "type": "string"
+    },
+    "qemuPid": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "qemuStartTimeTicks": {
+      "minimum": 1,
       "type": "integer"
     },
     "schema": {
       "enum": [
-        "vegastack-labs.dev/native-collect-request"
+        "vegastack-labs.dev/native-host-observation"
       ],
       "type": "string"
     },
@@ -140,33 +180,24 @@
         "1.0.0"
       ],
       "type": "string"
-    },
-    "scopeDigest": {
-      "pattern": "^sha256:[a-f0-9]{64}$",
-      "type": "string"
-    },
-    "stage": {
-      "enum": [
-        "baseline",
-        "role",
-        "recovery"
-      ],
-      "type": "string"
     }
   },
   "required": [
     "schema",
     "schemaVersion",
-    "scopeDigest",
-    "stage",
-    "evidenceId",
-    "profileId",
-    "producers",
-    "expectedStateRevision",
-    "recoveryEpoch",
-    "idempotencyKey"
+    "binding",
+    "bootId",
+    "qemuPid",
+    "qemuStartTimeTicks",
+    "executableDigest",
+    "diskDigest",
+    "firmwareDigest",
+    "observedAt",
+    "processState",
+    "consoleState",
+    "channelDigest"
   ],
-  "title": "VegaStack Labs native collect request",
+  "title": "VegaStack Labs native host observation",
   "type": "object",
   "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
 }

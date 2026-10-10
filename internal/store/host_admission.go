@@ -311,7 +311,7 @@ func (r *GateRepository) admissionEvidenceStages(ctx context.Context, tx ReadTx,
 		out.Evidence = append(out.Evidence, ev)
 		out.Bundles[ev.EvidenceID] = b
 		out.AppliedBindings[ev.EvidenceID] = HostAppliedBinding{DeclarationID: p.DeclarationID, DeclarationRevision: declaration.Revision, ArtifactDigest: draftArtifact, BundleDigest: ev.BundleDigest, StateRevision: ev.StateRevision, RecoveryEpoch: ev.RecoveryEpoch, ReleaseBuildID: r.store.config.BuildVersion, ToolVersion: p.Binding.ToolVersion}
-		if b.NativeQualification != nil && ev.SourceKind == "local" && ev.ProofClass == "live" && ev.CollectorID == "native-debian-228" && slices.Contains([]string{"native.baseline", "native.role", "native.recovery"}, ev.GateID) {
+		if b.NativeQualification != nil && ev.SourceKind == "local" && ev.ProofClass == "live" && ev.CollectorID == "native-debian-228" && slices.Contains([]string{"native.baseline", "native.role", "native.recovery", "platform-safety", "host.hardening-baseline", "host.role-admission"}, ev.GateID) {
 			if binding, e := r.resolveNativeApplied(ctx, tx, *out, ev, b); e == nil {
 				out.NativeProducerBindings[ev.EvidenceID] = binding
 			}
@@ -338,15 +338,22 @@ func (r *GateRepository) admissionEvidenceStages(ctx context.Context, tx ReadTx,
 				out.Qualifications = append(out.Qualifications, q)
 				out.QualificationDigests = append(out.QualificationDigests, ev.BundleDigest)
 			}
+			prerequisites := append([]HostPrerequisiteProof(nil), proof.Prerequisites...)
 			if proof.PrerequisiteID != "" {
-				if !slices.Contains([]string{"identity-console", "recovery-access", "physical-capacity", "physical-thermal-power", "qualified-virtual"}, proof.PrerequisiteID) || proof.PrerequisiteDigest == "" {
+				prerequisites = append(prerequisites, HostPrerequisiteProof{proof.PrerequisiteID, proof.PrerequisiteDigest})
+			}
+			if len(prerequisites) > 5 {
+				return actionError(generated.ErrorCodeIntegrityFailure)
+			}
+			for _, prerequisite := range prerequisites {
+				if !slices.Contains([]string{"identity-console", "recovery-access", "physical-capacity", "physical-thermal-power", "qualified-virtual"}, prerequisite.ID) || prerequisite.Digest == "" {
 					return actionError(generated.ErrorCodeIntegrityFailure)
 				}
-				if _, exists := out.PrerequisiteDigests[proof.PrerequisiteID]; exists {
+				if _, exists := out.PrerequisiteDigests[prerequisite.ID]; exists {
 					continue
 				}
-				out.PrerequisiteDigests[proof.PrerequisiteID] = proof.PrerequisiteDigest
-				out.PrerequisiteEvidenceIDs[proof.PrerequisiteID] = ev.EvidenceID
+				out.PrerequisiteDigests[prerequisite.ID] = prerequisite.Digest
+				out.PrerequisiteEvidenceIDs[prerequisite.ID] = ev.EvidenceID
 			}
 		}
 	}

@@ -34,6 +34,33 @@ func TestRoleRejectsConflictingControlApplicationCI(t *testing.T) {
 		t.Fatal("mixed role identities accepted")
 	}
 }
+
+func TestControlRoleKeepsServiceAccountSeparateFromActionCaller(t *testing.T) {
+	in := fixture()
+	in.AutomationUID = 22002
+	in.Accounts[0].UID, in.Accounts[0].GID = 22001, 22001
+	for i := range in.Directories {
+		in.Directories[i].UID, in.Directories[i].GID = 22001, 22001
+	}
+	in.NetworkAccess = networkFixture(in)
+	in.RenderedPolicyDigest, in.RoleBindingDigest = PolicyDigest(in), RoleBindingDigest(in)
+	if err := ValidateInput(in); err != nil {
+		t.Fatal("separate actual service/executor identities rejected", err)
+	}
+	raw, _ := json.Marshal(in)
+	r := generated.HostActionRequest{ActionID: "debian.role.apply", ActionInput: string(raw), HostID: in.HostID, CallerUID: 22002, ConsoleConfirmation: generated.HostActionConsoleConfirmation{HostIdentityDigest: in.HostIdentityDigest}}
+	if _, err := ScopeForRequest(r); err != nil {
+		t.Fatal("scoped executor refused", err)
+	}
+	r.CallerUID = 22001
+	if _, err := ScopeForRequest(r); err == nil {
+		t.Fatal("service identity substituted for scoped action caller")
+	}
+	in.Accounts[0].Existing = false
+	if ValidateDesiredInput(in) == nil {
+		t.Fatal("unobserved canonical service account accepted")
+	}
+}
 func TestRoleRejectsCapacityWidening(t *testing.T) {
 	for _, mut := range []func(*generated.LinuxRoleInput){func(i *generated.LinuxRoleInput) { i.Resources.MemoryMaxBytes = i.Resources.CapacityMemoryBytes + 1 }, func(i *generated.LinuxRoleInput) { i.Resources.CPUQuotaPercent = i.Resources.CapacityCPUPercent + 1 }, func(i *generated.LinuxRoleInput) { i.Resources.TasksMax = i.Resources.CapacityTasks + 1 }, func(i *generated.LinuxRoleInput) { i.Accounts[0].UID = 0 }, func(i *generated.LinuxRoleInput) { i.Accounts[0].Existing = false }, func(i *generated.LinuxRoleInput) { i.Directories[0].ExpectedState = "symlink" }} {
 		in := fixture()

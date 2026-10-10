@@ -9,7 +9,7 @@ func TestNativeCollectionCannotImportReportsOrClassification(t *testing.T) {
 			continue
 		}
 		found = true
-		allowed := map[string]bool{"schema": true, "schemaVersion": true, "scopeDigest": true, "stage": true, "evidenceId": true, "profileId": true, "producers": true, "expectedStateRevision": true, "recoveryEpoch": true, "idempotencyKey": true}
+		allowed := map[string]bool{"hostId": true, "hostGateId": true, "schema": true, "schemaVersion": true, "scopeDigest": true, "stage": true, "evidenceId": true, "profileId": true, "producers": true, "expectedStateRevision": true, "recoveryEpoch": true, "idempotencyKey": true}
 		for _, field := range schema.Fields {
 			if !allowed[field.JSONName] {
 				t.Fatalf("collector accepts unreviewed field %s", field.JSONName)

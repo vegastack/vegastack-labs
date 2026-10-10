@@ -90,6 +90,15 @@ func validateAPIPacket(scope validatedNativeScope, in nativeAPIPacket, now time.
 		if in.Step.Operation != in.Kind || in.Collection == nil || !exactNativeJSON(generated.SchemaIDNativeCollectRequest, *in.Collection) || in.Collection.ScopeDigest != scope.digest || in.Collection.ProfileID != scope.value.ProfileID || in.Collection.RecoveryEpoch != in.Step.RecoveryEpoch {
 			return ErrUnavailable
 		}
+		if in.Collection.HostID != "" || in.Collection.HostGateID != "" {
+			match := false
+			for _, g := range scope.value.Guests {
+				match = match || g.HostID == in.Collection.HostID
+			}
+			if !match || !((in.Collection.Stage == "baseline" && (in.Collection.HostGateID == "platform-safety" || in.Collection.HostGateID == "host.hardening-baseline")) || (in.Collection.Stage == "role" && in.Collection.HostGateID == "host.role-admission")) {
+				return ErrUnavailable
+			}
+		}
 		allowed := map[string]bool{}
 		for _, s := range StageScenarios(in.Collection.Stage) {
 			allowed[s] = true

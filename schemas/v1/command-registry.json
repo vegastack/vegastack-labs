@@ -6360,6 +6360,16 @@
       "artifactPath": "schemas/v1/native-guest-launch.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/native-host-observation",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-host-observation.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/native-host-proof",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-host-proof.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/native-observation",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/native-observation.schema.json"

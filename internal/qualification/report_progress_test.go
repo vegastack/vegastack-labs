@@ -56,3 +56,34 @@ func TestReportRequiresCollectedExactAppliedEvidenceAndCurrentEpoch(t *testing.T
 		t.Fatal("substituted bundle accepted")
 	}
 }
+
+func TestHostCollectionCannotReplaceProfileReportStage(t *testing.T) {
+	at := time.Now().UTC().Truncate(time.Second).Format(time.RFC3339)
+	d := hostaction.Digest("profile-software-proof")
+	report := generated.NativeReport{ScopeDigest: d, ExecutableDigest: d, ProfileLockDigest: d}
+	in := generated.NativeCollectRequest{Stage: "baseline", ScopeDigest: d, EvidenceID: "profile-evidence", ProfileID: "profile"}
+	data := generated.NativeCollectData{Schema: generated.SchemaIDNativeCollectData, SchemaVersion: "1.0.0", BundleDigest: d, RequestDigest: hostaction.Digest(in), Submission: generated.GateEvidenceSubmission{Schema: generated.SchemaIDGateEvidenceSubmission, SchemaVersion: "1.1.0", EvidenceID: in.EvidenceID, DraftID: "profile-draft", ChangeID: "profile-change", Status: "draft", StateRevision: 1}, Scenarios: []generated.ScenarioResult{}}
+	for _, id := range StageScenarios("baseline") {
+		summary := generated.ScenarioResult{Schema: generated.SchemaIDScenarioResult, SchemaVersion: "1.0.0", ScenarioID: id, Status: "uncertain", ProfileLockDigest: d, ExecutableDigest: d, ArtifactDigest: d, StartedAt: at, FinishedAt: at, PositiveObservationDigests: []string{d}, NegativeObservationDigests: []string{d}, BeforeStateDigest: d, AfterStateDigest: d, RecoveryResult: "passed", CleanupResult: "not-required", QualificationClass: "native", ProducerRunIDs: []string{"run"}, ProducerReceiptDigests: []string{d}, NativeObservationDigests: []string{d}}
+		data.Scenarios = append(data.Scenarios, summary)
+		report.Scenarios = append(report.Scenarios, generated.ScenarioResult{ScenarioID: id, Status: "not-run"})
+	}
+	p := newNativeReportProgress()
+	if err := p.collect(in, data, &report); err != nil {
+		t.Fatal(err)
+	}
+	in.HostID, in.HostGateID, in.EvidenceID = "host", "platform-safety", "host-evidence"
+	data.Submission.EvidenceID = in.EvidenceID
+	data.RequestDigest = hostaction.Digest(in)
+	if err := p.collect(in, data, &report); err != nil {
+		t.Fatal(err)
+	}
+	if p.stages["baseline"].Submission.EvidenceID != "profile-evidence" {
+		t.Fatal("host draft replaced profile evidence")
+	}
+	for _, s := range report.Scenarios {
+		if s.Status == "passed" {
+			t.Fatal("host draft granted profile acceptance")
+		}
+	}
+}

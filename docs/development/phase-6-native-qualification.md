@@ -12,6 +12,10 @@ Native qualification has baseline, role and recovery stages. The internal collec
 
 The ordinary gate API resolves these three stages against the selected applied profile. It reuses the same current producer, declaration, execution and measured running-build joins as native prerequisites. Missing build pins or proof, stale bindings, fixture uploads and revoked or superseded evidence remain unqualified; a newer invalid row cannot revive an older proof. An explicit different profile cannot pass. A passed profile stage does not grant host or workload admission.
 
+The same operator-local qualification collector can separately prepare one exact host gate with `hostId` and `hostGateId`: `platform-safety` or `host.hardening-baseline` requires the full baseline stage; `host.role-admission` requires the full role stage. It joins the registered virtual identity and pinned key, current host binding, real control/probe plans and receipts, protected original scope and fresh owned console/process observation. Physical prerequisites cannot be produced by this path. The internally derived draft still requires its ordinary plan, current grants and human acknowledgement; neither a host draft nor its diagnostic scenarios replaces profile qualification. Role changes require current affected baseline and role observations before admission.
+
+The control service account and scoped host-action caller may have distinct UIDs. The existing canonical `vsk-labs` account, actual passwd identity, directory/unit ownership and handoff service UID remain independently checked; the action caller still must match the immutable action policy. The existing scoped recovery-point list includes its authoritative policy, repository and inventory digest so a normal approved backup-create can be followed by a separately approved verification without guessing point bindings or repeating creation.
+
 The report consistency command checks complete scenario coverage, bindings, time bounds, positive and negative observations, recovery and cleanup:
 
 ```sh

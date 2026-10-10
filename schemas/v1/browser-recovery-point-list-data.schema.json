@@ -51,11 +51,19 @@
           "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
           "type": "string"
         },
+        "inventoryDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
         "manifestDigest": {
           "pattern": "^sha256:[a-f0-9]{64}$",
           "type": "string"
         },
         "pointId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "policyId": {
           "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
           "type": "string"
         },
@@ -73,6 +81,10 @@
         "recoveryEpoch": {
           "minimum": 0,
           "type": "integer"
+        },
+        "repositoryId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
         },
         "schema": {
           "enum": [

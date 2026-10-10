@@ -252,6 +252,8 @@ const (
 	SchemaIDNativeFail2banWitness                  = "vegastack-labs.dev/native-fail2ban-witness"
 	SchemaIDNativeFiniteResponse                   = "vegastack-labs.dev/native-finite-response"
 	SchemaIDNativeGuestLaunch                      = "vegastack-labs.dev/native-guest-launch"
+	SchemaIDNativeHostObservation                  = "vegastack-labs.dev/native-host-observation"
+	SchemaIDNativeHostProof                        = "vegastack-labs.dev/native-host-proof"
 	SchemaIDNativeObservation                      = "vegastack-labs.dev/native-observation"
 	SchemaIDNativeObservationBinding               = "vegastack-labs.dev/native-observation-binding"
 	SchemaIDNativePreparationRequest               = "vegastack-labs.dev/native-preparation-request"
@@ -1537,6 +1539,9 @@ type BrowserDeclarationRevision struct {
 type BrowserRecoveryPoint struct {
 	Schema             string  `json:"schema"`
 	SchemaVersion      string  `json:"schemaVersion"`
+	PolicyID           string  `json:"policyId,omitempty"`
+	RepositoryID       string  `json:"repositoryId,omitempty"`
+	InventoryDigest    string  `json:"inventoryDigest,omitempty"`
 	PointID            string  `json:"pointId"`
 	SourceKind         string  `json:"sourceKind"`
 	ProofClass         string  `json:"proofClass"`
@@ -3313,6 +3318,8 @@ type NativeCollectData struct {
 type NativeCollectRequest struct {
 	Schema                string                    `json:"schema"`
 	SchemaVersion         string                    `json:"schemaVersion"`
+	HostID                string                    `json:"hostId,omitempty"`
+	HostGateID            string                    `json:"hostGateId,omitempty"`
 	ScopeDigest           string                    `json:"scopeDigest"`
 	Stage                 string                    `json:"stage"`
 	EvidenceID            string                    `json:"evidenceId"`
@@ -3463,6 +3470,35 @@ type NativeGuestLaunch struct {
 	ConsoleReferenceDigest string `json:"consoleReferenceDigest"`
 }
 
+type NativeHostObservation struct {
+	Schema             string                   `json:"schema"`
+	SchemaVersion      string                   `json:"schemaVersion"`
+	Binding            NativeObservationBinding `json:"binding"`
+	BootID             string                   `json:"bootId"`
+	QEMUPID            int64                    `json:"qemuPid"`
+	QEMUStartTimeTicks int64                    `json:"qemuStartTimeTicks"`
+	ExecutableDigest   string                   `json:"executableDigest"`
+	DiskDigest         string                   `json:"diskDigest"`
+	FirmwareDigest     string                   `json:"firmwareDigest"`
+	ObservedAt         string                   `json:"observedAt"`
+	ProcessState       string                   `json:"processState"`
+	ConsoleState       string                   `json:"consoleState"`
+	ChannelDigest      string                   `json:"channelDigest"`
+}
+
+type NativeHostProof struct {
+	Schema               string                `json:"schema"`
+	SchemaVersion        string                `json:"schemaVersion"`
+	HostID               string                `json:"hostId"`
+	HostIdentityDigest   string                `json:"hostIdentityDigest"`
+	HostBindingDigest    string                `json:"hostBindingDigest"`
+	DiscoveryDigest      string                `json:"discoveryDigest"`
+	ControlsDigest       string                `json:"controlsDigest"`
+	RecoveryAccessDigest string                `json:"recoveryAccessDigest"`
+	Scope                QualificationScope    `json:"scope"`
+	Observation          NativeHostObservation `json:"observation"`
+}
+
 type NativeObservation struct {
 	Schema              string                            `json:"schema"`
 	SchemaVersion       string                            `json:"schemaVersion"`
@@ -3603,6 +3639,7 @@ type NativeProducerReference struct {
 type NativeQualification struct {
 	Schema               string                            `json:"schema"`
 	SchemaVersion        string                            `json:"schemaVersion"`
+	HostProof            *NativeHostProof                  `json:"hostProof,omitempty"`
 	ControllerIdentity   *NativeControllerIdentity         `json:"controllerIdentity,omitempty"`
 	Prerequisites        []NativeQualificationPrerequisite `json:"prerequisites,omitempty"`
 	Stage                string                            `json:"stage"`

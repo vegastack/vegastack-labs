@@ -9,6 +9,7 @@ import (
 
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/failure"
+	"github.com/vegastack/vegastack-labs/internal/gate"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"github.com/vegastack/vegastack-labs/internal/qualification"
@@ -19,6 +20,9 @@ func (s *nativeQualificationService) CollectDraft(ctx context.Context, in genera
 	var zero store.GateDraft
 	deny := func() (store.GateDraft, []generated.ScenarioResult, error) {
 		return zero, nil, failure.New(generated.ErrorCodePrerequisiteBlocked, "native-qualification", false)
+	}
+	if _, _, valid := store.NativeCollectSubject(in); !valid {
+		return deny()
 	}
 	if s == nil || s.authority == nil || s.gates == nil {
 		return deny()
@@ -124,10 +128,52 @@ func (s *nativeQualificationService) CollectDraft(ctx context.Context, in genera
 	if err = qualification.ValidateStageEvidence(in.Stage, executions, observations); err != nil {
 		return deny()
 	}
+	var hostSnapshot store.HostAdmissionSnapshot
+	var hostObservation generated.NativeHostObservation
+	var discoveryDigest string
+	if in.HostID != "" {
+		guest, exists := guests[in.HostID]
+		if !exists {
+			return deny()
+		}
+		hostSnapshot, discoveryDigest, err = gates.ResolveNativeHostAdmission(ctx, in.HostID, guest)
+		if err != nil || hostSnapshot.Revision != snapshot.Revision {
+			return deny()
+		}
+		var owning *store.HostAdmissionMeasurement
+		for i := range hostSnapshot.Measurements {
+			m := &hostSnapshot.Measurements[i]
+			if m.Control.HostID == in.HostID && m.Control.ProducerID == "debian-access-native" && m.Control.ControlID == "debian.ssh" && m.Receipt.Status == "succeeded" {
+				owning = m
+				break
+			}
+		}
+		if owning == nil {
+			return deny()
+		}
+		var nonce [32]byte
+		if _, err = rand.Read(nonce[:]); err != nil {
+			return deny()
+		}
+		binding := generated.NativeObservationBinding{Schema: generated.SchemaIDNativeObservationBinding, SchemaVersion: "1.0.0", ScopeDigest: in.ScopeDigest, GuestID: guest.GuestID, ScenarioID: "baseline-access", Ordinal: 0, ControllerInstanceID: scope.ControllerInstanceID, RecoveryEpoch: in.RecoveryEpoch, PlanID: owning.Plan.PlanID, PlanDigest: owning.Plan.PlanDigest, RunID: owning.Receipt.RunID, StepID: owning.Receipt.StepID, LeaseID: owning.Receipt.LeaseID, Nonce: "sha256:" + hex.EncodeToString(nonce[:]), Deadline: time.Now().UTC().Add(30 * time.Second).Truncate(time.Second).Format(time.RFC3339)}
+		actual, observeErr := observer.Observe(ctx, binding)
+		if observeErr != nil {
+			return deny()
+		}
+		hostObservation = gate.NativeHostObservation(actual)
+	}
 	observedAt := time.Now().UTC().Truncate(time.Second)
 	sourceDigest := qualification.SourceDigest(scope)
 	payload := generated.NativeQualification{Schema: generated.SchemaIDNativeQualification, SchemaVersion: "1.0.0", ControllerIdentity: controller, Stage: in.Stage, ScopeDigest: in.ScopeDigest, ProfileID: scope.ProfileID, ProfileLockDigest: scope.ProfileLockDigest, SourceCommit: scope.SourceCommit, SourceDigest: sourceDigest, ExecutableDigest: scope.ExecutableDigest, ControllerInstanceID: snapshot.ControllerInstanceID, RecoveryEpoch: in.RecoveryEpoch, ObservedAt: observedAt.Format(time.RFC3339), ExpiresAt: observedAt.Add(24 * time.Hour).Format(time.RFC3339), ObserverDigest: hostaction.Digest(observations), Producers: snapshot.Producers}
 	bundle := generated.GateEvidenceBundle{Schema: generated.SchemaIDGateEvidenceBundle, SchemaVersion: "1.1.0", CollectorID: "native-debian-228", ObservedAt: payload.ObservedAt, NativeQualification: &payload, Attachments: []generated.GateEvidenceAttachment{}, Facts: []generated.GateEvidenceFact{{Schema: generated.SchemaIDGateEvidenceFact, SchemaVersion: "1.1.0", FactID: "native.profile-lock", ValueDigest: scope.ProfileLockDigest}, {Schema: generated.SchemaIDGateEvidenceFact, SchemaVersion: "1.1.0", FactID: "native.source", ValueDigest: sourceDigest}}, Checks: []generated.GateEvidenceCheck{{Schema: generated.SchemaIDGateEvidenceCheck, SchemaVersion: "1.1.0", CheckID: "native." + in.Stage, VerifierVersion: "1.0.0", Result: "passed", ResultDigest: sourceDigest}}}
+	if in.HostID != "" {
+		proof, facts, checks, proofErr := gate.NativeHostAdmissionBundle(hostSnapshot, payload, scope, hostObservation, discoveryDigest, in.HostGateID, observedAt)
+		if proofErr != nil {
+			return deny()
+		}
+		payload.HostProof = &proof
+		bundle.Facts, bundle.Checks = facts, checks
+	}
 	// The repository re-resolves the same production joins, current grants and
 	// revision atomically; it alone fixes draft provenance to local/live.
 	draft, err := gates.PutNativeGateDraft(ctx, store.NativeGateDraftRequest{Request: in, Payload: payload, Bundle: bundle, ResolvedDigest: snapshot.Digest, Attribution: a})

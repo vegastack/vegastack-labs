@@ -48,6 +48,10 @@ func (p *nativeReportProgress) collect(in generated.NativeCollectRequest, data g
 		}
 		seen[r.ScenarioID] = true
 	}
+	// A host admission draft does not supersede the profile-stage evidence.
+	if in.HostID != "" || in.HostGateID != "" {
+		return nil
+	}
 	p.resetEpoch(in.RecoveryEpoch, report)
 	p.stages[in.Stage] = data
 	// A fresh draft cannot inherit the old applied result for the same stage.

@@ -85,7 +85,7 @@ func (app *Application) qualificationCollect(c QualificationOperations) func(htt
 			return
 		}
 		var in generated.NativeCollectRequest
-		if decodeOperationRequest(r, 65536, []string{"schema", "schemaVersion", "scopeDigest", "stage", "evidenceId", "profileId", "producers", "expectedStateRevision", "recoveryEpoch", "idempotencyKey"}, &in) != nil {
+		if decodeOperationRequest(r, 65536, []string{"schema", "schemaVersion", "scopeDigest", "stage", "evidenceId", "profileId", "producers", "expectedStateRevision", "recoveryEpoch", "idempotencyKey"}, &in, "hostId", "hostGateId") != nil {
 			app.failure(w, op, apiFailure(generated.ErrorCodeInputInvalid, "native-collect"))
 			return
 		}
@@ -94,7 +94,16 @@ func (app *Application) qualificationCollect(c QualificationOperations) func(htt
 			app.failure(w, op, apiFailure(generated.ErrorCodeInputInvalid, "native-collect"))
 			return
 		}
-		for _, target := range []authorization.Target{{Capability: "gate.evidence.author", ResourceKind: "gate", ResourceID: "native." + in.Stage}, {Capability: "declaration.author", ResourceKind: "declaration", ResourceID: "gate-evidence-" + in.EvidenceID}} {
+		gateID, subjectID, valid := store.NativeCollectSubject(in)
+		if !valid {
+			app.failure(w, op, apiFailure(generated.ErrorCodeInputInvalid, "native-host-subject"))
+			return
+		}
+		targets := []authorization.Target{{Capability: "gate.evidence.author", ResourceKind: "gate", ResourceID: "native." + in.Stage}, {Capability: "declaration.author", ResourceKind: "declaration", ResourceID: "gate-evidence-" + in.EvidenceID}}
+		if in.HostID != "" {
+			targets = append(targets, authorization.Target{Capability: "gate.evidence.author", ResourceKind: "gate", ResourceID: gateID})
+		}
+		for _, target := range targets {
 			if _, err := app.authorizeAction(r, authorization.ActionAuthor, target); err != nil {
 				app.failure(w, op, err)
 				return
@@ -115,7 +124,7 @@ func (app *Application) qualificationCollect(c QualificationOperations) func(htt
 			app.operationFailure(w, op, requestID, err)
 			return
 		}
-		if draft.SourceKind != "local" || draft.ProofClass != "live" || draft.EvidenceID != in.EvidenceID || draft.GateID != "native."+in.Stage || draft.SubjectID != in.ProfileID || draft.RecoveryEpoch != in.RecoveryEpoch {
+		if draft.SourceKind != "local" || draft.ProofClass != "live" || draft.EvidenceID != in.EvidenceID || draft.GateID != gateID || draft.SubjectID != subjectID || draft.RecoveryEpoch != in.RecoveryEpoch {
 			app.operationFailure(w, op, requestID, apiFailure(generated.ErrorCodeIntegrityFailure, "native-draft"))
 			return
 		}

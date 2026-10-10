@@ -48,7 +48,15 @@ func (r *GateRepository) resolveNativeProducers(ctx context.Context, q nativeQue
 	if out.Revision.RecoveryEpoch != in.RecoveryEpoch || (author && out.Revision.StateRevision != in.ExpectedStateRevision) {
 		return out, actionError(generated.ErrorCodePlanStale)
 	}
+	if _, _, valid := NativeCollectSubject(in); !valid {
+		return out, nativeError()
+	}
 	if author {
+		if in.HostID != "" {
+			if _, err = adoptionGrant(ctx, q.row, in.HostGateID, "gate", "author", "gate.evidence.author", true); err != nil {
+				return
+			}
+		}
 		if _, err = adoptionGrant(ctx, q.row, "native."+in.Stage, "gate", "author", "gate.evidence.author", true); err != nil {
 			return
 		}
@@ -235,7 +243,15 @@ func (r *GateRepository) PutNativeGateDraft(ctx context.Context, in NativeGateDr
 			return zero, nativeError()
 		}
 	}
-	request := GateDraftRequest{EvidenceID: in.Request.EvidenceID, GateID: "native." + in.Request.Stage, SubjectID: in.Request.ProfileID, DefinitionVersion: "1.0.0", EvaluatorVersion: "1.0.0", SourceKind: "local", ProofClass: "live", ArtifactDigest: hostaction.Digest(in.Payload), Bundle: in.Bundle, Expected: snapshot.Revision, KeyDigest: hostaction.Digest(in.Request.IdempotencyKey), RequestDigest: hostaction.Digest(in.Request), Attribution: in.Attribution}
+	gateID, subjectID, valid := NativeCollectSubject(in.Request)
+	if !valid || (in.Payload.HostProof == nil) != (in.Request.HostID == "") {
+		return zero, nativeError()
+	}
+	version := "1.0.0"
+	if gateID == "host.hardening-baseline" || gateID == "host.role-admission" {
+		version = "1.1.0"
+	}
+	request := GateDraftRequest{EvidenceID: in.Request.EvidenceID, GateID: gateID, SubjectID: subjectID, DefinitionVersion: version, EvaluatorVersion: version, SourceKind: "local", ProofClass: "live", ArtifactDigest: hostaction.Digest(in.Payload), Bundle: in.Bundle, Expected: snapshot.Revision, KeyDigest: hostaction.Digest(in.Request.IdempotencyKey), RequestDigest: hostaction.Digest(in.Request), Attribution: in.Attribution}
 	return r.putGateDraft(ctx, request, &in)
 }
 func (r *GateRepository) validateNativeDraftTransaction(ctx context.Context, tx *sql.Tx, in NativeGateDraftRequest) error {
@@ -254,13 +270,25 @@ func (r *GateRepository) validateNativeDraftTransaction(ctx context.Context, tx 
 	if current.Digest != in.ResolvedDigest || current.ControllerInstanceID != in.Payload.ControllerInstanceID || hostaction.Digest(current.Producers) != hostaction.Digest(in.Payload.Producers) {
 		return nativeError()
 	}
+	if in.Payload.HostProof != nil {
+		snapshot, err := r.resolveHostAdmission(ctx, ReadTx{handle: tx}, in.Request.HostID)
+		if err != nil || in.Request.HostID != in.Payload.HostProof.HostID {
+			return nativeError()
+		}
+		if err = r.validateNativeHostProof(ctx, ReadTx{handle: tx}, snapshot, in.Payload); err != nil {
+			return err
+		}
+		if !NativeScopeAuthority(in.Payload.HostProof.Scope, current) {
+			return nativeError()
+		}
+	}
 	return nil
 }
 
 func (r *GateRepository) resolveNativeApplied(ctx context.Context, tx ReadTx, s HostAdmissionSnapshot, e generated.GateEvidence, b generated.GateEvidenceBundle) (HostNativeProducerBinding, error) {
 	var zero HostNativeProducerBinding
 	p := b.NativeQualification
-	if p == nil || !nativeContract(generated.SchemaIDNativeQualification, *p) || e.Status != "applied" || e.SubjectID != p.ProfileID || p.ProfileID != s.Profile.ProfileID || p.ProfileLockDigest != s.ProfileLockDigest || e.GateID != "native."+p.Stage || e.RecoveryEpoch != p.RecoveryEpoch || p.RecoveryEpoch != s.Revision.RecoveryEpoch || e.ArtifactDigest != hostaction.Digest(*p) || len(p.Producers) == 0 || len(p.Producers) > 48 {
+	if p == nil || !nativeContract(generated.SchemaIDNativeQualification, *p) || e.Status != "applied" || !nativeAppliedSubjectMatches(e, p, s) || p.ProfileID != s.Profile.ProfileID || p.ProfileLockDigest != s.ProfileLockDigest || e.RecoveryEpoch != p.RecoveryEpoch || p.RecoveryEpoch != s.Revision.RecoveryEpoch || e.ArtifactDigest != hostaction.Digest(*p) || len(p.Producers) == 0 || len(p.Producers) > 48 {
 		return zero, nativeError()
 	}
 	refs := make([]generated.NativeProducerReference, 0, len(p.Producers))
@@ -268,6 +296,12 @@ func (r *GateRepository) resolveNativeApplied(ctx context.Context, tx ReadTx, s 
 		refs = append(refs, producer.Reference)
 	}
 	in := generated.NativeCollectRequest{Schema: generated.SchemaIDNativeCollectRequest, SchemaVersion: "1.0.0", ScopeDigest: p.ScopeDigest, Stage: p.Stage, EvidenceID: e.EvidenceID, ProfileID: p.ProfileID, Producers: refs, ExpectedStateRevision: s.Revision.StateRevision, RecoveryEpoch: s.Revision.RecoveryEpoch, IdempotencyKey: "native-durable-resolution"}
+	if p.HostProof != nil {
+		in.HostID, in.HostGateID = p.HostProof.HostID, e.GateID
+		if err := r.validateNativeHostProof(ctx, tx, s, *p); err != nil {
+			return zero, err
+		}
+	}
 	query := nativeQuery{tx, func(q string, a ...any) *sql.Row { return tx.queryRow(ctx, q, a...) }, func(q string, a ...any) (*sql.Rows, error) { return tx.query(ctx, q, a...) }}
 	prerequisites, err := r.nativePrerequisites(ctx, query, *p)
 	if err != nil || !nativePrerequisitesEqual(p.Prerequisites, prerequisites) {
@@ -282,6 +316,9 @@ func (r *GateRepository) resolveNativeApplied(ctx context.Context, tx ReadTx, s 
 	}
 	resolved, err := resolver.resolveNativeProducers(ctx, query, in, false)
 	if err != nil || resolved.ControllerInstanceID != p.ControllerInstanceID || hostaction.Digest(resolved.Producers) != hostaction.Digest(p.Producers) {
+		return zero, nativeError()
+	}
+	if p.HostProof != nil && !NativeScopeAuthority(p.HostProof.Scope, resolved) {
 		return zero, nativeError()
 	}
 	for _, execution := range resolved.Executions {
@@ -332,6 +369,9 @@ func NativeExecutionProfileMatches(e NativeProducerExecution, profile, lock stri
 }
 
 func nativeBundleShape(b generated.GateEvidenceBundle, p generated.NativeQualification) bool {
+	if p.HostProof != nil {
+		return nativeHostBundleShape(b, p)
+	}
 	if len(b.Attachments) != 0 || len(b.Facts) != 2 || len(b.Checks) != 1 {
 		return false
 	}
