@@ -54,6 +54,7 @@ func (h handler) Execute(ctx context.Context, b generated.HostActionBundle) (gen
 			return result, errAccess
 		}
 		observed, err = h.runtime.Confirm(ctx, b, in)
+		mutationAttempted = observed.Changed
 	case "debian.access.probe-source":
 		if b.VerificationEvidence != nil || b.VerificationEvidenceDigest != "" {
 			return result, errAccess
@@ -94,6 +95,9 @@ func (h handler) Execute(ctx context.Context, b generated.HostActionBundle) (gen
 		result.Changed = true
 		result.EffectObserved = true
 		result.Reason = "access-apply-incomplete"
+		if h.action == "debian.access.confirm" {
+			result.Reason = "access-confirm-incomplete"
+		}
 		result.ResultDigest = hostaction.ResultDigest(result)
 		return result, nil
 	}

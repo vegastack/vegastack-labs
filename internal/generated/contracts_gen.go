@@ -496,16 +496,18 @@ type AccessAccount struct {
 }
 
 type AccessConfirmInput struct {
-	Schema                   string `json:"schema"`
-	SchemaVersion            string `json:"schemaVersion"`
-	HostID                   string `json:"hostId"`
-	HostIdentityDigest       string `json:"hostIdentityDigest"`
-	ProfileLockDigest        string `json:"profileLockDigest"`
-	RollbackDigest           string `json:"rollbackDigest"`
-	ApplyOperationID         string `json:"applyOperationId"`
-	ApplyDraftDigest         string `json:"applyDraftDigest"`
-	ApplyInputDigest         string `json:"applyInputDigest"`
-	ProbeSpecificationDigest string `json:"probeSpecificationDigest"`
+	Schema                                    string `json:"schema"`
+	SchemaVersion                             string `json:"schemaVersion"`
+	AutomationUID                             int64  `json:"automationUid,omitempty"`
+	RevokeAutomationSessionsRetainedPublicKey string `json:"revokeAutomationSessionsRetainedPublicKey,omitempty"`
+	HostID                                    string `json:"hostId"`
+	HostIdentityDigest                        string `json:"hostIdentityDigest"`
+	ProfileLockDigest                         string `json:"profileLockDigest"`
+	RollbackDigest                            string `json:"rollbackDigest"`
+	ApplyOperationID                          string `json:"applyOperationId"`
+	ApplyDraftDigest                          string `json:"applyDraftDigest"`
+	ApplyInputDigest                          string `json:"applyInputDigest"`
+	ProbeSpecificationDigest                  string `json:"probeSpecificationDigest"`
 }
 
 type AccessDestinationObservation struct {
@@ -1928,27 +1930,28 @@ type DatabaseStatusData struct {
 }
 
 type DebianAccessInput struct {
-	Schema                 string                      `json:"schema"`
-	SchemaVersion          string                      `json:"schemaVersion"`
-	HostID                 string                      `json:"hostId"`
-	HostIdentityDigest     string                      `json:"hostIdentityDigest"`
-	ProfileID              string                      `json:"profileId"`
-	ProfileLockDigest      string                      `json:"profileLockDigest"`
-	ProfileLock            DebianProfileLock           `json:"profileLock"`
-	ActionVersion          string                      `json:"actionVersion"`
-	AutomationUID          int64                       `json:"automationUid"`
-	Accounts               []AccessAccount             `json:"accounts"`
-	SSHUsers               []string                    `json:"sshUsers"`
-	SSHSourcePrefixes      []string                    `json:"sshSourcePrefixes"`
-	RecoverySourcePrefixes []string                    `json:"recoverySourcePrefixes"`
-	PrivilegedServiceKeys  []AccessServiceKey          `json:"privilegedServiceKeys"`
-	Interfaces             []AccessInterface           `json:"interfaces"`
-	HostFlows              []AccessFlow                `json:"hostFlows"`
-	ContainerFlows         []AccessFlow                `json:"containerFlows"`
-	RollbackDigest         string                      `json:"rollbackDigest"`
-	RollbackSpecification  AccessRollbackSpecification `json:"rollbackSpecification"`
-	RenderedAccess         RenderedAccess              `json:"renderedAccess"`
-	RenderedAccessDigest   string                      `json:"renderedAccessDigest"`
+	Schema                                    string                      `json:"schema"`
+	SchemaVersion                             string                      `json:"schemaVersion"`
+	RevokeAutomationSessionsRetainedPublicKey string                      `json:"revokeAutomationSessionsRetainedPublicKey,omitempty"`
+	HostID                                    string                      `json:"hostId"`
+	HostIdentityDigest                        string                      `json:"hostIdentityDigest"`
+	ProfileID                                 string                      `json:"profileId"`
+	ProfileLockDigest                         string                      `json:"profileLockDigest"`
+	ProfileLock                               DebianProfileLock           `json:"profileLock"`
+	ActionVersion                             string                      `json:"actionVersion"`
+	AutomationUID                             int64                       `json:"automationUid"`
+	Accounts                                  []AccessAccount             `json:"accounts"`
+	SSHUsers                                  []string                    `json:"sshUsers"`
+	SSHSourcePrefixes                         []string                    `json:"sshSourcePrefixes"`
+	RecoverySourcePrefixes                    []string                    `json:"recoverySourcePrefixes"`
+	PrivilegedServiceKeys                     []AccessServiceKey          `json:"privilegedServiceKeys"`
+	Interfaces                                []AccessInterface           `json:"interfaces"`
+	HostFlows                                 []AccessFlow                `json:"hostFlows"`
+	ContainerFlows                            []AccessFlow                `json:"containerFlows"`
+	RollbackDigest                            string                      `json:"rollbackDigest"`
+	RollbackSpecification                     AccessRollbackSpecification `json:"rollbackSpecification"`
+	RenderedAccess                            RenderedAccess              `json:"renderedAccess"`
+	RenderedAccessDigest                      string                      `json:"renderedAccessDigest"`
 }
 
 type DebianBaselineInput struct {

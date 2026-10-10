@@ -118,7 +118,7 @@
       "items": {
         "$ref": "#/$defs/native-producer-reference"
       },
-      "maxItems": 48,
+      "maxItems": 64,
       "type": "array"
     },
     "profileId": {

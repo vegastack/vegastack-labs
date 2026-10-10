@@ -137,6 +137,12 @@ func (a *Adapter) ExecuteBoundWithCredentials(ctx context.Context, op adapter.Op
 		return adapter.Effect{EffectObserved: observed}, denied()
 	}
 	e := adapter.Effect{Status: result.Status, ResultDigest: result.ResultDigest, Changed: result.Changed, EffectObserved: result.EffectObserved}
+	if adapter.ValidateEffect(e) == nil && e.Status == "partial" && b.ActionID == "debian.access.confirm" && e.EffectObserved && len(result.ControlMeasurements) == 0 {
+		if err := a.remember(op, binding, e, result); err != nil {
+			return e, err
+		}
+		return e, nil
+	}
 	if adapter.ValidateEffect(e) == nil && e.Status != "succeeded" && linuxrole.IsAction(b.ActionID) {
 		if a.recorder == nil || len(result.ControlMeasurements) == 0 {
 			return e, denied()

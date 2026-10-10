@@ -553,6 +553,11 @@
           "pattern": "^sha256:[a-f0-9]{64}$",
           "type": "string"
         },
+        "revokeAutomationSessionsRetainedPublicKey": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "type": "string"
+        },
         "rollbackDigest": {
           "pattern": "^sha256:[a-f0-9]{64}$",
           "type": "string"

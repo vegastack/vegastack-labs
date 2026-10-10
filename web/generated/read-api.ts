@@ -699,6 +699,7 @@ export interface DatabaseStatusData {
 export interface DebianAccessInput {
   readonly "schema": "vegastack-labs.dev/debian-access-input";
   readonly "schemaVersion": "1.0.0";
+  readonly "revokeAutomationSessionsRetainedPublicKey"?: string;
   readonly "hostId": string;
   readonly "hostIdentityDigest": string;
   readonly "profileId": string;
@@ -5810,6 +5811,15 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "enum": [
           "1.0.0"
         ]
+      },
+      {
+        "name": "revokeAutomationSessionsRetainedPublicKey",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "minLength": 1,
+        "maxLength": 2048
       },
       {
         "name": "hostId",
@@ -11177,7 +11187,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "itemRef": "vegastack-labs.dev/native-qualification-producer",
-        "maxItems": 48
+        "maxItems": 64
       }
     ]
   },

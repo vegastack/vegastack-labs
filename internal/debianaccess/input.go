@@ -2,6 +2,7 @@
 package debianaccess
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -120,12 +121,30 @@ func ValidateDesiredInput(in generated.DebianAccessInput) error {
 	if automation != 1 {
 		return errInput
 	}
+
+	if in.RevokeAutomationSessionsRetainedPublicKey != "" {
+		if !validPublicKey(in.RevokeAutomationSessionsRetainedPublicKey) {
+			return errInput
+		}
+		for _, account := range in.Accounts {
+			if account.Role == "automation" && (len(account.PublicKeys) != 1 || !SamePublicKey(account.PublicKeys[0], in.RevokeAutomationSessionsRetainedPublicKey)) {
+				return errInput
+			}
+		}
+	}
 	seen := map[string]bool{}
 	for _, name := range in.SSHUsers {
 		if names[name].Name == "" || seen[name] || name == "root" {
 			return errInput
 		}
 		seen[name] = true
+	}
+	if in.RevokeAutomationSessionsRetainedPublicKey != "" {
+		for _, account := range in.Accounts {
+			if account.Role == "automation" && !seen[account.Name] {
+				return errInput
+			}
+		}
 	}
 	if err := validatePrefixes(in.SSHSourcePrefixes); err != nil {
 		return err
@@ -276,6 +295,29 @@ func ValidateEnvelopeCapacity(in generated.DebianAccessInput) error {
 	encoded, e := json.Marshal(envelope)
 	if e != nil || len(encoded) > hostaction.MaximumEnvelope {
 		return fmt.Errorf("%w: envelope capacity", errInput)
+	}
+	return nil
+}
+
+// SamePublicKey compares SSH key bytes independently of authorized-key comments.
+func SamePublicKey(left, right string) bool {
+	if !validPublicKey(left) || !validPublicKey(right) {
+		return false
+	}
+	a, _, _, _, _ := ssh.ParseAuthorizedKey([]byte(left))
+	b, _, _, _, _ := ssh.ParseAuthorizedKey([]byte(right))
+	return bytes.Equal(a.Marshal(), b.Marshal())
+}
+
+func ValidateSessionRevocationConfirmation(in generated.AccessConfirmInput, callerUID int64) error {
+	if in.RevokeAutomationSessionsRetainedPublicKey == "" {
+		if in.AutomationUID != 0 {
+			return errInput
+		}
+		return nil
+	}
+	if in.AutomationUID <= 0 || in.AutomationUID > 4294967295 || in.AutomationUID != callerUID || !validPublicKey(in.RevokeAutomationSessionsRetainedPublicKey) {
+		return errInput
 	}
 	return nil
 }

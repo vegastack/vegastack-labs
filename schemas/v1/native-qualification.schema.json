@@ -787,7 +787,7 @@
       "items": {
         "$ref": "#/$defs/native-qualification-producer"
       },
-      "maxItems": 48,
+      "maxItems": 64,
       "type": "array"
     },
     "profileId": {

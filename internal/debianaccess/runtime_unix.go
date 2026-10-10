@@ -21,6 +21,7 @@ import (
 )
 
 type nativeRuntime struct {
+	revokeSessions    func(context.Context, int64) (bool, error)
 	executableVersion string
 	readContexts      func() ([]PreparedProbeContext, error)
 	observeContainer  func(context.Context, PreparedProbeContext) ([]generated.AccessDestinationObservation, error)
@@ -34,7 +35,7 @@ type nativeRuntime struct {
 }
 
 func NewNativeRuntime(version string) Runtime {
-	return &nativeRuntime{executableVersion: version, root: "/", run: nativeCommand, now: func() time.Time { return time.Now().UTC() }}
+	return &nativeRuntime{executableVersion: version, revokeSessions: revokeManagedAutomationSessions, root: "/", run: nativeCommand, now: func() time.Time { return time.Now().UTC() }}
 }
 func (n *nativeRuntime) read(p string) ([]byte, error) {
 	r, e := os.OpenRoot(n.root)
@@ -75,6 +76,15 @@ func (n *nativeRuntime) Inspect(ctx context.Context, b generated.HostActionBundl
 		return record, err
 	}
 	record = RollbackRecord{HostID: in.HostID, HostIdentityDigest: in.HostIdentityDigest, PlanID: b.PlanID, RunID: b.RunID, InputDigest: b.ActionInputDigest, AuthorizationDigest: in.RollbackDigest, BundleDigest: bd, BootID: strings.TrimSpace(string(boot)), ArmedAt: now, Deadline: now.Add(600 * time.Second), State: "armed"}
+	if in.RevokeAutomationSessionsRetainedPublicKey != "" {
+		record.AutomationUID = in.AutomationUID
+		record.RevokeAutomationSessionsRetainedPublicKey = in.RevokeAutomationSessionsRetainedPublicKey
+		for _, account := range in.Accounts {
+			if account.Role == "automation" {
+				record.AutomationAccount = account.Name
+			}
+		}
+	}
 	desired, err := DesiredFiles(in)
 	if err != nil {
 		return record, err

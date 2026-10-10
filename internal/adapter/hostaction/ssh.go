@@ -2,6 +2,7 @@ package hostaction
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
+	"github.com/vegastack/vegastack-labs/internal/debianaccess"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	protocol "github.com/vegastack/vegastack-labs/internal/hostaction"
 	"golang.org/x/crypto/ssh"
@@ -29,6 +31,18 @@ func (a *Adapter) exchangeOne(ctx context.Context, target Target, envelope gener
 	signer, err := ssh.ParsePrivateKey(value.Bytes())
 	if err != nil {
 		return fail(false)
+	}
+	if envelope.Bundle.ActionID == "debian.access.confirm" {
+		var confirmation generated.AccessConfirmInput
+		if generated.ValidateContractJSON(generated.SchemaIDAccessConfirmInput, []byte(envelope.Bundle.ActionInput), generated.ContractExact) != nil || json.Unmarshal([]byte(envelope.Bundle.ActionInput), &confirmation) != nil || debianaccess.ValidateSessionRevocationConfirmation(confirmation, envelope.Bundle.CallerUID) != nil {
+			return fail(false)
+		}
+		if confirmation.RevokeAutomationSessionsRetainedPublicKey != "" {
+			retained, _, _, _, err := ssh.ParseAuthorizedKey([]byte(confirmation.RevokeAutomationSessionsRetainedPublicKey))
+			if err != nil || !bytes.Equal(retained.Marshal(), signer.PublicKey().Marshal()) {
+				return fail(false)
+			}
+		}
 	}
 	conn, err := (&net.Dialer{Timeout: 10 * time.Second}).DialContext(ctx, "tcp", net.JoinHostPort(target.Address, strconv.Itoa(int(target.Port))))
 	if err != nil {

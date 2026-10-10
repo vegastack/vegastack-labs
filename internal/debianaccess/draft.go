@@ -74,6 +74,10 @@ func BuildDraft(input generated.HostAccessDraftRequest) (AccessDraft, error) {
 	confirm.ActionID = "debian.access.confirm"
 	confirm.IdempotencyKey = apply.IdempotencyKey + ":confirm"
 	confirmation := generated.AccessConfirmInput{Schema: generated.SchemaIDAccessConfirmInput, SchemaVersion: "1.0.0", HostID: apply.HostID, HostIdentityDigest: input.Input.HostIdentityDigest, ProfileLockDigest: input.Input.ProfileLockDigest, RollbackDigest: input.Input.RollbackDigest, ApplyOperationID: seq.ApplyOperationID, ApplyDraftDigest: seq.ApplyDraftDigest, ApplyInputDigest: apply.ActionInputDigest, ProbeSpecificationDigest: seq.SpecificationDigest}
+	if input.Input.RevokeAutomationSessionsRetainedPublicKey != "" {
+		confirmation.AutomationUID = input.Input.AutomationUID
+		confirmation.RevokeAutomationSessionsRetainedPublicKey = input.Input.RevokeAutomationSessionsRetainedPublicKey
+	}
 	raw, _ = json.Marshal(confirmation)
 	confirm.ActionInput = string(raw)
 	confirm.ActionInputDigest = hostaction.BytesDigest(raw)
