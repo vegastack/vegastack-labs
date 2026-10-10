@@ -16,6 +16,8 @@ The same operator-local qualification collector can separately prepare one exact
 
 The control service account and scoped host-action caller may have distinct UIDs. The existing canonical `vsk-labs` account, actual passwd identity, directory/unit ownership and handoff service UID remain independently checked; the action caller still must match the immutable action policy. The existing scoped recovery-point list includes its authoritative policy, repository and inventory digest so a normal approved backup-create can be followed by a separately approved verification without guessing point bindings or repeating creation.
 
+After verified database recovery, ordinary adoption can refresh a stale registration for the same machine using a fresh discovery and administrator confirmation followed by a new plan and acknowledgement. Identity, target configuration and profile must remain unchanged; a frozen host or an unverified recovery cannot use this path. Historical adoption drafts, plans, receipts and audit stay intact. Refreshing the current registration supplies no admission proof: current-epoch controls and host evidence are still required before replacement commit.
+
 The report consistency command checks complete scenario coverage, bindings, time bounds, positive and negative observations, recovery and cleanup:
 
 ```sh
