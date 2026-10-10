@@ -561,12 +561,17 @@ type hostActionAcceptanceSlackCredential struct{}
 func (hostActionAcceptanceSlackCredential) Resolve(context.Context, credentialref.Reference) ([]byte, error) {
 	return []byte("synthetic-token-for-local-test"), nil
 }
-func hostActionAcceptanceSlackApproval(t *testing.T, service *acknowledgement.Service, card acknowledgement.RequestCard) generated.Acknowledgement {
+func hostActionAcceptanceSlackApproval(t *testing.T, service *acknowledgement.Service, card acknowledgement.RequestCard, fixtureClock ...func() time.Time) generated.Acknowledgement {
 	t.Helper()
 	wire := &setupAcceptanceTransport{cards: make(chan acknowledgement.RequestCard, 1), incoming: make(chan []byte, 1)}
 	results := make(chan generated.Acknowledgement, 1)
 	failures := make(chan error, 1)
 	sink := slack.CandidateSinkFuncs{SubmitFunc: func(ctx context.Context, c acknowledgement.Candidate) error {
+		if len(fixtureClock) == 1 {
+			// Keep the simulated provider receipt timestamp on the same
+			// controlled clock as this fixture's acknowledgement service.
+			c.DecidedAt = fixtureClock[0]()
+		}
 		a, err := service.Decide(ctx, c)
 		if err != nil {
 			failures <- err

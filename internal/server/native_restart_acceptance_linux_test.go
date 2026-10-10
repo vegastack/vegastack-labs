@@ -275,7 +275,7 @@ func nativeRestartEnrollment(t *testing.T, f hostActionEnrollmentFixture, mode s
 		if err != nil {
 			t.Fatal(err)
 		}
-		hostActionAcceptanceSlackApproval(t, acknowledger, card)
+		hostActionAcceptanceSlackApproval(t, acknowledger, card, f.Clock)
 	}
 	execute := func(p generated.Plan, key string) generated.Run {
 		t.Helper()

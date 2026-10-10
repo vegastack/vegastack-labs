@@ -204,6 +204,18 @@ func (f *setupAcceptance) ready(done <-chan error, want int) {
 			if code != want {
 				f.t.Fatalf("status %d want%d: %s", code, want, body)
 			}
+			if want == http.StatusOK {
+				// The database route is available before the service's initial
+				// health check finishes. Wait for ready before cancelling it.
+				status, raw, healthErr := f.call("GET", "/api/v1/health", nil)
+				var envelope struct {
+					Data generated.ServerStatusData `json:"data"`
+				}
+				if healthErr != nil || status != http.StatusOK || json.Unmarshal(raw, &envelope) != nil || envelope.Data.State != string(StateReady) {
+					time.Sleep(10 * time.Millisecond)
+					continue
+				}
+			}
 			return
 		}
 		time.Sleep(10 * time.Millisecond)
