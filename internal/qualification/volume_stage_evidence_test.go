@@ -2,11 +2,97 @@ package qualification
 
 import (
 	"encoding/json"
+	"github.com/vegastack/vegastack-labs/internal/debianbaseline"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"testing"
 	"time"
 )
+
+func volumeProducerInput(t *testing.T, e ProducerExecution, action string, input any, binding generated.HostVolumeBinding, kind string) ProducerExecution {
+	t.Helper()
+	raw, err := json.Marshal(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := *e.Plan.HostAction
+	r.ActionID, r.ActionInput, r.ActionInputDigest = action, string(raw), hostaction.BytesDigest(raw)
+	if kind == "mapping" {
+		r.HostID = binding.HostID
+	}
+	e.Plan.HostAction = &r
+	e.Plan.Operations = append([]generated.PlanOperation(nil), e.Plan.Operations...)
+	e.Plan.Operations[0].ArtifactDigest = hostaction.Digest(r)
+	e.Receipt.ArtifactDigest, e.Receipt.TargetID = hostaction.Digest(r), r.HostID
+	e.Reference.HostID = r.HostID
+	result := *e.Result
+	result.ControlMeasurements = append([]generated.AccessMeasurement(nil), result.ControlMeasurements...)
+	m := &result.ControlMeasurements[0]
+	volume := *m.Volume
+	volume.Binding, volume.Kind = binding, kind
+	if kind == "mapping" {
+		volume.PriorVolumeReceiptDigest = ""
+		m.ControlID = "linux.volume-encryption:" + binding.VolumeID
+	}
+	if recovery, ok := input.(generated.VolumeRecoveryInput); ok {
+		volume.PriorVolumeReceiptDigest = recovery.PriorVolumeReceiptDigest
+	}
+	m.Volume = &volume
+	m.ConfigurationDigest = hostaction.Digest(binding)
+	m.MeasurementDigest = hostaction.MeasurementDigest(*m)
+	result.ResultDigest = hostaction.ResultDigest(result)
+	e.Result = &result
+	e.Receipt.ResultDigest = result.ResultDigest
+	return e
+}
+
+func TestNativeVolumeMappingRequiresOwningObserveAction(t *testing.T) {
+	e, o := volumeEvidenceFixture(t)
+	r := *o.VolumeCase.RecoveryInput
+	d := r.ProfileLockDigest
+	in := generated.DebianBaselineInput{Schema: generated.SchemaIDDebianBaselineInput, SchemaVersion: "1.0.0", HostID: r.Binding.HostID, HostIdentityDigest: r.Binding.HostIdentityDigest,
+		ProfileID: r.ProfileID, ProfileLockDigest: d, ProfileLock: r.ProfileLock, RoleID: "host", ActionVersion: "1.0.0", AutomationUID: r.AutomationUID,
+		RenderedPolicyDigest: d, ControlIDs: []string{"linux.volume-encryption:data"}, RecoverySourcePrefixes: []string{}, UpdateOwner: "operator", TimeOwner: "systemd-timesyncd", AuditPaths: []string{},
+		AppArmorProfiles: []generated.BaselineApparmorProfile{}, AIDE: generated.BaselineAidePolicy{Schema: generated.SchemaIDBaselineAidePolicy, SchemaVersion: "1.0.0", ScopePaths: []string{}, ScopeDigest: d},
+		Resources: []generated.BaselineResourceLimit{}, KernelSettings: []generated.BaselineKernelSetting{}, Volumes: []generated.HostVolumeBinding{r.Binding}}
+	w := *o.VolumeCase
+	w.ScenarioID, w.InputDigest, w.ObservedOutcome = "volume-effective-mapping", hostaction.Digest(in), "accepted"
+	w.BaselineInput, w.RecoveryInput = &in, nil
+	o.VolumeCase = &w
+	for _, action := range []string{"debian.volume.observe", "debian.baseline.collect"} {
+		x := volumeProducerInput(t, e, action, in, r.Binding, "mapping")
+		err := validateVolumeCaseExecutions(w.ScenarioID, []ProducerExecution{x}, []generated.NativeObservation{o})
+		if (err == nil) != (action == "debian.volume.observe") {
+			t.Fatalf("owning mapping action %s: %v", action, err)
+		}
+	}
+}
+
+func TestNativeRevokedVolumeRequiresRealRevisionAndReceiptLineage(t *testing.T) {
+	e, o := volumeEvidenceFixture(t)
+	prior := *o.VolumeCase.RecoveryInput
+	current := prior
+	current.Binding.DeclarationRevision++
+	current.Binding.RecoveryReferenceDigest = hostaction.Digest("current-policy")
+	current.RecoveryMaterialVersion = "v2"
+	current.PriorVolumeReceiptDigest = hostaction.Digest("current-mapping-receipt")
+	if !debianbaseline.VolumeRecoveryRotationMatches(current, prior) {
+		t.Fatal("test fixture rotation mismatch")
+	}
+	w := *o.VolumeCase
+	w.ScenarioID, w.InputDigest, w.BindingDigest = "volume-revoked-binding", hostaction.Digest(current), hostaction.Digest(current.Binding)
+	w.OriginalPolicyDigest, w.OriginalPolicyAfterDigest = current.Binding.RecoveryReferenceDigest, current.Binding.RecoveryReferenceDigest
+	w.RecoveryInput, w.PriorRecoveryInput = &current, &prior
+	o.VolumeCase = &w
+	old := volumeProducerInput(t, e, "debian.volume-recovery.verify", prior, prior.Binding, "recovery")
+	now := volumeProducerInput(t, e, "debian.volume-recovery.verify", current, current.Binding, "recovery")
+	if err := validateVolumeCaseExecutions(w.ScenarioID, []ProducerExecution{old, now}, []generated.NativeObservation{o, o}); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateVolumeCaseExecutions(w.ScenarioID, []ProducerExecution{now, now}, []generated.NativeObservation{o, o}); err == nil {
+		t.Fatal("invented prior producer accepted")
+	}
+}
 
 func volumeEvidenceFixture(t *testing.T) (ProducerExecution, generated.NativeObservation) {
 	t.Helper()

@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vegastack/vegastack-labs/internal/debianbaseline"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
 )
@@ -40,7 +41,7 @@ func validateVolumeCaseExecutions(scenario string, executions []ProducerExecutio
 		var kind string
 		switch scenario {
 		case "volume-effective-mapping", "volume-wrong-mapping", "volume-status-no-original-repair":
-			if r.ActionID != "debian.baseline.collect" || w.BaselineInput == nil || w.RecoveryInput != nil || w.PriorRecoveryInput != nil || len(w.BaselineInput.Volumes) != 1 || hostaction.Digest(*w.BaselineInput) != w.InputDigest {
+			if r.ActionID != "debian.volume.observe" || w.BaselineInput == nil || w.RecoveryInput != nil || w.PriorRecoveryInput != nil || len(w.BaselineInput.Volumes) != 1 || hostaction.Digest(*w.BaselineInput) != w.InputDigest {
 				return ErrUnavailable
 			}
 			var in generated.DebianBaselineInput
@@ -128,15 +129,7 @@ func validateVolumeCaseExecutions(scenario string, executions []ProducerExecutio
 		if !seenPrior || w.PriorRecoveryInput == nil {
 			return ErrUnavailable
 		}
-		a, b := *w.RecoveryInput, *w.PriorRecoveryInput
-		if a.RecoveryReferenceID != b.RecoveryReferenceID || a.RecoveryMaterialVersion == b.RecoveryMaterialVersion || a.Binding.RecoveryReferenceDigest == b.Binding.RecoveryReferenceDigest || w.OriginalPolicyDigest != a.Binding.RecoveryReferenceDigest {
-			return ErrUnavailable
-		}
-		a.RecoveryMaterialVersion = ""
-		b.RecoveryMaterialVersion = ""
-		a.Binding.RecoveryReferenceDigest = ""
-		b.Binding.RecoveryReferenceDigest = ""
-		if hostaction.Digest(a) != hostaction.Digest(b) {
+		if !debianbaseline.VolumeRecoveryRotationMatches(*w.RecoveryInput, *w.PriorRecoveryInput) || w.OriginalPolicyDigest != w.RecoveryInput.Binding.RecoveryReferenceDigest {
 			return ErrUnavailable
 		}
 	} else if w.PriorRecoveryInput != nil {

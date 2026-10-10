@@ -272,15 +272,7 @@ func ObserveNativeVolumeMappingCase(ctx context.Context, scenario string, in gen
 // policy. Installing the new policy is a separately scoped fixture operation.
 func ObserveNativeVolumeRevokedBinding(ctx context.Context, current, prior generated.VolumeRecoveryInput) (NativeVolumeCaseObservation, error) {
 	var out NativeVolumeCaseObservation
-	if os.Geteuid() != 0 || current.RecoveryReferenceID != prior.RecoveryReferenceID || current.RecoveryMaterialVersion == prior.RecoveryMaterialVersion || current.Binding.RecoveryReferenceDigest == prior.Binding.RecoveryReferenceDigest {
-		return out, errVolume
-	}
-	a, b := current, prior
-	a.RecoveryMaterialVersion = ""
-	b.RecoveryMaterialVersion = ""
-	a.Binding.RecoveryReferenceDigest = ""
-	b.Binding.RecoveryReferenceDigest = ""
-	if hostaction.Digest(a) != hostaction.Digest(b) {
+	if os.Geteuid() != 0 || !VolumeRecoveryRotationMatches(current, prior) {
 		return out, errVolume
 	}
 	measured, err := ObserveNativeVolumeRecoveryCase(ctx, "volume-recovery-positive", current)
