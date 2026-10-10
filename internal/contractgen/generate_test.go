@@ -199,6 +199,8 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/audit-event.schema.json",
 		"schemas/v1/audit-verification-data.schema.json",
 		"schemas/v1/authorization-decision.schema.json",
+		"schemas/v1/authorization-grant-batch-request.schema.json",
+		"schemas/v1/authorization-grant-change.schema.json",
 		"schemas/v1/backup-dependency.schema.json",
 		"schemas/v1/backup-job.schema.json",
 		"schemas/v1/backup-last-good.schema.json",
@@ -366,10 +368,13 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/native-fail2ban-witness.schema.json",
 		"schemas/v1/native-finite-response.schema.json",
 		"schemas/v1/native-guest-launch.schema.json",
+		"schemas/v1/native-host-observation.schema.json",
+		"schemas/v1/native-host-proof.schema.json",
 		"schemas/v1/native-observation-binding.schema.json",
 		"schemas/v1/native-observation.schema.json",
 		"schemas/v1/native-preparation-request.schema.json",
 		"schemas/v1/native-preparation-result.schema.json",
+		"schemas/v1/native-producer-lookup-data.schema.json",
 		"schemas/v1/native-producer-lookup-request.schema.json",
 		"schemas/v1/native-producer-reference.schema.json",
 		"schemas/v1/native-qualification-prerequisite.schema.json",
@@ -866,9 +871,10 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 			}
 		}
 	}
-	if available != 66 || planned != 21 {
-		t.Fatalf("command availability = (%d available, %d planned), want (66, 21)", available, planned)
+	if available != 67 || planned != 21 {
+		t.Fatalf("command availability = (%d available, %d planned), want (67, 21)", available, planned)
 	}
+	// #247 adds the approved grant-batch draft; #228 retains its exact qualification commands.
 	// #102's 17 available/38 planned baseline remains the arithmetic base:
 	// #104 promoted four exact gate commands and added one exact profile draft;
 	// #124 promoted one exact local-only credential import command;
@@ -906,7 +912,7 @@ func TestGeneratedGoIsRuntimeSerializable(t *testing.T) {
 	}
 	for _, want := range []string{
 		`RegistrySchemaVersion`,
-		`= "1.25.0"`,
+		`= "1.29.0"`,
 		`type Endpoint struct`,
 		`var Endpoints = []Endpoint`,
 		`type DatabaseStatusData struct`,
