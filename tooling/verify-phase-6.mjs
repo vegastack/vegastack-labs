@@ -100,6 +100,14 @@ export async function phase6SourceState(root=ROOT) {
   if(!/^[a-f0-9]{40}$/.test(head.stdout.trim())||status.stdout.trim())fail('source-dirty');
   return head.stdout.trim();
 }
+export function phase6GoFailure(error,selectors) {
+  const known=new Set(REQUIRED_PHASE6_SCENARIOS.filter(s=>s.kind==='go-test').map(s=>s.selector));
+  const failed=new Set();
+  for(const line of (typeof error?.stdout==='string'?error.stdout.slice(0,1048576):'').split('\n')) {
+    try {const event=JSON.parse(line);if(event.Action==='fail'&&known.has(event.Test)&&selectors.includes(event.Test))failed.add(event.Test);}catch {}
+  }
+  return Object.assign(new Error('PHASE6_FAILED:go-command'),{phase6Failure:{stage:'go-test',failedSelectors:selectors.filter(s=>known.has(s)&&failed.has(s)),exitCode:Number.isInteger(error?.code)&&error.code>=0&&error.code<=255?error.code:null,timedOut:error?.timedOut===true}});
+}
 export async function executePhase6Scenarios(root,definition,{runtime,artifactRoot}) {
   const groups=new Map(),outcomes=[];
   for(const s of definition.scenarios.filter(s=>s.kind==='go-test')){
@@ -113,7 +121,7 @@ export async function executePhase6Scenarios(root,definition,{runtime,artifactRo
     const batches=(pkg==='internal/api'?[selectors.filter((_,i)=>i%2===0),selectors.filter((_,i)=>i%2===1)]:[selectors]).filter(batch=>batch.length);
     const results=await Promise.allSettled(batches.map(batch=>runCommand('go',['test','-json','-race','-count=1',`./${pkg}`,'-run',`^(${batch.join('|')})$`],{cwd:root,capture:true,timeoutMs:600000,env:{...process.env,...(runtime?{VSK_PHASE3_BINARY:runtime.binary,VSK_PHASE3_RUNTIME_ROOT:runtime.root,VSK_NODE_CLI_BINARY:runtime.binary}:{})}})));
     // Always join both children before returning, including failure and cleanup.
-    for(let i=0;i<results.length;i++){const result=results[i];if(result.status==='rejected')throw result.reason;scanPhase6Captured(result.value);for(const selector of batches[i])parseGoScenarioPass(result.value.stdout,selector,1,6);}
+    for(let i=0;i<results.length;i++){const result=results[i];if(result.status==='rejected')throw phase6GoFailure(result.reason,batches[i]);scanPhase6Captured(result.value);for(const selector of batches[i])parseGoScenarioPass(result.value.stdout,selector,1,6);}
     for(const s of scenarios)outcomes.push({id:s.id,environment:s.environment,status:'pass'});
   }
   outcomes.push(...await executeAcceptanceScenarios({root,phase:6,definition:{schemaVersion:1,scenarios:definition.scenarios.filter(s=>s.kind!=='go-test')},runtime,artifactRoot,scanCaptured:scanPhase6Captured}));
@@ -142,5 +150,5 @@ export async function runPhase6(root=ROOT) {
 }
 if(process.argv[1]===fileURLToPath(import.meta.url)) {
   try {if(process.argv.length!==2)fail('arguments');const report=await runPhase6();process.stdout.write(`${JSON.stringify(report)}\n`);process.exitCode=report.linuxSoftware==='passed'?0:2;}
-  catch {process.stderr.write('PHASE6_FAILED:verification\n');process.exitCode=1;}
+  catch(error) {process.stderr.write('PHASE6_FAILED:verification\n');if(error?.phase6Failure)process.stderr.write(`${JSON.stringify(error.phase6Failure)}\n`);process.exitCode=1;}
 }
