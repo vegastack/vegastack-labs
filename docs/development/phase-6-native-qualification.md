@@ -6,6 +6,8 @@ Status on 10-10-2026: implementation and isolated Linux software verification ar
 
 The same `vsk-labs` executable runs the ordinary server inside the controller guest and a finite outer QEMU/serial coordinator. Only the server owns SQLite. The coordinator checks its exact owned QEMU processes, prepared disk and firmware pins, guest identities, executable, original scope and absolute expiry. Guest links stay inside the approved isolated container.
 
+Register the disposable guests as virtual using the independently observed identity kind and digest. Virtual firmware may supply a unique product serial or UUID; the fixture pins its actual product serial. Registration remains `adopted-unadmitted` and does not establish native qualification or physical hardware suitability.
+
 Native qualification has baseline, role and recovery stages. The internal collector joins real current producer plans, executions, leases and receipts with fresh native observations. It produces a draft through the existing gate path. A normal plan and human acknowledgement must apply that draft. A JSON report is an export of results; copying it, uploading a matching bundle or supplying digests cannot confer native authority. Public evidence submissions remain fixtures.
 
 The ordinary gate API resolves these three stages against the selected applied profile. It reuses the same current producer, declaration, execution and measured running-build joins as native prerequisites. Missing build pins or proof, stale bindings, fixture uploads and revoked or superseded evidence remain unqualified; a newer invalid row cannot revive an older proof. An explicit different profile cannot pass. A passed profile stage does not grant host or workload admission.

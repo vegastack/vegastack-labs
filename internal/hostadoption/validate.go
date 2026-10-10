@@ -55,7 +55,10 @@ func Validate(r generated.HostAdoptionRequest, o generated.HostObservation, t ge
 	}
 	kind := "product-serial"
 	if r.Confirmation.IdentityClass == "qualified-virtual" {
-		kind = "product-uuid"
+		// Virtual firmware can expose a stable unique serial or UUID. Keep
+		// the selected kind bound to its independently observed fact; this
+		// database-only registration still grants no workload admission.
+		kind = r.Confirmation.IdentityKind
 	}
 	value := facts[kind]
 	if r.Confirmation.IdentityKind != kind || strings.TrimSpace(value) == "" || r.Confirmation.IdentityDigest != IdentityDigest(kind, value) {
