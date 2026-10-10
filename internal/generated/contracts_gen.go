@@ -6,7 +6,7 @@ import "encoding/json"
 
 const (
 	SchemaMajor                                    = 1
-	RegistrySchemaVersion                          = "1.28.0"
+	RegistrySchemaVersion                          = "1.29.0"
 	AvailabilityAvailable                          = "available"
 	AvailabilityPlanned                            = "planned"
 	FlagKindValue                                  = "value"
@@ -3125,34 +3125,37 @@ type LinuxRoleDirectory struct {
 }
 
 type LinuxRoleInput struct {
-	Schema                     string               `json:"schema"`
-	SchemaVersion              string               `json:"schemaVersion"`
-	HostID                     string               `json:"hostId"`
-	HostIdentityDigest         string               `json:"hostIdentityDigest"`
-	ProfileID                  string               `json:"profileId"`
-	ProfileLockDigest          string               `json:"profileLockDigest"`
-	RoleID                     string               `json:"roleId"`
-	ControlIDs                 []string             `json:"controlIds"`
-	AffectedBaselineControlIDs []string             `json:"affectedBaselineControlIds"`
-	BaselineSnapshotDigest     string               `json:"baselineSnapshotDigest,omitempty"`
-	CurrentRoleBindingDigest   string               `json:"currentRoleBindingDigest,omitempty"`
-	RoleBindingDigest          string               `json:"roleBindingDigest"`
-	NetworkingRequired         bool                 `json:"networkingRequired"`
-	StandbyRequired            bool                 `json:"standbyRequired"`
-	NetworkAccess              *DebianAccessInput   `json:"networkAccess,omitempty"`
-	ProfileLock                DebianProfileLock    `json:"profileLock"`
-	ActionVersion              string               `json:"actionVersion"`
-	AutomationUID              int64                `json:"automationUid"`
-	Accounts                   []LinuxRoleAccount   `json:"accounts"`
-	Directories                []LinuxRoleDirectory `json:"directories"`
-	Resources                  LinuxRoleResources   `json:"resources"`
-	RenderedPolicyDigest       string               `json:"renderedPolicyDigest"`
-	ExecutableDigest           string               `json:"executableDigest"`
-	ConfigDigest               string               `json:"configDigest"`
-	ExpectedServiceState       string               `json:"expectedServiceState"`
-	ExpectedUnitDigest         string               `json:"expectedUnitDigest,omitempty"`
-	ExpectedTmpfilesDigest     string               `json:"expectedTmpfilesDigest,omitempty"`
-	Handoff                    *ControlHandoffInput `json:"handoff,omitempty"`
+	Schema                      string               `json:"schema"`
+	SchemaVersion               string               `json:"schemaVersion"`
+	HostID                      string               `json:"hostId"`
+	HostIdentityDigest          string               `json:"hostIdentityDigest"`
+	ProfileID                   string               `json:"profileId"`
+	ProfileLockDigest           string               `json:"profileLockDigest"`
+	RoleID                      string               `json:"roleId"`
+	ControlIDs                  []string             `json:"controlIds"`
+	AffectedBaselineControlIDs  []string             `json:"affectedBaselineControlIds"`
+	BaselineSnapshotDigest      string               `json:"baselineSnapshotDigest,omitempty"`
+	CurrentRoleBindingDigest    string               `json:"currentRoleBindingDigest,omitempty"`
+	RoleBindingDigest           string               `json:"roleBindingDigest"`
+	NetworkingRequired          bool                 `json:"networkingRequired"`
+	StandbyRequired             bool                 `json:"standbyRequired"`
+	NetworkAccess               *DebianAccessInput   `json:"networkAccess,omitempty"`
+	ProfileLock                 DebianProfileLock    `json:"profileLock"`
+	ActionVersion               string               `json:"actionVersion"`
+	AutomationUID               int64                `json:"automationUid"`
+	Accounts                    []LinuxRoleAccount   `json:"accounts"`
+	Directories                 []LinuxRoleDirectory `json:"directories"`
+	Resources                   LinuxRoleResources   `json:"resources"`
+	RenderedPolicyDigest        string               `json:"renderedPolicyDigest"`
+	ExecutableDigest            string               `json:"executableDigest"`
+	ConfigDigest                string               `json:"configDigest"`
+	ExpectedServiceState        string               `json:"expectedServiceState"`
+	ExpectedUnitDigest          string               `json:"expectedUnitDigest,omitempty"`
+	ExpectedTmpfilesDigest      string               `json:"expectedTmpfilesDigest,omitempty"`
+	Handoff                     *ControlHandoffInput `json:"handoff,omitempty"`
+	ControlLocalBackup          bool                 `json:"controlLocalBackup,omitempty"`
+	ControlPlainCredentials     []string             `json:"controlPlainCredentials,omitempty"`
+	ControlEncryptedCredentials []string             `json:"controlEncryptedCredentials,omitempty"`
 }
 
 type LinuxRoleResources struct {

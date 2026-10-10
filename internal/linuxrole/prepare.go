@@ -97,7 +97,23 @@ func DesiredFiles(in generated.LinuxRoleInput) map[string][]byte {
 	limits := fmt.Sprintf("MemoryMax=%d\nCPUQuota=%d%%\nTasksMax=%d\n", r.MemoryMaxBytes, r.CPUQuotaPercent, r.TasksMax)
 	if in.RoleID == "control" {
 		a := in.Accounts[0]
-		files["etc/systemd/system/"+unit] = []byte(fmt.Sprintf("[Unit]\nDescription=VegaStack Labs control service\nAfter=network.target\n[Service]\nType=simple\nUser=%d\nGroup=%d\nExecStart=/usr/local/bin/vsk-labs server run --config /etc/vsk-labs/control/server.json\nWorkingDirectory=/var/lib/vsk-labs/control\nRuntimeDirectory=vsk-labs-control\nRuntimeDirectoryMode=0700\nUMask=0077\nNoNewPrivileges=yes\nPrivateTmp=yes\nProtectSystem=strict\nProtectHome=yes\nReadWritePaths=/var/lib/vsk-labs/control /run/vsk-labs-control\n%sRestart=no\n[Install]\nWantedBy=multi-user.target\n", a.UID, a.GID, limits))
+
+		delivery := ""
+		writable := "/var/lib/vsk-labs/control /run/vsk-labs-control"
+		if in.ControlLocalBackup {
+			writable += " /run/vsk-labs/backup/requests /run/vsk-labs/backup/exchange"
+		}
+		plain := slices.Clone(in.ControlPlainCredentials)
+		encrypted := slices.Clone(in.ControlEncryptedCredentials)
+		slices.Sort(plain)
+		slices.Sort(encrypted)
+		for _, name := range plain {
+			delivery += "LoadCredential=" + name + ":/etc/vsk-labs/control/credentials/" + name + "\n"
+		}
+		for _, name := range encrypted {
+			delivery += "LoadCredentialEncrypted=" + name + ":/var/lib/vsk-labs/control/credential-drafts/" + name + "\n"
+		}
+		files["etc/systemd/system/"+unit] = []byte(fmt.Sprintf("[Unit]\nDescription=VegaStack Labs control service\nAfter=network.target\n[Service]\nType=simple\nUser=%d\nGroup=%d\n%sExecStart=/usr/local/bin/vsk-labs server run --config /etc/vsk-labs/control/server.json\nWorkingDirectory=/var/lib/vsk-labs/control\nRuntimeDirectory=vsk-labs-control\nRuntimeDirectoryMode=0700\nUMask=0077\nNoNewPrivileges=yes\nPrivateTmp=yes\nProtectSystem=strict\nProtectHome=yes\nReadWritePaths=%s\n%sRestart=no\n[Install]\nWantedBy=multi-user.target\n", a.UID, a.GID, delivery, writable, limits))
 	} else {
 		files["etc/systemd/system/"+unit] = []byte("[Unit]\nDescription=VegaStack Labs role resource boundary\n[Slice]\n" + limits + "[Install]\nWantedBy=multi-user.target\n")
 		for _, d := range in.Directories {

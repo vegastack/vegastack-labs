@@ -1398,6 +1398,9 @@ export interface LinuxRoleInput {
   readonly "expectedUnitDigest"?: string;
   readonly "expectedTmpfilesDigest"?: string;
   readonly "handoff"?: ControlHandoffInput | null;
+  readonly "controlLocalBackup"?: boolean;
+  readonly "controlPlainCredentials"?: ReadonlyArray<string>;
+  readonly "controlEncryptedCredentials"?: ReadonlyArray<string>;
 }
 
 export interface LinuxRoleResources {
@@ -10215,6 +10218,33 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "nullable": true,
         "omitEmpty": true,
         "ref": "vegastack-labs.dev/control-handoff-input"
+      },
+      {
+        "name": "controlLocalBackup",
+        "kind": "boolean",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true
+      },
+      {
+        "name": "controlPlainCredentials",
+        "kind": "array",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "itemKind": "string",
+        "maxItems": 16,
+        "uniqueItems": true
+      },
+      {
+        "name": "controlEncryptedCredentials",
+        "kind": "array",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "itemKind": "string",
+        "maxItems": 16,
+        "uniqueItems": true
       }
     ]
   },

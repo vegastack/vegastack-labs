@@ -120,7 +120,19 @@ func nativeRestartEnrollment(t *testing.T, f hostActionEnrollmentFixture, mode s
 	grant("native-author", "author", "credential.lifecycle.author", "credential-reference", "action-key", nil)
 	grant("native-stage", "execute", "credential.stage", "execution-target", "synthetic-host", "human")
 	grant("native-activate", "execute", "credential.activate", "execution-target", "synthetic-host", "human")
-	grant("native-ack", "acknowledge", "plan.acknowledge", "plan-target", "synthetic-host", "human")
+	// Adoption and credential activation now share the same stable host target.
+	// Preserve the exact active acknowledgement grant already installed by the
+	// parent fixture; do not insert a duplicate or reactivate a revoked tuple.
+	var existingAck int
+	if err := f.DB.QueryRow(`SELECT COUNT(*) FROM effective_authorization_grants WHERE principal_id='operator-a' AND role_id='control-plane-admin' AND action='acknowledge' AND capability='plan.acknowledge' AND resource_kind='plan-target' AND resource_id='synthetic-host' AND branch='human' AND grant_revision=1 AND status='active'`).Scan(&existingAck); err != nil {
+		t.Fatal(err)
+	}
+	if existingAck == 0 {
+		grant("native-ack", "acknowledge", "plan.acknowledge", "plan-target", "synthetic-host", "human")
+	} else if existingAck != 1 {
+		t.Fatal("ambiguous native acknowledgement fixture")
+	}
+
 	machine, err := os.ReadFile("/etc/machine-id")
 	if err != nil {
 		t.Fatal(err)

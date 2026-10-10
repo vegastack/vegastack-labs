@@ -208,7 +208,13 @@ func matchNativePolicy(policy probePolicy, binding credentialref.LifecycleBindin
 		}
 	}
 	slices.SortFunc(probes, func(a, b probeEnrollment) int { return strings.Compare(probeEnrollmentKey(a), probeEnrollmentKey(b)) })
-	if !reflect.DeepEqual(units, policy.Units) || !reflect.DeepEqual(probes, policy.Probes) {
+	selected := make([]probeEnrollment, 0, len(probes))
+	for _, probe := range policy.Probes {
+		if probe.CredentialName == binding.NativeConsumers[0].LoadedName {
+			selected = append(selected, probe)
+		}
+	}
+	if !reflect.DeepEqual(units, policy.Units) || !reflect.DeepEqual(probes, selected) {
 		return errNativeLifecycle
 	}
 	return nil

@@ -1001,11 +1001,30 @@
           "pattern": "^sha256:[a-f0-9]{64}$",
           "type": "string"
         },
+        "controlEncryptedCredentials": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 16,
+          "type": "array",
+          "uniqueItems": true
+        },
         "controlIds": {
           "items": {
             "type": "string"
           },
           "maxItems": 6,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "controlLocalBackup": {
+          "type": "boolean"
+        },
+        "controlPlainCredentials": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 16,
           "type": "array",
           "uniqueItems": true
         },

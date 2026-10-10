@@ -18,37 +18,38 @@ test("the original Phase 2 baseline stays immutable while later waves have exact
   assert.equal(manifest.contract.postPhase2MutationBoundaryDigest, "sha256:ec30a4cc9d4a6e5a3fc9817a55a5b0a1697adcae57b950325edd563637d308a8");
   assert.equal(manifest.contract.productionDependencyDigest, "sha256:a9e8788558fa5c3347b5b8464d8d5e4a67dcc9357e5ae07478b606a806f78133");
   assert.equal(manifest.contract.mutationAvailable, false);
-  assert.equal(manifest.contract.reviewedWaves?.length, 43);
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-1), {"id":"phase6-issue247-v1","issue":247,"commands":["authorization grants draft"],"imports":[],"mutationBoundaryDigest":"sha256:388380f58d57e7479aa867d95a016e29d0a560c1d254893f813459b5c9336020"});
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-2), {"id":"phase6-issue239-v1","issue":239,"commands":["node access prepare","node action prepare","node observation inspect","node replacement inspect","node replacement prepare","node target prepare"],"imports":[],"mutationBoundaryDigest":"sha256:abf4f0c3f9291923d94f7d46c4853c0c84b5cfc7e59311d2712f624403e388ad"});
-  assert.equal(manifest.contract.reviewedWaves.at(-3).issue,233);
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-3).commands,[]);
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-3).imports,["github.com/vegastack/vegastack-labs/internal/hostreplacement"]);
+  assert.equal(manifest.contract.reviewedWaves?.length, 44);
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-1), {"id":"phase6-issue228-v1","issue":228,"commands":["qualification fixture-peer","qualification inspect","qualification native","qualification step"],"imports":["github.com/vegastack/vegastack-labs/internal/qualification"],"mutationBoundaryDigest":"sha256:d49c984f9826747efa11d616a83a445f4209f8248d77b98756f4a0890ed92c50"});
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-2), {"id":"phase6-issue247-v1","issue":247,"commands":["authorization grants draft"],"imports":[],"mutationBoundaryDigest":"sha256:388380f58d57e7479aa867d95a016e29d0a560c1d254893f813459b5c9336020"});
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-3), {"id":"phase6-issue239-v1","issue":239,"commands":["node access prepare","node action prepare","node observation inspect","node replacement inspect","node replacement prepare","node target prepare"],"imports":[],"mutationBoundaryDigest":"sha256:abf4f0c3f9291923d94f7d46c4853c0c84b5cfc7e59311d2712f624403e388ad"});
+  assert.equal(manifest.contract.reviewedWaves.at(-4).issue,233);
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-4).commands,[]);
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-4).imports,["github.com/vegastack/vegastack-labs/internal/hostreplacement"]);
   assert.equal(manifest.contract.reviewedWaves.find(wave => wave.issue === 230).mutationBoundaryDigest, "sha256:e677914fa02a8774fe05cfaa4ca272ad9cfc03b3b9a96c4e08b5b105ec2945e2");
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-14), {
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-15), {
     id: "phase6-issue213-v1",
     issue: 213,
     commands: [],
     imports: [],
     mutationBoundaryDigest: "sha256:f940d0544d5cf9094303d1a0cf8d699bbe5c103992a236aa2a40ec5189f62d2e",
   });
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-13), {
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-14), {
     id: "phase6-issue217-v1", issue: 217, commands: [],
     imports: ["github.com/vegastack/vegastack-labs/internal/adapter/hostdiscovery", "github.com/vegastack/vegastack-labs/internal/hostdiscovery"],
     mutationBoundaryDigest: "sha256:7faf9e31847907a32364104fa88946d9cfcd3b91c6b0b9c0abe1958e3bee2d19",
   });
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-12), {
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-13), {
     id: "phase6-issue222-v1", issue: 222, commands: [],
     imports: ["github.com/vegastack/vegastack-labs/internal/hostadoption"],
     mutationBoundaryDigest: "sha256:9a9d3879f1cc6b252559d8f04b9f5b5682a95541675811582d6409fb0b96578c",
   });
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-11), {"id": "phase6-issue232-v1", "issue": 232, "commands": ["node add", "node discover", "node inspect"], "imports": [], "mutationBoundaryDigest": "sha256:009a11861bf03d816c93be80a71b9106c83aa3d84363c6fd18d60615124bbc5c"});
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-10), {id:"phase6-issue224-v1",issue:224,commands:[],imports:[],mutationBoundaryDigest:"sha256:ba0a383633791808ffde2a179992770877857cc1dc0c448910265740c18c7ecc"});
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-9), {"id":"phase6-issue231-v1","issue":231,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:62ab549d020ba5899614c3a6da4d9227a6f02deb33c9a3042144fadbe42c5198"});
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-8), {"id":"phase6-issue223-v1","issue":223,"commands":[],"imports":["github.com/vegastack/vegastack-labs/internal/adapter/hostaction","github.com/vegastack/vegastack-labs/internal/hostaction"],"mutationBoundaryDigest":"sha256:95ee78c6cd02d0210b4dc3b0f0544a260ea90d2e8be3d6af1157d3f8e09c7a15"});
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-7), {"id":"phase6-issue225-v1","issue":225,"commands":[],"imports":["github.com/vegastack/vegastack-labs/ansible","github.com/vegastack/vegastack-labs/internal/debianaccess"],"mutationBoundaryDigest":"sha256:249edd7b52560d6aa3adde148a574628816a39f3853b4f0b489d07753010c90d"});
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-6), {"id":"phase6-issue226-v1","issue":226,"commands":[],"imports":["github.com/vegastack/vegastack-labs/internal/debianbaseline"],"mutationBoundaryDigest":"sha256:6d55250f6c92eb292cd5400e7bb80d03ddde1ff3950f3ed727da16837c980a4a"});
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-5), {"id":"phase6-issue229-v1","issue":229,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:3560c11c09d8106bb43c2ea9b847c48cd15a77b59b14f1edad326b4557793314"});
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-12), {"id": "phase6-issue232-v1", "issue": 232, "commands": ["node add", "node discover", "node inspect"], "imports": [], "mutationBoundaryDigest": "sha256:009a11861bf03d816c93be80a71b9106c83aa3d84363c6fd18d60615124bbc5c"});
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-11), {id:"phase6-issue224-v1",issue:224,commands:[],imports:[],mutationBoundaryDigest:"sha256:ba0a383633791808ffde2a179992770877857cc1dc0c448910265740c18c7ecc"});
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-10), {"id":"phase6-issue231-v1","issue":231,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:62ab549d020ba5899614c3a6da4d9227a6f02deb33c9a3042144fadbe42c5198"});
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-9), {"id":"phase6-issue223-v1","issue":223,"commands":[],"imports":["github.com/vegastack/vegastack-labs/internal/adapter/hostaction","github.com/vegastack/vegastack-labs/internal/hostaction"],"mutationBoundaryDigest":"sha256:95ee78c6cd02d0210b4dc3b0f0544a260ea90d2e8be3d6af1157d3f8e09c7a15"});
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-8), {"id":"phase6-issue225-v1","issue":225,"commands":[],"imports":["github.com/vegastack/vegastack-labs/ansible","github.com/vegastack/vegastack-labs/internal/debianaccess"],"mutationBoundaryDigest":"sha256:249edd7b52560d6aa3adde148a574628816a39f3853b4f0b489d07753010c90d"});
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-7), {"id":"phase6-issue226-v1","issue":226,"commands":[],"imports":["github.com/vegastack/vegastack-labs/internal/debianbaseline"],"mutationBoundaryDigest":"sha256:6d55250f6c92eb292cd5400e7bb80d03ddde1ff3950f3ed727da16837c980a4a"});
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-6), {"id":"phase6-issue229-v1","issue":229,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:3560c11c09d8106bb43c2ea9b847c48cd15a77b59b14f1edad326b4557793314"});
   assert.equal(manifest.contract.reviewedWaves[0].id, "phase5-issue104-v1");
   assert.deepEqual(manifest.contract.reviewedWaves[0].commands, ["gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft"]);
   assert.deepEqual(manifest.contract.reviewedWaves[0].imports, ["github.com/vegastack/vegastack-labs/internal/gate"]);
@@ -563,9 +564,9 @@ test("the checked manifest matches the merged Phase 2 contract", async () => {
 test("the #239 workflow wave rejects widened commands, imports and source seals", async () => {
  const facts = await collectIntegratedFacts(ROOT);
  for (const mutate of [
-   m => m.contract.reviewedWaves.at(-2).commands.push("node arbitrary execute"),
-   m => m.contract.reviewedWaves.at(-2).imports.push("unreviewed/transport"),
-   m => m.contract.reviewedWaves.at(-2).mutationBoundaryDigest = `sha256:${"0".repeat(64)}`,
+   m => m.contract.reviewedWaves.find(wave => wave.issue === 239).commands.push("node arbitrary execute"),
+   m => m.contract.reviewedWaves.find(wave => wave.issue === 239).imports.push("unreviewed/transport"),
+   m => m.contract.reviewedWaves.find(wave => wave.issue === 239).mutationBoundaryDigest = `sha256:${"0".repeat(64)}`,
  ]) {
    const manifest = await loadManifest(); mutate(manifest);
    assert.ok(validateEvidence(manifest, facts).codes.includes("PHASE2_TRACEABILITY_GAP"));
@@ -579,9 +580,9 @@ test("the #247 grant wave denies command/import/seal widening", async () => {
   const facts = await collectIntegratedFacts(ROOT);
   assert.equal(validateEvidence(manifest, facts).status, "pass");
   for (const mutate of [
-    (m) => { m.contract.reviewedWaves.at(-1).commands.push("authorization apply"); },
-    (m) => { m.contract.reviewedWaves.at(-1).imports.push("github.com/vegastack/vegastack-labs/internal/unreviewed"); },
-    (m) => { m.contract.reviewedWaves.at(-1).mutationBoundaryDigest = `sha256:${"0".repeat(64)}`; },
+    (m) => { m.contract.reviewedWaves.find(wave => wave.issue === 247).commands.push("authorization apply"); },
+    (m) => { m.contract.reviewedWaves.find(wave => wave.issue === 247).imports.push("github.com/vegastack/vegastack-labs/internal/unreviewed"); },
+    (m) => { m.contract.reviewedWaves.find(wave => wave.issue === 247).mutationBoundaryDigest = `sha256:${"0".repeat(64)}`; },
   ]) {
     const changed = structuredClone(manifest);
     mutate(changed);
@@ -591,3 +592,14 @@ test("the #247 grant wave denies command/import/seal widening", async () => {
   widened.availableCommands.push("authorization apply");
   assert.equal(validateEvidence(manifest, widened).status, "fail");
 });
+
+ test("the #228 native wave denies arbitrary commands, imports and source drift",async()=>{
+ const manifest=await loadManifest();const facts=await collectIntegratedFacts(ROOT);
+ assert.equal(validateEvidence(manifest,facts).status,"pass");
+ for(const change of [
+ m=>m.contract.reviewedWaves.at(-1).commands.push("qualification arbitrary"),
+ m=>m.contract.reviewedWaves.at(-1).imports.push("github.com/vegastack/vegastack-labs/internal/unreviewed"),
+ m=>m.contract.reviewedWaves.at(-1).mutationBoundaryDigest=`sha256:${"0".repeat(64)}`,
+ ]){const changed=structuredClone(manifest);change(changed);assert.equal(validateEvidence(changed,facts).status,"fail")}
+ const changed=structuredClone(facts);changed.availableCommands.push("qualification arbitrary");assert.equal(validateEvidence(manifest,changed).status,"fail");
+ });

@@ -20,9 +20,10 @@ type NativeReceiptReader interface {
 	ReadNativeLoadedReceipt(context.Context, credentialref.StepBinding) (credentialref.NativeLoadedReceipt, error)
 }
 type installedLoadedObserver struct {
-	receipts   NativeReceiptReader
-	recheck    func(context.Context, credentialref.NativeLoadedReceipt, credentialref.NativeConsumerBinding) error
-	currentPID func() int
+	receipts     NativeReceiptReader
+	recheck      func(context.Context, credentialref.NativeLoadedReceipt, credentialref.NativeConsumerBinding) error
+	currentPID   func() int
+	currentProof func(context.Context, credentialref.NativeLoadedReceipt, credentialref.NativeConsumerBinding) (credentialref.NativeInvocationMetadata, error)
 }
 
 var errLoadedReceipt = errors.New("native loaded receipt unavailable")
@@ -36,7 +37,19 @@ func (o *installedLoadedObserver) ObserveLoaded(ctx context.Context, b credentia
 		return LoadedCredential{}, errLoadedReceipt
 	}
 	reader, ok := r.Reader()
-	if !ok || reader.LoadedName != credentialref.LoadedNameForVersion(b.ConsumerID, b.ReferenceID, b.MaterialVersion) || int(r.Proof.MainPID) != o.currentPID() || o.recheck(ctx, r, reader) != nil {
+	if !ok || reader.LoadedName != credentialref.LoadedNameForVersion(b.ConsumerID, b.ReferenceID, b.MaterialVersion) {
+		return LoadedCredential{}, errLoadedReceipt
+	}
+	proof := r.Proof
+	if o.currentProof != nil {
+		proof, err = o.currentProof(ctx, r, reader)
+		if err != nil || proof.SourceDevice != r.Proof.SourceDevice || proof.SourceInode != r.Proof.SourceInode || proof.SourceFingerprint != r.Proof.SourceFingerprint {
+			return LoadedCredential{}, errLoadedReceipt
+		}
+	}
+	current := r
+	current.Proof = proof
+	if !credentialref.ValidNativeLoadedReceipt(current) || int(proof.MainPID) != o.currentPID() || o.recheck(ctx, current, reader) != nil {
 		return LoadedCredential{}, errLoadedReceipt
 	}
 	// A receipt remains valid only while its exact active database binding remains.
@@ -46,5 +59,5 @@ func (o *installedLoadedObserver) ObserveLoaded(ctx context.Context, b credentia
 	if err != nil || firstErr != nil || secondErr != nil || string(firstRaw) != string(secondRaw) || ctx.Err() != nil {
 		return LoadedCredential{}, errLoadedReceipt
 	}
-	return LoadedCredential{Name: reader.LoadedName, MaterialVersion: r.Binding.MaterialVersion, CiphertextFingerprint: r.Proof.SourceFingerprint, RestartObserved: true, Device: r.Proof.CredentialDevice, Inode: r.Proof.CredentialInode, UID: r.Proof.CredentialUID, GID: r.Proof.CredentialGID, Mode: r.Proof.CredentialMode}, nil
+	return LoadedCredential{Name: reader.LoadedName, MaterialVersion: r.Binding.MaterialVersion, CiphertextFingerprint: r.Proof.SourceFingerprint, RestartObserved: true, Device: proof.CredentialDevice, Inode: proof.CredentialInode, UID: proof.CredentialUID, GID: proof.CredentialGID, Mode: proof.CredentialMode}, nil
 }

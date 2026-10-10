@@ -394,27 +394,8 @@ func superviseFixtureControl(ctx context.Context, s generated.NativeSlackFixture
 	if e != nil {
 		return ErrUnavailable
 	}
-	// Only the real handoff may naturally terminate this predecessor. The TLS
-	// fixture continues until its original scope expires; no automatic restart.
-	select {
-	case <-ctx.Done():
-		return nil
-	case <-c.done:
-		deadline := time.NewTimer(45 * time.Second)
-		defer deadline.Stop()
-		for {
-			if _, e = linuxrole.InspectNativeControlHandoff(ctx); e == nil {
-				break
-			}
-			select {
-			case <-ctx.Done():
-				return ErrUnavailable
-			case <-deadline.C:
-				return ErrUnavailable
-			case <-time.After(200 * time.Millisecond):
-			}
-		}
-		<-ctx.Done()
-		return nil
-	}
+	// An administrator-prepared OS-managed instance is preparation only. It
+	// cannot qualify a role; the real handoff and credential verifiers remain
+	// independent. The fixture retains its original setup witness and lifetime.
+	return superviseFixtureControlSuccessor(ctx, s, c, next, w.FinalProfileDigest)
 }

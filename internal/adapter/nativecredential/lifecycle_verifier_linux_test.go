@@ -86,3 +86,25 @@ func TestNativePolicyMatchesSealedReaders(t *testing.T) {
 		t.Fatal("missing denied-reader authority accepted")
 	}
 }
+
+func TestNativePolicySeparatesCredentialNames(t *testing.T) {
+	receipt, _ := loadedReceiptFixture()
+	b := receipt.Binding
+	r := b.NativeConsumers[0]
+	d := b.NativeDeniedReaders[0]
+	other := credentialref.LoadedNameForVersion("consumer-a", "reference-b", "version-a")
+	policy := probePolicy{Version: 1, MachineID: r.HostMachineID, Units: []string{r.UnitName}, Probes: []probeEnrollment{
+		{UnitName: r.UnitName, CredentialName: r.LoadedName, UID: r.ServiceUID, GID: r.ServiceGID},
+		{UnitName: r.UnitName, CredentialName: r.LoadedName, UID: d.ReaderUID, GID: d.ReaderGID},
+		{UnitName: r.UnitName, CredentialName: other, UID: r.ServiceUID, GID: r.ServiceGID},
+		{UnitName: r.UnitName, CredentialName: other, UID: d.ReaderUID, GID: d.ReaderGID},
+	}}
+	if matchNativePolicy(policy, b) != nil {
+		t.Fatal("independent enrolled name rejected")
+	}
+	policy.Probes[3].CredentialName = r.LoadedName
+	policy.Probes[3].UID = 3001
+	if matchNativePolicy(policy, b) == nil {
+		t.Fatal("another name widened selected reader authority")
+	}
+}

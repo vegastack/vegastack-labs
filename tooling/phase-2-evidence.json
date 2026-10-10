@@ -467,6 +467,20 @@
         ],
         "imports": [],
         "mutationBoundaryDigest": "sha256:388380f58d57e7479aa867d95a016e29d0a560c1d254893f813459b5c9336020"
+      },
+      {
+        "id": "phase6-issue228-v1",
+        "issue": 228,
+        "commands": [
+          "qualification fixture-peer",
+          "qualification inspect",
+          "qualification native",
+          "qualification step"
+        ],
+        "imports": [
+          "github.com/vegastack/vegastack-labs/internal/qualification"
+        ],
+        "mutationBoundaryDigest": "sha256:d49c984f9826747efa11d616a83a445f4209f8248d77b98756f4a0890ed92c50"
       }
     ]
   },
