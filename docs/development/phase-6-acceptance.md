@@ -42,6 +42,8 @@ Exit codes are 0 for the requested scope passing, 1 for failed/invalid evidence 
 
 ## Evidence and limits
 
+Native-reader compatibility remains pending qualification work: the current trace loader recognizes ordinals 1–99 and bounds matching receipt files at 256 and run IDs at 128. The newer native preparation capacity can exceed those limits. The historical executable pins also require a newly measured build before current native qualification. Do not treat an incomplete trace as qualification or increase these limits as part of working software delivery; reconcile them with the complete actual native trace when that scope resumes.
+
 Public output contains synthetic obligation IDs, digests, source commit, timestamps and statuses. Raw observations, private topology, keys, database paths and tokens are not copied into it. The sanitizer runs before public output; rejected diagnostics are reported as bounded failure codes. Temporary runtime/browser artifacts are removed even when a scenario fails. A cleanup failure cannot produce a successful report.
 
 The harness may merge under the standing Linux development authority after the required checks. Keep #234 open while native, Mac or operator acceptance remains outstanding. Merging tooling is neither phase acceptance nor permission to onboard the fleet. Preserve existing workload/data boundaries; failures belong to the feature owner, with no automatic safe-workload stop or native rerun.
