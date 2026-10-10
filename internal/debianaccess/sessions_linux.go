@@ -240,7 +240,7 @@ func revokeManagedSessions(ctx context.Context, uid, pid uint32, s managedSessio
 			if errors.Is(unitErr, errManagedSessionGone) {
 				u = units[n]
 				u.active = "inactive"
-			} else if unitErr != nil || u.id != units[n].id || u.path != units[n].path || u.cgroup != units[n].cgroup {
+			} else if unitErr != nil || u.id != units[n].id || u.path != units[n].path || (u.cgroup != units[n].cgroup && !(u.cgroup == "" && (u.active == "inactive" || u.active == "failed"))) {
 				return changed, errManagedSessions
 			}
 			g, e := s.group(ctx, units[n].cgroup)
@@ -406,7 +406,8 @@ func (s *logindSessionOS) unit(ctx context.Context, name string) (managedSession
 		return managedSessionUnit{}, e
 	}
 	cg, d := q["ControlGroup"].Value().(string)
-	if !a || !b || !c || !d || id != name || load != "loaded" || len(active) > 32 || cg == "" || !strings.HasPrefix(cg, "/") || filepath.Clean(cg) != cg || len(cg) > 512 {
+	emptyStoppedScope := name != "ssh.service" && cg == "" && (active == "inactive" || active == "failed")
+	if !a || !b || !c || !d || id != name || load != "loaded" || len(active) > 32 || (!emptyStoppedScope && (cg == "" || !strings.HasPrefix(cg, "/") || filepath.Clean(cg) != cg || len(cg) > 512)) {
 		return managedSessionUnit{}, errManagedSessions
 	}
 	u := managedSessionUnit{id: id, path: string(path), active: active, cgroup: cg}

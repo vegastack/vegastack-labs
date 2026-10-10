@@ -19,6 +19,8 @@ type sessionTestOS struct {
 	groups                 map[string]managedSessionGroup
 	terminated             []string
 	ownerErr, terminateErr error
+	clearGroupAfter        bool
+	activeAfter            string
 	populateAfter          bool
 	keepAfter              bool
 	ownerAfter             bool
@@ -82,11 +84,18 @@ func (s *sessionTestOS) terminate(_ context.Context, v managedSession) error {
 		}
 	}
 	u := s.units[v.scope]
+	originalGroup := u.cgroup
 	u.active = "inactive"
+	if s.activeAfter != "" {
+		u.active = s.activeAfter
+	}
+	if s.clearGroupAfter {
+		u.cgroup = ""
+	}
 	s.units[v.scope] = u
-	g := s.groups[u.cgroup]
+	g := s.groups[originalGroup]
 	g.populated = s.populateAfter
-	s.groups[u.cgroup] = g
+	s.groups[originalGroup] = g
 	return nil
 }
 func sessionTestFixture() *sessionTestOS {
@@ -221,5 +230,28 @@ func TestManagedSessionsDecodeExactLogin1Types(t *testing.T) {
 	p["User"] = dbus.MakeVariant([]any{uint64(22002), dbus.ObjectPath("/org/freedesktop/login1/user/_22002")})
 	if _, e = decodeManagedSession(v.path, p); e == nil {
 		t.Fatal("wrong UID wire type accepted")
+	}
+}
+
+func TestManagedSessionsClearedControlGroupRequiresOriginalScopeEmpty(t *testing.T) {
+	for _, kind := range []string{"inactive-empty", "failed-empty", "original-populated", "session-retained", "active-empty"} {
+		t.Run(kind, func(t *testing.T) {
+			s := sessionTestFixture()
+			s.clearGroupAfter = true
+			s.populateAfter = kind == "original-populated"
+			s.keepAfter = kind == "session-retained"
+			if kind == "failed-empty" {
+				s.activeAfter = "failed"
+			}
+			if kind == "active-empty" {
+				s.activeAfter = "active"
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+			defer cancel()
+			changed, err := revokeManagedSessions(ctx, 22002, 51, s)
+			if !changed || (kind == "inactive-empty" || kind == "failed-empty") != (err == nil) {
+				t.Fatalf("cleared %s changed=%t err=%v", kind, changed, err)
+			}
+		})
 	}
 }
