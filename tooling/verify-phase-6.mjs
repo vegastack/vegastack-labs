@@ -106,7 +106,7 @@ export function phase6GoFailure(error,selectors) {
   for(const line of (typeof error?.stdout==='string'?error.stdout.slice(0,1048576):'').split('\n')) {
     try {const event=JSON.parse(line);if(event.Action==='fail'&&known.has(event.Test)&&selectors.includes(event.Test))failed.add(event.Test);}catch {}
   }
-  return Object.assign(new Error('PHASE6_FAILED:go-command'),{phase6Failure:{stage:'go-test',failedSelectors:selectors.filter(s=>known.has(s)&&failed.has(s)),exitCode:Number.isInteger(error?.code)&&error.code>=0&&error.code<=255?error.code:null,timedOut:error?.timedOut===true}});
+  return Object.assign(new Error('PHASE6_FAILED:go-command',{cause:error}),{phase6Failure:{stage:'go-test',failedSelectors:selectors.filter(s=>known.has(s)&&failed.has(s)),exitCode:Number.isInteger(error?.code)&&error.code>=0&&error.code<=255?error.code:null,timedOut:error?.timedOut===true}});
 }
 export async function executePhase6Scenarios(root,definition,{runtime,artifactRoot}) {
   const groups=new Map(),outcomes=[];

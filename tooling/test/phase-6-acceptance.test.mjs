@@ -29,5 +29,7 @@ test('Go failure diagnostics retain only fixed selector names and bounded status
   const error=phase6GoFailure({stdout,stderr:'VSK_PRIVATE_CANARY',code:1,timedOut:false},[selector,'TestUnknown']);
   assert.deepEqual(error.phase6Failure,{stage:'go-test',failedSelectors:[selector],exitCode:1,timedOut:false});
   assert.equal(scanPhase6Captured(JSON.stringify(error.phase6Failure)),true);
+  assert.equal(error.cause.stderr,'VSK_PRIVATE_CANARY');
+  assert.equal(JSON.stringify(error).includes('VSK_PRIVATE_CANARY'),false);
   assert.equal(phase6GoFailure({code:'VSK_PRIVATE_CANARY',timedOut:true},[selector]).phase6Failure.exitCode,null);
 });
