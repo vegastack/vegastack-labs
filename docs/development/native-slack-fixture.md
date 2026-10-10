@@ -10,7 +10,7 @@ The fixed directory `/run/vsk-labs-native` must be root-owned with mode `0700`; 
 | --- | --- |
 | `slack-fixture.json` | Generated `NativeSlackFixtureScope`; exact guest serial, SSH identity, setup machine identity, compiled source, measured executable, Slack test mapping, setup bindings and original expiry |
 | `server.crt`, `server.key` | Private fixture TLS certificate/key; certificate covers `slack.com` and `wss-native.slack.com` and outlives the bounded scope |
-| `app-token`, `bot-token` | Synthetic bytes only, beginning `xapp-native-fixture-` and `xoxb-native-fixture-`; no trailing newline; matching digest in scope |
+| `app-token`, `bot-token` | Synthetic fixture credentials only; use the closed fixture prefixes required by the implementation, never real Slack credentials. No trailing newline; matching digest in scope. |
 | `approvals.json` | Generated `NativeSlackFixtureApprovalList`, at most 48 exact prepared plan bindings; loaded again for each published plan |
 
 The scope's `issuedAt` and `expiresAt` define one original window of at most four hours. Restarting the peer cannot extend that window. The peer independently checks the actual SMBIOS serial, SSH public key, machine ID, running executable and compiled source revision. It listens only on `127.0.0.1:443`. Only the existing `/api/apps.connections.open`, `/api/chat.postMessage` and `/link/` wire paths exist. WebSocket tickets are random, short-lived and single-use. Each allowed plan is consumed once per peer process, and at most 64 cards can be selected during that process.
