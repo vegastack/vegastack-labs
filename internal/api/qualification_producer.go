@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"net/http"
 )
 
@@ -30,13 +31,15 @@ func (app *Application) qualificationProducer(c QualificationOperations) func(ht
 				return
 			}
 		}
-		out, err := c.Service.LookupNativeProducerReference(r.Context(), in)
+		out, err := c.Service.LookupNativeProducerData(r.Context(), in)
 		if err != nil {
 			app.failure(w, op, err)
 			return
 		}
 		raw, _ = json.Marshal(out)
-		if generated.ValidateContractJSON(generated.SchemaIDNativeProducerReference, raw, generated.ContractExact) != nil || out.ScenarioID != in.ScenarioID || out.HostID != in.HostID || out.PlanID != in.PlanID || out.PlanDigest != in.PlanDigest || out.RunID != in.RunID || out.StepID != in.StepID {
+		ref := out.ProducerReference
+		protocol := in.ScenarioID == "action-replay" || in.ScenarioID == "action-concurrency"
+		if generated.ValidateContractJSON(generated.SchemaIDNativeProducerLookupData, raw, generated.ContractExact) != nil || ref.ScenarioID != in.ScenarioID || ref.HostID != in.HostID || ref.PlanID != in.PlanID || ref.PlanDigest != in.PlanDigest || ref.RunID != in.RunID || ref.StepID != in.StepID || protocol != (out.ActionBundle != nil) || out.ActionBundle != nil && !hostaction.NativeProducerBundleMatches(in, ref, *out.ActionBundle) {
 			app.failure(w, op, apiFailure(generated.ErrorCodeIntegrityFailure, "native-producer-binding"))
 			return
 		}

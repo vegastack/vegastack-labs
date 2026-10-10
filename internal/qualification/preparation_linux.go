@@ -259,7 +259,8 @@ func dispatchPreparation(ctx context.Context, c localapi.Client, p serverconfig.
 		r, e := c.LookupNativeProducerReference(ctx, p, *in.ProducerLookup)
 		out = preparationResult(r)
 		if e == nil && r.ExitCode == 0 {
-			out.ProducerReference = &r.Data
+			out.ProducerReference = &r.Data.ProducerReference
+			out.ActionBundle = r.Data.ActionBundle
 		}
 		return out, e
 	case "target":

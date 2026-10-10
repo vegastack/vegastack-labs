@@ -18,7 +18,7 @@ import (
 // The constructor installs the concrete protected producer. HTTP input cannot
 // supply an observer, observations, a report, or evidence classification.
 type QualificationService interface {
-	LookupNativeProducerReference(context.Context, generated.NativeProducerLookupRequest) (generated.NativeProducerReference, error)
+	LookupNativeProducerData(context.Context, generated.NativeProducerLookupRequest) (generated.NativeProducerLookupData, error)
 	Inspect(context.Context, generated.QualificationInspectRequest) (generated.QualificationInspectData, error)
 	CollectDraft(context.Context, generated.NativeCollectRequest, audit.Attribution) (store.GateDraft, []generated.ScenarioResult, error)
 }

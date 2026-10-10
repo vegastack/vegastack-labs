@@ -256,6 +256,7 @@ const (
 	SchemaIDNativeObservationBinding               = "vegastack-labs.dev/native-observation-binding"
 	SchemaIDNativePreparationRequest               = "vegastack-labs.dev/native-preparation-request"
 	SchemaIDNativePreparationResult                = "vegastack-labs.dev/native-preparation-result"
+	SchemaIDNativeProducerLookupData               = "vegastack-labs.dev/native-producer-lookup-data"
 	SchemaIDNativeProducerLookupRequest            = "vegastack-labs.dev/native-producer-lookup-request"
 	SchemaIDNativeProducerReference                = "vegastack-labs.dev/native-producer-reference"
 	SchemaIDNativeQualification                    = "vegastack-labs.dev/native-qualification"
@@ -3549,6 +3550,7 @@ type NativePreparationResult struct {
 	GrantDeclaration    *DeclarationRevision                `json:"grantDeclaration,omitempty"`
 	DatabaseStatus      *DatabaseStatusData                 `json:"databaseStatus,omitempty"`
 	ProducerReference   *NativeProducerReference            `json:"producerReference,omitempty"`
+	ActionBundle        *HostActionBundle                   `json:"actionBundle,omitempty"`
 	Target              *HostDiscoveryTargetDraftSubmission `json:"target,omitempty"`
 	Discovery           *HostDiscoverySubmission            `json:"discovery,omitempty"`
 	Adoption            *HostAdoptionSubmission             `json:"adoption,omitempty"`
@@ -3564,6 +3566,13 @@ type NativePreparationResult struct {
 	BackupJob           *BackupJob                          `json:"backupJob,omitempty"`
 	RestoreBinding      *RestoreBinding                     `json:"restoreBinding,omitempty"`
 	RestoreVerification *RestoreVerification                `json:"restoreVerification,omitempty"`
+}
+
+type NativeProducerLookupData struct {
+	Schema            string                  `json:"schema"`
+	SchemaVersion     string                  `json:"schemaVersion"`
+	ProducerReference NativeProducerReference `json:"producerReference"`
+	ActionBundle      *HostActionBundle       `json:"actionBundle,omitempty"`
 }
 
 type NativeProducerLookupRequest struct {
@@ -5069,7 +5078,7 @@ var Endpoints = []Endpoint{
 	{ID: "api.v1.plans.run-resolution.get", Method: "GET", Path: "/api/v1/plans/{planId}/runs/{idempotencyKey}", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/run-presentation", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.qualification.collect", Method: "POST", Path: "/api/v1/qualification/collect", Availability: "available", OwnerPhase: "6", QuerySchema: "", RequestSchema: "vegastack-labs.dev/native-collect-request", DataSchema: "vegastack-labs.dev/native-collect-data", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.qualification.inspect", Method: "POST", Path: "/api/v1/qualification/inspect", Availability: "available", OwnerPhase: "6", QuerySchema: "", RequestSchema: "vegastack-labs.dev/qualification-inspect-request", DataSchema: "vegastack-labs.dev/qualification-inspect-data", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
-	{ID: "api.v1.qualification.producer", Method: "POST", Path: "/api/v1/qualification/native/producer", Availability: "available", OwnerPhase: "6", QuerySchema: "", RequestSchema: "vegastack-labs.dev/native-producer-lookup-request", DataSchema: "vegastack-labs.dev/native-producer-reference", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "local", MaxRequestBytes: 8192},
+	{ID: "api.v1.qualification.producer", Method: "POST", Path: "/api/v1/qualification/native/producer", Availability: "available", OwnerPhase: "6", QuerySchema: "", RequestSchema: "vegastack-labs.dev/native-producer-lookup-request", DataSchema: "vegastack-labs.dev/native-producer-lookup-data", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "local", MaxRequestBytes: 8192},
 	{ID: "api.v1.recovery-points.list", Method: "GET", Path: "/api/v1/recovery-points", Availability: "available", OwnerPhase: "5", QuerySchema: "vegastack-labs.dev/api-page-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/browser-recovery-point-list-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.restore-drafts.create", Method: "POST", Path: "/api/v1/recovery-points/{pointId}/restore-drafts", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/browser-restore-draft-request", DataSchema: "vegastack-labs.dev/browser-restore-draft-submission", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.restores.list", Method: "GET", Path: "/api/v1/restore-plans", Availability: "available", OwnerPhase: "5", QuerySchema: "vegastack-labs.dev/api-page-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/browser-restore-status-list-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},

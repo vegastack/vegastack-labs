@@ -116,7 +116,7 @@ type Client interface {
 	ImportInventory(context.Context, serverconfig.Profile, generated.InventoryImportRequest) (TypedResponse[generated.InventoryImportData], error)
 	DiffInventory(context.Context, serverconfig.Profile, generated.InventoryDiffRequest) (TypedResponse[generated.InventoryDiffData], error)
 	ExportInventory(context.Context, serverconfig.Profile, generated.InventoryExportRequest) (TypedResponse[generated.InventoryExportData], error)
-	LookupNativeProducerReference(context.Context, serverconfig.Profile, generated.NativeProducerLookupRequest) (TypedResponse[generated.NativeProducerReference], error)
+	LookupNativeProducerReference(context.Context, serverconfig.Profile, generated.NativeProducerLookupRequest) (TypedResponse[generated.NativeProducerLookupData], error)
 	GetPlan(context.Context, serverconfig.Profile, string) (TypedResponse[generated.Plan], error)
 	Plan(context.Context, serverconfig.Profile, string, int64) (TypedResponse[generated.Plan], error)
 	Apply(context.Context, serverconfig.Profile, string) (TypedResponse[generated.RunPresentation], error)

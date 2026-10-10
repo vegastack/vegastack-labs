@@ -5664,6 +5664,16 @@
             }
           ]
         },
+        "actionBundle": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/host-action-bundle"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "adoption": {
           "anyOf": [
             {

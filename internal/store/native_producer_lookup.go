@@ -13,8 +13,15 @@ import (
 // scoped reader. A reference grants no execution or evidence authority; native
 // collection repeats the complete producer join and fresh observer checks.
 func (r *GateRepository) LookupNativeProducerReference(ctx context.Context, in generated.NativeProducerLookupRequest, scope generated.QualificationScope) (out generated.NativeProducerReference, err error) {
+	out, _, err = r.LookupNativeProducerReferenceAndBundleDigest(ctx, in, scope)
+	return
+}
+
+// The digest comes from the same completed producer snapshot as the lease,
+// never from caller input or a second unrelated execution lookup.
+func (r *GateRepository) LookupNativeProducerReferenceAndBundleDigest(ctx context.Context, in generated.NativeProducerLookupRequest, scope generated.QualificationScope) (out generated.NativeProducerReference, bundleDigest string, err error) {
 	if r == nil || r.store == nil || !nativeContract(generated.SchemaIDNativeProducerLookupRequest, in) {
-		return out, actionError(generated.ErrorCodeInputInvalid)
+		return out, "", actionError(generated.ErrorCodeInputInvalid)
 	}
 	stage := ""
 	for _, candidate := range []string{"baseline", "role", "recovery"} {
@@ -25,7 +32,7 @@ func (r *GateRepository) LookupNativeProducerReference(ctx context.Context, in g
 		}
 	}
 	if stage == "" {
-		return out, actionError(generated.ErrorCodeInputInvalid)
+		return out, "", actionError(generated.ErrorCodeInputInvalid)
 	}
 	err = r.store.Read(ctx, func(tx ReadTx) error {
 		q := nativeQuery{tx, func(query string, args ...any) *sql.Row { return tx.queryRow(ctx, query, args...) }, func(query string, args ...any) (*sql.Rows, error) { return tx.query(ctx, query, args...) }}
@@ -59,10 +66,18 @@ func (r *GateRepository) LookupNativeProducerReference(ctx context.Context, in g
 			return nativeError()
 		}
 		out = snapshot.Producers[0].Reference
+		if in.ScenarioID == "action-replay" || in.ScenarioID == "action-concurrency" {
+			execution := snapshot.Executions[0]
+			if execution.Result == nil || execution.Receipt.Status != "succeeded" || execution.Result.Status != "succeeded" || !execution.Result.EffectObserved || execution.Result.BundleDigest == "" {
+				return nativeError()
+			}
+			bundleDigest = execution.Result.BundleDigest
+		}
 		return nil
 	})
 	if err != nil {
 		out = generated.NativeProducerReference{}
+		bundleDigest = ""
 	}
 	return
 }

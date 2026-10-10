@@ -6380,6 +6380,11 @@
       "artifactPath": "schemas/v1/native-preparation-result.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/native-producer-lookup-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/native-producer-lookup-data.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/native-producer-lookup-request",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/native-producer-lookup-request.schema.json"

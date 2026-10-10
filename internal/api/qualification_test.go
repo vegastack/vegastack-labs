@@ -15,9 +15,9 @@ import (
 
 type qualificationServiceTest struct{ calls int }
 
-func (s *qualificationServiceTest) LookupNativeProducerReference(context.Context, generated.NativeProducerLookupRequest) (generated.NativeProducerReference, error) {
+func (s *qualificationServiceTest) LookupNativeProducerData(context.Context, generated.NativeProducerLookupRequest) (generated.NativeProducerLookupData, error) {
 	s.calls++
-	return generated.NativeProducerReference{}, apiFailure(generated.ErrorCodePrerequisiteBlocked, "fixture")
+	return generated.NativeProducerLookupData{}, apiFailure(generated.ErrorCodePrerequisiteBlocked, "fixture")
 }
 func (s *qualificationServiceTest) Inspect(context.Context, generated.QualificationInspectRequest) (generated.QualificationInspectData, error) {
 	s.calls++

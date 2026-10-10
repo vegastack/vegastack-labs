@@ -71,7 +71,7 @@ Contract schema: `1.29.0`
 | `api.v1.plans.run-resolution.get` | `GET` | `/api/v1/plans/{planId}/runs/{idempotencyKey}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/run-presentation` |
 | `api.v1.qualification.collect` | `POST` | `/api/v1/qualification/collect` | `available` | `operator` | `finite` | `vegastack-labs.dev/native-collect-request` | `vegastack-labs.dev/native-collect-data` |
 | `api.v1.qualification.inspect` | `POST` | `/api/v1/qualification/inspect` | `available` | `operator` | `finite` | `vegastack-labs.dev/qualification-inspect-request` | `vegastack-labs.dev/qualification-inspect-data` |
-| `api.v1.qualification.producer` | `POST` | `/api/v1/qualification/native/producer` | `available` | `operator` | `finite` | `vegastack-labs.dev/native-producer-lookup-request` | `vegastack-labs.dev/native-producer-reference` |
+| `api.v1.qualification.producer` | `POST` | `/api/v1/qualification/native/producer` | `available` | `operator` | `finite` | `vegastack-labs.dev/native-producer-lookup-request` | `vegastack-labs.dev/native-producer-lookup-data` |
 | `api.v1.recovery-points.list` | `GET` | `/api/v1/recovery-points` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/browser-recovery-point-list-data` |
 | `api.v1.restore-drafts.create` | `POST` | `/api/v1/recovery-points/{pointId}/restore-drafts` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/browser-restore-draft-request` | `vegastack-labs.dev/browser-restore-draft-submission` |
 | `api.v1.restores.list` | `GET` | `/api/v1/restore-plans` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/browser-restore-status-list-data` |

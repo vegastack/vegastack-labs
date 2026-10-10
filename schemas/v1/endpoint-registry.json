@@ -890,7 +890,7 @@
       "availability": "available",
       "ownerPhase": "6",
       "requestSchema": "vegastack-labs.dev/native-producer-lookup-request",
-      "dataSchema": "vegastack-labs.dev/native-producer-reference",
+      "dataSchema": "vegastack-labs.dev/native-producer-lookup-data",
       "stream": "finite",
       "audiences": [
         "operator"
