@@ -468,6 +468,71 @@ func (f admissionSQL) declaration(p generated.Plan) {
 	f.exec(`INSERT OR IGNORE INTO declaration_revisions VALUES(?,1,?,?,0,?,?,'draft',?,'2026-09-15T08:00:00Z','human-a','test-session')`, doc.DeclarationID, doc.DeclarationType, doc.StateRevision, doc.ContentDigest, d, f.bytes(doc))
 }
 
+// Platform safety is applied before hardening in the ordinary onboarding order.
+// Both qualify the baseline stage, but only platform safety proves these prerequisites.
+func TestHostAdmissionNewerHardeningPreservesPlatformPrerequisites(t *testing.T) {
+	at := time.Date(2026, 9, 15, 8, 0, 0, 0, time.UTC)
+	expected := qualifiedHostSnapshot(t, at)
+	var hardening generated.GateEvidence
+	kept := []generated.GateEvidence{}
+	for _, evidence := range expected.Evidence {
+		if strings.HasPrefix(evidence.EvidenceID, "prereq-") {
+			continue
+		}
+		if evidence.GateID == "host.hardening-baseline" {
+			hardening = evidence
+			continue
+		}
+		if evidence.EvidenceID == "native-baseline" {
+			evidence.GateID = "platform-safety"
+			bundle := expected.Bundles[evidence.EvidenceID]
+			for _, id := range []string{"identity-console", "recovery-access", "qualified-virtual"} {
+				bundle.Checks = append(bundle.Checks, hostTestCheck(id, expected.PrerequisiteDigests[id]))
+			}
+			expected.Bundles[evidence.EvidenceID] = bundle
+		}
+		kept = append(kept, evidence)
+	}
+	expected.Evidence = kept
+	fixture := newHostAdmissionFixture(t, &at, expected, nil)
+	platformQualification := expected.Qualifications[0]
+	prerequisites := []store.HostPrerequisiteProof{}
+	for _, id := range []string{"identity-console", "recovery-access", "qualified-virtual"} {
+		prerequisites = append(prerequisites, store.HostPrerequisiteProof{ID: id, Digest: expected.PrerequisiteDigests[id]})
+	}
+	fixture.proofs.proofs["native-baseline"] = store.HostEvidenceProvenance{Qualification: &platformQualification, Prerequisites: prerequisites}
+	assertProofs := func(wantQualification string) {
+		t.Helper()
+		snapshot, err := fixture.repo.ResolveHostAdmission(fixture.ctx, fixture.input.HostID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(snapshot.Qualifications) != 1 || snapshot.Qualifications[0].EvidenceID != wantQualification {
+			t.Fatalf("current baseline qualification = %+v", snapshot.Qualifications)
+		}
+		for _, prerequisite := range prerequisites {
+			if snapshot.PrerequisiteDigests[prerequisite.ID] != prerequisite.Digest || snapshot.PrerequisiteEvidenceIDs[prerequisite.ID] != "native-baseline" {
+				t.Fatalf("platform prerequisite %s lost after qualification dedup: digests=%v evidence=%v", prerequisite.ID, snapshot.PrerequisiteDigests, snapshot.PrerequisiteEvidenceIDs)
+			}
+		}
+	}
+	assertProofs("native-baseline")
+	hardening.StateRevision = 101
+	bundle := expected.Bundles[hardening.EvidenceID]
+	for i := range bundle.Facts {
+		if bundle.Facts[i].FactID == "host.binding" {
+			bundle.Facts[i].ValueDigest = fixture.snapshot.BindingDigest
+		}
+	}
+	hardening.ArtifactDigest = fixture.snapshot.BindingDigest
+	fixture.seed.evidence(hardening, bundle)
+	qualification := platformQualification
+	qualification.EvidenceID = hardening.EvidenceID
+	fixture.proofs.proofs[hardening.EvidenceID] = store.HostEvidenceProvenance{Qualification: &qualification}
+	fixture.seed.exec(`UPDATE system_meta SET state_revision=101 WHERE id=1`)
+	assertProofs(hardening.EvidenceID)
+}
+
 func TestHostAdmissionAPICurrentProofAndInvalidation(t *testing.T) {
 	at := time.Date(2026, 9, 15, 8, 0, 0, 0, time.UTC)
 	fixture := newRoleAdmissionFixture(t, &at)

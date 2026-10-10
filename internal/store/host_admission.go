@@ -328,15 +328,14 @@ func (r *GateRepository) admissionEvidenceStages(ctx context.Context, tx ReadTx,
 			}
 			if proof.Qualification != nil {
 				q := *proof.Qualification
-				if seenProof["qualification:"+q.Stage] {
-					continue
-				}
-				seenProof["qualification:"+q.Stage] = true
 				if q.EvidenceID != ev.EvidenceID || q.ProfileDigest != out.ProfileLockDigest || q.RecoveryEpoch != out.Revision.RecoveryEpoch || !slices.Contains([]string{"baseline", "role", "recovery"}, q.Stage) {
 					return actionError(generated.ErrorCodeIntegrityFailure)
 				}
-				out.Qualifications = append(out.Qualifications, q)
-				out.QualificationDigests = append(out.QualificationDigests, ev.BundleDigest)
+				if !seenProof["qualification:"+q.Stage] {
+					seenProof["qualification:"+q.Stage] = true
+					out.Qualifications = append(out.Qualifications, q)
+					out.QualificationDigests = append(out.QualificationDigests, ev.BundleDigest)
+				}
 			}
 			prerequisites := append([]HostPrerequisiteProof(nil), proof.Prerequisites...)
 			if proof.PrerequisiteID != "" {
