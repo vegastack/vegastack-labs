@@ -7,5 +7,8 @@ polkit.addRule(function(action, subject) {
     if (action.id !== 'org.freedesktop.systemd1.manage-units') return polkit.Result.NOT_HANDLED;
     const unit = action.lookup('unit');
     if (action.lookup('verb') === 'restart' && vskNativeUnits.indexOf(unit) !== -1) return polkit.Result.YES;
+{% if native_credential_backup_custody %}
+    if (action.lookup('verb') === 'start' && /^vsk-labs-backup-custody@[a-f0-9]{32}\.service$/.test(unit)) return polkit.Result.YES;
+{% endif %}
     return polkit.Result.NO;
 });

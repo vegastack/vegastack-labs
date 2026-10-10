@@ -15,6 +15,7 @@
       - native_credential_probe_bindings | length <= 256
       - native_credential_host_machine_id is match('^[0-9a-f]{32}$')
       - native_credential_binary_path == '/usr/local/bin/vsk-labs'
+      - native_credential_backup_custody is boolean
     fail_msg: Native credential authority requires an exact, sorted enrollment and the pinned executable.
 
 - name: Reject unsafe native credential unit names

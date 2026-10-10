@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import vm from 'node:vm';
+import { renderNativeFixture } from '../render-native-credential-fixture.mjs';
 
 const root = new URL('../../', import.meta.url);
 const file = (path) => readFileSync(new URL(path, root), 'utf8');
@@ -24,7 +25,7 @@ test('native authority role has exact enrollment and no broad systemd grant', ()
 
 test('rendered polkit rule grants only the enrolled restart tuple', () => {
   const template = file('ansible/roles/native_credential_authority/templates/managed-units.rules.j2');
-  const source = template.replace('{{ native_credential_enrolled_units | to_json }}', '["alpha.service"]');
+  const source = renderNativeFixture('a'.repeat(32)).rule.replace('vsk-native-allow.service','alpha.service');
   let rule;
   const polkit = { Result: { YES: 'yes', NO: 'no', NOT_HANDLED: 'not-handled' }, addRule: (value) => { rule = value; } };
   vm.runInNewContext(source, { polkit }, { timeout: 1000 });
@@ -55,4 +56,26 @@ test('native CI acceptance is manual, exact-branch/SHA-bound, and always cleans 
   assert.match(fixture, /vsk-node-01\|vsk-node-06/);
   assert.match(fixture, /trap clean_fixture EXIT/);
   assert.match(fixture, /Fixture path already exists/);
+});
+
+// Actual role templates, with the same exact substitutions as the finite fixture.
+test('shared control policy permits only explicit custody starts and enrolled restarts', () => {
+  assert.throws(() => renderNativeFixture('a'.repeat(32), 'true'));
+  for (const enabled of [false, true]) {
+    const rendered = renderNativeFixture('a'.repeat(32), enabled);
+    let rule;
+    const polkit = { Result: { YES: 'yes', NO: 'no', NOT_HANDLED: 'not-handled' }, addRule: value => { rule = value; } };
+    vm.runInNewContext(rendered.rule, { polkit }, { timeout: 1000 });
+    const action = 'org.freedesktop.systemd1.manage-units';
+    const decide = (unit, verb, user = 'vsk-labs', id = action) => rule({ id, lookup: key => ({ unit, verb })[key] }, { user });
+    const custody = 'vsk-labs-backup-custody@'+'a'.repeat(32)+'.service';
+    assert.equal(decide(custody, 'start'), enabled ? 'yes' : 'no');
+    assert.equal(decide('vsk-native-allow.service', 'restart'), 'yes');
+    for (const [unit,verb] of [[custody,'stop'],[custody,'restart'],['vsk-native-allow.service','start'],['other.service','restart'],['vsk-labs-backup-custody@bad.service','start']]) assert.equal(decide(unit,verb), 'no');
+    assert.equal(decide(custody,'start','other'), 'not-handled');
+    assert.equal(decide(custody,'start','vsk-labs','org.freedesktop.systemd1.reload-daemon'), 'no');
+    assert.equal(rendered.sudoers.split('NOPASSWD:').length-1, enabled ? 3 : 2);
+    assert.equal(rendered.sudoers.includes('__backup-custody-policy-check'), enabled);
+    assert.doesNotMatch(rendered.sudoers, /__backup-custody-supervisor|NOPASSWD: ALL|SETENV/);
+  }
 });

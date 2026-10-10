@@ -130,11 +130,14 @@ func exactSudoAggregate(data []byte) bool {
 	listing := string(data)
 	const header = "\nUser vsk-labs may run the following commands on "
 	before, commands, found := strings.Cut(listing, header)
-	if !found || strings.Contains(before, "User vsk-labs may run") || strings.Count(commands, "\n") != 3 {
+	if !found || strings.Contains(before, "User vsk-labs may run") {
 		return false
 	}
 	line := commands[strings.IndexByte(commands, '\n')+1:]
-	return line == "    (root) NOPASSWD: "+defaultNativeBinary+" "+accessProbeMode+"\n"+"    (root) NOPASSWD: "+defaultNativeBinary+" "+policyCheckMode+"\n"
+	native := "    (root) NOPASSWD: " + defaultNativeBinary + " " + accessProbeMode + "\n" + "    (root) NOPASSWD: " + defaultNativeBinary + " " + policyCheckMode + "\n"
+	// The same control account may also own the existing local-backup profile.
+	// Accept that one metadata-only helper, never another command or arguments.
+	return line == native || line == native+"    (root) NOPASSWD: "+defaultNativeBinary+" __backup-custody-policy-check\n"
 }
 
 func readEffectiveSudoAggregate(ctx context.Context) ([]byte, error) {

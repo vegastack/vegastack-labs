@@ -106,3 +106,28 @@ func TestCanonicalControlCredentialDelivery(t *testing.T) {
 		})
 	}
 }
+
+func TestControlPrivilegesFollowDeclaredHelpers(t *testing.T) {
+	for _, test := range []struct {
+		name              string
+		encrypted, backup bool
+	}{
+		{"default", false, false}, {"encrypted", true, false}, {"backup", false, true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			in := fixture()
+			if test.encrypted {
+				in.ControlEncryptedCredentials = []string{"credential-" + strings.Repeat("a", 32)}
+			}
+			in.ControlLocalBackup = test.backup
+			want := "yes"
+			if test.encrypted || test.backup {
+				want = "no"
+			}
+			unit := string(DesiredFiles(in)["etc/systemd/system/vsk-labs.service"])
+			if !strings.Contains(unit, "NoNewPrivileges="+want+"\n") || !strings.Contains(unit, "ProtectSystem=strict\n") {
+				t.Fatal("declared fixed helpers and canonical service protections disagree")
+			}
+		})
+	}
+}

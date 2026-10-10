@@ -8,10 +8,10 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const role = path.join(root, 'ansible/roles/native_credential_authority/templates');
 // Updated only after exact-byte parity against Ansible-rendered fixture files.
 const roleDigests = {
-  'tasks/main.yml': 'a5efb1aaf1832a8bc0be5d67abff6f9ab6f6aa22a7cdd8c821b296133c6c5e39',
+  'tasks/main.yml': '21fc3c01879bd3865ed28118e18b58fa820db1c74f4e56351354dcb25e98bcca',
   'templates/probe-policy.json.j2': 'fcb4cc424da4862072c7354b5f5c2a897b254d3558c71b6087c6de5d5f634fde',
-  'templates/managed-units.rules.j2': 'c0f881aa360252ec19df5b50a3a358050fd1308c2725cafc320df5dc5e8b8e80',
-  'templates/native-denied-probe.sudoers.j2': '3ba167bf2fff861b64b1dd1a6150df35f14db1ef6e76ddb59db47dafd47d0b17',
+  'templates/managed-units.rules.j2': '2b7193eb9877196a017489ddb35f21ddab67e5062669cd4298081fc601dde903',
+  'templates/native-denied-probe.sudoers.j2': 'd11f62465dec63cc6715ae19552006c13ec124afa51c27557fc6950bc9e10498',
 };
 const unit = 'vsk-native-allow.service';
 const name = 'credential-a';
@@ -26,7 +26,8 @@ function ansibleJSON(value) {
   return JSON.stringify(value);
 }
 
-export function renderNativeFixture(machineID) {
+export function renderNativeFixture(machineID, localBackup = false) {
+  if (typeof localBackup !== "boolean") throw new Error("Custody opt-in must be boolean");
   if (!/^[0-9a-f]{32}$/.test(machineID)) throw new Error('Fixture machine ID is invalid');
   for (const [file, expected] of Object.entries(roleDigests)) {
     const source = readFileSync(path.join(root, 'ansible/roles/native_credential_authority', file));
@@ -34,7 +35,10 @@ export function renderNativeFixture(machineID) {
       throw new Error('Native authority role changed since fixture parity check');
     }
   }
-  const read = (file) => readFileSync(path.join(role, file), 'utf8');
+  const read = (file) => {
+    const source = readFileSync(path.join(role, file), 'utf8');
+    return source.replace(/\{% if native_credential_backup_custody %\}\n([\s\S]*?)\{% endif %\}\n/g, (_, content) => localBackup ? content : '');
+  };
   const source = read('probe-policy.json.j2').trim();
   const expected = "{{ {'version': 1, 'machine_id': native_credential_host_machine_id, 'units': native_credential_enrolled_units, 'probes': native_credential_probe_bindings} | to_json }}";
   if (source !== expected) throw new Error('Probe policy role template changed');
@@ -45,7 +49,7 @@ export function renderNativeFixture(machineID) {
   const rule = ruleTemplate.replace(unitSlot, ansibleJSON([unit]));
   const sudoTemplate = read('native-denied-probe.sudoers.j2');
   const binarySlot = '{{ native_credential_binary_path }}';
-  if (sudoTemplate.split(binarySlot).length !== 3) throw new Error('Sudoers role template changed');
+  if (sudoTemplate.split(binarySlot).length !== (localBackup ? 4 : 3)) throw new Error('Sudoers role template changed');
   const sudoers = sudoTemplate.replaceAll(binarySlot, binary);
   for (const rendered of [policy, rule, sudoers]) {
     if (rendered.includes('{{') || rendered.includes('}}')) throw new Error('Unresolved role template expression');

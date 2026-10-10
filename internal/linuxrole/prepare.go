@@ -107,13 +107,19 @@ func DesiredFiles(in generated.LinuxRoleInput) map[string][]byte {
 		encrypted := slices.Clone(in.ControlEncryptedCredentials)
 		slices.Sort(plain)
 		slices.Sort(encrypted)
+		noNewPrivileges := "yes"
+		// These declared capabilities use the existing fixed-argument read-only
+		// sudo helpers. The native/custody adapters qualify their exact grants.
+		if len(encrypted) != 0 || in.ControlLocalBackup {
+			noNewPrivileges = "no"
+		}
 		for _, name := range plain {
 			delivery += "LoadCredential=" + name + ":/etc/vsk-labs/control/credentials/" + name + "\n"
 		}
 		for _, name := range encrypted {
 			delivery += "LoadCredentialEncrypted=" + name + ":/var/lib/vsk-labs/control/credential-drafts/" + name + "\n"
 		}
-		files["etc/systemd/system/"+unit] = []byte(fmt.Sprintf("[Unit]\nDescription=VegaStack Labs control service\nAfter=network.target\n[Service]\nType=simple\nUser=%d\nGroup=%d\n%sExecStart=/usr/local/bin/vsk-labs server run --config /etc/vsk-labs/control/server.json\nWorkingDirectory=/var/lib/vsk-labs/control\nRuntimeDirectory=vsk-labs-control\nRuntimeDirectoryMode=0700\nUMask=0077\nNoNewPrivileges=yes\nPrivateTmp=yes\nProtectSystem=strict\nProtectHome=yes\nReadWritePaths=%s\n%sRestart=no\n[Install]\nWantedBy=multi-user.target\n", a.UID, a.GID, delivery, writable, limits))
+		files["etc/systemd/system/"+unit] = []byte(fmt.Sprintf("[Unit]\nDescription=VegaStack Labs control service\nAfter=network.target\n[Service]\nType=simple\nUser=%d\nGroup=%d\n%sExecStart=/usr/local/bin/vsk-labs server run --config /etc/vsk-labs/control/server.json\nWorkingDirectory=/var/lib/vsk-labs/control\nRuntimeDirectory=vsk-labs-control\nRuntimeDirectoryMode=0700\nUMask=0077\nNoNewPrivileges=%s\nPrivateTmp=yes\nProtectSystem=strict\nProtectHome=yes\nReadWritePaths=%s\n%sRestart=no\n[Install]\nWantedBy=multi-user.target\n", a.UID, a.GID, delivery, noNewPrivileges, writable, limits))
 	} else {
 		files["etc/systemd/system/"+unit] = []byte("[Unit]\nDescription=VegaStack Labs role resource boundary\n[Slice]\n" + limits + "[Install]\nWantedBy=multi-user.target\n")
 		for _, d := range in.Directories {
