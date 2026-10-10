@@ -10,7 +10,7 @@ const role = path.join(root, 'ansible/roles/native_credential_authority/template
 const roleDigests = {
   'tasks/main.yml': '21fc3c01879bd3865ed28118e18b58fa820db1c74f4e56351354dcb25e98bcca',
   'templates/probe-policy.json.j2': 'fcb4cc424da4862072c7354b5f5c2a897b254d3558c71b6087c6de5d5f634fde',
-  'templates/managed-units.rules.j2': '2b7193eb9877196a017489ddb35f21ddab67e5062669cd4298081fc601dde903',
+  'templates/managed-units.rules.j2': 'dc745d5d9fcb8246019ef1753e1b3483d774937967057013a6488f769e9e1dbc',
   'templates/native-denied-probe.sudoers.j2': 'd11f62465dec63cc6715ae19552006c13ec124afa51c27557fc6950bc9e10498',
 };
 const unit = 'vsk-native-allow.service';

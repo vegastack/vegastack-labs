@@ -79,3 +79,30 @@ test('shared control policy permits only explicit custody starts and enrolled re
     assert.doesNotMatch(rendered.sudoers, /__backup-custody-supervisor|NOPASSWD: ALL|SETENV/);
   }
 });
+
+test('native authority permits system credential encryption while denying service decryption', () => {
+  for (const custody of [false, true]) {
+    let rule;
+    const polkit = { Result: { YES: 'yes', NO: 'no', NOT_HANDLED: 'not-handled' }, addRule: value => { rule = value; } };
+    vm.runInNewContext(renderNativeFixture('a'.repeat(32), custody).rule, { polkit }, { timeout: 1000 });
+    const decide = (id, user = 'vsk-labs') => rule({ id, lookup: () => undefined }, { user });
+    assert.equal(decide('io.systemd.credentials.encrypt'), 'yes');
+    assert.equal(decide('io.systemd.credentials.decrypt'), 'no');
+    assert.equal(decide('io.systemd.credentials.unknown'), 'not-handled');
+    let laterCalled = false;
+    const later = () => { laterCalled = true; return 'yes'; };
+    const dispatch = (id, user) => {
+      const first = decide(id, user);
+      return first === 'not-handled' ? later() : first;
+    };
+    assert.equal(dispatch('io.systemd.credentials.decrypt', 'vsk-labs'), 'no');
+    assert.equal(laterCalled, false);
+    assert.equal(dispatch('io.systemd.credentials.decrypt', 'other'), 'yes');
+    assert.equal(laterCalled, true);
+
+    for (const id of ['io.systemd.credentials.encrypt', 'io.systemd.credentials.decrypt']) {
+      assert.equal(decide(id, 'other'), 'not-handled');
+
+    }
+  }
+});

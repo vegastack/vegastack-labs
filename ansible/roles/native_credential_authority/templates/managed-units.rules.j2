@@ -2,6 +2,8 @@
 const vskNativeUnits = {{ native_credential_enrolled_units | to_json }};
 polkit.addRule(function(action, subject) {
     if (subject.user !== 'vsk-labs') return polkit.Result.NOT_HANDLED;
+    if (action.id === 'io.systemd.credentials.encrypt') return polkit.Result.YES;
+    if (action.id === 'io.systemd.credentials.decrypt') return polkit.Result.NO;
     if (action.id === 'org.freedesktop.systemd1.manage-unit-files' ||
         action.id === 'org.freedesktop.systemd1.reload-daemon') return polkit.Result.NO;
     if (action.id !== 'org.freedesktop.systemd1.manage-units') return polkit.Result.NOT_HANDLED;
