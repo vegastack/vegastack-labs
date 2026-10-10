@@ -82,7 +82,8 @@ func RunNative(ctx context.Context, value generated.QualificationScope) (generat
 		}
 		for i, scenario := range scenarioCatalog {
 			ordinal := next[scenario]
-			if ordinal > 32 {
+			// Bound both recovery epochs without resetting scenario ordinals.
+			if ordinal > 256 {
 				continue
 			}
 			path := filepath.Join(value.OutputRoot, fmt.Sprintf("%s-%d.json", scenario, ordinal))

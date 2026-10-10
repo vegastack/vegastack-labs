@@ -66,7 +66,7 @@ func (v nativeHostProvenance) VerifyHostEvidence(s store.HostAdmissionSnapshot, 
 	if hostaction.Digest(joined.Qualification) != hostaction.Digest(*q) || hostaction.Digest(b) != e.BundleDigest || a.BundleDigest != e.BundleDigest || a.ArtifactDigest != e.ArtifactDigest || a.DeclarationID != e.DeclarationID || a.DeclarationRevision != e.DeclarationRevision || a.StateRevision != e.StateRevision || a.RecoveryEpoch != e.RecoveryEpoch || a.ReleaseBuildID != e.ReleaseBuildID || a.ToolVersion != e.ToolVersion || e.ToolVersion != s.ProfileLock.ExecutableVersion {
 		return deny()
 	}
-	if !hostFact(b, "native.profile-lock", q.ProfileLockDigest) || !hostFact(b, "native.source", q.SourceDigest) || !hostCheck(b, "native."+q.Stage, q.SourceDigest) || len(q.Producers) == 0 || len(q.Producers) > 48 || hostaction.Digest(q.Producers) != hostaction.Digest(joined.Producers) || len(joined.Executions) != len(q.Producers) {
+	if !hostFact(b, "native.profile-lock", q.ProfileLockDigest) || !hostFact(b, "native.source", q.SourceDigest) || !hostCheck(b, "native."+q.Stage, q.SourceDigest) || len(q.Producers) == 0 || len(q.Producers) > 64 || hostaction.Digest(q.Producers) != hostaction.Digest(joined.Producers) || len(joined.Executions) != len(q.Producers) {
 		return deny()
 	}
 	seen := map[string]bool{}

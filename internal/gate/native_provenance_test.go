@@ -82,3 +82,46 @@ func TestNativeProvenanceRequiresCurrentInternalLineage(t *testing.T) {
 		})
 	}
 }
+
+func TestNativeProvenanceCompleteProducerCapacity(t *testing.T) {
+	now := time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC)
+	v, err := NewNativeHostProvenance(strings.Repeat("a", 40), hostaction.Digest("test-only"), func() time.Time { return now })
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, count := range []int{52, 64, 65} {
+		t.Run(fmt.Sprint(count), func(t *testing.T) {
+			s, e, b := nativeProvenanceFixture(t, now)
+			q := b.NativeQualification
+			j := s.NativeProducerBindings[e.EvidenceID]
+			for len(q.Producers) < count {
+				x := j.Executions[0]
+				id := fmt.Sprintf("additional-producer-%d", len(q.Producers))
+				x.Reference.PlanID, x.Reference.RunID, x.Reference.LeaseID = id, id, id
+				x.Plan.PlanID = id
+				x.Receipt.PlanID, x.Receipt.RunID, x.Receipt.LeaseID = id, id, id
+				p := q.Producers[0]
+				p.Reference, p.ReceiptDigest = x.Reference, hostaction.Digest(x.Receipt)
+				q.Producers = append(q.Producers, p)
+				j.Executions = append(j.Executions, x)
+			}
+			j.Qualification, j.Producers = *q, q.Producers
+			e.BundleDigest = hostaction.Digest(b)
+			j.Applied.BundleDigest = e.BundleDigest
+			s.NativeProducerBindings[e.EvidenceID] = j
+			proof, err := v.VerifyHostEvidence(s, e, b)
+			if count <= 64 {
+				if err != nil || proof.Qualification == nil {
+					t.Fatalf("complete finite producer set refused: %v", err)
+				}
+				j.Executions[count-1].Receipt.RunID = "substituted-receipt"
+				s.NativeProducerBindings[e.EvidenceID] = j
+				if proof, err := v.VerifyHostEvidence(s, e, b); err == nil || proof.Qualification != nil {
+					t.Fatal("larger producer set bypassed exact receipt binding")
+				}
+			} else if err == nil || proof.Qualification != nil {
+				t.Fatal("unbounded producer set accepted")
+			}
+		})
+	}
+}

@@ -34,7 +34,7 @@ func SourceDigest(scope generated.QualificationScope) string {
 // VM alone cannot qualify a native scenario.
 func ValidateStageEvidence(stage string, executions []ProducerExecution, observations []generated.NativeObservation) error {
 	wanted := StageScenarios(stage)
-	if len(wanted) == 0 || len(executions) == 0 || len(executions) > 48 || len(observations) != len(executions) {
+	if len(wanted) == 0 || len(executions) == 0 || len(executions) > 64 || len(observations) != len(executions) {
 		return ErrUnavailable
 	}
 	byScenario := map[string][]ProducerExecution{}

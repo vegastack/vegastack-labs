@@ -24,7 +24,7 @@ func nativeContract(schema string, v any) bool {
 }
 
 func (r *GateRepository) ResolveNativeProducers(ctx context.Context, in generated.NativeCollectRequest) (out NativeProducerSnapshot, err error) {
-	if r == nil || r.store == nil || !nativeContract(generated.SchemaIDNativeCollectRequest, in) || len(in.Producers) == 0 || len(in.Producers) > 48 {
+	if r == nil || r.store == nil || !nativeContract(generated.SchemaIDNativeCollectRequest, in) || len(in.Producers) == 0 || len(in.Producers) > 64 {
 		return out, actionError(generated.ErrorCodeInputInvalid)
 	}
 	err = r.store.Read(ctx, func(tx ReadTx) error {
@@ -288,7 +288,7 @@ func (r *GateRepository) validateNativeDraftTransaction(ctx context.Context, tx 
 func (r *GateRepository) resolveNativeApplied(ctx context.Context, tx ReadTx, s HostAdmissionSnapshot, e generated.GateEvidence, b generated.GateEvidenceBundle) (HostNativeProducerBinding, error) {
 	var zero HostNativeProducerBinding
 	p := b.NativeQualification
-	if p == nil || !nativeContract(generated.SchemaIDNativeQualification, *p) || e.Status != "applied" || !nativeAppliedSubjectMatches(e, p, s) || p.ProfileID != s.Profile.ProfileID || p.ProfileLockDigest != s.ProfileLockDigest || e.RecoveryEpoch != p.RecoveryEpoch || p.RecoveryEpoch != s.Revision.RecoveryEpoch || e.ArtifactDigest != hostaction.Digest(*p) || len(p.Producers) == 0 || len(p.Producers) > 48 {
+	if p == nil || !nativeContract(generated.SchemaIDNativeQualification, *p) || e.Status != "applied" || !nativeAppliedSubjectMatches(e, p, s) || p.ProfileID != s.Profile.ProfileID || p.ProfileLockDigest != s.ProfileLockDigest || e.RecoveryEpoch != p.RecoveryEpoch || p.RecoveryEpoch != s.Revision.RecoveryEpoch || e.ArtifactDigest != hostaction.Digest(*p) || len(p.Producers) == 0 || len(p.Producers) > 64 {
 		return zero, nativeError()
 	}
 	refs := make([]generated.NativeProducerReference, 0, len(p.Producers))

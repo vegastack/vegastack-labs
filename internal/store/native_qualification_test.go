@@ -2,6 +2,7 @@ package store
 
 import (
 	"database/sql"
+	"fmt"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"testing"
@@ -16,9 +17,22 @@ func TestNativePublicResolverDoesNotExposeHistoricalProducerWithoutReadGrant(t *
 	}
 	d := hostaction.Digest("native")
 	in := generated.NativeCollectRequest{Schema: generated.SchemaIDNativeCollectRequest, SchemaVersion: "1.0.0", ScopeDigest: d, Stage: "baseline", EvidenceID: "native-a", ProfileID: "debian-13-amd64", ExpectedStateRevision: 1, IdempotencyKey: "native-a", Producers: []generated.NativeProducerReference{{Schema: generated.SchemaIDNativeProducerReference, SchemaVersion: "1.0.0", ScenarioID: "baseline-access", HostID: "historical-private-host", PlanID: "private-plan", PlanDigest: d, RunID: "private-run", StepID: "private-step", LeaseID: "private-lease"}}}
-	got, e := NewGateRepository(f.s).ResolveNativeProducers(f.ctx, in)
-	if Code(e) != generated.ErrorCodeAuthorizationDenied || len(got.Producers) != 0 || len(got.Executions) != 0 || len(got.Measurements) != 0 {
-		t.Fatalf("private producer leaked or wrong gate: %+v %v", got, e)
+	for _, count := range []int{1, 52, 64, 65} {
+		t.Run(fmt.Sprint(count), func(t *testing.T) {
+			for len(in.Producers) < count {
+				ref := in.Producers[0]
+				ref.RunID = fmt.Sprintf("private-run-%d", len(in.Producers))
+				in.Producers = append(in.Producers, ref)
+			}
+			wanted := generated.ErrorCodeAuthorizationDenied
+			if count > 64 {
+				wanted = generated.ErrorCodeInputInvalid
+			}
+			got, e := NewGateRepository(f.s).ResolveNativeProducers(f.ctx, in)
+			if Code(e) != wanted || len(got.Producers) != 0 || len(got.Executions) != 0 || len(got.Measurements) != 0 {
+				t.Fatalf("private producer leaked or wrong gate: %+v %v", got, e)
+			}
+		})
 	}
 }
 
