@@ -1,0 +1,1225 @@
+{
+  "schemaVersion": 1,
+  "scenarios": [
+    {
+      "id": "setup.first-start-restart",
+      "requirementId": "6.setup.first-start-restart",
+      "ownerIssue": 231,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/server/local_setup_acceptance_linux_test.go",
+      "selector": "TestLocalSetupFirstStartAndRestart",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "setup.existing-data-preserved",
+      "requirementId": "6.setup.existing-data-preserved",
+      "ownerIssue": 231,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/server/local_setup_acceptance_linux_test.go",
+      "selector": "TestLocalSetupPreflightDenialsPreserveData",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "setup.changed-intent-denied",
+      "requirementId": "6.setup.changed-intent-denied",
+      "ownerIssue": 231,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/server/local_setup_acceptance_linux_test.go",
+      "selector": "TestLocalSetupChangedIntentPreservesApproval",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "setup.transport-denied",
+      "requirementId": "6.setup.transport-denied",
+      "ownerIssue": 231,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/server/local_setup_acceptance_linux_test.go",
+      "selector": "TestLocalSetupApprovalTransportDenials",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "setup.interruption",
+      "requirementId": "6.setup.interruption",
+      "ownerIssue": 231,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/server/local_setup_acceptance_linux_test.go",
+      "selector": "TestLocalSetupInitializationInterruption",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "setup.exclusive-writer",
+      "requirementId": "6.setup.exclusive-writer",
+      "ownerIssue": 231,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/server/local_setup_acceptance_linux_test.go",
+      "selector": "TestLocalSetupConcurrentOneWinner",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "discovery.approved-pinned-identity",
+      "requirementId": "6.discovery.approved-pinned-identity",
+      "ownerIssue": 217,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/server/host_discovery_acceptance_linux_test.go",
+      "selector": "TestHostDiscoveryAcceptanceDatabaseAPIApprovalAndSSH",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "discovery.unqualified-recovery-denied",
+      "requirementId": "6.discovery.unqualified-recovery-denied",
+      "ownerIssue": 217,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/server/host_discovery_acceptance_linux_test.go",
+      "selector": "TestHostDiscoveryAcceptanceUnqualifiedRecovery",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "discovery.preloaded-key-current-revocation",
+      "requirementId": "6.discovery.preloaded-key-current-revocation",
+      "ownerIssue": 224,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/server/host_discovery_preloaded_acceptance_linux_test.go",
+      "selector": "TestPreloadedDiscoveryAPIApprovalAndRevocation",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "discovery.preloaded-key-denials",
+      "requirementId": "6.discovery.preloaded-key-denials",
+      "ownerIssue": 224,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/server/host_discovery_preloaded_acceptance_linux_test.go",
+      "selector": "TestPreloadedDiscoveryAPIDenialsBeforeConnection",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "adoption.inert-registration",
+      "requirementId": "6.adoption.inert-registration",
+      "ownerIssue": 222,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/server/host_adoption_acceptance_linux_test.go",
+      "selector": "TestHostAdoptionAcceptanceHasNoExternalAction",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "adoption.identity-denials",
+      "requirementId": "6.adoption.identity-denials",
+      "ownerIssue": 222,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/server/host_adoption_acceptance_linux_test.go",
+      "selector": "TestHostAdoptionAcceptanceDenials",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "action.exact-authority",
+      "requirementId": "6.action.exact-authority",
+      "ownerIssue": 223,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/server/host_action_acceptance_linux_test.go",
+      "selector": "TestHostActionAcceptance",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "action.durable-replay",
+      "requirementId": "6.action.durable-replay",
+      "ownerIssue": 223,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/hostaction/host_action_process_test.go",
+      "selector": "TestHostActionProcessCrashAndDurableReplay",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "action.concurrent-claim",
+      "requirementId": "6.action.concurrent-claim",
+      "ownerIssue": 223,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/hostaction/host_action_process_test.go",
+      "selector": "TestHostActionProcessConcurrentClaim",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "action.persistence-failures",
+      "requirementId": "6.action.persistence-failures",
+      "ownerIssue": 223,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/hostaction/host_action_process_test.go",
+      "selector": "TestHostActionProcessPersistenceFailures",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "action.invalid-frames",
+      "requirementId": "6.action.invalid-frames",
+      "ownerIssue": 223,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/hostaction/host_action_process_test.go",
+      "selector": "TestHostActionProcessRejectsBadFrames",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "action.interrupted-transport",
+      "requirementId": "6.action.interrupted-transport",
+      "ownerIssue": 223,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/hostaction/host_action_process_test.go",
+      "selector": "TestHostActionProcessInterruptedTransport",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "credential.restart-lifecycle",
+      "requirementId": "6.credential.restart-lifecycle",
+      "ownerIssue": 223,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/server/native_restart_acceptance_linux_test.go",
+      "selector": "TestNativeRestartLifecycleAcceptance",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "access.accounts",
+      "requirementId": "6.access.accounts",
+      "ownerIssue": 225,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/server/host_access_acceptance_linux_test.go",
+      "selector": "TestHostAccessSequenceAcceptance",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "access.ssh",
+      "requirementId": "6.access.ssh",
+      "ownerIssue": 225,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/server/host_access_acceptance_linux_test.go",
+      "selector": "TestHostAccessSequenceAcceptance",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "access.firewall",
+      "requirementId": "6.access.firewall",
+      "ownerIssue": 225,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/server/host_access_acceptance_linux_test.go",
+      "selector": "TestHostAccessSequenceAcceptance",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "access.rollback",
+      "requirementId": "6.access.rollback",
+      "ownerIssue": 225,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/server/host_access_acceptance_linux_test.go",
+      "selector": "TestHostAccessSequenceAcceptance",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "access.allowed-source",
+      "requirementId": "6.access.allowed-source",
+      "ownerIssue": 225,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/server/host_access_acceptance_linux_test.go",
+      "selector": "TestHostAccessSequenceAcceptance",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "access.denied-source",
+      "requirementId": "6.access.denied-source",
+      "ownerIssue": 225,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/server/host_access_acceptance_linux_test.go",
+      "selector": "TestHostAccessSequenceAcceptance",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "access.container-path",
+      "requirementId": "6.access.container-path",
+      "ownerIssue": 225,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/server/host_access_acceptance_linux_test.go",
+      "selector": "TestHostAccessSequenceAcceptance",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "baseline.time-approved-pipeline",
+      "requirementId": "6.baseline.time-approved-pipeline",
+      "ownerIssue": 226,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/server/host_baseline_acceptance_linux_test.go",
+      "selector": "TestHostBaselineAcceptance",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "baseline.fail2ban",
+      "requirementId": "6.baseline.fail2ban",
+      "ownerIssue": 226,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/debianbaseline/controls_test.go",
+      "selector": "TestFail2banRequiresExactObservedSourcesAndBounds",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "baseline.audit",
+      "requirementId": "6.baseline.audit",
+      "ownerIssue": 226,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/debianbaseline/controls_test.go",
+      "selector": "TestAuditRequiresActiveBoundedNativeState",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "baseline.apparmor",
+      "requirementId": "6.baseline.apparmor",
+      "ownerIssue": 226,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/debianbaseline/controls_test.go",
+      "selector": "TestAppArmorRequiresPinnedEnforcingProfile",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "baseline.aide",
+      "requirementId": "6.baseline.aide",
+      "ownerIssue": 226,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/debianbaseline/aide_native_test.go",
+      "selector": "TestAIDERefreshRequiresExactPriorDatabase",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "baseline.updates",
+      "requirementId": "6.baseline.updates",
+      "ownerIssue": 226,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/debianbaseline/apt_test.go",
+      "selector": "TestUpdateProofRequiresActualSignedSnapshotPackageJoin",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "baseline.resources-kernel",
+      "requirementId": "6.baseline.resources-kernel",
+      "ownerIssue": 226,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/debianbaseline/phase6_health_acceptance_test.go",
+      "selector": "TestPhase6ResourceKernelObservation",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "baseline.missing-controls",
+      "requirementId": "6.baseline.missing-controls",
+      "ownerIssue": 226,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/debianbaseline/controls_test.go",
+      "selector": "TestCollectorRetainsMissingRequiredControls",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "volume.mapping",
+      "requirementId": "6.volume.mapping",
+      "ownerIssue": 226,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/debianbaseline/volume_mapping_test.go",
+      "selector": "TestVolumeGeometryJoinsHeaderToActiveMapping",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "volume.recovery-key",
+      "requirementId": "6.volume.recovery-key",
+      "ownerIssue": 226,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/debianbaseline/volume_recovery_unix_test.go",
+      "selector": "TestVolumeRecoveryPrivateFilesAndObservedResult",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "volume.wrong-key-header",
+      "requirementId": "6.volume.wrong-key-header",
+      "ownerIssue": 226,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/debianbaseline/volume_recovery_unix_test.go",
+      "selector": "TestVolumeRecoveryRejectsHeaderChangeAndFailedKey",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "volume.two-current-receipts",
+      "requirementId": "6.volume.two-current-receipts",
+      "ownerIssue": 226,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/store/host_storage_prerequisites_test.go",
+      "selector": "TestHostStorageRequiresExactTwoCurrentReceipts",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "volume.subject-custodian-authority",
+      "requirementId": "6.volume.subject-custodian-authority",
+      "ownerIssue": 226,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/store/host_storage_prerequisites_test.go",
+      "selector": "TestBaselineScopeUsesCanonicalSubjectRoleAuthorization",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "admission.registration-not-security",
+      "requirementId": "6.admission.registration-not-security",
+      "ownerIssue": 229,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/api/host_admission_integration_linux_test.go",
+      "selector": "TestHostAdmissionAPIRegistrationDoesNotAdmit",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "admission.current-proof-invalidation",
+      "requirementId": "6.admission.current-proof-invalidation",
+      "ownerIssue": 229,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/api/host_admission_integration_linux_test.go",
+      "selector": "TestHostAdmissionAPICurrentProofAndInvalidation",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "admission.independent-common-matrix",
+      "requirementId": "6.admission.independent-common-matrix",
+      "ownerIssue": 229,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/gate/host_requirements_test.go",
+      "selector": "TestHostRequiredControlsIndependentCommonMatrix",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "admission.exact-platform",
+      "requirementId": "6.admission.exact-platform",
+      "ownerIssue": 229,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/gate/host_requirements_test.go",
+      "selector": "TestHostRequiredControlsExactPlatformOnly",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "admission.independent-role-matrix",
+      "requirementId": "6.admission.independent-role-matrix",
+      "ownerIssue": 229,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/gate/host_requirements_test.go",
+      "selector": "TestHostRequiredRoleControlsIndependentMatrix",
+      "environment": "fixture",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "role.control-handoff-data-preserved",
+      "requirementId": "6.role.control-handoff-data-preserved",
+      "ownerIssue": 230,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/linuxrole/control_handoff_linux_test.go",
+      "selector": "TestControlHandoffFailuresPreserveDatabaseAndRequireRecovery",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "role.control-handoff-disconnected-caller",
+      "requirementId": "6.role.control-handoff-disconnected-caller",
+      "ownerIssue": 230,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/linuxrole/control_handoff_linux_test.go",
+      "selector": "TestControlHandoffWorkerSurvivesDisconnectedCaller",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "role.control-handoff-current-authority",
+      "requirementId": "6.role.control-handoff-current-authority",
+      "ownerIssue": 230,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/linuxrole/native_control_observation_linux_test.go",
+      "selector": "TestNativeHandoffObservationRequiresFreshSameAuthority",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "role.approved-foundation",
+      "requirementId": "6.role.approved-foundation",
+      "ownerIssue": 230,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/api/host_role_acceptance_linux_test.go",
+      "selector": "TestLinuxRoleApprovedPipeline",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "replacement.approved-freeze-alias",
+      "requirementId": "6.replacement.approved-freeze-alias",
+      "ownerIssue": 233,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/api/host_replacements_integration_linux_test.go",
+      "selector": "TestReplacementAPIClaimAndFreezeApprovedPipeline",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "replacement.current-role-admission",
+      "requirementId": "6.replacement.current-role-admission",
+      "ownerIssue": 233,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/api/host_replacements_integration_linux_test.go",
+      "selector": "TestReplacementPersistedRoleAdmission",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "surface.real-server-linked-replacement",
+      "requirementId": "6.surface.real-server-linked-replacement",
+      "ownerIssue": 239,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/api/host_lifecycle_browser_pipeline_linux_test.go",
+      "selector": "TestHostLifecycleBrowserLinkedReplacementPipeline",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "surface.cli-human-json-equivalence",
+      "requirementId": "6.surface.cli-human-json-equivalence",
+      "ownerIssue": 232,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/cli/hosts_transport_linux_test.go",
+      "selector": "TestNodeOutputParityUsesSameServerFacts",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "surface.built-cli-authority",
+      "requirementId": "6.surface.built-cli-authority",
+      "ownerIssue": 232,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/server/node_cli_acceptance_linux_test.go",
+      "selector": "TestNodeCLIDiscoveryAdoptionInspection",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "authorization.approved-grant-batch",
+      "requirementId": "6.authorization.approved-grant-batch",
+      "ownerIssue": 247,
+      "seam": "suite",
+      "kind": "go-test",
+      "path": "internal/api/authorization_grants_linux_test.go",
+      "selector": "TestGrantBatchApprovedAPIFromInitialSetup",
+      "environment": "built-linux",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "surface.inert-stale-plan",
+      "requirementId": "6.surface.inert-stale-plan",
+      "ownerIssue": 239,
+      "seam": "suite",
+      "kind": "browser-test",
+      "path": "web/e2e/host-lifecycle.spec.ts",
+      "selector": "preloaded target remains inert and stale plan clears prior forms",
+      "environment": "chromium",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "provider.handoff-prerequisites-visible",
+      "requirementId": "6.provider.handoff-prerequisites-visible",
+      "ownerIssue": 230,
+      "seam": "suite",
+      "kind": "browser-test",
+      "path": "web/e2e/host-lifecycle.spec.ts",
+      "selector": "role import stays inert and shows independent admission prerequisites",
+      "environment": "chromium",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "surface.role-prerequisites",
+      "requirementId": "6.surface.role-prerequisites",
+      "ownerIssue": 239,
+      "seam": "suite",
+      "kind": "browser-test",
+      "path": "web/e2e/host-lifecycle.spec.ts",
+      "selector": "role import stays inert and shows independent admission prerequisites",
+      "environment": "chromium",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "surface.baseline-not-role-admission",
+      "requirementId": "6.surface.baseline-not-role-admission",
+      "ownerIssue": 239,
+      "seam": "suite",
+      "kind": "browser-test",
+      "path": "web/e2e/host-lifecycle.spec.ts",
+      "selector": "baseline success does not replace blocked or stale role admission",
+      "environment": "chromium",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "surface.replacement-impact",
+      "requirementId": "6.surface.replacement-impact",
+      "ownerIssue": 239,
+      "seam": "suite",
+      "kind": "browser-test",
+      "path": "web/e2e/host-replacement.spec.ts",
+      "selector": "replacement preview preserves both identities and needs separate impact confirmation",
+      "environment": "chromium",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "surface.partial-not-ownership",
+      "requirementId": "6.surface.partial-not-ownership",
+      "ownerIssue": 239,
+      "seam": "suite",
+      "kind": "browser-test",
+      "path": "web/e2e/host-replacement.spec.ts",
+      "selector": "replacement source and partial verification never imply committed ownership",
+      "environment": "chromium",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    },
+    {
+      "id": "surface.plan-race",
+      "requirementId": "6.surface.plan-race",
+      "ownerIssue": 239,
+      "seam": "suite",
+      "kind": "browser-test",
+      "path": "web/e2e/host-plan-race.spec.ts",
+      "selector": "delayed plan for draft A cannot attach beneath newer policy draft B",
+      "environment": "chromium",
+      "proofClass": "fixture",
+      "expected": {
+        "result": "pass",
+        "errorCode": null,
+        "state": null
+      },
+      "repeat": 1,
+      "seed": null,
+      "cleanup": "runner-owned-temporary-root",
+      "sanitizer": "phase6-private-artifact-scan"
+    }
+  ]
+}

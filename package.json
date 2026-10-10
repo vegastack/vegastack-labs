@@ -41,7 +41,9 @@
     "refresh:design-system": "node tooling/design-system.mjs --refresh --approve-version 0.6.0",
     "generate:provenance": "node tooling/provenance.mjs --write --approve-current-lock",
     "test:tooling": "node --test --test-concurrency=1 tooling/test/*.test.mjs",
-    "check:phase-6-native": "node tooling/verify-phase-6-native.mjs"
+    "check:phase-6-native": "node tooling/verify-phase-6-native.mjs",
+    "check:phase-6": "node tooling/verify-phase-6.mjs",
+    "check:phase-6-exit": "node tooling/verify-phase-6-exit.mjs"
   },
   "devDependencies": {
     "spdx-expression-parse": "5.0.0",

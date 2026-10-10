@@ -1,3 +1,13 @@
+## 10-10-2026 — Phase 6 acceptance distinguishes working software from current native proof ([#234](https://github.com/vegastack/vegastack-labs/issues/234))
+
+- **What:** A finite acceptance command reuses the host lifecycle, baseline, role, replacement and operator scenarios. Its scoped exit reports Linux software, current native qualification, deferred Mac work and full phase acceptance independently.
+- **Why:** A merged feature or a successful fixture must not imply that a real machine, the complete phase or the fleet is ready.
+- **How it went:** Grounding the catalog found that the existing baseline server scenario collects time only; the other control obligations now name their actual owning collector tests, with one missing resource/kernel observation boundary added. Native exports remain diagnostic; the report requires current server gates and their applied declaration/plan/run lineage.
+- **Changed:** Explicit obligation catalog · grouped focused Go scenarios · fresh single-worker Console checks · bounded evidence sanitizer · current read-only native lineage · Linux/full exit codes. Native #228, Mac #227 and operator acceptance remain separately pending until their actual proofs exist.
+- **Decisions:** none.
+
+— approved by (omkarmohanta09) · built by Codex · branch chore/6.12-phase6-acceptance
+
 # Project chronicle
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.

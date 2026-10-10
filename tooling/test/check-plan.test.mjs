@@ -238,3 +238,9 @@ test("embedded and public Console assets always select browser checks", () => {
   }]);
   assert.equal(renamed.browser, true);
 });
+
+test('Phase 6 tooling changes do not dispatch native or prior phase acceptance',()=>{
+ for(const path of ['tooling/verify-phase-6.mjs','tooling/verify-phase-6-exit.mjs','tooling/lib/phase-6-native-evidence.mjs','tooling/test/phase-6-acceptance.test.mjs','tooling/phase-6-evidence.json','tooling/testdata/phase-6/acceptance-scenarios.json']){
+  const plan=classifyChangedPaths([{status:'M',path}]);assert.ok(plan.groups.includes('tooling'),path);assert.equal(plan.groups.includes('phase'),false,path);assert.equal(plan.browser,false,path);
+ }
+});
