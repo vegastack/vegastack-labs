@@ -552,3 +552,18 @@ func TestNativeSessionRevocationFollowsDurableConfirmation(t *testing.T) {
 		})
 	}
 }
+
+func TestNativeInspectionReadsOriginalContainerTuple(t *testing.T) {
+	f := nativeFixtureNew(t)
+	f.n.run = func(_ context.Context, _ string, _ []string, _ []byte) ([]byte, error) {
+		return []byte("-N DOCKER-USER\n-N VSK-ACCESS-DKR\n-A DOCKER-USER -j VSK-ACCESS-DKR\n-A VSK-ACCESS-DKR -i eth0 -p tcp -m tcp -m conntrack --ctorigdst 192.0.2.2 --ctorigsrc 192.0.2.1 --ctorigdstport 18080 --ctdir ORIGINAL -j RETURN\n"), nil
+	}
+	state, err := f.n.inspectChain(context.Background(), "ipv4", "VSK-ACCESS-DKR")
+	if err != nil || !state.ParentPresent || !state.Present || !state.JumpPresent || len(state.Rules) != 1 {
+		t.Fatalf("existing observed-rule parser rejected conntrack tuple: %+v %v", state, err)
+	}
+	want := []string{"-i", "eth0", "-p", "tcp", "-m", "conntrack", "--ctorigsrc", "192.0.2.1/32", "--ctorigdst", "192.0.2.2/32", "--ctorigdstport", "18080", "--ctdir", "ORIGINAL", "-j", "RETURN"}
+	if strings.Join(state.Rules[0], " ") != strings.Join(want, " ") {
+		t.Fatalf("save normalization differs: %v", state.Rules[0])
+	}
+}

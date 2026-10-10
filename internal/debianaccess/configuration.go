@@ -5,6 +5,7 @@ import (
 	"net/netip"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/vegastack/vegastack-labs/internal/generated"
@@ -121,7 +122,14 @@ func DesiredFirewallRules(input generated.DebianAccessInput, family, chain strin
 		if s.Addr().Is4() != is4 {
 			continue
 		}
-		rules = append(rules, []string{"-i", f.Interface, "-s", f.SourcePrefix, "-d", f.DestinationPrefix, "-p", f.Protocol, "--dport", fmt.Sprint(f.Port), "-j", "RETURN"})
+		if chain == "VSK-ACCESS-DKR" {
+			// DOCKER-USER sees packets after DNAT. Policy/probes name the original
+			// connection tuple, which is also unchanged for direct container traffic.
+			// https://docs.docker.com/engine/network/firewall-iptables/#match-the-original-ip-and-ports-for-requests
+			rules = append(rules, []string{"-i", f.Interface, "-p", f.Protocol, "-m", "conntrack", "--ctorigsrc", f.SourcePrefix, "--ctorigdst", f.DestinationPrefix, "--ctorigdstport", fmt.Sprint(f.Port), "--ctdir", "ORIGINAL", "-j", "RETURN"})
+		} else {
+			rules = append(rules, []string{"-i", f.Interface, "-s", f.SourcePrefix, "-d", f.DestinationPrefix, "-p", f.Protocol, "--dport", fmt.Sprint(f.Port), "-j", "RETURN"})
+		}
 	}
 	// Limit default drops to declared ingress interfaces. Unknown interfaces remain
 	// observable admission failures, never permission to alter unrelated networking.
@@ -158,7 +166,7 @@ func normalizeOwnedRule(rule []string) []string {
 				i++
 				continue
 			}
-			if rule[i] == "-s" || rule[i] == "-d" {
+			if rule[i] == "-s" || rule[i] == "-d" || rule[i] == "--ctorigsrc" || rule[i] == "--ctorigdst" {
 				p, e := netip.ParsePrefix(v)
 				if e != nil {
 					if a, err := netip.ParseAddr(v); err == nil {
@@ -171,7 +179,7 @@ func normalizeOwnedRule(rule []string) []string {
 					}
 				}
 				if e == nil {
-					if p.Bits() == 0 {
+					if p.Bits() == 0 && (rule[i] == "-s" || rule[i] == "-d") {
 						i++
 						continue
 					}
@@ -182,6 +190,23 @@ func normalizeOwnedRule(rule []string) []string {
 			}
 		}
 		out = append(out, rule[i])
+	}
+	ordered := []string{}
+	for _, option := range []string{"--ctorigsrc", "--ctorigdst", "--ctorigdstport", "--ctdir"} {
+		for i := 0; i+1 < len(out); i += 2 {
+			if out[i] == option {
+				ordered = append(ordered, out[i:i+2]...)
+			}
+		}
+	}
+	if len(ordered) > 0 && len(out)%2 == 0 && len(out) >= 2 && out[len(out)-2] == "-j" {
+		base := []string{}
+		for i := 0; i < len(out)-2; i += 2 {
+			if out[i] != "--ctorigsrc" && out[i] != "--ctorigdst" && out[i] != "--ctorigdstport" && out[i] != "--ctdir" {
+				base = append(base, out[i:i+2]...)
+			}
+		}
+		out = append(append(base, ordered...), out[len(out)-2:]...)
 	}
 	return out
 }
@@ -197,16 +222,53 @@ func validOwnedRule(rule []string) bool {
 	}
 	// Only values for the compiled option vocabulary are accepted. No chain mutation,
 	// jump to a user-selected chain, extension command or restore directive is possible.
-	options := map[string]bool{"-i": true, "-s": true, "-d": true, "-p": true, "--dport": true, "--ctstate": true, "-m": true, "-j": true}
+	options := map[string]bool{"-i": true, "-s": true, "-d": true, "-p": true, "--dport": true, "--ctstate": true, "-m": true, "-j": true, "--ctorigsrc": true, "--ctorigdst": true, "--ctorigdstport": true, "--ctdir": true}
+	seen := map[string]bool{}
+	original := false
 	for i := 0; i < len(rule); i += 2 {
 		if i+1 >= len(rule) || !options[rule[i]] {
 			return false
 		}
 		v := rule[i+1]
+		if seen[rule[i]] && rule[i] != "-m" {
+			return false
+		}
+		seen[rule[i]] = true
+		if strings.HasPrefix(rule[i], "--ctorig") {
+			original = true
+			if rule[i] == "--ctorigdstport" {
+				port, err := strconv.Atoi(v)
+				if err != nil || port < 1 || port > 65535 || strconv.Itoa(port) != v {
+					return false
+				}
+			} else if _, err := netip.ParsePrefix(v); err != nil {
+				return false
+			}
+		}
+		if rule[i] == "--ctdir" && v != "ORIGINAL" {
+			return false
+		}
 		if rule[i] == "-j" && v != "ACCEPT" && v != "RETURN" && v != "DROP" {
 			return false
 		}
 		if rule[i] == "-m" && v != "conntrack" && v != "tcp" && v != "udp" {
+			return false
+		}
+	}
+	if original || seen["--ctdir"] {
+		if !seen["--ctorigsrc"] || !seen["--ctorigdst"] || !seen["--ctorigdstport"] || !seen["--ctdir"] || seen["--ctstate"] || seen["-s"] || seen["-d"] || seen["--dport"] {
+			return false
+		}
+		module, protocol := "", ""
+		for i := 0; i < len(rule); i += 2 {
+			if rule[i] == "-m" {
+				module = rule[i+1]
+			}
+			if rule[i] == "-p" {
+				protocol = rule[i+1]
+			}
+		}
+		if module != "conntrack" || (protocol != "tcp" && protocol != "udp") {
 			return false
 		}
 	}
