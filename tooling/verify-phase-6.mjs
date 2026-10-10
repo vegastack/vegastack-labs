@@ -74,7 +74,7 @@ export const PHASE6_NATIVE_SCENARIOS=Object.freeze(['baseline-access','baseline-
 export function aggregatePhase6(results={}) {
   const keys=['linuxSoftware','linuxNative','macSoftware','macNative','operatorAcceptance'];
   if(!results || typeof results!=='object' || Object.keys(results).some(k=>!keys.includes(k)))fail('status');
-  const resolved=Object.fromEntries(keys.map(k=>[k,results[k]??(k.startsWith('mac')?'pending-deferred':'pending')]));
+  const resolved=Object.fromEntries(keys.map(k=>[k,results[k]??(k==='linuxNative'||k.startsWith('mac')?'pending-deferred':'pending')]));
   if(Object.values(resolved).some(v=>!statuses.has(v)))fail('status');
   const fullPhase=Object.values(resolved).includes('failed')?'failed':Object.values(resolved).every(v=>v==='passed')?'passed':'pending';
   return {...resolved,fullPhase,fleetActivation:'pending'};

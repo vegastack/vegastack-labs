@@ -43,7 +43,7 @@ async function readCurrentNative(root,config,input) {
 }
 export async function runPhase6Exit(root=ROOT,args={}) {
  const before=await phase6SourceState(root),software=await runPhase6(root);
- let native={status:'pending',reason:'native-proof-not-supplied',authority:'none'};
+  let native={status:'pending-deferred',reason:'advanced-native-recovery-qualification-deferred',authority:'none'};
  if(args.reportPath) {
   const report=await boundedNativeJSON(args.reportPath,2*1024*1024),lock=PHASE6_NATIVE_ARTIFACT_LOCK;
   if(report.sourceCommit!==lock.sourceCommit||report.executableDigest!==lock.executableDigest||report.profileLockDigest!==lock.profileLockDigest)fail('native-artifact-lock');

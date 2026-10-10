@@ -4,7 +4,7 @@
 - **Why:** A merged feature or a successful fixture must not imply that a real machine, the complete phase or the fleet is ready.
 - **How it went:** Grounding the catalog found that the existing baseline server scenario collects time only; the other control obligations now name their actual owning collector tests, with one missing resource/kernel observation boundary added. Native exports remain diagnostic; the report requires current server gates and their applied declaration/plan/run lineage.
 - **Changed:** Explicit obligation catalog · grouped focused Go scenarios · fresh single-worker Console checks · bounded evidence sanitizer · current read-only native lineage · Linux/full exit codes. Native #228, Mac #227 and operator acceptance remain separately pending until their actual proofs exist.
-- **Decisions:** none.
+- **Decisions:** The operator selected working Linux delivery and deferred advanced signed recovery-fence qualification on 10-10-2026. All software obligations and native missing-proof denials remain required; native, Mac and full Phase 6 acceptance remain pending.
 
 — approved by (omkarmohanta09) · built by Codex · branch chore/6.12-phase6-acceptance
 

@@ -8,6 +8,8 @@ test('deferred Mac cannot produce full phase acceptance', () => {
 test('failures and missing evidence cannot disappear in aggregation',()=>{
   assert.equal(aggregatePhase6({linuxSoftware:'failed'}).fullPhase,'failed');
   assert.equal(aggregatePhase6({}).linuxSoftware,'pending');
+  assert.equal(aggregatePhase6({linuxSoftware:'passed'}).linuxNative,'pending-deferred');
+  assert.equal(aggregatePhase6({linuxSoftware:'passed'}).fullPhase,'pending');
   assert.throws(()=>aggregatePhase6({linuxSoftware:'waived'}));
 });
 test('catalog rejects omitted duplicated and changed obligations',()=>{

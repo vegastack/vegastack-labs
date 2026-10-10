@@ -8,6 +8,7 @@ test('full exit remains pending when Mac is deferred',()=>{
 test('Linux exit cannot masquerade as full phase completion',()=>{
  const got=exitResult('linux',{linuxSoftware:'passed',linuxNative:'passed'});assert.equal(got.code,0);assert.equal(got.report.macNative,'pending-deferred');assert.equal(got.report.fullPhase,'pending');
  assert.equal(exitResult('linux',{linuxSoftware:'passed'}).code,2);assert.equal(exitResult('linux',{linuxNative:'failed'}).code,1);
+ assert.equal(exitResult('linux',{linuxSoftware:'passed',linuxNative:'pending-deferred'}).code,2);
 });
 test('exit requires explicit scope and rejects pending bypasses and repeated flags',()=>{
  assert.deepEqual(parsePhase6ExitArgs(['--scope','linux']),{scope:'linux'});

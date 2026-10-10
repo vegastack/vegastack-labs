@@ -4,6 +4,8 @@ Updated: 10-10-2026. Issue [#234](https://github.com/vegastack/vegastack-labs/is
 
 ## Software procedure
 
+The operator selected delivery of working Linux workflows and deferred advanced signed recovery-fence qualification on 10-10-2026. The software catalog retains all 61 obligations. Its report leaves Linux native acceptance `pending-deferred`; a software pass or harness merge does not qualify native recovery. The existing native catalog and current-authority checks remain intact for later scoped qualification. Issues #228 and #234 remain open, with Mac and full Phase 6 acceptance pending.
+
 Use a clean checkout, the pinned Go/Node/pnpm toolchain and a non-root isolated Linux development user. Point `TMPDIR` at a private user-owned directory whose parents satisfy the existing protected-file contract. Install public dependencies with `pnpm install --frozen-lockfile`.
 
 ```text
