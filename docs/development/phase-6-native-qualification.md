@@ -8,6 +8,8 @@ The same `vsk-labs` executable runs the ordinary server inside the controller gu
 
 Native qualification has baseline, role and recovery stages. The internal collector joins real current producer plans, executions, leases and receipts with fresh native observations. It produces a draft through the existing gate path. A normal plan and human acknowledgement must apply that draft. A JSON report is an export of results; copying it, uploading a matching bundle or supplying digests cannot confer native authority. Public evidence submissions remain fixtures.
 
+The ordinary gate API resolves these three stages against the selected applied profile. It reuses the same current producer, declaration, execution and measured running-build joins as native prerequisites. Missing build pins or proof, stale bindings, fixture uploads and revoked or superseded evidence remain unqualified; a newer invalid row cannot revive an older proof. An explicit different profile cannot pass. A passed profile stage does not grant host or workload admission.
+
 The report consistency command checks complete scenario coverage, bindings, time bounds, positive and negative observations, recovery and cleanup:
 
 ```sh

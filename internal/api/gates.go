@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -147,7 +148,26 @@ func gateResult(ctx context.Context, config GateOperations, def generated.GateDe
 					break
 				}
 			}
-			if hostAdmissionGate(def.GateID) && boundSubject {
+			if slices.Contains([]string{"native.baseline", "native.role", "native.recovery"}, def.GateID) {
+				if subjectID == "scope" {
+					subjectID = scope.ProfileID
+				}
+				snapshot, resolveErr := config.Gates.ResolveNativeProfileQualification(ctx, subjectID, strings.TrimPrefix(def.GateID, "native."))
+				if resolveErr != nil {
+					if store.Code(resolveErr) != generated.ErrorCodeResourceNotFound {
+						return generated.GateView{}, resolveErr
+					}
+					evaluation = gateUnknown(def, subjectID, "host-qualification-missing", at, token.RecoveryEpoch)
+				} else {
+					if snapshot.Revision != token {
+						return generated.GateView{}, apiFailure(generated.ErrorCodePlanStale, "native-profile-snapshot")
+					}
+					evaluation, err = gate.EvaluateNativeProfileQualification(ctx, snapshot, scope, def.GateID, at)
+					if err != nil {
+						return generated.GateView{}, err
+					}
+				}
+			} else if hostAdmissionGate(def.GateID) && boundSubject {
 				snapshot, resolveErr := config.Gates.ResolveHostAdmission(ctx, subjectID)
 				if resolveErr != nil {
 					return generated.GateView{}, resolveErr
@@ -235,13 +255,15 @@ func (app *Application) gateGet(config GateOperations) func(http.ResponseWriter,
 			return
 		}
 		if r.URL.RawQuery != "" {
-			if !hostAdmissionGate(def.GateID) {
+			if !hostAdmissionGate(def.GateID) && !slices.Contains([]string{"native.baseline", "native.role", "native.recovery"}, def.GateID) {
 				app.failure(w, op, apiFailure(generated.ErrorCodeInputInvalid, "gate-subject"))
 				return
 			}
-			if err := app.authorizeHostGateSubject(r, subject); err != nil {
-				app.failure(w, op, err)
-				return
+			if hostAdmissionGate(def.GateID) {
+				if err := app.authorizeHostGateSubject(r, subject); err != nil {
+					app.failure(w, op, err)
+					return
+				}
 			}
 		}
 		token, err := gateRevision(r.Context(), config)
