@@ -15,11 +15,11 @@ import (
 // Store execution/reference authority and native proof collection are unchanged.
 func (s *nativeQualificationService) LookupNativeProducerData(ctx context.Context, in generated.NativeProducerLookupRequest) (generated.NativeProducerLookupData, error) {
 	var zero generated.NativeProducerLookupData
-	ref, bundleDigest, err := s.lookupNativeProducer(ctx, in)
+	ref, bundleDigest, receiptDigest, err := s.lookupNativeProducer(ctx, in)
 	if err != nil {
 		return zero, err
 	}
-	out := generated.NativeProducerLookupData{Schema: generated.SchemaIDNativeProducerLookupData, SchemaVersion: "1.0.0", ProducerReference: ref}
+	out := generated.NativeProducerLookupData{Schema: generated.SchemaIDNativeProducerLookupData, SchemaVersion: "1.0.0", ProducerReference: ref, ReceiptDigest: receiptDigest}
 	if in.ScenarioID != "action-replay" && in.ScenarioID != "action-concurrency" {
 		return out, nil
 	}
@@ -66,10 +66,10 @@ func nativeProducerBundle(in generated.NativeProducerLookupRequest, ref generate
 
 // Lookup returns an existing terminal execution reference. It performs no
 // native observation, evidence creation or qualification transition.
-func (s *nativeQualificationService) lookupNativeProducer(ctx context.Context, in generated.NativeProducerLookupRequest) (generated.NativeProducerReference, string, error) {
+func (s *nativeQualificationService) lookupNativeProducer(ctx context.Context, in generated.NativeProducerLookupRequest) (generated.NativeProducerReference, string, string, error) {
 	var zero generated.NativeProducerReference
-	deny := func() (generated.NativeProducerReference, string, error) {
-		return zero, "", failure.New(generated.ErrorCodePrerequisiteBlocked, "native-producer", false)
+	deny := func() (generated.NativeProducerReference, string, string, error) {
+		return zero, "", "", failure.New(generated.ErrorCodePrerequisiteBlocked, "native-producer", false)
 	}
 	if s == nil || s.gates == nil || s.authority == nil {
 		return deny()
@@ -99,5 +99,5 @@ func (s *nativeQualificationService) lookupNativeProducer(ctx context.Context, i
 		}
 		gates = gates.WithNativeControllerIdentity(measured)
 	}
-	return gates.LookupNativeProducerReferenceAndBundleDigest(ctx, in, scope)
+	return gates.LookupNativeProducerDataBindings(ctx, in, scope)
 }

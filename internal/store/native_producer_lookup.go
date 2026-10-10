@@ -20,8 +20,15 @@ func (r *GateRepository) LookupNativeProducerReference(ctx context.Context, in g
 // The digest comes from the same completed producer snapshot as the lease,
 // never from caller input or a second unrelated execution lookup.
 func (r *GateRepository) LookupNativeProducerReferenceAndBundleDigest(ctx context.Context, in generated.NativeProducerLookupRequest, scope generated.QualificationScope) (out generated.NativeProducerReference, bundleDigest string, err error) {
+	out, bundleDigest, _, err = r.LookupNativeProducerDataBindings(ctx, in, scope)
+	return
+}
+
+// The receipt digest is resolved with the reference from the same authoritative
+// snapshot. It exports no receipt bytes or evidence/execution authority.
+func (r *GateRepository) LookupNativeProducerDataBindings(ctx context.Context, in generated.NativeProducerLookupRequest, scope generated.QualificationScope) (out generated.NativeProducerReference, bundleDigest, receiptDigest string, err error) {
 	if r == nil || r.store == nil || !nativeContract(generated.SchemaIDNativeProducerLookupRequest, in) {
-		return out, "", actionError(generated.ErrorCodeInputInvalid)
+		return out, "", "", actionError(generated.ErrorCodeInputInvalid)
 	}
 	stage := ""
 	for _, candidate := range []string{"baseline", "role", "recovery"} {
@@ -32,7 +39,7 @@ func (r *GateRepository) LookupNativeProducerReferenceAndBundleDigest(ctx contex
 		}
 	}
 	if stage == "" {
-		return out, "", actionError(generated.ErrorCodeInputInvalid)
+		return out, "", "", actionError(generated.ErrorCodeInputInvalid)
 	}
 	err = r.store.Read(ctx, func(tx ReadTx) error {
 		q := nativeQuery{tx, func(query string, args ...any) *sql.Row { return tx.queryRow(ctx, query, args...) }, func(query string, args ...any) (*sql.Rows, error) { return tx.query(ctx, query, args...) }}
@@ -66,6 +73,7 @@ func (r *GateRepository) LookupNativeProducerReferenceAndBundleDigest(ctx contex
 			return nativeError()
 		}
 		out = snapshot.Producers[0].Reference
+		receiptDigest = snapshot.Producers[0].ReceiptDigest
 		if in.ScenarioID == "action-replay" || in.ScenarioID == "action-concurrency" {
 			execution := snapshot.Executions[0]
 			if execution.Result == nil || execution.Receipt.Status != "succeeded" || execution.Result.Status != "succeeded" || !execution.Result.EffectObserved || execution.Result.BundleDigest == "" {
@@ -78,6 +86,7 @@ func (r *GateRepository) LookupNativeProducerReferenceAndBundleDigest(ctx contex
 	if err != nil {
 		out = generated.NativeProducerReference{}
 		bundleDigest = ""
+		receiptDigest = ""
 	}
 	return
 }

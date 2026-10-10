@@ -71,6 +71,10 @@ func TestNativeProducerResolutionRequiresExactStoredReceipt(t *testing.T) {
 	if lookupErr != nil || hostaction.Digest(resolved) != hostaction.Digest(ref) {
 		t.Fatalf("actual producer lookup: %v %+v", lookupErr, resolved)
 	}
+	resolved, bundleDigest, receiptDigest, lookupErr := f.repo.LookupNativeProducerDataBindings(f.ctx, lookup, scope)
+	if lookupErr != nil || hostaction.Digest(resolved) != hostaction.Digest(ref) || bundleDigest != "" || receiptDigest != hostaction.BytesDigest(raw) {
+		t.Fatalf("canonical receipt digest lookup: %v %s %s", lookupErr, bundleDigest, receiptDigest)
+	}
 	for _, variant := range []string{"other-run", "other-step", "other-plan", "old-epoch", "other-host"} {
 		t.Run("lookup-"+variant, func(t *testing.T) {
 			bad := lookup
@@ -86,9 +90,9 @@ func TestNativeProducerResolutionRequiresExactStoredReceipt(t *testing.T) {
 			case "other-host":
 				bad.HostID = "private-host"
 			}
-			result, e := f.repo.LookupNativeProducerReference(f.ctx, bad, scope)
-			if e == nil || result.LeaseID != "" {
-				t.Fatal("unbound tuple disclosed", e, result)
+			result, bundle, digest, e := f.repo.LookupNativeProducerDataBindings(f.ctx, bad, scope)
+			if e == nil || result.LeaseID != "" || bundle != "" || digest != "" {
+				t.Fatal("unbound tuple or receipt digest disclosed", e, result)
 			}
 		})
 	}
@@ -109,9 +113,9 @@ func TestNativeProducerResolutionRequiresExactStoredReceipt(t *testing.T) {
 			}
 			bad := lookup
 			bad.ScopeDigest = hostaction.Digest(badScope)
-			result, e := f.repo.LookupNativeProducerReference(f.ctx, bad, badScope)
-			if e == nil || result.LeaseID != "" {
-				t.Fatal("unbound scope disclosed tuple", e, result)
+			result, bundle, digest, e := f.repo.LookupNativeProducerDataBindings(f.ctx, bad, badScope)
+			if e == nil || result.LeaseID != "" || bundle != "" || digest != "" {
+				t.Fatal("unbound scope disclosed tuple or receipt digest", e, result)
 			}
 		})
 	}

@@ -3612,6 +3612,7 @@ type NativeProducerLookupData struct {
 	SchemaVersion     string                  `json:"schemaVersion"`
 	ProducerReference NativeProducerReference `json:"producerReference"`
 	ActionBundle      *HostActionBundle       `json:"actionBundle,omitempty"`
+	ReceiptDigest     string                  `json:"receiptDigest,omitempty"`
 }
 
 type NativeProducerLookupRequest struct {
