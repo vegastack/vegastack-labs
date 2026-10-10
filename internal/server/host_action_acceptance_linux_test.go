@@ -63,6 +63,7 @@ type hostActionEnrollmentFixture struct {
 	DB                  *sql.DB
 	Clock               func() time.Time
 	AdvanceClock        func(time.Duration)
+	UseWallClock        func()
 	Declarations        *change.Service
 	App                 *api.Application
 	Results             *result.Factory
@@ -84,7 +85,13 @@ func hostActionAcceptance(t *testing.T, actionMode string, options ...hostAction
 	ctx := identity.WithVerifiedPrincipal(context.Background(), principal)
 	captureStart := time.Now().UTC().Truncate(time.Second)
 	fixtureNow := captureStart
-	clock := func() time.Time { return fixtureNow }
+	wallClock := false
+	clock := func() time.Time {
+		if wallClock {
+			return time.Now()
+		}
+		return fixtureNow
+	}
 	directory := t.TempDir()
 	if err := os.Chmod(directory, 0700); err != nil {
 		t.Fatal(err)
@@ -295,7 +302,7 @@ func hostActionAcceptance(t *testing.T, actionMode string, options ...hostAction
 	}
 	var credentialResolver adapter.CredentialResolver = hostActionAcceptanceCredential{key: pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: pk})}
 	if hooks.Enrollment != nil {
-		credentialResolver = hooks.Enrollment(t, hostActionEnrollmentFixture{Context: ctx, Authority: authority, DB: db, Clock: clock, AdvanceClock: func(d time.Duration) { fixtureNow = fixtureNow.Add(d) }, Declarations: declarations, App: app, Results: factory, Key: pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: pk}), DestinationIdentity: hostadoption.IdentityDigest("product-serial", "synthetic-serial"), TargetDigest: digest, Target: target, Signer: actionSigner, Directory: directory})
+		credentialResolver = hooks.Enrollment(t, hostActionEnrollmentFixture{Context: ctx, Authority: authority, DB: db, Clock: clock, AdvanceClock: func(d time.Duration) { fixtureNow = fixtureNow.Add(d) }, UseWallClock: func() { wallClock = true }, Declarations: declarations, App: app, Results: factory, Key: pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: pk}), DestinationIdentity: hostadoption.IdentityDigest("product-serial", "synthetic-serial"), TargetDigest: digest, Target: target, Signer: actionSigner, Directory: directory})
 
 		if hooks.EnrollmentOnly {
 			return
@@ -352,7 +359,7 @@ func hostActionAcceptance(t *testing.T, actionMode string, options ...hostAction
 		t.Fatalf("host action has no matching production risk classification: %s %v", risk, classifyErr)
 	}
 	for _, g := range []struct{ action, cap, kind string }{{"acknowledge", "plan.acknowledge", "plan-target"}, {"execute", "host.action.execute", "execution-target"}} {
-		if hooks.Enrollment != nil && g.action == "acknowledge" {
+		if g.action == "acknowledge" {
 			var existing int
 			if err := db.QueryRow(`SELECT COUNT(*) FROM effective_authorization_grants WHERE principal_id='operator-a' AND role_id='control-plane-admin' AND action=? AND capability=? AND resource_kind=? AND resource_id='synthetic-host' AND branch='human' AND grant_revision=1 AND status='active'`, g.action, g.cap, g.kind).Scan(&existing); err != nil {
 				t.Fatal(err)

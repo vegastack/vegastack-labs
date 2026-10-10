@@ -108,6 +108,7 @@ func testGrantBatchApprovedAPI(t *testing.T, variant string) {
 	}
 	registerLifecycleBrowserApproval(t, app, ack, plans, factory)
 	serve := func(method, path string, input any) *httptest.ResponseRecorder {
+		now = time.Now().UTC().Truncate(time.Second)
 		var body []byte
 		if input != nil {
 			body, _ = json.Marshal(input)

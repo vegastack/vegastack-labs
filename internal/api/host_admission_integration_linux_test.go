@@ -47,7 +47,7 @@ func TestHostAdmissionAPIRegistrationDoesNotAdmit(t *testing.T) {
 	in.HostID = "host-a"
 	seed.host(in, "host-a", digest)
 	exec(`UPDATE system_meta SET state_revision=1 WHERE id=1`)
-	exec(`INSERT INTO effective_authorization_principals VALUES('human-a','human','active',1,'2026-09-15T08:00:00Z','2026-09-15T08:00:00Z')`)
+	// gateAPIFixture already owns the active human-a principal.
 	exec(`INSERT INTO effective_authorization_grants VALUES('read-host','human-a','reader','read','host.read','host','host-a',NULL,1,'active','2026-09-15T08:00:00Z','2026-09-15T08:00:00Z')`)
 	exec(`INSERT INTO gate_applied_profiles(binding_id,profile_id,profile_version,policy_id,policy_version,capabilities_bytes,state_revision,recovery_epoch,declaration_id,declaration_revision,plan_id,plan_digest,run_id,step_id,lease_id,human_id,applied_at) VALUES('scope-a','vegastack-labs','1.0.0','policy-a','1.0.0',X'5B5D',1,0,'scope-declaration',1,'scope-plan',?,'scope-run','scope-step','scope-lease','human-a','2026-09-15T08:00:00Z')`, digest)
 	before, err := revisions.CurrentRevision(context.Background())

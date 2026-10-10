@@ -126,6 +126,7 @@ func accessAcceptanceRequest(t *testing.T, f hostActionEnrollmentFixture) genera
 }
 func runAccessAcceptance(t *testing.T, f hostActionEnrollmentFixture, state *accessAcceptanceOS) {
 	t.Helper()
+	f.UseWallClock()
 	ctx := f.Context
 	exec := func(query string, args ...any) {
 		t.Helper()
@@ -194,7 +195,8 @@ func runAccessAcceptance(t *testing.T, f hostActionEnrollmentFixture, state *acc
 	}
 	p := created.Plan
 	grant("access-execute", "execute", "host.action.execute", "execution-target", "synthetic-host", "human")
-	grant("access-ack", "acknowledge", "plan.acknowledge", "plan-target", "synthetic-host", "human")
+	grant("access-local-probe", "execute", debianaccess.LocalProbeOperation, "execution-target", "synthetic-host", "human")
+	// Adoption already granted this exact host acknowledgement scope.
 	policy := store.NewEffectiveAuthorizationRepository(f.Authority)
 	ack, e := acknowledgement.NewService(acknowledgement.Config{Repository: store.NewAcknowledgementRepository(f.Authority), Plans: lifecycleAcceptancePlanReader{plans}, Authorizer: authorization.NewEvaluator(policy), Clock: time.Now})
 	if e != nil {

@@ -132,6 +132,7 @@ func discoveryAcceptanceFlow(t *testing.T, qualified bool, pointVersion, expecte
 		t.Fatal(err)
 	}
 	principal := identity.Principal{ID: "operator-a", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}
+	ctx = identity.WithVerifiedPrincipal(ctx, principal)
 	request := func(method, path string, input any, authenticated bool) *httptest.ResponseRecorder {
 		t.Helper()
 		raw, _ := json.Marshal(input)

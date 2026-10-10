@@ -233,7 +233,7 @@ func hostAdoptionAcceptance(t *testing.T, mode string) {
 	}
 	plan := created.Plan
 	for _, g := range []struct{ action, cap, kind string }{{"acknowledge", "plan.acknowledge", "plan-target"}, {"execute", "host.adopt", "execution-target"}} {
-		exec(`INSERT INTO effective_authorization_grants VALUES(?,'operator-a','control-plane-admin',?,?,?,?,'human',1,'active','now','now')`, g.action+"-host", g.action, g.cap, g.kind, draft.DraftID)
+		exec(`INSERT INTO effective_authorization_grants VALUES(?,'operator-a','control-plane-admin',?,?,?,?,'human',1,'active','now','now')`, g.action+"-host", g.action, g.cap, g.kind, plan.HostAdoption.HostID)
 	}
 	if !strings.Contains(created.Readable, "Administrator attestation") || plan.HostAdoption == nil {
 		t.Fatal("missing informed confirmation")
@@ -257,7 +257,7 @@ func hostAdoptionAcceptance(t *testing.T, mode string) {
 		t.Fatal(err)
 	}
 	branch := "human"
-	decision := generated.AuthorizationDecision{Schema: generated.SchemaIDAuthorizationDecision, SchemaVersion: "1.0.0", DecisionID: "decision-discovery", PrincipalID: human.ID, Action: "execute", TargetID: plan.Operations[0].TargetID, Allowed: true, Branch: &branch, ReasonCode: authorization.ReasonAllowed, GrantRevision: 1, PlanDigest: plan.PlanDigest, DecidedAt: time.Now().UTC().Truncate(time.Second).Format(time.RFC3339), Extensions: []generated.ContractExtension{}}
+	decision := generated.AuthorizationDecision{Schema: generated.SchemaIDAuthorizationDecision, SchemaVersion: "1.0.0", DecisionID: "decision-discovery", PrincipalID: human.ID, Action: "execute", TargetID: authorization.ExecutionResourceIDs(plan, plan.Operations[0])[0], Allowed: true, Branch: &branch, ReasonCode: authorization.ReasonAllowed, GrantRevision: 1, PlanDigest: plan.PlanDigest, DecidedAt: time.Now().UTC().Truncate(time.Second).Format(time.RFC3339), Extensions: []generated.ContractExtension{}}
 	submission := runengine.SubmitRequest{Reference: generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, IdempotencyKey: "run-a", Extensions: []generated.ContractExtension{}}, Authorization: decision, Acknowledgement: &approved, Attribution: audit.Attribution{AuthenticatedPrincipalID: principal.ID, AuthenticatedPrincipalMethod: principal.Method, ResponsibleHumanPrincipalID: &human.ID}}
 	if mode == "missing-ack" {
 		submission.Acknowledgement = nil
