@@ -37,6 +37,11 @@ func TestLinuxRoleApprovedPipeline(t *testing.T) {
 	for _, mode := range []string{"success", "missing-baseline", "stale-baseline", "revoked-grant", "baseline-drift-before-run"} {
 		t.Run(mode, func(t *testing.T) {
 			at := time.Now().UTC().Truncate(time.Second)
+			if mode == "success" {
+				// Exercise a frozen fixture clock older than the real lease window.
+				// Fixture setup must not consume a newly issued execution lease.
+				at = at.Add(-2 * time.Minute)
+			}
 			clock := func() time.Time { return at }
 			f := newRoleAdmissionFixture(t, &at)
 			readiness := roleTestReadiness{f.repo, clock}
@@ -180,7 +185,9 @@ func TestLinuxRoleApprovedPipeline(t *testing.T) {
 			if e = registry.RegisterCredentialResolver(adapter.CredentialCapabilityScope{ResolverID: "native-systemd", ConsumerID: hostaction.AdapterID, ProfileID: "synthetic-role-profile", CapabilityID: "synthetic-role-ssh", Enabled: true}, roleTestCredential{}); e != nil {
 				t.Fatal(e)
 			}
-			engine, e := runengine.NewEngine(runengine.Config{Repository: runs, Plans: plans, Admission: runengine.NewAdmissionGate(ack, clock), Adapters: registry, SecretGate: roleTestSecretGate{hosts}, CredentialStep: &runengine.CredentialStep{Bindings: credentials, Resolvers: registry, Profiles: roleTestCredential{}, Plans: plans, Clock: clock}, Clock: clock})
+			engine, e := runengine.NewEngine(runengine.Config{Repository: runs, Plans: plans, Admission: runengine.NewAdmissionGate(ack, clock), Adapters: registry, SecretGate: roleTestSecretGate{hosts}, CredentialStep: &runengine.CredentialStep{Bindings: credentials, Resolvers: registry, Profiles: roleTestCredential{}, Plans: plans, Clock: clock}, Clock: clock, LeaseContext: func(ctx context.Context, deadline time.Time) (context.Context, context.CancelFunc) {
+				return context.WithTimeout(ctx, deadline.Sub(clock()))
+			}})
 			if e != nil {
 				t.Fatal(e)
 			}
