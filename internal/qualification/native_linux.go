@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
@@ -139,6 +140,7 @@ func RunNative(ctx context.Context, value generated.QualificationScope) (generat
 			}
 			if e != nil {
 				result.RecoveryResult = "uncertain"
+				appendNativeStepDiagnostic(&report, e)
 				runErr = e
 				break
 			}
@@ -244,12 +246,42 @@ func RunNative(ctx context.Context, value generated.QualificationScope) (generat
 	report.FinishedAt = time.Now().UTC().Truncate(time.Second).Format(time.RFC3339)
 	return report, nil
 }
+
+// A failed native step remains uncertain. These closed diagnostic tokens only
+// identify the failed boundary; they never carry console text or error targets.
+type nativeStepDiagnostic struct {
+	stage string
+	code  string
+	cause error
+}
+
+func (e *nativeStepDiagnostic) Error() string { return ErrUnavailable.Error() }
+func (e *nativeStepDiagnostic) Unwrap() error { return e.cause }
+func (e *nativeStepDiagnostic) nativeStepRequirements() []string {
+	requirements := []string{"native-step-" + e.stage}
+	if e.code != "" {
+		requirements = append(requirements, "native-step-cli-error-"+e.code)
+	}
+	return requirements
+}
+
+func nativeStepError(stage string, cause error) *nativeStepDiagnostic {
+	return &nativeStepDiagnostic{stage: stage, cause: cause}
+}
+
+func appendNativeStepDiagnostic(report *generated.NativeReport, err error) {
+	var diagnostic *nativeStepDiagnostic
+	if errors.As(err, &diagnostic) {
+		report.PendingRequirements = append(report.PendingRequirements, diagnostic.nativeStepRequirements()...)
+	}
+}
+
 func (d *ownedGuestLifecycle) executeConsoleStep(ctx context.Context, in generated.NativeStepRequest) (generated.NativeStepResult, error) {
 	var out generated.NativeStepResult
 	for id := range d.scope.guests {
 		boot, e := d.consoleBootID(ctx, id)
 		if e != nil {
-			return out, e
+			return out, nativeStepError("boot-id-"+d.scope.guests[id].Role, e)
 		}
 		d.mu.Lock()
 		d.bootIDs[id] = boot
@@ -261,11 +293,11 @@ func (d *ownedGuestLifecycle) executeConsoleStep(ctx context.Context, in generat
 		controller = in.GuestID
 	}
 	if d.checkProcess(controller) != nil {
-		return out, ErrUnavailable
+		return out, nativeStepError("controller-process", ErrUnavailable)
 	}
 	conn, err := ownedSocket(ctx, filepath.Join(d.scope.value.OutputRoot, controller+".serial"), int(d.launches[controller].QEMUPID))
 	if err != nil {
-		return out, err
+		return out, nativeStepError("console-connect", err)
 	}
 	defer conn.Close()
 	deadline, _ := time.Parse(time.RFC3339, in.Deadline)
@@ -273,19 +305,19 @@ func (d *ownedGuestLifecycle) executeConsoleStep(ctx context.Context, in generat
 		deadline = v
 	}
 	if conn.SetDeadline(deadline) != nil {
-		return out, ErrUnavailable
+		return out, nativeStepError("console-deadline", ErrUnavailable)
 	}
 	stop := context.AfterFunc(ctx, func() { conn.Close() })
 	defer stop()
 	if d.authenticateConsole(conn) != nil {
-		return out, ErrUnavailable
+		return out, nativeStepError("console-authentication", ErrUnavailable)
 	}
 	if err = d.installConsoleStep(conn, in); err != nil {
-		return out, err
+		return out, nativeStepError("slot-install", err)
 	}
 	command := fmt.Sprintf("\x15/usr/local/bin/vsk-labs qualification step --config /etc/vsk-labs/native/client.json --file /run/vsk-labs-native/%s-%d.json --output json\n", in.ScenarioID, in.Ordinal)
 	if _, err = io.WriteString(conn, command); err != nil {
-		return out, err
+		return out, nativeStepError("command-write", err)
 	}
 	return readConsoleStep(in, conn)
 }
@@ -308,15 +340,29 @@ func readConsoleStep(in generated.NativeStepRequest, input io.Reader) (generated
 		if envelope.Status == generated.RunStatusFailed || envelope.Status == generated.RunStatusBlocked || envelope.Status == generated.RunStatusInterrupted {
 			// A refused command leaves its interactive shell open; do not wait
 			// until the step deadline or accept it as a qualifying result.
-			return out, ErrUnavailable
+			diagnostic := nativeStepError("cli-"+envelope.Status, ErrUnavailable)
+			// Compatible reads may contain future error codes. Project only a
+			// current generated code, never an arbitrary target or unknown value.
+			if len(envelope.Errors) != 0 {
+				if _, known := generated.ErrorExitCodes[envelope.Errors[0].Code]; known {
+					diagnostic.code = envelope.Errors[0].Code
+				}
+			}
+			return out, diagnostic
 		}
 		if envelope.Status != generated.RunStatusSucceeded {
 			continue
 		}
-		if generated.ValidateContractJSON(generated.SchemaIDNativeStepResult, envelope.Data, generated.ContractExact) != nil || json.Unmarshal(envelope.Data, &out) != nil || hostaction.Digest(out.Binding) != hostaction.Digest(in) {
-			return out, ErrUnavailable
+		if generated.ValidateContractJSON(generated.SchemaIDNativeStepResult, envelope.Data, generated.ContractExact) != nil || json.Unmarshal(envelope.Data, &out) != nil {
+			return out, nativeStepError("result-contract", ErrUnavailable)
+		}
+		if hostaction.Digest(out.Binding) != hostaction.Digest(in) {
+			return out, nativeStepError("result-binding", ErrUnavailable)
 		}
 		return out, nil
 	}
-	return out, ErrUnavailable
+	if scanner.Err() != nil {
+		return out, nativeStepError("result-read", ErrUnavailable)
+	}
+	return out, nativeStepError("result-missing", ErrUnavailable)
 }

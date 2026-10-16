@@ -213,7 +213,21 @@ func validatePreparation(scope validatedNativeScope, in generated.NativePreparat
 }
 
 func preparationResult[T any](response localapi.TypedResponse[T]) generated.NativePreparationResult {
-	return generated.NativePreparationResult{Schema: generated.SchemaIDNativePreparationResult, SchemaVersion: "1.0.0", Result: response.Result, ExitCode: int64(response.ExitCode)}
+	out := generated.NativePreparationResult{Schema: generated.SchemaIDNativePreparationResult, SchemaVersion: "1.0.0", Result: response.Result, ExitCode: int64(response.ExitCode)}
+	// Ordinary API envelopes use the current registry minor version. The
+	// exact native transport embeds the known RunResult 1.0 contract: project
+	// only a compatibly validated envelope, retaining all its known fields.
+	// Invalid/unknown-major originals remain invalid for the existing exact
+	// native-result guard; never relabel them into an acceptable result.
+	raw, err := json.Marshal(response.Result)
+	if err == nil && generated.ValidateContractJSON(generated.SchemaIDRunResult, raw, generated.ContractCompatibleRead) == nil {
+		projected := response.Result
+		projected.SchemaVersion = "1.0.0"
+		if exactNativeJSON(generated.SchemaIDRunResult, projected) {
+			out.Result = projected
+		}
+	}
+	return out
 }
 func dispatchPreparation(ctx context.Context, c localapi.Client, p serverconfig.Profile, in generated.NativePreparationRequest) (generated.NativePreparationResult, error) {
 	var out generated.NativePreparationResult
