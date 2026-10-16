@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 16-10-2026 — Current API responses cross the native preparation boundary ([#228](https://github.com/vegastack/vegastack-labs/issues/228))
+
+- **What:** Native preparation explicitly projects a compatibly validated ordinary API envelope into its exact versioned transport, preserving payloads and identifiers.
+- **Why:** A successful current API response used envelope version 1.29.0, while the nested native transport required version 1.0.0 and discarded the result.
+- **How it went:** The actual result factory reproduces the failure through profile preparation. Linux regression and vet pass after the conversion; unsupported major versions, invalid envelopes and foreign step bindings remain refused.
+- **Changed:** One existing preparation result converter and focused regression. The ordinary API response object remains unchanged.
+- **Decisions:** No new schema or service; native acceptance remains pending.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/228-explain-native-step-refusals
+
 ## 16-10-2026 — Interrupted native steps retain a bounded reason ([#228](https://github.com/vegastack/vegastack-labs/issues/228))
 
 - **What:** The existing native report identifies the console boundary that interrupted a step and retains only known CLI error codes.

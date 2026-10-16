@@ -480,7 +480,7 @@
         "imports": [
           "github.com/vegastack/vegastack-labs/internal/qualification"
         ],
-        "mutationBoundaryDigest": "sha256:ca8a073dc4d19ff53d22e292a9cf76a9c683804d5b62ae38a8b13949bad85fc3"
+        "mutationBoundaryDigest": "sha256:500e32452a288f81fb7bd780848be59f29fb8d574efb4c63b647244427ad3a8d"
       }
     ]
   },
