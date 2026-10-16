@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 16-10-2026 — Native API keys always satisfy identifier contracts ([#228](https://github.com/vegastack/vegastack-labs/issues/228))
+
+- **What:** Native planning and execution add a deterministic letter prefix to their nonce-derived API keys, preserving the full nonce.
+- **Why:** A captured native plan used a digit-leading hexadecimal nonce directly as its key. The ordinary API correctly refused it because identifier keys must start with a letter.
+- **How it went:** A real Unix HTTP client regression reproduces invalid plan keys. The corrected planning and execution tests and Linux vet pass for digit- and letter-leading nonces.
+- **Changed:** One shared private key formatter and its two call sites; ordinary API validation and native bindings are unchanged.
+- **Decisions:** No new schema or authority. Native acceptance remains pending.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/228-prefix-native-api-idempotency
+
 ## 16-10-2026 — Current API responses cross the native preparation boundary ([#228](https://github.com/vegastack/vegastack-labs/issues/228))
 
 - **What:** Native preparation explicitly projects a compatibly validated ordinary API envelope into its exact versioned transport, preserving payloads and identifiers.

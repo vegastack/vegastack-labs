@@ -134,6 +134,12 @@ func validateAPIPacket(scope validatedNativeScope, in nativeAPIPacket, now time.
 	return nil
 }
 
+// Keep the nonce intact while satisfying identifier contracts even when its
+// first hex digit is numeric. Both planning and execution use this same key.
+func nativeAPIRequestID(step generated.NativeStepRequest) string {
+	return "native-" + strings.TrimPrefix(step.Nonce, "sha256:")
+}
+
 func RunNativeAPIOnce(ctx context.Context, input io.Reader, output io.Writer) error {
 	if os.Getuid() == 0 || os.Getuid() != os.Geteuid() || os.Getgid() != os.Getegid() {
 		return ErrUnavailable
@@ -163,7 +169,7 @@ func RunNativeAPIOnce(ctx context.Context, input io.Reader, output io.Writer) er
 	ctx, cancel := context.WithDeadline(ctx, deadline)
 	defer cancel()
 	source := value.SourceCommit
-	c := localapi.NewClient(result.NewFactory(result.BuildInfo{ToolVersion: "native-qualification", ReleaseBuildID: value.ExecutableDigest, SourceRevision: &source}, func() (string, error) { return strings.TrimPrefix(in.Step.Nonce, "sha256:"), nil }))
+	c := localapi.NewClient(result.NewFactory(result.BuildInfo{ToolVersion: "native-qualification", ReleaseBuildID: value.ExecutableDigest, SourceRevision: &source}, func() (string, error) { return nativeAPIRequestID(in.Step), nil }))
 	reply, err := dispatchNativeAPI(ctx, in, c, p)
 	if err != nil {
 		return err
@@ -216,7 +222,7 @@ func dispatchNativeAPI(ctx context.Context, in nativeAPIPacket, c localapi.Clien
 		out.Result.Collection = &r.Data
 		out.Result.Changed = r.Result.Changed
 	case "execute":
-		r, e := c.ApplyBound(ctx, p, generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: in.Step.PlanID, PlanDigest: in.Step.PlanDigest, RecoveryEpoch: in.Step.RecoveryEpoch, IdempotencyKey: strings.TrimPrefix(in.Step.Nonce, "sha256:"), Extensions: []generated.ContractExtension{}})
+		r, e := c.ApplyBound(ctx, p, generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: in.Step.PlanID, PlanDigest: in.Step.PlanDigest, RecoveryEpoch: in.Step.RecoveryEpoch, IdempotencyKey: nativeAPIRequestID(in.Step), Extensions: []generated.ContractExtension{}})
 		if e != nil || r.ExitCode != 0 {
 			return out, ErrUnavailable
 		}
