@@ -287,7 +287,12 @@ func (d *ownedGuestLifecycle) executeConsoleStep(ctx context.Context, in generat
 	if _, err = io.WriteString(conn, command); err != nil {
 		return out, err
 	}
-	scanner := bufio.NewScanner(io.LimitReader(conn, 272*1024+1))
+	return readConsoleStep(in, conn)
+}
+
+func readConsoleStep(in generated.NativeStepRequest, input io.Reader) (generated.NativeStepResult, error) {
+	var out generated.NativeStepResult
+	scanner := bufio.NewScanner(io.LimitReader(input, 272*1024+1))
 	scanner.Buffer(make([]byte, 4096), 256*1024)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -295,7 +300,17 @@ func (d *ownedGuestLifecycle) executeConsoleStep(ctx context.Context, in generat
 			continue
 		}
 		var envelope generated.RunResult
-		if generated.ValidateContractJSON(generated.SchemaIDRunResult, []byte(line), generated.ContractExact) != nil || json.Unmarshal([]byte(line), &envelope) != nil || envelope.Status != generated.RunStatusSucceeded || envelope.Command != generated.CommandNameQualificationStep {
+		// CLI envelopes use the current registry minor version. Read that outer
+		// envelope compatibly; the native result and its binding remain exact.
+		if generated.ValidateContractJSON(generated.SchemaIDRunResult, []byte(line), generated.ContractCompatibleRead) != nil || json.Unmarshal([]byte(line), &envelope) != nil || envelope.Command != generated.CommandNameQualificationStep {
+			continue
+		}
+		if envelope.Status == generated.RunStatusFailed || envelope.Status == generated.RunStatusBlocked || envelope.Status == generated.RunStatusInterrupted {
+			// A refused command leaves its interactive shell open; do not wait
+			// until the step deadline or accept it as a qualifying result.
+			return out, ErrUnavailable
+		}
+		if envelope.Status != generated.RunStatusSucceeded {
 			continue
 		}
 		if generated.ValidateContractJSON(generated.SchemaIDNativeStepResult, envelope.Data, generated.ContractExact) != nil || json.Unmarshal(envelope.Data, &out) != nil || hostaction.Digest(out.Binding) != hostaction.Digest(in) {

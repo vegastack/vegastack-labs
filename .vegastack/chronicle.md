@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 16-10-2026 — Native console steps read current CLI responses ([#228](https://github.com/vegastack/vegastack-labs/issues/228))
+
+- **What:** Native console execution accepts compatible CLI response versions while still requiring the exact native result schema and step binding. A refused command ends its step promptly.
+- **Why:** The CLI emits the current registry version, but the native reader required the older envelope version exactly. It discarded valid responses and waited until the deadline.
+- **How it went:** The first native profile step timed out after setup and restart checks succeeded. A Linux regression reproduced rejection of the current successful response and waiting on terminal refusals; the corrected reader passes both and rejects unrelated or incorrectly bound results.
+- **Changed:** Existing console response reader and focused regressions. No new diagnostic artifact or service.
+- **Decisions:** None. Native qualification and deferred work remain pending.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/228-report-native-step-refusals
+
 ## 16-10-2026 — Duplicate database writers retain the useful refusal ([#228](https://github.com/vegastack/vegastack-labs/issues/228))
 
 - **What:** Starting a second server against an occupied database reports the existing retryable state conflict through the CLI.
