@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 16-10-2026 — Fixture approval uses its existing health read ([#228](https://github.com/vegastack/vegastack-labs/issues/228))
+
+- **What:** Native fixture approval checks the current revision and recovery epoch through the already-granted health endpoint.
+- **Why:** The fixture had health-read permission but the helper requested the broader platform summary, blocking approval after successful plan creation.
+- **How it went:** Actual Linux RED reproduced the missing read; GREEN and vet pass. Stale revisions, wrong epochs and failed plan/health reads remain refused.
+- **Changed:** One API read selection; existing equality checks and grants are unchanged.
+- **Decisions:** No expanded permission. Native acceptance remains pending.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/228-use-native-health-read
+
 ## 16-10-2026 — Valid plans survive native response metadata checks ([#228](https://github.com/vegastack/vegastack-labs/issues/228))
 
 - **What:** Native preparation and console reading validate compatible response metadata separately from their exact typed payloads.

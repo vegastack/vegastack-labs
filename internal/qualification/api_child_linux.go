@@ -197,7 +197,7 @@ func dispatchNativeAPI(ctx context.Context, in nativeAPIPacket, c localapi.Clien
 		if e != nil || r.ExitCode != 0 {
 			return out, ErrUnavailable
 		}
-		current, e := c.Summary(ctx, p)
+		current, e := c.Status(ctx, p)
 		if e != nil || current.ExitCode != 0 || current.Result.StateRevision != r.Data.Binding.StateRevision || current.Result.RecoveryEpoch != in.Step.RecoveryEpoch {
 			return out, ErrUnavailable
 		}
