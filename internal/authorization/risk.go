@@ -20,6 +20,10 @@ const (
 var errUnknownRisk = errors.New("unknown plan operation or risk")
 
 var operationRisk = map[string]RiskClass{
+	"gate.profile.bind":                  RiskDestructive,
+	"gate.evidence.apply":                RiskDestructive,
+	"gate.evidence.supersede":            RiskDestructive,
+	"gate.evidence.revoke":               RiskDestructive,
 	"host.alias.claim":                   RiskInfrastructure,
 	"host.replacement.freeze":            RiskInfrastructure,
 	"host.replacement.commit":            RiskInfrastructure,
