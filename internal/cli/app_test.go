@@ -508,17 +508,37 @@ func assertResultError(t *testing.T, result generated.RunResult, code, status st
 type setupCLIStub struct {
 	stubServerOperations
 	setupPath string
+	setupErr  error
 }
 
 func (s *setupCLIStub) RunSetup(_ context.Context, config, setup string) error {
 	s.runConfig = config
 	s.setupPath = setup
-	return nil
+	return s.setupErr
 }
 func TestServerRunForwardsSetup(t *testing.T) {
 	operations := &setupCLIStub{}
 	code, _, _ := runTestAppWithOptions(t, context.Background(), []string{"server", "run", "--config", "profile.json", "--setup", "setup.json"}, nil, WithServerOperations(operations))
 	if code != 0 || operations.setupPath != "setup.json" || operations.runConfig != "profile.json" {
 		t.Fatal("setup did not reach server owner")
+	}
+}
+
+func TestServerRunPreservesOnlyKnownSetupErrors(t *testing.T) {
+	for _, test := range []struct {
+		name, target, wantCode, wantTarget string
+	}{
+		{"local setup conflict", "local-setup", generated.ErrorCodeStateConflict, "local-setup"},
+		{"unknown target", "unexpected-setup-target", generated.ErrorCodeIntegrityFailure, "server-operations"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			operations := &setupCLIStub{setupErr: failure.New(generated.ErrorCodeStateConflict, test.target, false)}
+			code, stdout, stderr := runTestAppWithOptions(t, context.Background(), []string{"server", "run", "--config", "profile.json", "--setup", "setup.json", "--output", "json"}, nil, WithServerOperations(operations))
+			result := decodeResult(t, code, stdout, stderr, generated.ErrorExitCodes[test.wantCode])
+			assertResultError(t, result, test.wantCode, generated.RunStatusFailed)
+			if result.Errors[0].Target != test.wantTarget || result.Errors[0].Retryable {
+				t.Fatalf("unexpected setup error projection: %#v", result.Errors)
+			}
+		})
 	}
 }

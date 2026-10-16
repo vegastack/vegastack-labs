@@ -582,6 +582,7 @@ func emptyRun(value generated.RunPresentation) bool { return value.Run.RunID == 
 
 var serverErrorTargets = map[string]struct{}{
 	"qualification-native": {},
+	"local-setup":          {},
 	"host-replacement":     {}, "replacement-id": {},
 	"application-health": {}, "application-shutdown": {}, "application-start": {},
 	"context": {}, "control-operations": {}, "control-service": {}, "control-service-drain": {}, "control-service-lock": {}, "control-service-request": {},
