@@ -17,6 +17,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/hostreplacement"
 	"github.com/vegastack/vegastack-labs/internal/localapi"
 	"github.com/vegastack/vegastack-labs/internal/serverconfig"
+	"github.com/vegastack/vegastack-labs/internal/strictjson"
 )
 
 func executePreparation(ctx context.Context, scope validatedNativeScope, step generated.NativeStepRequest, out generated.NativeStepResult) (generated.NativeStepResult, error) {
@@ -212,6 +213,28 @@ func validatePreparation(scope validatedNativeScope, in generated.NativePreparat
 	return nil
 }
 
+// Payloads such as a typed Plan legitimately contain authorization fields.
+// Compatible envelope metadata must not classify that known payload as an
+// unknown extension. Keep every raw outer field and strict duplicate checking;
+// callers validate the original payload through the exact owning contract.
+func compatibleNativeEnvelopeMetadata(raw []byte) bool {
+	if len(raw) == 0 || len(raw) > nativeAPIMaximum || strictjson.Scan(context.Background(), raw, strictjson.Limits{MaxDepth: 32}) != nil {
+		return false
+	}
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(raw, &fields) != nil {
+		return false
+	}
+	if _, present := fields["data"]; !present {
+		return false
+	}
+	// RunResult.data is a required object, so use an empty object only in the
+	// metadata check. The original raw payload is never rewritten or dropped.
+	fields["data"] = json.RawMessage("{}")
+	metadata, err := json.Marshal(fields)
+	return err == nil && generated.ValidateContractJSON(generated.SchemaIDRunResult, metadata, generated.ContractCompatibleRead) == nil
+}
+
 func preparationResult[T any](response localapi.TypedResponse[T]) generated.NativePreparationResult {
 	out := generated.NativePreparationResult{Schema: generated.SchemaIDNativePreparationResult, SchemaVersion: "1.0.0", Result: response.Result, ExitCode: int64(response.ExitCode)}
 	// Ordinary API envelopes use the current registry minor version. The
@@ -220,7 +243,7 @@ func preparationResult[T any](response localapi.TypedResponse[T]) generated.Nati
 	// Invalid/unknown-major originals remain invalid for the existing exact
 	// native-result guard; never relabel them into an acceptable result.
 	raw, err := json.Marshal(response.Result)
-	if err == nil && generated.ValidateContractJSON(generated.SchemaIDRunResult, raw, generated.ContractCompatibleRead) == nil {
+	if err == nil && compatibleNativeEnvelopeMetadata(raw) {
 		projected := response.Result
 		projected.SchemaVersion = "1.0.0"
 		if exactNativeJSON(generated.SchemaIDRunResult, projected) {

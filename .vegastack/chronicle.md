@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 16-10-2026 — Valid plans survive native response metadata checks ([#228](https://github.com/vegastack/vegastack-labs/issues/228))
+
+- **What:** Native preparation and console reading validate compatible response metadata separately from their exact typed payloads.
+- **Why:** The generic extension scan rejected the required authorizationBranch field in an ordinary valid plan, blocking native setup.
+- **How it went:** A complete owning plan golden reproduced rejection at both boundaries on Linux. The focused regression and vet pass; duplicate keys, unsafe outer additions, unknown major versions and foreign bindings remain refused.
+- **Changed:** One private metadata check and its two callers; payload bytes and exact native contracts are retained.
+- **Decisions:** No global validator relaxation or new component. Native acceptance remains pending.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/228-validate-native-envelope-metadata
+
 ## 16-10-2026 — Native API keys always satisfy identifier contracts ([#228](https://github.com/vegastack/vegastack-labs/issues/228))
 
 - **What:** Native planning and execution add a deterministic letter prefix to their nonce-derived API keys, preserving the full nonce.
