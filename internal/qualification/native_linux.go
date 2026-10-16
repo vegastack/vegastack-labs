@@ -334,7 +334,7 @@ func readConsoleStep(in generated.NativeStepRequest, input io.Reader) (generated
 		var envelope generated.RunResult
 		// CLI envelopes use the current registry minor version. Read that outer
 		// envelope compatibly; the native result and its binding remain exact.
-		if generated.ValidateContractJSON(generated.SchemaIDRunResult, []byte(line), generated.ContractCompatibleRead) != nil || json.Unmarshal([]byte(line), &envelope) != nil || envelope.Command != generated.CommandNameQualificationStep {
+		if !compatibleNativeEnvelopeMetadata([]byte(line)) || json.Unmarshal([]byte(line), &envelope) != nil || envelope.Command != generated.CommandNameQualificationStep {
 			continue
 		}
 		if envelope.Status == generated.RunStatusFailed || envelope.Status == generated.RunStatusBlocked || envelope.Status == generated.RunStatusInterrupted {
