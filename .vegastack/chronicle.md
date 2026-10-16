@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 16-10-2026 — Duplicate database writers retain the useful refusal ([#228](https://github.com/vegastack/vegastack-labs/issues/228))
+
+- **What:** Starting a second server against an occupied database reports the existing retryable state conflict through the CLI.
+- **Why:** The store correctly refused a second writer, but its typed error escaped the server boundary and became a generic integrity failure.
+- **How it went:** A real Linux store lock reproduced the failure. The focused regression now passes for direct and wrapped conflicts; unrelated errors retain their previous handling.
+- **Changed:** One existing server error boundary maps the exact writer conflict to the existing control-service-lock target.
+- **Decisions:** None. Native qualification and deferred work remain pending.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/228-preserve-writer-conflicts
+
 ## 16-10-2026 — Setup refusals retain their correct error code ([#228](https://github.com/vegastack/vegastack-labs/issues/228))
 
 - **What:** The CLI preserves the server’s existing setup error instead of replacing it with a generic integrity failure.

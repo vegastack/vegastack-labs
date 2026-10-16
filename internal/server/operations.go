@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"strconv"
@@ -636,6 +637,10 @@ func (operations *Operations) openAuthorityWithPromotion(ctx context.Context, pr
 	}
 	authority, err := operations.openStore(ctx, configFor(operations.databasePath))
 	if err != nil {
+		var stored *store.StoreError
+		if errors.As(err, &stored) && stored.Code() == generated.ErrorCodeStateConflict && stored.Target() == "database-writer" {
+			return nil, failure.New(generated.ErrorCodeStateConflict, "control-service-lock", stored.Retryable())
+		}
 		return nil, err
 	}
 	pending, found, err := store.NewRestoreRepository(authority).PendingPromotion(ctx)
