@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 16-10-2026 — Setup refusals retain their correct error code ([#228](https://github.com/vegastack/vegastack-labs/issues/228))
+
+- **What:** The CLI preserves the server’s existing setup error instead of replacing it with a generic integrity failure.
+- **Why:** Native preparation correctly refused an incomplete setup, but the CLI discarded its stable error label, causing the qualification fixture to stop.
+- **How it went:** Running the ordinary setup command against the retained test lock isolated the mismatch. A focused CLI regression covers the refused setup and keeps unknown error labels rejected.
+- **Changed:** Existing setup error label accepted by the CLI’s error filter.
+- **Decisions:** None. Native qualification and deferred work remain pending.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/228-preserve-local-setup-errors
+
 ## 10-10-2026 — Phase 6 acceptance distinguishes working software from current native proof ([#234](https://github.com/vegastack/vegastack-labs/issues/234))
 
 - **What:** A finite acceptance command reuses the host lifecycle, baseline, role, replacement and operator scenarios. Its scoped exit reports Linux software, current native qualification, deferred Mac work and full phase acceptance independently.
