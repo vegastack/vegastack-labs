@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 16-10-2026 — Interrupted native steps retain a bounded reason ([#228](https://github.com/vegastack/vegastack-labs/issues/228))
+
+- **What:** The existing native report identifies the console boundary that interrupted a step and retains only known CLI error codes.
+- **Why:** A native run reached its first control-setup step but returned uncertainty without identifying whether authentication, transfer or command execution failed.
+- **How it went:** Focused Linux regressions reproduced the missing reason. The corrected tests and vet pass, including omission of unknown error codes, private targets and console text.
+- **Changed:** Existing native report pending requirements, console step errors and focused tests; current source seals refreshed without expanding scope.
+- **Decisions:** No new artifact, schema or service. Native acceptance remains pending.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/228-explain-native-step-refusals
+
 ## 16-10-2026 — Native console steps read current CLI responses ([#228](https://github.com/vegastack/vegastack-labs/issues/228))
 
 - **What:** Native console execution accepts compatible CLI response versions while still requiring the exact native result schema and step binding. A refused command ends its step promptly.
