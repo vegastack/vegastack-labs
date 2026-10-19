@@ -1313,7 +1313,7 @@ func reviewedHostDiscoveryCollectorPackage(candidate checkedSourcePackage) bool 
 	names := append([]string(nil), candidate.listed.GoFiles...)
 	sort.Strings(names)
 	return strings.Join(names, ",") == "collector.go,decode.go" &&
-		digestSourceFiles(candidate.listed.Dir, names) == "ad72f458ac1e4c1752056b87fac0f75963e09442a5ae951c567da3092be88d72"
+		digestSourceFiles(candidate.listed.Dir, names) == "c9738d3d18f528a642bfcbb807d760eb038a250d591f5fa474557dddd478ae73"
 }
 
 func reviewedRecoveryCustodianPackage(candidate checkedSourcePackage) bool {
