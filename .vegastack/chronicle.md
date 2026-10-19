@@ -1011,3 +1011,13 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 The critical authorization review of issue #247 found omitted nested owners, alias host execution/acknowledgement scope, an incompatible resume target and a missing grant recovery precheck. Corrections use all sealed subject/probe owners, host plus alias projection, matching resume projection, and the existing SQLite snapshot/isolated-restore methods. Local recovery preimages are private and do not qualify node-loss recovery.
 
 The final source-boundary check exposed the shared volume-lineage change in the Darwin baseline closure. Its exact current source/import seal is recorded alongside Linux, and the server boundary records the corrected native volume case file hash, preserving historical seals and unsupported behavior. No runtime change or native qualification is claimed.
+
+## 19-10-2026 — Discovery negotiates the pinned SSH host key ([#234](https://github.com/vegastack/vegastack-labs/issues/234))
+
+- **What:** Host discovery selects the pinned host key's algorithm before verifying its exact bytes. RSA keys and certificates retain SHA-2 negotiation.
+- **Why:** A server offering both ECDSA and Ed25519 could negotiate ECDSA even when the approved target pinned Ed25519, causing `DEPENDENCY_UNAVAILABLE` before discovery.
+- **How it went:** An actual local SSH collector reproduction failed with mixed host keys and passed after the fix. Focused collector tests and vet passed, including RSA and RSA certificates. Native registration remains separately verified; no workload admission is claimed.
+- **Changed:** SSH collector negotiation and mixed-key regression fixtures.
+- **Decisions:** Keep exact host-key verification and the existing authorization flow.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/234-pinned-ssh-host-key

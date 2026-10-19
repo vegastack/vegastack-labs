@@ -66,7 +66,16 @@ func (c *Collector) Collect(ctx context.Context, target domain.Target) (domain.C
 			borrowed.Close()
 		}
 	}()
-	config := &ssh.ClientConfig{User: target.Binding.User, HostKeyCallback: ssh.FixedHostKey(key), Auth: []ssh.AuthMethod{ssh.PublicKeysCallback(func() ([]ssh.Signer, error) {
+	// Negotiate the pinned key family before applying the exact key callback.
+	// RSA key formats use SHA-2 signature algorithm names during negotiation.
+	algorithms := []string{key.Type()}
+	switch key.Type() {
+	case ssh.KeyAlgoRSA:
+		algorithms = []string{ssh.KeyAlgoRSASHA512, ssh.KeyAlgoRSASHA256}
+	case ssh.CertAlgoRSAv01:
+		algorithms = []string{ssh.CertAlgoRSASHA512v01, ssh.CertAlgoRSASHA256v01}
+	}
+	config := &ssh.ClientConfig{User: target.Binding.User, HostKeyAlgorithms: algorithms, HostKeyCallback: ssh.FixedHostKey(key), Auth: []ssh.AuthMethod{ssh.PublicKeysCallback(func() ([]ssh.Signer, error) {
 		if borrowed != nil {
 			return nil, domain.Error(generated.ErrorCodePrerequisiteBlocked)
 		}
