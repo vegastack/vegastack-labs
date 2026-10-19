@@ -2,8 +2,11 @@ package hostdiscovery
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"crypto/ed25519"
+	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/rsa"
 	"encoding/json"
 	"encoding/pem"
 	"net"
@@ -56,6 +59,27 @@ func testKey(t *testing.T) (ssh.Signer, []byte) {
 func fixturePeer(t *testing.T, mode string) (domain.Target, *testBorrower, *atomic.Int32) {
 	t.Helper()
 	host, _ := testKey(t)
+	if mode == "mixed-rsa" || mode == "mixed-rsa-cert" {
+		key, err := rsa.GenerateKey(rand.Reader, 2048)
+		if err != nil {
+			t.Fatal(err)
+		}
+		host, err = ssh.NewSignerFromKey(key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if mode == "mixed-rsa-cert" {
+			authority, _ := testKey(t)
+			certificate := &ssh.Certificate{Key: host.PublicKey(), CertType: ssh.HostCert, ValidBefore: ssh.CertTimeInfinity}
+			if err := certificate.SignCert(rand.Reader, authority); err != nil {
+				t.Fatal(err)
+			}
+			host, err = ssh.NewCertSigner(certificate, host)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
 	user, key := testKey(t)
 	borrower := &testBorrower{key: key}
 	requests := &atomic.Int32{}
@@ -71,6 +95,17 @@ func fixturePeer(t *testing.T, mode string) (domain.Target, *testBorrower, *atom
 	}}
 	config.NoClientAuth = mode == "none-auth"
 	config.AddHostKey(host)
+	if strings.HasPrefix(mode, "mixed-") {
+		other, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		signer, err := ssh.NewSignerFromKey(other)
+		if err != nil {
+			t.Fatal(err)
+		}
+		config.AddHostKey(signer)
+	}
 	done := make(chan struct{})
 	var current atomic.Pointer[net.Conn]
 	go func() {
@@ -266,5 +301,31 @@ func TestCollectorStalledHandshakeClosesConnection(t *testing.T) {
 	}
 	if borrower.calls.Load() != 0 {
 		t.Fatal("credential resolved before authenticated host key")
+	}
+}
+
+func TestCollectorPinnedEd25519WithMixedHostKeys(t *testing.T) {
+	target, borrower, count := fixturePeer(t, "mixed-host-keys")
+	result, err := (&Collector{Borrower: borrower}).Collect(context.Background(), target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count.Load() != 10 || len(result.Missing) != 0 {
+		t.Fatal("incomplete discovery")
+	}
+}
+
+func TestCollectorPinnedRSAWithMixedHostKeys(t *testing.T) {
+	for _, mode := range []string{"mixed-rsa", "mixed-rsa-cert"} {
+		t.Run(mode, func(t *testing.T) {
+			target, borrower, count := fixturePeer(t, mode)
+			result, err := (&Collector{Borrower: borrower}).Collect(context.Background(), target)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if count.Load() != 10 || len(result.Missing) != 0 {
+				t.Fatal("incomplete discovery")
+			}
+		})
 	}
 }
