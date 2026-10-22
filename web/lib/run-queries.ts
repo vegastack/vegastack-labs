@@ -43,11 +43,14 @@ async function waitForReconnect(attempt: number, signal: AbortSignal) {
 }
 
 export function useRun(runId: string | null) {
+  const queryClient = useQueryClient();
   const query = useQuery({
     queryKey: runId ? runKeys.detail(runId) : ["change", "run", "closed"],
     queryFn: ({ signal }) => changeClient.getRun({ runId: runId! }, { signal }),
     enabled: runId !== null,
   });
+  const registered = query.data?.data.run.status === "succeeded" && query.data.data.run.steps.some(step => step.operationType === "host.adopt");
+  useEffect(() => { if (registered) void queryClient.invalidateQueries({ queryKey: ["read", "hosts"] }); }, [queryClient, registered, runId]);
   const refetch = query.refetch;
   const terminal = query.data ? terminalRunStatuses.has(query.data.data.run.status) : false;
   const retryableFailure = isTransientRunRead(query.error);

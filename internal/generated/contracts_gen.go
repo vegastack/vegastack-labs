@@ -236,6 +236,7 @@ const (
 	SchemaIDLocalSetupRequest                      = "vegastack-labs.dev/local-setup-request"
 	SchemaIDLocalSetupReviewRequest                = "vegastack-labs.dev/local-setup-review-request"
 	SchemaIDManagedHost                            = "vegastack-labs.dev/managed-host"
+	SchemaIDManagedHostList                        = "vegastack-labs.dev/managed-host-list"
 	SchemaIDNativeActionNegativeObservation        = "vegastack-labs.dev/native-action-negative-observation"
 	SchemaIDNativeActionProtocolWitness            = "vegastack-labs.dev/native-action-protocol-witness"
 	SchemaIDNativeActionReceiptWitness             = "vegastack-labs.dev/native-action-receipt-witness"
@@ -3275,6 +3276,14 @@ type ManagedHost struct {
 	RecoveryEpoch  int64               `json:"recoveryEpoch"`
 }
 
+type ManagedHostList struct {
+	Schema        string        `json:"schema"`
+	SchemaVersion string        `json:"schemaVersion"`
+	Hosts         []ManagedHost `json:"hosts"`
+	StateRevision int64         `json:"stateRevision"`
+	RecoveryEpoch int64         `json:"recoveryEpoch"`
+}
+
 type NativeActionNegativeObservation struct {
 	Schema        string           `json:"schema"`
 	SchemaVersion string           `json:"schemaVersion"`
@@ -5097,6 +5106,7 @@ var Endpoints = []Endpoint{
 	{ID: "api.v1.host-replacements.create", Method: "POST", Path: "/api/v1/host-replacements", Availability: "available", OwnerPhase: "6", QuerySchema: "", RequestSchema: "vegastack-labs.dev/host-replacement-request", DataSchema: "vegastack-labs.dev/host-replacement-submission", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.host-replacements.get", Method: "GET", Path: "/api/v1/host-replacements/{replacementId}", Availability: "available", OwnerPhase: "6", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/host-replacement-state", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.hosts.get", Method: "GET", Path: "/api/v1/hosts/{hostID}", Availability: "available", OwnerPhase: "6", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/managed-host", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.hosts.list", Method: "GET", Path: "/api/v1/hosts", Availability: "available", OwnerPhase: "6", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/managed-host-list", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.inventory-diffs.create", Method: "POST", Path: "/api/v1/inventory-diffs", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "vegastack-labs.dev/inventory-diff-request", DataSchema: "vegastack-labs.dev/inventory-diff-data", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.inventory-draft-aliases.get", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/aliases/{recordId}", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-alias-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.inventory-draft-aliases.list", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/aliases", Availability: "available", OwnerPhase: "2", QuerySchema: "vegastack-labs.dev/api-page-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-alias-list-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},

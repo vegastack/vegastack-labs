@@ -451,3 +451,50 @@ func TestHostAdoptionDeniedPreparationRecordsAudit(t *testing.T) {
 		t.Fatalf("audit count %d: %v", n, err)
 	}
 }
+
+func TestHostRegistrationListFiltersCurrentExactGrants(t *testing.T) {
+	f := newRegistrationStoreFixture(t)
+	draft := f.Stage(t)
+	if _, err := f.repo.Apply(f.ctx, f.bind(t, draft)); err != nil {
+		t.Fatal(err)
+	}
+	// Another registration exists but has no matching read grant.
+	if _, err := f.s.conn.ExecContext(f.ctx, `INSERT INTO host_adoption_drafts SELECT 'other-draft',digest,canonical_bytes,principal_id,state_revision,recovery_epoch FROM host_adoption_drafts WHERE draft_id=?`, draft.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.s.conn.ExecContext(f.ctx, `INSERT INTO managed_hosts SELECT 'private-canary',target_id||'-other','sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',identity_kind,identity_class,observation_id,profile_id,'other-draft',plan_id,approving_human_id,acknowledgement_id,state_revision,recovery_epoch FROM managed_hosts WHERE host_id='synthetic-host'`); err != nil {
+		t.Fatal(err)
+	}
+	assertIDs := func(want int) {
+		t.Helper()
+		result, err := f.repo.List(f.ctx)
+		if err != nil || len(result.Hosts) != want {
+			t.Fatalf("list: %d hosts, error %v", len(result.Hosts), err)
+		}
+		if want == 1 && (result.Hosts[0].HostID != "synthetic-host" || result.Hosts[0].Status != "adopted-unadmitted") {
+			t.Fatalf("wrong registration: %+v", result.Hosts)
+		}
+		raw, _ := json.Marshal(result)
+		if err := generated.ValidateContractJSON(generated.SchemaIDManagedHostList, raw, generated.ContractExact); err != nil {
+			t.Fatal(err)
+		}
+	}
+	assertIDs(1)
+	if _, err := f.s.conn.ExecContext(f.ctx, `UPDATE effective_authorization_grants SET status='revoked' WHERE capability='host.read'`); err != nil {
+		t.Fatal(err)
+	}
+	assertIDs(0)
+	if _, err := f.s.conn.ExecContext(f.ctx, `INSERT INTO effective_authorization_grants VALUES('stale-read','operator-a','reader','read','host.read','host','synthetic-host',NULL,2,'active','now','now')`); err != nil {
+		t.Fatal(err)
+	}
+	assertIDs(0)
+	if _, err := f.s.conn.ExecContext(f.ctx, `UPDATE effective_authorization_principals SET status='revoked' WHERE principal_id='operator-a'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.repo.List(f.ctx); Code(err) != generated.ErrorCodeAuthorizationDenied {
+		t.Fatalf("revoked principal allowed: %v", err)
+	}
+	if _, err := f.repo.List(context.Background()); Code(err) != generated.ErrorCodeAuthenticationRequired {
+		t.Fatalf("anonymous list allowed: %v", err)
+	}
+}

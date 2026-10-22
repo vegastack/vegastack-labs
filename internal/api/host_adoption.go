@@ -21,12 +21,30 @@ func RegisterHostAdoptionOperations(app *Application, c HostAdoptionOperations) 
 	if app == nil || c.Hosts == nil || c.Declarations == nil || c.Results == nil || c.Results != app.config.Results {
 		return apiFailure(generated.ErrorCodeInputInvalid, "host-adoption-config")
 	}
-	app.routes = append(app.routes, route{id: "api.v1.host-adoptions.draft", method: http.MethodPost, pattern: "/api/v1/host-adoptions/draft", deferredAuthorization: true, handler: app.adoptionDraft(c)}, route{id: "api.v1.hosts.get", method: http.MethodGet, pattern: "/api/v1/hosts/{hostID}", deferredAuthorization: true, handler: app.adoptionGet(c)})
+	app.routes = append(app.routes, route{id: "api.v1.hosts.list", method: http.MethodGet, pattern: "/api/v1/hosts", deferredAuthorization: true, handler: app.adoptionList(c)}, route{id: "api.v1.host-adoptions.draft", method: http.MethodPost, pattern: "/api/v1/host-adoptions/draft", deferredAuthorization: true, handler: app.adoptionDraft(c)}, route{id: "api.v1.hosts.get", method: http.MethodGet, pattern: "/api/v1/hosts/{hostID}", deferredAuthorization: true, handler: app.adoptionGet(c)})
 	if !routesAreGeneratedSubset(app.routes) {
-		app.routes = app.routes[:len(app.routes)-2]
+		app.routes = app.routes[:len(app.routes)-3]
 		return apiFailure(generated.ErrorCodeIntegrityFailure, "endpoint-registry")
 	}
 	return nil
+}
+
+// The repository filters the collection against current exact host.read grants
+// within the same SQLite read transaction as the returned registration records.
+func (app *Application) adoptionList(c HostAdoptionOperations) func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string) {
+	return func(w http.ResponseWriter, r *http.Request, _ authorization.ReadScope, _ map[string]string) {
+		const op = "api.v1.hosts.list"
+		if r.URL.RawQuery != "" {
+			app.failure(w, op, apiFailure(generated.ErrorCodeInputInvalid, "host-query"))
+			return
+		}
+		hosts, err := c.Hosts.List(r.Context())
+		if err != nil {
+			app.failure(w, op, err)
+			return
+		}
+		app.success(w, op, hosts.StateRevision, hosts.RecoveryEpoch, hosts)
+	}
 }
 func (app *Application) adoptionGet(c HostAdoptionOperations) func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string) {
 	return func(w http.ResponseWriter, r *http.Request, _ authorization.ReadScope, params map[string]string) {

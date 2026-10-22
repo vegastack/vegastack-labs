@@ -47,3 +47,25 @@ func TestHostAdoptionAPIRejectsUntrustedInputs(t *testing.T) {
 		t.Fatal("anonymous host read allowed")
 	}
 }
+
+func TestHostListRejectsAnonymousAndQueryInputs(t *testing.T) {
+	app := newAuthorizationTestApplication(t, authorization.NewEvaluator(apiPolicyRepository{snapshot: authorization.EffectivePolicySnapshot{PrincipalKind: identity.PrincipalHuman, Status: authorization.EffectiveActive, GrantRevision: 1}}), &authorizationRecorderStub{})
+	if err := RegisterHostAdoptionOperations(app, HostAdoptionOperations{Hosts: store.NewHostAdoptionRepository(nil), Declarations: &change.Service{}, Results: app.config.Results}); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		path      string
+		principal bool
+		status    int
+	}{{"/api/v1/hosts", false, 401}, {"/api/v1/hosts?hostId=private-canary", true, 400}, {"/api/v1/hosts", true, 403}} {
+		req := httptest.NewRequest("GET", tc.path, nil)
+		if tc.principal {
+			req = req.WithContext(identity.WithVerifiedPrincipal(req.Context(), identity.Principal{ID: "operator-a", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}))
+		}
+		recorder := httptest.NewRecorder()
+		app.ServeHTTP(recorder, req)
+		if recorder.Code != tc.status || strings.Contains(recorder.Body.String(), "private-canary") {
+			t.Fatalf("%s: %d %s", tc.path, recorder.Code, recorder.Body.String())
+		}
+	}
+}

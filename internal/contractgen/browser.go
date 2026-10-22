@@ -904,6 +904,8 @@ func browserPathParameters(path string) []string {
 
 func browserMethodName(endpoint metadata.EndpointDefinition) string {
 	switch endpoint.ID {
+	case "api.v1.hosts.list":
+		return "listHosts"
 	case "api.v1.host-replacements.create":
 		return "prepareHostReplacement"
 	case "api.v1.host-replacements.get":
@@ -1067,6 +1069,8 @@ func discoveryPublicPlanField(schemaID, name string) bool {
 func renderHostBoundMethod(output *bytes.Buffer, e metadata.EndpointDefinition, path string) bool {
 	var check, prefix, epoch, revision string
 	switch e.ID {
+	case "api.v1.hosts.list":
+		check = "data.hosts.every((host, index) => host.stateRevision <= data.stateRevision && host.recoveryEpoch <= data.recoveryEpoch && (index === 0 || data.hosts[index - 1].hostId < host.hostId))"
 	case "api.v1.hosts.get":
 		check = "data.hostId === path.hostID"
 	case "api.v1.host-observations.get":

@@ -12,7 +12,7 @@ import { ExactPlanLauncher, type ExactPlanKind } from "@/components/exact-plan-l
 import { ReadViewState } from "@/components/read-view-state";
 import { useReadFailure } from "@/components/query-provider";
 import { classifyReadFailure } from "@/lib/read-queries";
-import { useHostAdoption, useHostDiscovery, useHostObservation, useHostPlan, useHostTargetDraft, useManagedHost } from "@/lib/host-lifecycle-queries";
+import { useHostAdoption, useHostDiscovery, useHostObservation, useHostPlan, useHostTargetDraft, useManagedHost, useManagedHosts } from "@/lib/host-lifecycle-queries";
 
 function Field({ name, label, value, number = false }: { name: string; label: string; value?: string; number?: boolean }) {
   return <label className="grid gap-1 text-sm">{label}<Input name={name} required defaultValue={value} type={number ? "number" : "text"} min={number ? 0 : undefined} autoComplete="off" /></label>;
@@ -41,6 +41,7 @@ function HostLifecycleContent({ initialHostId }: { initialHostId: string | null 
   const [plannedDraft, setPlannedDraft] = useState<{ declarationId: string; digest: string; planId: string } | null>(null);
   const planId = plannedDraft && draft && plannedDraft.declarationId === draft.declarationId && plannedDraft.digest === draft.digest ? plannedDraft.planId : null;
   const host = useManagedHost(hostId);
+  const registered = useManagedHosts();
   const observation = useHostObservation(observationId);
   const target = useHostTargetDraft(); const discovery = useHostDiscovery(); const adoption = useHostAdoption(); const planning = useHostPlan();
   const error = target.error ?? discovery.error ?? adoption.error ?? planning.error ?? host.error ?? observation.error;
@@ -48,6 +49,10 @@ function HostLifecycleContent({ initialHostId }: { initialHostId: string | null 
   function saveDraft(data: { declarationId: string; contentDigest: string }, kind: ExactPlanKind) { const next = { declarationId: data.declarationId, digest: data.contentDigest, kind }; selectedDraft.current = next; setDraft(next); setPlannedDraft(null); }
   return <section aria-label="Host lifecycle" className="space-y-4">
     <Card><CardHeader><CardTitle>Registered hosts</CardTitle><CardDescription>Inventory drafts, discovery and registration are separate. Registration does not admit workloads.</CardDescription></CardHeader><CardContent className="space-y-4">
+      {registered.isPending ? <p role="status">Loading registered hosts…</p> : registered.error ? <div role="alert"><p>Registered hosts could not be loaded.</p><Button variant="outline" onClick={() => registered.refetch()} disabled={registered.isFetching}>Refresh registered hosts</Button></div> : <div className="space-y-3">
+        {registered.data.data.hosts.length === 0 ? <p>No registered hosts are visible to your account.</p> : <ul className="space-y-2" aria-label="Registered host list">{registered.data.data.hosts.map(item => <li key={item.hostId} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3"><div><p>{item.hostId}</p><p className="text-sm text-muted-foreground">{item.profileId} · {item.status} · Workload admission requires current checks</p></div><Button variant="outline" onClick={() => { setHostId(item.hostId); if (hostId === item.hostId) host.refetch(); }}>Inspect {item.hostId}</Button></li>)}</ul>}
+        <Button variant="outline" onClick={() => registered.refetch()} disabled={registered.isFetching}>Refresh registered hosts</Button>
+      </div>}
       <form onSubmit={e => { const d = form(e); setHostId(text(d, "hostId")); }} className="flex items-end gap-2"><Field name="hostId" label="Managed host ID" value={hostId ?? ""} /><Button type="submit">Inspect registered host</Button></form>
       {host.data ? <div role="status"><p>Host {host.data.data.hostId}: {host.data.data.status}</p><p>Target {host.data.data.targetId}; profile {host.data.data.profileId}</p><p>Registration is recorded. Admission requires current baseline and role checks.</p></div> : null}
     </CardContent></Card>
