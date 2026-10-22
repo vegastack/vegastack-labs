@@ -271,3 +271,25 @@ The server resolves declaration, plan and run navigation through exact stored wo
 Grant activation updates effective and legacy read permissions atomically, carries unrelated active grants to the next revision, and records the responsible human plus agent/session attribution. The existing run reservation and effect transactions recheck current authority. Source suspension, restore qualification, hardware evidence and workload admission remain their existing separate boundaries. Software fixtures provide no native or fleet qualification.
 
 Grant activation performs a database-only recovery precheck using the existing server-owned online snapshot, isolated restore and integrity/catalog/revision/epoch verification. It retains a mode0600 local `authorization-before-<opaque-digest>.db` alongside the protected control database, records its digest as the grant audit event's before fingerprint, and binds restore verification and the grant transaction to the original capture digest. An occupied preimage path is rejected and retained for diagnosis; it is never adopted as current authority. Missing, stale, corrupt, unsafe or unrestorable preimages deny activation. This local preimage works before managed-node enrollment; it does not satisfy independent/node-loss backup readiness. Keep it private, retain it for any separately authorized control-database recovery, and never copy it over a running database. There is no automatic restore or new backup service. The temporary isolated restore check is removed only after successful verification.
+
+
+## Explicit local-build pilot setup
+
+An operator may now select an unsigned local build for restricted first setup by adding `localBuild` to the protected `LocalSetupRequest`. This is an explicit alternative to signed-release setup, not a fallback when signature verification fails. Omit `localBuild` to retain mandatory signed-release verification.
+
+```json
+"localBuild": {
+  "schema": "vegastack-labs.dev/local-setup-build",
+  "schemaVersion": "1.0.0",
+  "digest": "sha256:<exact executable SHA-256>",
+  "size": 61378459,
+  "os": "linux",
+  "architecture": "amd64"
+}
+```
+
+The digest and example size must be replaced with measurements of the exact executable; supported architectures are `amd64` and `arm64`, with a maximum executable size of 1 GiB. Keep `releaseBuildId` equal to the executable's embedded build ID. In this mode omit all five signed-release fields: `releaseManifestPath`, `releaseManifestDigest`, `releasePolicyPath`, `releasePolicyDigest` and `executableAssetId`. Mixed modes are rejected.
+
+Use the existing `vsk-labs server run --config <protected-profile> --setup <protected-request>` procedure. The same protected request, host/UID binding, initial grants, Slack identity and exact acknowledgement requirements apply. The running executable's size, hash, platform and build ID are checked before and after acknowledgement. The Slack review clearly says **UNSIGNED LOCAL BUILD PILOT**, and the canonical persisted review includes `localBuild`. This proves only that the operator approved these exact bytes; it does not authenticate a publisher or qualify a host.
+
+Local-only initial setup, database preservation and the normal single-writer restart path are unchanged. A subsequent start omits `--setup`; never reinitialize an existing database. This option grants no deployment authority, workload admission or permanent control-role handoff. `release verify` remains a signed-release verifier and does not accept this pilot alternative. Signing automation and deferred native/recovery qualification are outside this pilot.

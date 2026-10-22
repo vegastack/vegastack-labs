@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 22-10-2026 — First setup can use an explicitly approved local build ([#262](https://github.com/vegastack/vegastack-labs/issues/262))
+
+- **What:** The operator can select an unsigned pilot executable by exact hash, size, platform and build ID. Slack labels the choice explicitly and records it with the approved setup.
+- **Why:** Mandatory release signing was blocking the smallest working pilot before a release process existed.
+- **How it went:** Added one optional setup object and reused the existing executable check and approval flow. Signed setup remains the default; deployment is separate.
+- **Changed:** Setup request/review contracts · unsigned pilot disclosure · focused mismatch tests.
+- **Decisions:** Operator approved a local-build pilot; no signing service, workload admission or deferred qualification was added.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/262-local-build-pilot
+
 ## 22-10-2026 — Registered machines appear without looking up their IDs ([#259](https://github.com/vegastack/vegastack-labs/issues/259))
 
 - **What:** The existing Nodes page automatically lists the machines the signed-in operator may read. Each entry opens its registration details and existing admission checks.

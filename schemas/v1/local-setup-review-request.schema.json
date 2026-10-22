@@ -1,5 +1,53 @@
 {
   "$defs": {
+    "local-setup-build": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "enum": [
+            "amd64",
+            "arm64"
+          ],
+          "type": "string"
+        },
+        "digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "os": {
+          "enum": [
+            "linux"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/local-setup-build"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "size": {
+          "maximum": 1073741824,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "digest",
+        "size",
+        "os",
+        "architecture"
+      ],
+      "type": "object"
+    },
     "local-setup-effective-grant": {
       "additionalProperties": false,
       "properties": {
@@ -154,6 +202,16 @@
       "minItems": 1,
       "type": "array"
     },
+    "localBuild": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/local-setup-build"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "profileSha256": {
       "pattern": "^sha256:[a-f0-9]{64}$",
       "type": "string"
@@ -215,11 +273,6 @@
     "initialAdministratorUid",
     "profileSha256",
     "databasePath",
-    "releaseManifestPath",
-    "releaseManifestDigest",
-    "releasePolicyPath",
-    "releasePolicyDigest",
-    "executableAssetId",
     "releaseBuildId",
     "expiresAt",
     "requestNonceDigest",

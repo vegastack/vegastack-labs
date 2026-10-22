@@ -59,6 +59,13 @@ func validateInitialSetup(setup InitialSetup, now time.Time) error {
 		return invalid()
 	}
 	r := review.Request
+	if r.LocalBuild == nil {
+		if r.ReleaseManifestPath == "" || r.ReleaseManifestDigest == "" || r.ReleasePolicyPath == "" || r.ReleasePolicyDigest == "" || r.ExecutableAssetID == "" {
+			return invalid()
+		}
+	} else if r.ReleaseManifestPath != "" || r.ReleaseManifestDigest != "" || r.ReleasePolicyPath != "" || r.ReleasePolicyDigest != "" || r.ExecutableAssetID != "" {
+		return invalid()
+	}
 	a := setup.Approval
 	binding := review.Acknowledgement
 	if a.Method != binding.Method || !identity.ValidPrincipal(identity.Principal{ID: a.HumanID, Kind: identity.PrincipalHuman, Method: a.Method}) {

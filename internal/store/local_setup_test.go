@@ -184,3 +184,31 @@ func TestLocalSetupNeutralAcknowledgementBinding(t *testing.T) {
 		t.Fatal("unknown identity method accepted")
 	}
 }
+
+func TestLocalSetupPilotReviewModes(t *testing.T) {
+	now := time.Now().UTC()
+	for _, mode := range []string{"pilot", "missing-signed", "mixed"} {
+		t.Run(mode, func(t *testing.T) {
+			s := setupFixture(t, "/tmp/control.db", 501, now)
+			var r InitialSetupReview
+			if err := json.Unmarshal(s.ReviewJSON, &r); err != nil {
+				t.Fatal(err)
+			}
+			r.Request.ReleaseManifestPath, r.Request.ReleaseManifestDigest = "", ""
+			r.Request.ReleasePolicyPath, r.Request.ReleasePolicyDigest, r.Request.ExecutableAssetID = "", "", ""
+			if mode != "missing-signed" {
+				r.Request.LocalBuild = &generated.LocalSetupBuild{Schema: "vegastack-labs.dev/local-setup-build", SchemaVersion: "1.0.0", Digest: initialSetupDigest([]byte("pilot")), Size: 5, OS: "linux", Architecture: "amd64"}
+			}
+			if mode == "mixed" {
+				r.Request.ReleasePolicyPath = "/policy.json"
+			}
+			s.ReviewJSON, _ = json.Marshal(r)
+			s.ReviewDigest = initialSetupDigest(s.ReviewJSON)
+			s.Approval.ReviewDigest = s.ReviewDigest
+			err := validateInitialSetup(s, now)
+			if (err == nil) != (mode == "pilot") {
+				t.Fatalf("unexpected result: %v", err)
+			}
+		})
+	}
+}

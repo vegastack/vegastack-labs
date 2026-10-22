@@ -620,3 +620,30 @@ func TestLocalSetupConcurrentOneWinner(t *testing.T) {
 		t.Fatal("winning authority missing exact setup digest", err)
 	}
 }
+
+func TestLocalSetupPilotProtectedReview(t *testing.T) {
+	f := newSetupAcceptance(t)
+	pilot, artifact := pilotSetupReview()
+	f.request.LocalBuild = pilot.request.LocalBuild
+	f.request.ReleaseManifestPath, f.request.ReleaseManifestDigest = "", ""
+	f.request.ReleasePolicyPath, f.request.ReleasePolicyDigest, f.request.ExecutableAssetID = "", "", ""
+	writeProtectedJSON(t, f.setupPath, f.request)
+	review, err := loadLocalSetup(context.Background(), f.setupPath, f.configPath, uint32(os.Geteuid()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(review.readable, "UNSIGNED LOCAL BUILD PILOT") {
+		t.Fatal("approval does not disclose unsigned build")
+	}
+	if !bytes.Contains(review.canonical, []byte(f.request.LocalBuild.Digest)) {
+		t.Fatal("approval is not bound to executable digest")
+	}
+	if err := verifyLocalSetupRelease(context.Background(), review, "build-123", Platform{OS: "linux", Architecture: "amd64"}, func() (io.ReadCloser, error) { return io.NopCloser(bytes.NewReader(artifact)), nil }); err != nil {
+		t.Fatal(err)
+	}
+	f.request.LocalBuild.Digest = "sha256:" + strings.Repeat("0", 64)
+	writeProtectedJSON(t, f.setupPath, f.request)
+	if review.recheck(context.Background(), uint32(os.Geteuid())) == nil {
+		t.Fatal("changed pilot input accepted after review")
+	}
+}
