@@ -481,6 +481,13 @@
           "github.com/vegastack/vegastack-labs/internal/qualification"
         ],
         "mutationBoundaryDigest": "sha256:2fc7d12613bebeefdcc902c7a32939491b02ac9f84a453af98abc88271413dab"
+      },
+      {
+        "id": "console-issue259-v1",
+        "issue": 259,
+        "commands": [],
+        "imports": [],
+        "mutationBoundaryDigest": "sha256:5225bad1b34b81aa497b2d0036569e0202b092c9169aea8d98bea8dd2b2cd32d"
       }
     ]
   },
