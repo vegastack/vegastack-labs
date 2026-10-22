@@ -50,7 +50,16 @@ func validateLocalSetupRequest(request generated.LocalSetupRequest, now time.Tim
 	if len(request.RequestNonce) < 32 || strings.TrimSpace(request.RequestNonce) != request.RequestNonce {
 		return setupFailure(generated.ErrorCodeInputInvalid)
 	}
-	for _, path := range []string{request.DatabasePath, request.ReleaseManifestPath, request.ReleasePolicyPath} {
+	paths := []string{request.DatabasePath}
+	if request.LocalBuild == nil {
+		if request.ReleaseManifestDigest == "" || request.ReleasePolicyDigest == "" || request.ExecutableAssetID == "" {
+			return setupFailure(generated.ErrorCodeInputInvalid)
+		}
+		paths = append(paths, request.ReleaseManifestPath, request.ReleasePolicyPath)
+	} else if request.ReleaseManifestPath != "" || request.ReleaseManifestDigest != "" || request.ReleasePolicyPath != "" || request.ReleasePolicyDigest != "" || request.ExecutableAssetID != "" {
+		return setupFailure(generated.ErrorCodeInputInvalid)
+	}
+	for _, path := range paths {
 		if !filepath.IsAbs(path) || filepath.Clean(path) != path || path == string(filepath.Separator) {
 			return setupFailure(generated.ErrorCodeInputInvalid)
 		}
@@ -143,6 +152,9 @@ func loadLocalSetup(ctx context.Context, setupPath, profilePath string, uid uint
 	}
 	out.frozen = map[string]string{setupPath: setupSHA256(raw), profilePath: setupSHA256(profileRaw), slackPath: setupSHA256(slackRaw)}
 	for path, digest := range map[string]string{out.request.ReleaseManifestPath: out.request.ReleaseManifestDigest, out.request.ReleasePolicyPath: out.request.ReleasePolicyDigest} {
+		if out.request.LocalBuild != nil {
+			continue
+		}
 		value, e := readLocalSetupProtected(ctx, path, uid, 1<<20)
 		if e != nil {
 			return out, e
@@ -176,6 +188,9 @@ func loadLocalSetup(ctx context.Context, setupPath, profilePath string, uid uint
 		return out, setupFailure(generated.ErrorCodeInputInvalid)
 	}
 	out.readable = fmt.Sprintf("Initialize this local control service only. No host admission or recovery qualification.\nSlack mapping: externalScopeId = workspace; externalSubjectId = user; deliveryTargetId = channel.\nReview digest: %s\n%s", out.digest, pretty.String())
+	if out.request.LocalBuild != nil {
+		out.readable = "UNSIGNED LOCAL BUILD PILOT. Executable hash checked; publisher identity is not verified. No signed-release or host qualification claim.\n" + out.readable
+	}
 	if len(out.readable) > maxLocalSetupBytes {
 		return out, setupFailure(generated.ErrorCodeInputInvalid)
 	}

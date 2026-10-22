@@ -231,6 +231,7 @@ const (
 	SchemaIDLinuxRoleResources                     = "vegastack-labs.dev/linux-role-resources"
 	SchemaIDLocalPrincipalBinding                  = "vegastack-labs.dev/local-principal-binding"
 	SchemaIDLocalRetentionLockCatalog              = "vegastack-labs.dev/local-retention-lock-catalog"
+	SchemaIDLocalSetupBuild                        = "vegastack-labs.dev/local-setup-build"
 	SchemaIDLocalSetupEffectiveGrant               = "vegastack-labs.dev/local-setup-effective-grant"
 	SchemaIDLocalSetupReadGrant                    = "vegastack-labs.dev/local-setup-read-grant"
 	SchemaIDLocalSetupRequest                      = "vegastack-labs.dev/local-setup-request"
@@ -3198,6 +3199,15 @@ type LocalRetentionLockCatalog struct {
 	Locks                []BackupRetentionLock `json:"locks"`
 }
 
+type LocalSetupBuild struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	Digest        string `json:"digest"`
+	Size          int64  `json:"size"`
+	OS            string `json:"os"`
+	Architecture  string `json:"architecture"`
+}
+
 type LocalSetupEffectiveGrant struct {
 	Schema        string `json:"schema"`
 	SchemaVersion string `json:"schemaVersion"`
@@ -3221,6 +3231,7 @@ type LocalSetupReadGrant struct {
 type LocalSetupRequest struct {
 	Schema                  string                     `json:"schema"`
 	SchemaVersion           string                     `json:"schemaVersion"`
+	LocalBuild              *LocalSetupBuild           `json:"localBuild,omitempty"`
 	SetupID                 string                     `json:"setupId"`
 	HostIdentityDigest      string                     `json:"hostIdentityDigest"`
 	InitialHumanID          string                     `json:"initialHumanId"`
@@ -3228,11 +3239,11 @@ type LocalSetupRequest struct {
 	InitialAdministratorUID int64                      `json:"initialAdministratorUid"`
 	ProfileSHA256           string                     `json:"profileSha256"`
 	DatabasePath            string                     `json:"databasePath"`
-	ReleaseManifestPath     string                     `json:"releaseManifestPath"`
-	ReleaseManifestDigest   string                     `json:"releaseManifestDigest"`
-	ReleasePolicyPath       string                     `json:"releasePolicyPath"`
-	ReleasePolicyDigest     string                     `json:"releasePolicyDigest"`
-	ExecutableAssetID       string                     `json:"executableAssetId"`
+	ReleaseManifestPath     string                     `json:"releaseManifestPath,omitempty"`
+	ReleaseManifestDigest   string                     `json:"releaseManifestDigest,omitempty"`
+	ReleasePolicyPath       string                     `json:"releasePolicyPath,omitempty"`
+	ReleasePolicyDigest     string                     `json:"releasePolicyDigest,omitempty"`
+	ExecutableAssetID       string                     `json:"executableAssetId,omitempty"`
 	ReleaseBuildID          string                     `json:"releaseBuildId"`
 	ExpiresAt               string                     `json:"expiresAt"`
 	RequestNonce            string                     `json:"requestNonce"`
@@ -3243,6 +3254,7 @@ type LocalSetupRequest struct {
 type LocalSetupReviewRequest struct {
 	Schema                  string                     `json:"schema"`
 	SchemaVersion           string                     `json:"schemaVersion"`
+	LocalBuild              *LocalSetupBuild           `json:"localBuild,omitempty"`
 	SetupID                 string                     `json:"setupId"`
 	HostIdentityDigest      string                     `json:"hostIdentityDigest"`
 	InitialHumanID          string                     `json:"initialHumanId"`
@@ -3250,11 +3262,11 @@ type LocalSetupReviewRequest struct {
 	InitialAdministratorUID int64                      `json:"initialAdministratorUid"`
 	ProfileSHA256           string                     `json:"profileSha256"`
 	DatabasePath            string                     `json:"databasePath"`
-	ReleaseManifestPath     string                     `json:"releaseManifestPath"`
-	ReleaseManifestDigest   string                     `json:"releaseManifestDigest"`
-	ReleasePolicyPath       string                     `json:"releasePolicyPath"`
-	ReleasePolicyDigest     string                     `json:"releasePolicyDigest"`
-	ExecutableAssetID       string                     `json:"executableAssetId"`
+	ReleaseManifestPath     string                     `json:"releaseManifestPath,omitempty"`
+	ReleaseManifestDigest   string                     `json:"releaseManifestDigest,omitempty"`
+	ReleasePolicyPath       string                     `json:"releasePolicyPath,omitempty"`
+	ReleasePolicyDigest     string                     `json:"releasePolicyDigest,omitempty"`
+	ExecutableAssetID       string                     `json:"executableAssetId,omitempty"`
 	ReleaseBuildID          string                     `json:"releaseBuildId"`
 	ExpiresAt               string                     `json:"expiresAt"`
 	RequestNonceDigest      string                     `json:"requestNonceDigest"`

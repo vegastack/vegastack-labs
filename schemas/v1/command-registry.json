@@ -6255,6 +6255,11 @@
       "artifactPath": "schemas/v1/local-retention-lock-catalog.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/local-setup-build",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/local-setup-build.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/local-setup-effective-grant",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/local-setup-effective-grant.schema.json"

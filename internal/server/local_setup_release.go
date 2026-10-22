@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"io"
 
 	"github.com/vegastack/vegastack-labs/internal/generated"
@@ -18,6 +19,13 @@ func verifyLocalSetupRelease(ctx context.Context, review localSetupReview, build
 	}
 	if openExecutable == nil || buildID == "" || buildID != review.request.ReleaseBuildID {
 		return setupFailure(generated.ErrorCodeIntegrityFailure)
+	}
+	if local := review.request.LocalBuild; local != nil {
+		raw, err := json.Marshal(local)
+		if err != nil || generated.ValidateContractJSON("vegastack-labs.dev/local-setup-build", raw, generated.ContractExact) != nil || local.OS != platform.OS || local.Architecture != platform.Architecture || review.request.ReleaseManifestPath != "" || review.request.ReleaseManifestDigest != "" || review.request.ReleasePolicyPath != "" || review.request.ReleasePolicyDigest != "" || review.request.ExecutableAssetID != "" {
+			return setupFailure(generated.ErrorCodeIntegrityFailure)
+		}
+		return verifySetupExecutable(ctx, local.Size, local.Digest, openExecutable)
 	}
 	manifest, err := release.LoadManifest(ctx, review.request.ReleaseManifestPath)
 	if err != nil {
@@ -56,7 +64,11 @@ func verifyLocalSetupRelease(ctx context.Context, review localSetupReview, build
 	if asset.AssetID != selected.ID || asset.OS != selected.OS || asset.Architecture != selected.Architecture || asset.Size != selected.Size || asset.Digest != selected.Digest || asset.Status != "verified" {
 		return setupFailure(generated.ErrorCodeIntegrityFailure)
 	}
-	if err = ctx.Err(); err != nil {
+	return verifySetupExecutable(ctx, selected.Size, selected.Digest, openExecutable)
+}
+
+func verifySetupExecutable(ctx context.Context, size int64, expectedDigest string, openExecutable func() (io.ReadCloser, error)) (resultErr error) {
+	if err := ctx.Err(); err != nil {
 		return err
 	}
 	executable, err := openExecutable()
@@ -72,8 +84,8 @@ func verifyLocalSetupRelease(ctx context.Context, review localSetupReview, build
 		}
 	}()
 	digest := sha256.New()
-	count, err := io.Copy(digest, io.LimitReader(localSetupExecutableReader{ctx: ctx, Reader: executable}, selected.Size+1))
-	if err != nil || count != selected.Size || "sha256:"+hex.EncodeToString(digest.Sum(nil)) != selected.Digest {
+	count, err := io.Copy(digest, io.LimitReader(localSetupExecutableReader{ctx: ctx, Reader: executable}, size+1))
+	if err != nil || count != size || "sha256:"+hex.EncodeToString(digest.Sum(nil)) != expectedDigest {
 		return setupFailure(generated.ErrorCodeIntegrityFailure)
 	}
 	return ctx.Err()

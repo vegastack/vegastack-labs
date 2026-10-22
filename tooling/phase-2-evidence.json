@@ -488,6 +488,13 @@
         "commands": [],
         "imports": [],
         "mutationBoundaryDigest": "sha256:5225bad1b34b81aa497b2d0036569e0202b092c9169aea8d98bea8dd2b2cd32d"
+      },
+      {
+        "id": "pilot-issue262-v1",
+        "issue": 262,
+        "commands": [],
+        "imports": [],
+        "mutationBoundaryDigest": "sha256:a714fbc89cd92a62de77cc1e8935d3e910c68eb8cbb04063813cd0ed9689bd0a"
       }
     ]
   },
