@@ -1,5 +1,18 @@
 # Phase 6 — Host lifecycle and control-plane bootstrap
 
+## Accepted delivery and deferrals — 22-10-2026
+
+The operator accepted closure of the working Linux delivery with the deferrals below and authorized this closeout on 22-10-2026. This supersedes earlier requirements to finish all Linux/native/Mac work before administrative Phase 6 closure. Historical scope and procedures below remain for future qualification; they are not the active closeout checklist.
+
+Delivered: merged Linux lifecycle and CLI/Console workflows; historical 61-obligation software acceptance on its recorded source; the SSH discovery correction in [PR258](https://github.com/vegastack/vegastack-labs/pull/258); and successful verified registration of four disposable Linux guests on 19-10-2026. Cleanup passed and guest files and the registered controller database were preserved. The sanitized registration evidence is recorded on [#234](https://github.com/vegastack/vegastack-labs/issues/234#issuecomment-6096943529). These observations do not qualify physical fleet machines.
+
+Accepted deferrals: remaining native baseline/role qualification, advanced recovery/replacement qualification, Mac mini/iMac implementation and qualification, native report-reader follow-ups, and full supported-matrix/workload admission. Keep [#227](https://github.com/vegastack/vegastack-labs/issues/227) deferred; do not mark deferred work implemented. Existing runtime gates and proof requirements remain unchanged and must report their actual pending status.
+
+**Project closeout means working Linux delivery completed with accepted deferrals. It does not mean native/full-v1 acceptance, workload admission, release or live deployment.** The existing Console does not yet automatically list registered hosts; [#259](https://github.com/vegastack/vegastack-labs/issues/259) owns that next bounded product change. No permanent controller or pilot node has been selected. Nodes04/05 remain excluded.
+
+No further native run, broad historical suite or additional review-agent round is required for this documentation closeout. New host/provider operations still need their own current scoped authority. Earlier test windows confer no present authorization.
+
+
 ## Working first — simplicity mandate
 
 Operator update on 09-10-2026: finish all remaining Linux Phase 6 work without repeatedly reducing its scope. The instruction “do not simplify any thing … finish all the remaining phase 6” supersedes the earlier suspension for further simplification; “without over complicating … then plan and implement” preserves a small architecture. Restore outstanding Linux duties from reduced closed issues into their named owners and acceptance coverage. Mac/iMac remain explicitly deferred within v1.
