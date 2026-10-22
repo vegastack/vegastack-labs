@@ -186,7 +186,7 @@ func TestLocalSetupNeutralAcknowledgementBinding(t *testing.T) {
 }
 
 func TestLocalSetupPilotReviewModes(t *testing.T) {
-	now := time.Now().UTC()
+	now := time.Now().UTC().Truncate(time.Second)
 	for _, mode := range []string{"pilot", "missing-signed", "mixed"} {
 		t.Run(mode, func(t *testing.T) {
 			s := setupFixture(t, "/tmp/control.db", 501, now)
