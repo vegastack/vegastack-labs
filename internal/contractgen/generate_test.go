@@ -351,6 +351,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/local-setup-read-grant.schema.json",
 		"schemas/v1/local-setup-request.schema.json",
 		"schemas/v1/local-setup-review-request.schema.json",
+		"schemas/v1/managed-host-list.schema.json",
 		"schemas/v1/managed-host.schema.json",
 		"schemas/v1/native-action-negative-observation.schema.json",
 		"schemas/v1/native-action-protocol-witness.schema.json",

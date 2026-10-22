@@ -211,6 +211,67 @@ func readManagedHost(row discoveryRow, id string) (generated.ManagedHost, error)
 	}
 	return h, err
 }
+
+// List exposes only registrations covered by the caller's current exact read
+// grants. It reads no managed machine and never interprets registration as admission.
+func (r *HostAdoptionRepository) List(ctx context.Context) (generated.ManagedHostList, error) {
+	value := generated.ManagedHostList{Schema: generated.SchemaIDManagedHostList, SchemaVersion: "1.0.0", Hosts: []generated.ManagedHost{}}
+	principal, ok := identity.PrincipalFromContext(ctx)
+	if !ok || !identity.ValidPrincipal(principal) {
+		return value, adoptionError(generated.ErrorCodeAuthenticationRequired)
+	}
+	if r == nil || r.store == nil {
+		return value, adoptionError(generated.ErrorCodeAuthorizationDenied)
+	}
+	err := r.store.Read(ctx, func(tx ReadTx) error {
+		var active int
+		if err := tx.queryRow(ctx, `SELECT COUNT(*) FROM effective_authorization_principals WHERE principal_id=? AND principal_kind=? AND status='active'`, principal.ID, string(identity.EffectivePrincipalKind(principal))).Scan(&active); err != nil {
+			return err
+		}
+		if active != 1 {
+			return adoptionError(generated.ErrorCodeAuthorizationDenied)
+		}
+		if err := tx.queryRow(ctx, `SELECT state_revision,recovery_epoch FROM system_meta WHERE id=1`).Scan(&value.StateRevision, &value.RecoveryEpoch); err != nil {
+			return err
+		}
+		rows, err := tx.query(ctx, `SELECT h.host_id FROM managed_hosts h WHERE EXISTS (SELECT 1 FROM effective_authorization_principals p JOIN effective_authorization_grants g ON g.principal_id=p.principal_id AND g.grant_revision=p.grant_revision WHERE p.principal_id=? AND p.principal_kind=? AND p.status='active' AND g.status='active' AND g.action='read' AND g.capability='host.read' AND g.resource_kind='host' AND g.resource_id=h.host_id) ORDER BY h.host_id LIMIT 1001`, principal.ID, string(identity.EffectivePrincipalKind(principal)))
+		if err != nil {
+			return err
+		}
+		ids := []string{}
+		for rows.Next() {
+			var id string
+			if err := rows.Scan(&id); err != nil {
+				rows.Close()
+				return err
+			}
+			ids = append(ids, id)
+			if len(ids) > 1000 {
+				rows.Close()
+				return adoptionError(generated.ErrorCodePrerequisiteBlocked)
+			}
+		}
+		err = rows.Err()
+		rows.Close()
+		if err != nil {
+			return err
+		}
+		row := func(q string, args ...any) *sql.Row { return tx.queryRow(ctx, q, args...) }
+		for _, id := range ids {
+			host, err := readManagedHost(row, id)
+			if err != nil {
+				return err
+			}
+			host.RoleFoundation, err = readRoleFoundation(ctx, tx, id, host.RecoveryEpoch)
+			if err != nil {
+				return err
+			}
+			value.Hosts = append(value.Hosts, host)
+		}
+		return nil
+	})
+	return value, err
+}
 func (r *HostAdoptionRepository) Get(ctx context.Context, id string) (generated.ManagedHost, error) {
 	var h generated.ManagedHost
 	err := r.store.Read(ctx, func(tx ReadTx) error {

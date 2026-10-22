@@ -576,6 +576,19 @@
       ]
     },
     {
+      "id": "api.v1.hosts.list",
+      "method": "GET",
+      "path": "/api/v1/hosts",
+      "availability": "available",
+      "ownerPhase": "6",
+      "dataSchema": "vegastack-labs.dev/managed-host-list",
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
+    },
+    {
       "id": "api.v1.inventory-diffs.create",
       "method": "POST",
       "path": "/api/v1/inventory-diffs",

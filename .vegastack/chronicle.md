@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 22-10-2026 — Registered machines appear without looking up their IDs ([#259](https://github.com/vegastack/vegastack-labs/issues/259))
+
+- **What:** The existing Nodes page automatically lists the machines the signed-in operator may read. Each entry opens its registration details and existing admission checks.
+- **Why:** Registration worked, but the operator still needed to know a host ID to see the result in the Console.
+- **How it went:** Reused the server-owned registration records and generated browser client. Focused tests cover current grants, revocation, empty/error states and selecting a host.
+- **Changed:** Registered-host collection API · automatic Nodes list · explicit refresh · existing manual inspection retained.
+- **Decisions:** Registration remains separate from workload admission. Deployment and physical-host selection remain pending.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/259-registered-host-list
+
 ## 16-10-2026 — Existing gate plans have explicit policy risk ([#228](https://github.com/vegastack/vegastack-labs/issues/228))
 
 - **What:** The closed authorization classifier recognizes profile binding and evidence apply/supersede/revoke at the planner's existing destructive risk.

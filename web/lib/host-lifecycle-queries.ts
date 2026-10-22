@@ -7,9 +7,13 @@ import { planFromView } from "@/lib/change-queries";
 
 export const hostClient = createHostClient((input, init) => fetch(input, init));
 export const hostKeys = {
+  list: ["read", "hosts", "list"] as const,
   host: (id: string | null) => ["read", "hosts", "host", id] as const,
   observation: (id: string | null) => ["read", "hosts", "observation", id] as const,
 };
+export function useManagedHosts() {
+  return useQuery({ queryKey: hostKeys.list, queryFn: ({ signal }) => hostClient.listHosts({ signal }), retry: false });
+}
 export function useManagedHost(id: string | null) {
   return useQuery({ queryKey: hostKeys.host(id), enabled: Boolean(id), queryFn: ({ signal }) => hostClient.getHosts({ hostID: id! }, { signal }), retry: false });
 }

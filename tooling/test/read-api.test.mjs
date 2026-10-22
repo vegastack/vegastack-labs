@@ -182,7 +182,7 @@ test("the reviewed discovery routes remain exact", async (t) => {
 test("the reviewed #222 registration routes remain closed and exact", async (t) => {
   const registry = JSON.parse(await readFile(path.join(process.cwd(), "schemas/v1/endpoint-registry.json"), "utf8"));
   assert.equal((await verifyReadAPI()).status, "pass");
-  for (const id of ["api.v1.host-adoptions.draft", "api.v1.hosts.get"]) {
+  for (const id of ["api.v1.host-adoptions.draft", "api.v1.hosts.get", "api.v1.hosts.list"]) {
     for (const mutation of ["remove", "method", "path", "dataSchema", "audiences", "extra"]) {
       const copy = structuredClone(registry);
       const endpoint = copy.endpoints.find((value) => value.id === id);

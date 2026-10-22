@@ -22,6 +22,7 @@
 // api.v1.host-replacements.create
 // api.v1.host-replacements.get
 // api.v1.hosts.get
+// api.v1.hosts.list
 // api.v1.inventory-draft-aliases.get
 // api.v1.inventory-draft-aliases.list
 // api.v1.inventory-draft-assets.get
@@ -1430,6 +1431,14 @@ export interface ManagedHost {
   readonly "profileId": string;
   readonly "identityClass": "physical" | "qualified-virtual";
   readonly "status": "adopted-unadmitted";
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
+}
+
+export interface ManagedHostList {
+  readonly "schema": "vegastack-labs.dev/managed-host-list";
+  readonly "schemaVersion": "1.0.0";
+  readonly "hosts": ReadonlyArray<ManagedHost>;
   readonly "stateRevision": number;
   readonly "recoveryEpoch": number;
 }
@@ -10556,6 +10565,51 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/managed-host-list",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/managed-host-list"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "hosts",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/managed-host",
+        "maxItems": 1000
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/native-controller-identity",
     "fields": [
       {
@@ -13448,6 +13502,10 @@ function decodeManagedHost(value: unknown): ManagedHost {
   return decodeSchema("vegastack-labs.dev/managed-host", value) as unknown as ManagedHost;
 }
 
+function decodeManagedHostList(value: unknown): ManagedHostList {
+  return decodeSchema("vegastack-labs.dev/managed-host-list", value) as unknown as ManagedHostList;
+}
+
 function decodeNativeControllerIdentity(value: unknown): NativeControllerIdentity {
   return decodeSchema("vegastack-labs.dev/native-controller-identity", value) as unknown as NativeControllerIdentity;
 }
@@ -13827,6 +13885,7 @@ export type ReadClient = {
   readonly getHostObservation: (path: { readonly observationID: string }, options?: RequestOptions) => Promise<ReadResult<HostObservation>>;
   readonly getHostReplacement: (path: { readonly replacementId: string }, options?: RequestOptions) => Promise<ReadResult<HostReplacementState>>;
   readonly getHosts: (path: { readonly hostID: string }, options?: RequestOptions) => Promise<ReadResult<ManagedHost>>;
+  readonly listHosts: (options?: RequestOptions) => Promise<ReadResult<ManagedHostList>>;
   readonly getInventoryDraftAlias: (path: { readonly draftId: string; readonly revision: number; readonly recordId: string }, options?: RequestOptions) => Promise<ReadResult<ApiInventoryAliasData>>;
   readonly listInventoryDraftAliases: (path: { readonly draftId: string; readonly revision: number }, query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<ApiInventoryAliasListData>>;
   readonly getInventoryDraftAsset: (path: { readonly draftId: string; readonly revision: number; readonly recordId: string }, options?: RequestOptions) => Promise<ReadResult<ApiInventoryAssetData>>;
@@ -13910,6 +13969,13 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
       const result = await performRead(fetchTransport, "/api/v1/hosts/" + encodePathString(path.hostID, "hostID") + "", options, operation, decodeManagedHost);
       const data = result.data;
       requireHostBinding(data.hostId === path.hostID && data.stateRevision <= result.stateRevision && data.recoveryEpoch === result.recoveryEpoch, operation);
+      return result;
+    },
+    async listHosts(options = {}) {
+      const operation = "api.v1.hosts.list";
+      const result = await performRead(fetchTransport, "/api/v1/hosts", options, operation, decodeManagedHostList);
+      const data = result.data;
+      requireHostBinding(data.hosts.every((host, index) => host.stateRevision <= data.stateRevision && host.recoveryEpoch <= data.recoveryEpoch && (index === 0 || data.hosts[index - 1].hostId < host.hostId)) && data.stateRevision === result.stateRevision && data.recoveryEpoch === result.recoveryEpoch, operation);
       return result;
     },
     async getInventoryDraftAlias(path, options = {}) {
@@ -14190,6 +14256,7 @@ export type HostClient = {
   readonly prepareHostReplacement: (request: HostReplacementRequest, options?: RequestOptions) => Promise<ReadResult<HostReplacementSubmission>>;
   readonly getHostReplacement: (path: { readonly replacementId: string }, options?: RequestOptions) => Promise<ReadResult<HostReplacementState>>;
   readonly getHosts: (path: { readonly hostID: string }, options?: RequestOptions) => Promise<ReadResult<ManagedHost>>;
+  readonly listHosts: (options?: RequestOptions) => Promise<ReadResult<ManagedHostList>>;
 };
 
 export function createHostClient(fetchTransport: FetchTransport): HostClient {
@@ -14267,6 +14334,13 @@ export function createHostClient(fetchTransport: FetchTransport): HostClient {
       const result = await performRead(fetchTransport, "/api/v1/hosts/" + encodePathString(path.hostID, "hostID") + "", options, operation, decodeManagedHost);
       const data = result.data;
       requireHostBinding(data.hostId === path.hostID && data.stateRevision <= result.stateRevision && data.recoveryEpoch === result.recoveryEpoch, operation);
+      return result;
+    },
+    async listHosts(options = {}) {
+      const operation = "api.v1.hosts.list";
+      const result = await performRead(fetchTransport, "/api/v1/hosts", options, operation, decodeManagedHostList);
+      const data = result.data;
+      requireHostBinding(data.hosts.every((host, index) => host.stateRevision <= data.stateRevision && host.recoveryEpoch <= data.recoveryEpoch && (index === 0 || data.hosts[index - 1].hostId < host.hostId)) && data.stateRevision === result.stateRevision && data.recoveryEpoch === result.recoveryEpoch, operation);
       return result;
     },
   };

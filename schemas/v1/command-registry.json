@@ -6280,6 +6280,11 @@
       "artifactPath": "schemas/v1/managed-host.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/managed-host-list",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/managed-host-list.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/native-action-negative-observation",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/native-action-negative-observation.schema.json"
