@@ -24,7 +24,7 @@ func validateGrantBatchPrincipal(row discoveryRow, in generated.AuthorizationGra
 	if in.LifecycleAction == "resume" {
 		want = "suspended"
 	}
-	if err != nil || (status != want && !(in.LifecycleAction == "offboard" && status == "suspended")) || readStatus != status || revision != in.ExpectedGrantRevision || ((in.LifecycleAction != "" || in.DeviceAction != "") && kind != "human") {
+	if err != nil || (status != want && !(in.LifecycleAction == "offboard" && status == "suspended")) || readStatus != status || revision != in.ExpectedGrantRevision || ((in.LifecycleAction != "" || in.DeviceAction != "" || in.IdentityBinding != nil) && kind != "human") {
 		return actionError(generated.ErrorCodePlanStale)
 	}
 	if in.LifecycleAction == "suspend" || in.LifecycleAction == "offboard" {

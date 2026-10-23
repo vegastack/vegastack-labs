@@ -352,6 +352,7 @@ export interface AuthorizationGrantBatchRequest {
   readonly "deviceId"?: string;
   readonly "expectedDeviceRevision"?: number;
   readonly "principalId": string;
+  readonly "identityBinding"?: BrowserIdentityBindingChange | null;
   readonly "lifecycleAction"?: "onboard" | "suspend" | "resume" | "offboard";
   readonly "expectedGrantRevision": number;
   readonly "expectedDeclarationRevision": number;
@@ -501,6 +502,16 @@ export interface BrowserDeclarationRevision {
   readonly "operations": ReadonlyArray<BrowserDeclarationOperation>;
   readonly "createdAt": string;
   readonly "extensions": ReadonlyArray<ContractExtension>;
+}
+
+export interface BrowserIdentityBindingChange {
+  readonly "schema": "vegastack-labs.dev/browser-identity-binding-change";
+  readonly "schemaVersion": "1.0.0";
+  readonly "action": "bind" | "revoke";
+  readonly "method": "cloudflare-access";
+  readonly "issuer": string;
+  readonly "subject": string;
+  readonly "audiences": ReadonlyArray<string>;
 }
 
 export interface BrowserRecoveryPoint {
@@ -3594,6 +3605,14 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
       },
       {
+        "name": "identityBinding",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "omitEmpty": true,
+        "ref": "vegastack-labs.dev/browser-identity-binding-change"
+      },
+      {
         "name": "lifecycleAction",
         "kind": "string",
         "required": false,
@@ -4575,6 +4594,74 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "nullable": false,
         "itemRef": "vegastack-labs.dev/contract-extension",
         "maxItems": 64
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/browser-identity-binding-change",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/browser-identity-binding-change"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "action",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "bind",
+          "revoke"
+        ]
+      },
+      {
+        "name": "method",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "cloudflare-access"
+        ]
+      },
+      {
+        "name": "issuer",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 2048
+      },
+      {
+        "name": "subject",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 512
+      },
+      {
+        "name": "audiences",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "minItems": 1,
+        "maxItems": 16,
+        "uniqueItems": true
       }
     ]
   },
@@ -13276,6 +13363,10 @@ function decodeBrowserDeclarationOperation(value: unknown): BrowserDeclarationOp
 
 function decodeBrowserDeclarationRevision(value: unknown): BrowserDeclarationRevision {
   return decodeSchema("vegastack-labs.dev/browser-declaration-revision", value) as unknown as BrowserDeclarationRevision;
+}
+
+function decodeBrowserIdentityBindingChange(value: unknown): BrowserIdentityBindingChange {
+  return decodeSchema("vegastack-labs.dev/browser-identity-binding-change", value) as unknown as BrowserIdentityBindingChange;
 }
 
 function decodeBrowserRecoveryPoint(value: unknown): BrowserRecoveryPoint {

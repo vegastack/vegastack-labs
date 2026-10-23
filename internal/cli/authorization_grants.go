@@ -37,6 +37,13 @@ func (app *App) runGrantBatchDraft(ctx context.Context, mode outputMode, p parse
 	if mode == outputJSON {
 		return writeRemoteJSON(app.stdout, r.Raw, r.ExitCode)
 	}
+	if b := input.IdentityBinding; b != nil {
+		_, err = fmt.Fprintf(app.stdout, "Browser identity %s for %s drafted\nDeclaration: %s (revision %d)\nMapping changes only after exact-plan acknowledgement and apply. No permissions are granted.\n", b.Action, input.PrincipalID, r.Data.DeclarationID, r.Data.Revision)
+		if err != nil {
+			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+		}
+		return 0
+	}
 	if input.DeviceAction != "" {
 		_, err = fmt.Fprintf(app.stdout, "Device %s: %s for %s drafted\nDeclaration: %s (revision %d)\nAccess changes only after exact-plan acknowledgement and apply.\n", input.DeviceAction, input.DeviceID, input.PrincipalID, r.Data.DeclarationID, r.Data.Revision)
 		if err != nil {

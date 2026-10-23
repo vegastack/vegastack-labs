@@ -236,6 +236,9 @@ func secureAPIEqual(left, right string) bool {
 func approvalReviewText(plan generated.Plan, readable string) string {
 	var b strings.Builder
 	if batch := plan.AuthorizationGrantBatch; batch != nil {
+		if binding := batch.IdentityBinding; binding != nil {
+			fmt.Fprintf(&b, "Browser identity %s for %s\nMethod: %s\nIssuer: %s\nSubject: %s\nAudiences: %s\nThis changes only the exact local browser identity mapping and grants no permissions. Revocation ends sessions for this binding only.\n\n", binding.Action, batch.PrincipalID, binding.Method, binding.Issuer, binding.Subject, strings.Join(binding.Audiences, ", "))
+		}
 		if batch.DeviceAction != "" {
 			fmt.Fprintf(&b, "Device %s: %s for human %s (expected device revision %d)\n\nRequests grant no access. Approval permits only existing owner grants. Revocation denies future controller requests attributed to this device; it does not delete OS/provider credentials or revoke unattributed browser sessions.\n\n", batch.DeviceAction, batch.DeviceID, batch.PrincipalID, batch.ExpectedDeviceRevision)
 		}

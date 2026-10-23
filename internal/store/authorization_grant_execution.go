@@ -54,6 +54,9 @@ func (r *GrantBatchRepository) Apply(ctx context.Context, in GrantBatchApply) (s
 		if e := r.verifyGrantPreimage(ctx, preimage, before); e != nil {
 			return e
 		}
+		if batch.IdentityBinding != nil {
+			return applyBrowserIdentityBinding(ctx, tx, *batch, r.store.config.Clock().UTC().Format(time.RFC3339))
+		}
 		if batch.DeviceAction != "" {
 			return applyDeviceLifecycle(ctx, tx, *batch, r.store.config.Clock().UTC().Format(time.RFC3339))
 		}
@@ -284,8 +287,15 @@ func (r *GrantBatchRepository) Verify(ctx context.Context, planID, runID, digest
 		if b.DeviceAction != "" {
 			return verifyDeviceLifecycle(func(q string, a ...any) *sql.Row { return tx.queryRow(ctx, q, a...) }, *b)
 		}
-		if tx.queryRow(ctx, `SELECT grant_revision FROM effective_authorization_principals WHERE principal_id=?`, b.PrincipalID).Scan(&revision) != nil || revision != b.ExpectedGrantRevision+1 {
+		expectedRevision := b.ExpectedGrantRevision + 1
+		if b.IdentityBinding != nil {
+			expectedRevision = b.ExpectedGrantRevision
+		}
+		if tx.queryRow(ctx, `SELECT grant_revision FROM effective_authorization_principals WHERE principal_id=?`, b.PrincipalID).Scan(&revision) != nil || revision != expectedRevision {
 			return actionError(generated.ErrorCodeStateConflict)
+		}
+		if b.IdentityBinding != nil {
+			return verifyBrowserIdentityBinding(func(q string, a ...any) *sql.Row { return tx.queryRow(ctx, q, a...) }, *b)
 		}
 		if b.LifecycleAction != "" {
 			expected := "active"

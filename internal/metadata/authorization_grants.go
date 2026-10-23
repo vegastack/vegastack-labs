@@ -4,6 +4,11 @@ const authorizationGrantBatchRequestID = "vegastack-labs.dev/authorization-grant
 
 func authorizationGrantSchemas() []SchemaDefinition {
 	return []SchemaDefinition{
+		phase5Schema("vegastack-labs.dev/browser-identity-binding-change",
+			phase5Enum("action", "Action", "bind", "revoke"), phase5Enum("method", "Method", "cloudflare-access"),
+			FieldDefinition{JSONName: "issuer", GoName: "Issuer", Kind: ValueString, Required: true, MinLength: intPointer(1), MaxLength: intPointer(2048)},
+			FieldDefinition{JSONName: "subject", GoName: "Subject", Kind: ValueString, Required: true, MinLength: intPointer(1), MaxLength: intPointer(512)},
+			FieldDefinition{JSONName: "audiences", GoName: "Audiences", Kind: ValueArray, Required: true, ItemKind: ValueString, MinItems: intPointer(1), MaxItems: intPointer(16), UniqueItems: true}),
 		phase5Schema("vegastack-labs.dev/authorization-grant-change",
 			phase5ID("grantId", "GrantID"), phase5Enum("change", "Change", "add", "revoke"),
 			phase5Enum("roleId", "RoleID", "reader", "author", "maintainer", "infrastructure-admin", "control-plane-admin"),
@@ -14,7 +19,7 @@ func authorizationGrantSchemas() []SchemaDefinition {
 			FieldDefinition{JSONName: "deviceAction", GoName: "DeviceAction", Kind: ValueString, OmitEmpty: true, Enum: []string{"request", "approve", "revoke"}},
 			FieldDefinition{JSONName: "deviceId", GoName: "DeviceID", Kind: ValueString, OmitEmpty: true, Pattern: `^[a-z][a-z0-9._:-]{0,127}$`},
 			FieldDefinition{JSONName: "expectedDeviceRevision", GoName: "ExpectedDeviceRevision", Kind: ValueInteger, OmitEmpty: true, Minimum: int64Pointer(0)},
-			phase5ID("principalId", "PrincipalID"), FieldDefinition{JSONName: "lifecycleAction", GoName: "LifecycleAction", Kind: ValueString, OmitEmpty: true, Enum: []string{"onboard", "suspend", "resume", "offboard"}}, phase5Nonnegative("expectedGrantRevision", "ExpectedGrantRevision"),
+			phase5ID("principalId", "PrincipalID"), replacementOptionalRef("identityBinding", "IdentityBinding", "vegastack-labs.dev/browser-identity-binding-change"), FieldDefinition{JSONName: "lifecycleAction", GoName: "LifecycleAction", Kind: ValueString, OmitEmpty: true, Enum: []string{"onboard", "suspend", "resume", "offboard"}}, phase5Nonnegative("expectedGrantRevision", "ExpectedGrantRevision"),
 			phase5Nonnegative("expectedDeclarationRevision", "ExpectedDeclarationRevision"),
 			phase5Nonnegative("expectedStateRevision", "ExpectedStateRevision"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 			phase5ID("idempotencyKey", "IdempotencyKey"), phase5Digest("reasonDigest", "ReasonDigest"),

@@ -22,8 +22,16 @@ func ValidateAuthorizationGrantBatch(in generated.AuthorizationGrantBatchRequest
 	if err != nil || generated.ValidateContractJSON("vegastack-labs.dev/authorization-grant-batch-request", raw, generated.ContractExact) != nil {
 		return actionError(generated.ErrorCodeInputInvalid)
 	}
-	if in.DeviceAction == "" && in.LifecycleAction == "" && (len(in.Changes) == 0 || in.ExpectedGrantRevision == 0) || in.LifecycleAction != "" && (len(in.Changes) != 0 || (in.LifecycleAction == "onboard") != (in.ExpectedGrantRevision == 0)) {
+	if in.IdentityBinding == nil && in.DeviceAction == "" && in.LifecycleAction == "" && (len(in.Changes) == 0 || in.ExpectedGrantRevision == 0) || in.LifecycleAction != "" && (len(in.Changes) != 0 || (in.LifecycleAction == "onboard") != (in.ExpectedGrantRevision == 0)) {
 		return actionError(generated.ErrorCodeInputInvalid)
+	}
+	if in.IdentityBinding != nil {
+		if in.DeviceAction != "" || in.DeviceID != "" || in.ExpectedDeviceRevision != 0 || in.LifecycleAction != "" || len(in.Changes) != 0 || in.ExpectedGrantRevision == 0 {
+			return actionError(generated.ErrorCodeInputInvalid)
+		}
+		if _, err := BrowserIdentityBindingDigest(*in.IdentityBinding); err != nil {
+			return err
+		}
 	}
 	if in.DeviceAction != "" {
 		if in.LifecycleAction != "" || len(in.Changes) != 0 || in.DeviceID == "" || in.ExpectedGrantRevision <= 0 || (in.DeviceAction == "request") != (in.ExpectedDeviceRevision == 0) {
@@ -110,12 +118,20 @@ func (r *GrantBatchRepository) Stage(ctx context.Context, in generated.Authoriza
 		return out, err
 	}
 	copy := in
+	if in.IdentityBinding != nil {
+		b := *in.IdentityBinding
+		b.Audiences = append([]string{}, b.Audiences...)
+		copy.IdentityBinding = &b
+	}
 	copy.Changes = append([]generated.AuthorizationGrantChange{}, in.Changes...)
 	out = generated.DeclarationRevisionRequest{Schema: generated.SchemaIDDeclarationRevisionRequest, SchemaVersion: "1.0.0", DeclarationID: GrantBatchDeclarationID(in.PrincipalID), DeclarationType: "authorization.policy", ExpectedRevision: in.ExpectedDeclarationRevision + 1, ExpectedStateRevision: in.ExpectedStateRevision, RecoveryEpoch: in.RecoveryEpoch, ReasonDigest: in.ReasonDigest, Extensions: []generated.ContractExtension{}, AuthorizationGrantBatch: &copy, Operations: []generated.DeclarationOperation{{Sequence: 1, OperationID: "grant-batch", OperationType: GrantBatchOperation, AdapterID: GrantBatchAdapter, TargetID: in.PrincipalID, InputDigest: hostaction.Digest(in), ArtifactDigest: hostaction.Digest("core.authorization@1"), Idempotent: false}}}
 	return out, nil
 }
 
 func validateGrantBatchChanges(row discoveryRow, in generated.AuthorizationGrantBatchRequest) error {
+	if err := validateBrowserIdentityBinding(row, in); err != nil {
+		return err
+	}
 	for _, g := range in.Changes {
 		var principal, role, action, capability, kind, resource, status string
 		var branch sql.NullString
