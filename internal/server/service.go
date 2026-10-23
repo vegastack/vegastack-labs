@@ -21,7 +21,7 @@ import (
 const productionIntegrityInterval = 250 * time.Millisecond
 const remoteRequestLimit = 64
 
-var forbiddenIdentityHeaders = []string{"X-VSK-Principal", "X-VSK-UID", "X-VSK-GID", "X-VSK-Role"}
+var forbiddenIdentityHeaders = []string{"X-VSK-Device", "X-VSK-Principal", "X-VSK-UID", "X-VSK-GID", "X-VSK-Role"}
 
 type Config struct {
 	Profile           serverconfig.Profile
@@ -32,6 +32,9 @@ type Config struct {
 	IntegrityInterval time.Duration
 	Remote            *RemoteConfig
 	Background        BackgroundService
+	DeviceAuthorizer  interface {
+		AuthorizeDevice(context.Context, identity.Principal) error
+	}
 }
 
 type RemoteConfig struct {
@@ -343,6 +346,10 @@ func (service *service) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 			}
 		}
 		service.writeFailure(writer, request, http.StatusUnauthorized, generated.ErrorCodeAuthenticationRequired, "local-peer", false)
+		return
+	}
+	if principal.DeviceID != "" && (service.config.DeviceAuthorizer == nil || service.config.DeviceAuthorizer.AuthorizeDevice(request.Context(), principal) != nil) {
+		service.writeFailure(writer, request, http.StatusForbidden, generated.ErrorCodeAuthorizationDenied, "device-access", false)
 		return
 	}
 	if request.URL.Path != "/api/v1/health" {

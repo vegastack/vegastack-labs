@@ -121,6 +121,21 @@ Available commands:
     --file <path>          Read one exact material-free database operation request JSON file.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  device approve           Draft one device access change; exact-plan acknowledgement and apply remain separate.
+    --config <path>        Read one protected server profile.
+    --file <path>          Read one grant batch JSON file (32 KiB max).
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  device request           Draft one device access change; exact-plan acknowledgement and apply remain separate.
+    --config <path>        Read one protected server profile.
+    --file <path>          Read one grant batch JSON file (32 KiB max).
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  device revoke            Draft one device access change; exact-plan acknowledgement and apply remain separate.
+    --config <path>        Read one protected server profile.
+    --file <path>          Read one grant batch JSON file (32 KiB max).
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   gate check               Check one gate for one subject without changing state.
     --config <path>        Read one protected server profile.
     --gate-id <id>         Select one generated gate ID.
@@ -371,9 +386,6 @@ Planned commands (unavailable):
   control-plane plan       Create an immutable control-plane change plan.
   control-plane recover    Create an inert control-plane recovery change.
   control-plane verify     Verify control-plane health and authority.
-  device approve           Create an inert device-approval change.
-  device request           Create an inert device-enrollment request.
-  device revoke            Create an inert device-revocation change.
   doctor                   Diagnose one actionable platform invariant at a time.
   maintenance plan         Create an immutable maintenance plan.
   maintenance run          Run one authorized maintenance plan.

@@ -11,6 +11,9 @@ func authorizationGrantSchemas() []SchemaDefinition {
 			phase5ID("capability", "Capability"), phase5ID("resourceKind", "ResourceKind"), phase5ID("resourceId", "ResourceID"),
 			phase5Enum("branch", "Branch", "", "human")),
 		phase5Schema(authorizationGrantBatchRequestID,
+			FieldDefinition{JSONName: "deviceAction", GoName: "DeviceAction", Kind: ValueString, OmitEmpty: true, Enum: []string{"request", "approve", "revoke"}},
+			FieldDefinition{JSONName: "deviceId", GoName: "DeviceID", Kind: ValueString, OmitEmpty: true, Pattern: `^[a-z][a-z0-9._:-]{0,127}$`},
+			FieldDefinition{JSONName: "expectedDeviceRevision", GoName: "ExpectedDeviceRevision", Kind: ValueInteger, OmitEmpty: true, Minimum: int64Pointer(0)},
 			phase5ID("principalId", "PrincipalID"), FieldDefinition{JSONName: "lifecycleAction", GoName: "LifecycleAction", Kind: ValueString, OmitEmpty: true, Enum: []string{"onboard", "suspend", "resume", "offboard"}}, phase5Nonnegative("expectedGrantRevision", "ExpectedGrantRevision"),
 			phase5Nonnegative("expectedDeclarationRevision", "ExpectedDeclarationRevision"),
 			phase5Nonnegative("expectedStateRevision", "ExpectedStateRevision"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
@@ -42,4 +45,17 @@ func userLifecycleCommands() []CommandDefinition {
 		commands = append(commands, c)
 	}
 	return commands
+}
+
+func deviceLifecycleCommands() []CommandDefinition {
+	var out []CommandDefinition
+	for _, action := range []string{"request", "approve", "revoke"} {
+		c := authorizationGrantCommand()
+		c.Path = []string{"device", action}
+		c.OwnerPhase = "7"
+		c.Summary = "Draft one device access change; exact-plan acknowledgement and apply remain separate."
+		c.Examples = []ExampleDefinition{{Summary: "Draft one explicit device and human binding.", Arguments: []string{"device", action, "--config", "fixture/server-profile.json", "--file", "fixture/device.json", "--output", "json"}}}
+		out = append(out, c)
+	}
+	return out
 }

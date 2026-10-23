@@ -309,6 +309,45 @@ Owner phase: `5` · risk: `mutation` · availability: `available`
 
 - Verify control-database integrity or backup content.: `vsk-labs database verify --config fixture/server-profile.json --file fixture/database-verify-request.json --output json`
 
+### `vsk-labs device approve`
+
+Draft one device access change; exact-plan acknowledgement and apply remain separate.
+
+Owner phase: `7` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected server profile.
+- `--file <path>` — Read one grant batch JSON file (32 KiB max).
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Draft one explicit device and human binding.: `vsk-labs device approve --config fixture/server-profile.json --file fixture/device.json --output json`
+
+### `vsk-labs device request`
+
+Draft one device access change; exact-plan acknowledgement and apply remain separate.
+
+Owner phase: `7` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected server profile.
+- `--file <path>` — Read one grant batch JSON file (32 KiB max).
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Draft one explicit device and human binding.: `vsk-labs device request --config fixture/server-profile.json --file fixture/device.json --output json`
+
+### `vsk-labs device revoke`
+
+Draft one device access change; exact-plan acknowledgement and apply remain separate.
+
+Owner phase: `7` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected server profile.
+- `--file <path>` — Read one grant batch JSON file (32 KiB max).
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Draft one explicit device and human binding.: `vsk-labs device revoke --config fixture/server-profile.json --file fixture/device.json --output json`
+
 ### `vsk-labs gate check`
 
 Check one gate for one subject without changing state.
@@ -968,24 +1007,6 @@ Owner phase: `6` · risk: `unassigned` · availability: `planned`
 Verify control-plane health and authority.
 
 Owner phase: `6` · risk: `unassigned` · availability: `planned`
-
-### `vsk-labs device approve`
-
-Create an inert device-approval change.
-
-Owner phase: `7` · risk: `unassigned` · availability: `planned`
-
-### `vsk-labs device request`
-
-Create an inert device-enrollment request.
-
-Owner phase: `7` · risk: `unassigned` · availability: `planned`
-
-### `vsk-labs device revoke`
-
-Create an inert device-revocation change.
-
-Owner phase: `7` · risk: `unassigned` · availability: `planned`
 
 ### `vsk-labs doctor`
 

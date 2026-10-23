@@ -325,7 +325,7 @@ func apiSSHCommandAvailable(arguments []string) bool {
 
 func (handler apiSSHHandler) bindingMatches() bool {
 	for _, binding := range handler.profile.PrincipalBindings {
-		if binding.UID == handler.peerUID && binding.PrincipalID == handler.verifiedPrincipalID {
+		if binding.UID == handler.peerUID && binding.PrincipalID == handler.verifiedPrincipalID && (binding.DeviceID == "" || binding.DeviceID == handler.verifiedDeviceID) {
 			return true
 		}
 	}

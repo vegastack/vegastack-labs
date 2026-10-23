@@ -164,7 +164,7 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 		if binding.UID < 0 || binding.UID > int64(^uint32(0)) {
 			return invalid()
 		}
-		bindings[index] = principal.Binding{UID: uint32(binding.UID), PrincipalID: binding.PrincipalID}
+		bindings[index] = principal.Binding{UID: uint32(binding.UID), PrincipalID: binding.PrincipalID, DeviceID: binding.DeviceID}
 	}
 	if _, err := principal.NewLocalPrincipalResolver(bindings); err != nil {
 		return invalid()

@@ -21,9 +21,10 @@ const (
 )
 
 type Principal struct {
-	ID     string
-	Method string
-	Kind   Kind
+	ID       string
+	Method   string
+	Kind     Kind
+	DeviceID string
 }
 
 type LocalPeer struct {
@@ -35,6 +36,7 @@ type LocalPeer struct {
 type Binding struct {
 	UID         uint32
 	PrincipalID string
+	DeviceID    string
 }
 
 type LocalPrincipalResolver interface {
@@ -42,7 +44,7 @@ type LocalPrincipalResolver interface {
 }
 
 type localPrincipalResolver struct {
-	byUID map[uint32]string
+	byUID map[uint32]Binding
 }
 
 var principalIDPattern = regexp.MustCompile(`^[a-z][a-z0-9._:-]{0,127}$`)
@@ -51,10 +53,10 @@ func NewLocalPrincipalResolver(bindings []Binding) (LocalPrincipalResolver, erro
 	if len(bindings) == 0 || len(bindings) > 256 {
 		return nil, failure.New("INPUT_INVALID", "principal-bindings", false)
 	}
-	byUID := make(map[uint32]string, len(bindings))
+	byUID := make(map[uint32]Binding, len(bindings))
 	principals := make(map[string]struct{}, len(bindings))
 	for _, binding := range bindings {
-		if !ValidID(binding.PrincipalID) {
+		if !ValidID(binding.PrincipalID) || binding.DeviceID != "" && !ValidID(binding.DeviceID) {
 			return nil, failure.New("INPUT_INVALID", "principal-bindings", false)
 		}
 		if _, exists := byUID[binding.UID]; exists {
@@ -63,7 +65,7 @@ func NewLocalPrincipalResolver(bindings []Binding) (LocalPrincipalResolver, erro
 		if _, exists := principals[binding.PrincipalID]; exists {
 			return nil, failure.New("INPUT_INVALID", "principal-bindings", false)
 		}
-		byUID[binding.UID] = binding.PrincipalID
+		byUID[binding.UID] = binding
 		principals[binding.PrincipalID] = struct{}{}
 	}
 	return &localPrincipalResolver{byUID: byUID}, nil
@@ -73,11 +75,11 @@ func (resolver *localPrincipalResolver) ResolveLocalPeer(ctx context.Context, pe
 	if err := ctx.Err(); err != nil {
 		return Principal{}, failure.New("INTERRUPTED", "local-peer", false)
 	}
-	principalID, ok := resolver.byUID[peer.UID]
+	binding, ok := resolver.byUID[peer.UID]
 	if !ok {
 		return Principal{}, failure.New("AUTHENTICATION_REQUIRED", "local-peer", false)
 	}
-	return Principal{ID: principalID, Method: LocalOSPeerMethod}, nil
+	return Principal{ID: binding.PrincipalID, Method: LocalOSPeerMethod, DeviceID: binding.DeviceID}, nil
 }
 
 func ValidID(id string) bool {

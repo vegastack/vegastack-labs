@@ -75,7 +75,7 @@ func BindingDigest(value VerifiedIdentity) (string, error) {
 }
 
 func ValidPrincipal(principal Principal) bool {
-	if !principalmodel.ValidID(principal.ID) || !ValidPrincipalKind(EffectivePrincipalKind(principal)) {
+	if principal.DeviceID != "" && !principalmodel.ValidID(principal.DeviceID) || !principalmodel.ValidID(principal.ID) || !ValidPrincipalKind(EffectivePrincipalKind(principal)) {
 		return false
 	}
 	switch principal.Method {

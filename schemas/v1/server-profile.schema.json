@@ -3,6 +3,10 @@
     "local-principal-binding": {
       "additionalProperties": false,
       "properties": {
+        "deviceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
         "principalId": {
           "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
           "type": "string"

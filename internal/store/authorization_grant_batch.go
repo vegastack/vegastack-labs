@@ -22,7 +22,14 @@ func ValidateAuthorizationGrantBatch(in generated.AuthorizationGrantBatchRequest
 	if err != nil || generated.ValidateContractJSON("vegastack-labs.dev/authorization-grant-batch-request", raw, generated.ContractExact) != nil {
 		return actionError(generated.ErrorCodeInputInvalid)
 	}
-	if in.LifecycleAction == "" && (len(in.Changes) == 0 || in.ExpectedGrantRevision == 0) || in.LifecycleAction != "" && (len(in.Changes) != 0 || (in.LifecycleAction == "onboard") != (in.ExpectedGrantRevision == 0)) {
+	if in.DeviceAction == "" && in.LifecycleAction == "" && (len(in.Changes) == 0 || in.ExpectedGrantRevision == 0) || in.LifecycleAction != "" && (len(in.Changes) != 0 || (in.LifecycleAction == "onboard") != (in.ExpectedGrantRevision == 0)) {
+		return actionError(generated.ErrorCodeInputInvalid)
+	}
+	if in.DeviceAction != "" {
+		if in.LifecycleAction != "" || len(in.Changes) != 0 || in.DeviceID == "" || in.ExpectedGrantRevision <= 0 || (in.DeviceAction == "request") != (in.ExpectedDeviceRevision == 0) {
+			return actionError(generated.ErrorCodeInputInvalid)
+		}
+	} else if in.DeviceID != "" || in.ExpectedDeviceRevision != 0 {
 		return actionError(generated.ErrorCodeInputInvalid)
 	}
 	ids, scopes := map[string]bool{}, map[string]bool{}

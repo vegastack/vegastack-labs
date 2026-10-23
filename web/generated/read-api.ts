@@ -348,6 +348,9 @@ export interface AuditTarget {
 export interface AuthorizationGrantBatchRequest {
   readonly "schema": "vegastack-labs.dev/authorization-grant-batch-request";
   readonly "schemaVersion": "1.0.0";
+  readonly "deviceAction"?: "request" | "approve" | "revoke";
+  readonly "deviceId"?: string;
+  readonly "expectedDeviceRevision"?: number;
   readonly "principalId": string;
   readonly "lifecycleAction"?: "onboard" | "suspend" | "resume" | "offboard";
   readonly "expectedGrantRevision": number;
@@ -3554,6 +3557,34 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "enum": [
           "1.0.0"
         ]
+      },
+      {
+        "name": "deviceAction",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "enum": [
+          "request",
+          "approve",
+          "revoke"
+        ]
+      },
+      {
+        "name": "deviceId",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "expectedDeviceRevision",
+        "kind": "integer",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "minimum": 0
       },
       {
         "name": "principalId",

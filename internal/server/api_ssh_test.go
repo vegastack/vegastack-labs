@@ -338,6 +338,7 @@ func TestAPISSHAcceptsEveryApprovedPhaseZeroThreeOptionArgumentFixture(t *testin
 			handler.verifiedPrincipalID = testCase.Input.SSHPrincipalID
 			handler.verifiedDeviceID = testCase.Input.DeviceID
 			handler.profile.PrincipalBindings[0].PrincipalID = testCase.Input.SSHPrincipalID
+			handler.profile.PrincipalBindings[0].DeviceID = testCase.Input.DeviceID
 			payload := bytes.Repeat([]byte{'p'}, int(testCase.Input.ActualPayloadBytes))
 			header, err := apissh.NewRequestHeader(testCase.Input.RequestID, testCase.Input.SSHPrincipalID, testCase.Input.DeviceID, testCase.Input.Operation, testCase.Input.Arguments, testCase.Input.RecoveryEpoch, payload)
 			if err != nil {
@@ -529,7 +530,7 @@ func TestAPISSHRejectsNoncanonicalControlResponseAndCorrelatesAcceptedResponse(t
 func newAPISSHTestHandler(recorder *apiSSHRecorder) apiSSHHandler {
 	return apiSSHHandler{
 		build:   result.BuildInfo{ToolVersion: "vsk-labs-test", ReleaseBuildID: "release-test"},
-		profile: serverconfig.Profile{SocketPath: "/run/vsk-labs/control.sock", PrincipalBindings: []principal.Binding{{UID: 1000, PrincipalID: apiSSHPrincipalID}}},
+		profile: serverconfig.Profile{SocketPath: "/run/vsk-labs/control.sock", PrincipalBindings: []principal.Binding{{UID: 1000, PrincipalID: apiSSHPrincipalID, DeviceID: apiSSHDeviceID}}},
 		peerUID: 1000, verifiedPrincipalID: apiSSHPrincipalID, verifiedDeviceID: apiSSHDeviceID, forward: recorder.forward,
 	}
 }
@@ -638,4 +639,20 @@ func loadAPISSHPhase03Fixture(t *testing.T) apiSSHPhase03Fixture {
 		t.Fatal(err)
 	}
 	return fixture
+}
+
+func TestAPISSHLegacyBindingAndConfiguredDeviceMatch(t *testing.T) {
+	h := apiSSHHandler{peerUID: 1000, verifiedPrincipalID: "human-a", verifiedDeviceID: "device-a"}
+	h.profile.PrincipalBindings = []principal.Binding{{UID: 1000, PrincipalID: "human-a"}}
+	if !h.bindingMatches() {
+		t.Fatal("legacy principal-only binding changed")
+	}
+	h.profile.PrincipalBindings[0].DeviceID = "device-other"
+	if h.bindingMatches() {
+		t.Fatal("configured device mismatch accepted")
+	}
+	h.profile.PrincipalBindings[0].DeviceID = "device-a"
+	if !h.bindingMatches() {
+		t.Fatal("exact configured device denied")
+	}
 }

@@ -49,6 +49,11 @@ func (repository *EffectiveAuthorizationRepository) Snapshot(ctx context.Context
 		return snapshot, newStoreError(generated.ErrorCodeAuthorizationDenied, "effective-authorization", false, nil)
 	}
 	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		if p, ok := identity.PrincipalFromContext(ctx); ok && p.ID == principalID {
+			if err := authorizeDeviceRow(func(q string, a ...any) *sql.Row { return tx.queryRow(ctx, q, a...) }, p); err != nil {
+				return err
+			}
+		}
 		if err := tx.queryRow(ctx, `SELECT state_revision,recovery_epoch FROM system_meta WHERE id=1`).Scan(&snapshot.StateRevision, &snapshot.RecoveryEpoch); err != nil {
 			return err
 		}

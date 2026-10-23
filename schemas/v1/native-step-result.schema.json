@@ -518,7 +518,23 @@
           "minItems": 0,
           "type": "array"
         },
+        "deviceAction": {
+          "enum": [
+            "request",
+            "approve",
+            "revoke"
+          ],
+          "type": "string"
+        },
+        "deviceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
         "expectedDeclarationRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "expectedDeviceRevision": {
           "minimum": 0,
           "type": "integer"
         },
