@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 23-10-2026 — Slack approvals explain what the operator is approving ([#263](https://github.com/vegastack/vegastack-labs/issues/263))
+
+- **What:** Both normal approval routes supply server-owned review text. Permission changes list the principal, every grant action, capability, target and role, plus plan identity and expiry.
+- **Why:** The first live permission request displayed only buttons because its review text was never populated.
+- **How it went:** A route regression failed on the missing text, then passed with the fix. Existing exact-plan authorization stays unchanged.
+- **Changed:** API approval presentation and focused route/rendering tests. Historical live cards were separately marked completed or withdrawn; automatic message lifecycle updates remain outside this fix.
+- **Decisions:** Reuse existing plan data and Slack text sections; no service or dependency added.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/263-slack-approval-messages
+
 ## 22-10-2026 — First setup can use an explicitly approved local build ([#262](https://github.com/vegastack/vegastack-labs/issues/262))
 
 - **What:** The operator can select an unsigned pilot executable by exact hash, size, platform and build ID. Slack labels the choice explicitly and records it with the approved setup.

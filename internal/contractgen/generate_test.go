@@ -347,6 +347,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/linux-role-input.schema.json",
 		"schemas/v1/linux-role-resources.schema.json",
 		"schemas/v1/local-retention-lock-catalog.schema.json",
+		"schemas/v1/local-setup-build.schema.json",
 		"schemas/v1/local-setup-effective-grant.schema.json",
 		"schemas/v1/local-setup-read-grant.schema.json",
 		"schemas/v1/local-setup-request.schema.json",

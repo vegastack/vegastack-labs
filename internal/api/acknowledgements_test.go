@@ -43,6 +43,9 @@ func TestAcknowledgementRoutePublishesOnlyExactServerResolvedBinding(t *testing.
 		t.Fatalf("response=%d requests=%d publishes=%d %s", response.Code, service.requests, publisher.calls, response.Body.String())
 	}
 
+	if !strings.Contains(publisher.card.ReviewText, input.PlanID) || !strings.Contains(publisher.card.ReviewText, input.PlanDigest) {
+		t.Fatal("approval has buttons but no bound review text")
+	}
 	tampered := input
 	tampered.PlanDigest = testAPIDigest("b")
 	response = serveAcknowledgementJSON(t, app, tampered)
@@ -84,6 +87,9 @@ func TestBrowserApprovalRequestAndStatusExposeOnlySafeProjection(t *testing.T) {
 	app.ServeHTTP(response, request)
 	if response.Code != http.StatusOK || publisher.calls != 1 || !strings.Contains(response.Body.String(), `"status":"pending"`) {
 		t.Fatalf("request response = %d calls=%d %s", response.Code, publisher.calls, response.Body.String())
+	}
+	if !strings.Contains(publisher.card.ReviewText, reference.PlanID) || !strings.Contains(publisher.card.ReviewText, reference.PlanDigest) {
+		t.Fatal("browser approval missing bound review")
 	}
 	for _, protected := range []string{"humanId", "authorityId", "nonceDigest", "proofDigest", "acknowledgementId", "private-ack-canary", "private-nonce-canary"} {
 		if strings.Contains(response.Body.String(), protected) {
@@ -174,9 +180,26 @@ func (fakeAcknowledgementPublisher) Publish(context.Context, acknowledgement.Req
 	return nil
 }
 
-type recordingAcknowledgementPublisher struct{ calls int }
+type recordingAcknowledgementPublisher struct {
+	calls int
+	card  acknowledgement.RequestCard
+}
 
-func (publisher *recordingAcknowledgementPublisher) Publish(context.Context, acknowledgement.RequestCard) error {
+func (publisher *recordingAcknowledgementPublisher) Publish(_ context.Context, card acknowledgement.RequestCard) error {
+	publisher.card = card
 	publisher.calls++
 	return nil
+}
+
+func TestGrantApprovalReviewExplainsExactPermissions(t *testing.T) {
+	p := generated.Plan{PlanID: "plan-grants", PlanDigest: testAPIDigest("a"), ExpiresAt: "2026-10-23T05:48:03Z", AuthorizationGrantBatch: &generated.AuthorizationGrantBatchRequest{PrincipalID: "omkar", Changes: []generated.AuthorizationGrantChange{{GrantID: "read-node", Change: "add", Action: "read", Capability: "host.read", ResourceKind: "host", ResourceID: "node01", RoleID: "reader"}, {GrantID: "remove-other", Change: "revoke", Action: "execute", Capability: "host.adopt", ResourceKind: "execution-target", ResourceID: "node02", RoleID: "control-plane-admin", Branch: "human"}}}}
+	text := approvalReviewText(p, "must not substitute stale description")
+	for _, want := range []string{"Permission changes for omkar", "does not itself", "add: read", "host.read on host node01", "revoke: execute", "node02", "approval: human", "11:18:03 AM IST", p.PlanDigest} {
+		if !strings.Contains(text, want) {
+			t.Errorf("missing %q", want)
+		}
+	}
+	if strings.Contains(text, "must not substitute") {
+		t.Fatal("used unrelated prose")
+	}
 }
