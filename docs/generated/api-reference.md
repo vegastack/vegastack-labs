@@ -156,6 +156,7 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 - `schema`: `vegastack-labs.dev/authorization-grant-batch-request`
 - `schemaVersion`: `1.0.0`
 - `principalId`
+- `lifecycleAction`: `onboard`, `suspend`, `resume`, `offboard`
 - `expectedGrantRevision`
 - `expectedDeclarationRevision`
 - `expectedStateRevision`

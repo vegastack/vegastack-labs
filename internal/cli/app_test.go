@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -60,6 +61,14 @@ func TestEveryGeneratedCommandHasTruthfulRuntimeBehavior(t *testing.T) {
 			}
 			if commandName(command.Path) == generated.CommandNameAuthorizationGrantsDraft {
 				files.content = []byte(`{"schema":"vegastack-labs.dev/authorization-grant-batch-request","schemaVersion":"1.0.0","principalId":"human-a","expectedGrantRevision":1,"expectedDeclarationRevision":0,"expectedStateRevision":0,"recoveryEpoch":0,"idempotencyKey":"grant-example","reasonDigest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","changes":[{"schema":"vegastack-labs.dev/authorization-grant-change","schemaVersion":"1.0.0","grantId":"host-read","change":"add","roleId":"reader","action":"read","capability":"host.read","resourceKind":"host","resourceId":"host-a","branch":""}]}`)
+			}
+			if command.Path[0] == "user" {
+				action := command.Path[1]
+				revision := 1
+				if action == "onboard" {
+					revision = 0
+				}
+				files.content = []byte(fmt.Sprintf(`{"schema":"vegastack-labs.dev/authorization-grant-batch-request","schemaVersion":"1.0.0","principalId":"human-a","lifecycleAction":%q,"expectedGrantRevision":%d,"expectedDeclarationRevision":0,"expectedStateRevision":0,"recoveryEpoch":0,"idempotencyKey":"user-example","reasonDigest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","changes":[]}`, action, revision))
 			}
 			if commandName(command.Path) == generated.CommandNameSchedulePolicyDraft {
 				files.content, _ = json.Marshal(syntheticScheduledPolicy())

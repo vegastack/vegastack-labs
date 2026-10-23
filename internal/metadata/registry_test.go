@@ -443,7 +443,7 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 		"node discover": false, "node add": false, "node inspect": false, "node role prepare": false, "server prepare": false,
 		"help": false, "release inspect": false, "release verify": false, "server api-ssh": false, "server run": false, "server status": false, "version": false,
 		"status": false, "database status": false, "inventory import": false, "inventory diff": false, "inventory export": false,
-		"plan": false, "authorization grants draft": false,
+		"plan": false, "authorization grants draft": false, "user onboard": false, "user suspend": false, "user resume": false, "user offboard": false,
 		"apply": false, "run inspect": false, "run cancel": false, "run resume": false,
 		"gate list": false, "gate inspect": false, "gate check": false, "gate evidence": false, "gate profile draft": false,
 		"backup policy draft": false, "backup retention-locks draft": false, "backup retirement draft": false, "backup offsite-retirement dry-run": false, "backup offsite-retirement stage": false, "backup status": false, "backup run": false, "backup verify": false, "credential import": false, "credential stage": false, "credential activate": false, "credential rotate": false, "credential revoke": false, "credential recover": false,
@@ -455,7 +455,6 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 	wantPlanned := map[string]string{
 		"doctor": "2", "audit": "5",
 		"node nominate": "6", "node quarantine": "6", "node replace": "6",
-		"user onboard": "7", "user offboard": "7", "user suspend": "7", "user resume": "7",
 		"device request": "7", "device approve": "7", "device revoke": "7",
 		"service plan": "8", "service deploy": "8", "service rollback": "8",
 		"maintenance plan": "10", "maintenance run": "10", "connect": "7",

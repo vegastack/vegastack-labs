@@ -54,6 +54,9 @@ func (r *GrantBatchRepository) Apply(ctx context.Context, in GrantBatchApply) (s
 		if e := r.verifyGrantPreimage(ctx, preimage, before); e != nil {
 			return e
 		}
+		if batch.LifecycleAction != "" {
+			return applyUserLifecycle(ctx, tx, *batch, r.store.config.Clock().UTC().Format(time.RFC3339))
+		}
 		var readRevision int64
 		var readStatus string
 		if row(`SELECT status,grant_revision FROM read_principals WHERE principal_id=?`, batch.PrincipalID).Scan(&readStatus, &readRevision) != nil || readStatus != "active" {
@@ -220,9 +223,12 @@ func validateGrantBatchExecution(ctx context.Context, row discoveryRow, p genera
 		return deny()
 	}
 	var human, kind string
-	var grantRevision int64
+
 	if row(`SELECT a.human_id FROM plan_runs r JOIN acknowledgement_requests a ON a.acknowledgement_id=r.acknowledgement_id JOIN plan_run_steps s ON s.run_id=r.run_id JOIN target_execution_leases l ON l.lease_id=s.active_lease_id WHERE r.run_id=? AND r.plan_id=? AND r.plan_digest=? AND r.status='running' AND r.cancellation_requested=0 AND r.executor_mode='central' AND a.plan_id=r.plan_id AND a.plan_digest=r.plan_digest AND a.status='approved' AND a.consumed_at IS NOT NULL AND a.recovery_epoch=r.recovery_epoch AND s.step_id=? AND s.operation_id=? AND s.operation_type=? AND s.adapter_id=? AND s.target_id=? AND s.input_digest=? AND s.artifact_digest=? AND s.status='running' AND s.effect_state='intent-recorded' AND l.lease_id=? AND l.status='active' AND l.run_id=r.run_id AND l.step_id=s.step_id AND l.target_id=s.target_id AND l.recovery_epoch=r.recovery_epoch AND l.recovery_epoch=? AND l.expires_at>?`, in.RunID, in.PlanID, in.PlanDigest, in.StepID, op.OperationID, op.OperationType, op.AdapterID, op.TargetID, op.InputDigest, op.ArtifactDigest, in.LeaseID, p.Binding.RecoveryEpoch, now.Format(time.RFC3339)).Scan(&human) != nil {
 		return actionError(generated.ErrorCodeApprovalRequired)
+	}
+	if b.LifecycleAction != "" && human == b.PrincipalID {
+		return deny()
 	}
 	if in.Attribution.ResponsibleHumanPrincipalID == nil || *in.Attribution.ResponsibleHumanPrincipalID != human {
 		return deny()
@@ -244,8 +250,11 @@ func validateGrantBatchExecution(ctx context.Context, row discoveryRow, p genera
 	if row(`SELECT COUNT(*) FROM effective_authorization_principals p JOIN effective_authorization_grants g ON g.principal_id=p.principal_id AND g.grant_revision=p.grant_revision WHERE p.principal_id=? AND p.principal_kind='human' AND p.status='active' AND g.status='active' AND g.role_id IN ('control-plane-admin','infrastructure-admin') AND g.action='acknowledge' AND g.branch='human' AND g.capability='plan.acknowledge' AND g.resource_kind='plan-target' AND g.resource_id=?`, human, b.PrincipalID).Scan(&count) != nil || count == 0 {
 		return deny()
 	}
-	if row(`SELECT grant_revision FROM effective_authorization_principals WHERE principal_id=? AND status='active'`, b.PrincipalID).Scan(&grantRevision) != nil || grantRevision != b.ExpectedGrantRevision {
-		return actionError(generated.ErrorCodePlanStale)
+	if b.LifecycleAction != "" && actor.ID == b.PrincipalID {
+		return deny()
+	}
+	if err := validateGrantBatchPrincipal(row, b); err != nil {
+		return err
 	}
 	for _, g := range b.Changes {
 		if row(`SELECT COUNT(*) FROM desired_authorization_grants WHERE desired_grant_id=? AND principal_id=? AND proposed_by_principal_id=? AND role_id=? AND action=? AND capability=? AND resource_kind=? AND resource_id=? AND ifnull(branch,'')=? AND desired_revision=? AND status='draft'`, desiredBatchGrantID(b, g.GrantID), b.PrincipalID, original.CreatedBy, g.RoleID, g.Action, g.Capability, g.ResourceKind, g.ResourceID, g.Branch, b.ExpectedGrantRevision+1).Scan(&count) != nil || count != 1 {
@@ -269,8 +278,23 @@ func (r *GrantBatchRepository) Verify(ctx context.Context, planID, runID, digest
 		if tx.queryRow(ctx, `SELECT COUNT(*) FROM audit_events WHERE event_type='authorization.grants-applied' AND correlation_id=? AND target_id=? AND after_fingerprint=?`, runID, b.PrincipalID, digest).Scan(&n) != nil || n != 1 {
 			return actionError(generated.ErrorCodeIntegrityFailure)
 		}
-		if tx.queryRow(ctx, `SELECT grant_revision FROM effective_authorization_principals WHERE principal_id=? AND status='active'`, b.PrincipalID).Scan(&revision) != nil || revision != b.ExpectedGrantRevision+1 {
+		if tx.queryRow(ctx, `SELECT grant_revision FROM effective_authorization_principals WHERE principal_id=?`, b.PrincipalID).Scan(&revision) != nil || revision != b.ExpectedGrantRevision+1 {
 			return actionError(generated.ErrorCodeStateConflict)
+		}
+		if b.LifecycleAction != "" {
+			expected := "active"
+			if b.LifecycleAction == "suspend" {
+				expected = "suspended"
+			}
+			if b.LifecycleAction == "offboard" {
+				expected = "revoked"
+			}
+			for _, table := range []string{"read_principals", "effective_authorization_principals"} {
+				var status string
+				if tx.queryRow(ctx, `SELECT status FROM `+table+` WHERE principal_id=?`, b.PrincipalID).Scan(&status) != nil || status != expected {
+					return actionError(generated.ErrorCodeIntegrityFailure)
+				}
+			}
 		}
 		for _, g := range b.Changes {
 			var status string

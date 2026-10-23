@@ -48,7 +48,7 @@ func readablePlan(plan generated.Plan) string {
 	}
 	if plan.AuthorizationGrantBatch != nil {
 		raw, _, _ := stateexport.CanonicalJSON(plan.AuthorizationGrantBatch)
-		fmt.Fprintf(&body, "Exact authorization grant changes for existing principal: %s\nEffective only after this plan receives human acknowledgement and executes.\n", raw)
+		fmt.Fprintf(&body, "Exact local authorization and user lifecycle intent: %s\nEffective only after this plan receives human acknowledgement and executes.\n", raw)
 	}
 	if plan.HostAliasClaim != nil {
 		raw, _, _ := stateexport.CanonicalJSON(plan.HostAliasClaim)

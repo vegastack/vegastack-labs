@@ -29,14 +29,14 @@ import (
 )
 
 func TestGrantBatchApprovedAPIFromInitialSetup(t *testing.T) {
-	for _, variant := range []string{"fresh-host-workflow", "atomic-read-sync-failure", "subject-revision-changed", "recovery-epoch-changed", "policy-author-revoked", "acknowledgement-replayed"} {
+	for _, variant := range []string{"fresh-host-workflow", "user-lifecycle", "atomic-read-sync-failure", "subject-revision-changed", "recovery-epoch-changed", "policy-author-revoked", "acknowledgement-replayed"} {
 		t.Run(variant, func(t *testing.T) { testGrantBatchApprovedAPI(t, variant) })
 	}
 }
 
 func testGrantBatchApprovedAPI(t *testing.T, variant string) {
 	failReadSync := variant == "atomic-read-sync-failure"
-	denyBeforeExecution := variant != "fresh-host-workflow" && variant != "acknowledgement-replayed" && !failReadSync
+	denyBeforeExecution := variant != "user-lifecycle" && variant != "fresh-host-workflow" && variant != "acknowledgement-replayed" && !failReadSync
 	now := time.Now().UTC().Truncate(time.Second)
 	clock := func() time.Time { return now }
 	dir := t.TempDir()
@@ -45,16 +45,20 @@ func testGrantBatchApprovedAPI(t *testing.T, variant string) {
 	}
 	digest := hostaction.Digest("synthetic-grant-setup")
 	human := "human-a"
+	policyTarget := human
+	if variant == "user-lifecycle" {
+		policyTarget = "human-b"
+	}
 	db := filepath.Join(dir, "control.db")
-	read := generated.LocalSetupReadGrant{Schema: generated.SchemaIDLocalSetupReadGrant, SchemaVersion: "1.0.0", Capability: "authorization.policy.read", ResourceKind: "authorization-policy", ResourceID: human}
+	read := generated.LocalSetupReadGrant{Schema: generated.SchemaIDLocalSetupReadGrant, SchemaVersion: "1.0.0", Capability: "authorization.policy.read", ResourceKind: "authorization-policy", ResourceID: policyTarget}
 	effective := []generated.LocalSetupEffectiveGrant{}
 	for _, x := range []struct{ id, action, cap, kind, branch string }{{"policy-read", "read", "authorization.policy.read", "authorization-policy", "none"}, {"policy-write", "author", "authorization.policy.write", "authorization-policy", "none"}, {"policy-ack", "acknowledge", "plan.acknowledge", "plan-target", "human"}, {"policy-execute", "execute", "identity.change", "execution-target", "human"}} {
-		effective = append(effective, generated.LocalSetupEffectiveGrant{Schema: generated.SchemaIDLocalSetupEffectiveGrant, SchemaVersion: "1.0.0", GrantID: x.id, RoleID: "control-plane-admin", Action: x.action, Capability: x.cap, ResourceKind: x.kind, ResourceID: human, Branch: x.branch})
+		effective = append(effective, generated.LocalSetupEffectiveGrant{Schema: generated.SchemaIDLocalSetupEffectiveGrant, SchemaVersion: "1.0.0", GrantID: x.id, RoleID: "control-plane-admin", Action: x.action, Capability: x.cap, ResourceKind: x.kind, ResourceID: policyTarget, Branch: x.branch})
 	}
 	request := generated.LocalSetupReviewRequest{Schema: generated.SchemaIDLocalSetupReviewRequest, SchemaVersion: "1.0.0", SetupID: "grant-setup", HostIdentityDigest: digest, InitialHumanID: human, ServiceUID: int64(os.Geteuid()), InitialAdministratorUID: int64(os.Geteuid()), ProfileSHA256: digest, DatabasePath: db, ReleaseManifestPath: "/synthetic/manifest.json", ReleaseManifestDigest: digest, ReleasePolicyPath: "/synthetic/policy.json", ReleasePolicyDigest: digest, ExecutableAssetID: "linux-arm64", ReleaseBuildID: "test", ExpiresAt: now.Add(time.Hour).Format(time.RFC3339Nano), RequestNonceDigest: digest, InitialReadGrants: []generated.LocalSetupReadGrant{read}, InitialEffectiveGrants: effective}
 	review := store.InitialSetupReview{Request: request, RequestDigest: digest, Acknowledgement: store.InitialAcknowledgementBinding{HumanID: human, AuthorityID: "fixture-authority", Method: identity.CloudflareAccessMethod, ProfileDigest: digest, ExternalScopeID: "scope/synthetic", ExternalSubjectID: "synthetic@example.test", DeliveryTargetID: "delivery/synthetic"}}
 	raw, _ := json.Marshal(review)
-	setup := store.InitialSetup{SetupID: request.SetupID, HumanID: human, ReviewJSON: raw, ReviewDigest: hostaction.BytesDigest(raw), RequestDigest: digest, ExpiresAt: now.Add(time.Hour), ReadGrants: []store.InitialReadGrant{{Capability: read.Capability, ResourceKind: read.ResourceKind, ResourceID: human}}}
+	setup := store.InitialSetup{SetupID: request.SetupID, HumanID: human, ReviewJSON: raw, ReviewDigest: hostaction.BytesDigest(raw), RequestDigest: digest, ExpiresAt: now.Add(time.Hour), ReadGrants: []store.InitialReadGrant{{Capability: read.Capability, ResourceKind: read.ResourceKind, ResourceID: policyTarget}}}
 	for _, g := range effective {
 		branch := g.Branch
 		if branch == "none" {
@@ -219,6 +223,28 @@ func testGrantBatchApprovedAPI(t *testing.T, variant string) {
 		if w := serve(http.MethodGet, "/api/v1/runs/"+run.Run.RunID, nil); w.Code != 200 {
 			t.Fatal("run navigation lost after revision rollover", w.Code, w.Body.String())
 		}
+	}
+	if variant == "user-lifecycle" {
+		grantRevision = 0
+		for _, action := range []string{"onboard", "suspend", "resume", "suspend", "offboard"} {
+			rev, e := revisions.CurrentRevision(ctx)
+			if e != nil {
+				t.Fatal(e)
+			}
+			batch := generated.AuthorizationGrantBatchRequest{Schema: generated.SchemaIDAuthorizationGrantBatchRequest, SchemaVersion: "1.0.0", PrincipalID: policyTarget, LifecycleAction: action, ExpectedGrantRevision: grantRevision, ExpectedDeclarationRevision: declarationRevision, ExpectedStateRevision: rev.StateRevision, RecoveryEpoch: rev.RecoveryEpoch, IdempotencyKey: fmt.Sprintf("user-%s-%d", action, grantRevision), ReasonDigest: digest, Changes: []generated.AuthorizationGrantChange{}}
+			var doc generated.DeclarationRevision
+			post("/api/v1/authorization/grant-batches", batch, &doc)
+			applyDraft(doc, fmt.Sprintf("%s-%d", action, grantRevision))
+		}
+		rev, e := revisions.CurrentRevision(ctx)
+		if e != nil {
+			t.Fatal(e)
+		}
+		batch := generated.AuthorizationGrantBatchRequest{Schema: generated.SchemaIDAuthorizationGrantBatchRequest, SchemaVersion: "1.0.0", PrincipalID: policyTarget, LifecycleAction: "resume", ExpectedGrantRevision: grantRevision, ExpectedDeclarationRevision: declarationRevision, ExpectedStateRevision: rev.StateRevision, RecoveryEpoch: rev.RecoveryEpoch, IdempotencyKey: "terminal-resume", ReasonDigest: digest, Changes: []generated.AuthorizationGrantChange{}}
+		if w := serve(http.MethodPost, "/api/v1/authorization/grant-batches", batch); w.Code < 400 {
+			t.Fatal("terminal user resumed", w.Body.String())
+		}
+		return
 	}
 	for _, changeKind := range []string{"add", "revoke"} {
 		rev, err := revisions.CurrentRevision(ctx)

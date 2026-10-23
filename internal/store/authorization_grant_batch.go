@@ -22,6 +22,9 @@ func ValidateAuthorizationGrantBatch(in generated.AuthorizationGrantBatchRequest
 	if err != nil || generated.ValidateContractJSON("vegastack-labs.dev/authorization-grant-batch-request", raw, generated.ContractExact) != nil {
 		return actionError(generated.ErrorCodeInputInvalid)
 	}
+	if in.LifecycleAction == "" && (len(in.Changes) == 0 || in.ExpectedGrantRevision == 0) || in.LifecycleAction != "" && (len(in.Changes) != 0 || (in.LifecycleAction == "onboard") != (in.ExpectedGrantRevision == 0)) {
+		return actionError(generated.ErrorCodeInputInvalid)
+	}
 	ids, scopes := map[string]bool{}, map[string]bool{}
 	for _, g := range in.Changes {
 		target := authorization.Target{Capability: g.Capability, ResourceKind: g.ResourceKind, ResourceID: g.ResourceID}
@@ -84,10 +87,15 @@ func (r *GrantBatchRepository) Stage(ctx context.Context, in generated.Authoriza
 		if _, err := adoptionGrant(ctx, row, in.PrincipalID, "authorization-policy", "author", "authorization.policy.write", true); err != nil {
 			return err
 		}
-		var status string
-		var revision, epoch, state int64
-		if row(`SELECT p.status,p.grant_revision,s.state_revision,s.recovery_epoch FROM effective_authorization_principals p CROSS JOIN system_meta s WHERE p.principal_id=? AND s.id=1 AND EXISTS(SELECT 1 FROM read_principals r WHERE r.principal_id=p.principal_id AND r.status='active')`, in.PrincipalID).Scan(&status, &revision, &state, &epoch) != nil || status != "active" || revision != in.ExpectedGrantRevision || state != in.ExpectedStateRevision || epoch != in.RecoveryEpoch {
+		var epoch, state int64
+		if row(`SELECT state_revision,recovery_epoch FROM system_meta WHERE id=1`).Scan(&state, &epoch) != nil || state != in.ExpectedStateRevision || epoch != in.RecoveryEpoch {
 			return actionError(generated.ErrorCodePlanStale)
+		}
+		if err := validateLifecycleActor(ctx, in); err != nil {
+			return err
+		}
+		if err := validateGrantBatchPrincipal(row, in); err != nil {
+			return err
 		}
 		return validateGrantBatchChanges(row, in)
 	})
@@ -95,7 +103,7 @@ func (r *GrantBatchRepository) Stage(ctx context.Context, in generated.Authoriza
 		return out, err
 	}
 	copy := in
-	copy.Changes = append([]generated.AuthorizationGrantChange(nil), in.Changes...)
+	copy.Changes = append([]generated.AuthorizationGrantChange{}, in.Changes...)
 	out = generated.DeclarationRevisionRequest{Schema: generated.SchemaIDDeclarationRevisionRequest, SchemaVersion: "1.0.0", DeclarationID: GrantBatchDeclarationID(in.PrincipalID), DeclarationType: "authorization.policy", ExpectedRevision: in.ExpectedDeclarationRevision + 1, ExpectedStateRevision: in.ExpectedStateRevision, RecoveryEpoch: in.RecoveryEpoch, ReasonDigest: in.ReasonDigest, Extensions: []generated.ContractExtension{}, AuthorizationGrantBatch: &copy, Operations: []generated.DeclarationOperation{{Sequence: 1, OperationID: "grant-batch", OperationType: GrantBatchOperation, AdapterID: GrantBatchAdapter, TargetID: in.PrincipalID, InputDigest: hostaction.Digest(in), ArtifactDigest: hostaction.Digest("core.authorization@1"), Idempotent: false}}}
 	return out, nil
 }
@@ -137,10 +145,11 @@ func stageGrantBatchRows(ctx context.Context, tx *sql.Tx, in generated.Authoriza
 	if _, err := adoptionGrant(ctx, row, in.PrincipalID, "authorization-policy", "author", "authorization.policy.write", true); err != nil {
 		return err
 	}
-	var status string
-	var revision int64
-	if row(`SELECT status,grant_revision FROM effective_authorization_principals WHERE principal_id=? AND EXISTS(SELECT 1 FROM read_principals r WHERE r.principal_id=effective_authorization_principals.principal_id AND r.status='active')`, in.PrincipalID).Scan(&status, &revision) != nil || status != "active" || revision != in.ExpectedGrantRevision {
-		return actionError(generated.ErrorCodePlanStale)
+	if err := validateLifecycleActor(ctx, in); err != nil {
+		return err
+	}
+	if err := validateGrantBatchPrincipal(row, in); err != nil {
+		return err
 	}
 	if err := validateGrantBatchChanges(row, in); err != nil {
 		return err

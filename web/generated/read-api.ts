@@ -349,6 +349,7 @@ export interface AuthorizationGrantBatchRequest {
   readonly "schema": "vegastack-labs.dev/authorization-grant-batch-request";
   readonly "schemaVersion": "1.0.0";
   readonly "principalId": string;
+  readonly "lifecycleAction"?: "onboard" | "suspend" | "resume" | "offboard";
   readonly "expectedGrantRevision": number;
   readonly "expectedDeclarationRevision": number;
   readonly "expectedStateRevision": number;
@@ -3562,11 +3563,24 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
       },
       {
+        "name": "lifecycleAction",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "enum": [
+          "onboard",
+          "suspend",
+          "resume",
+          "offboard"
+        ]
+      },
+      {
         "name": "expectedGrantRevision",
         "kind": "integer",
         "required": true,
         "nullable": false,
-        "minimum": 1
+        "minimum": 0
       },
       {
         "name": "expectedDeclarationRevision",
@@ -3609,7 +3623,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "itemRef": "vegastack-labs.dev/authorization-grant-change",
-        "minItems": 1,
+        "minItems": 0,
         "maxItems": 32
       }
     ]

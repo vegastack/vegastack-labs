@@ -341,6 +341,26 @@ Available commands:
     --config <path>        Read the protected server profile at this explicit path.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  user offboard            Prepare one local user lifecycle declaration; acknowledgement and apply remain separate.
+    --config <path>        Read one protected server profile.
+    --file <path>          Read one grant batch JSON file (32 KiB max).
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  user onboard             Prepare one local user lifecycle declaration; acknowledgement and apply remain separate.
+    --config <path>        Read one protected server profile.
+    --file <path>          Read one grant batch JSON file (32 KiB max).
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  user resume              Prepare one local user lifecycle declaration; acknowledgement and apply remain separate.
+    --config <path>        Read one protected server profile.
+    --file <path>          Read one grant batch JSON file (32 KiB max).
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  user suspend             Prepare one local user lifecycle declaration; acknowledgement and apply remain separate.
+    --config <path>        Read one protected server profile.
+    --file <path>          Read one grant batch JSON file (32 KiB max).
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   version                  Show the vsk-labs build and contract version.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
@@ -363,7 +383,3 @@ Planned commands (unavailable):
   service deploy           Create an inert service-deployment change.
   service plan             Create an inert service change and request its plan.
   service rollback         Create an inert service-rollback change.
-  user offboard            Create an inert user-offboarding change.
-  user onboard             Create an inert user-onboarding change.
-  user resume              Create an inert user-resumption change.
-  user suspend             Create an inert user-suspension change.

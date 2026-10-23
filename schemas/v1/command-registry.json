@@ -4969,40 +4969,284 @@
         "user",
         "offboard"
       ],
-      "summary": "Create an inert user-offboarding change.",
-      "availability": "planned",
+      "summary": "Prepare one local user lifecycle declaration; acknowledgement and apply remain separate.",
+      "availability": "available",
       "ownerPhase": "7",
-      "risk": "unassigned"
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one grant batch JSON file (32 KiB max).",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/authorization-grant-batch-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/declaration-revision",
+      "examples": [
+        {
+          "summary": "Draft one exact user lifecycle change.",
+          "arguments": [
+            "user",
+            "offboard",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/user.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
         "user",
         "onboard"
       ],
-      "summary": "Create an inert user-onboarding change.",
-      "availability": "planned",
+      "summary": "Prepare one local user lifecycle declaration; acknowledgement and apply remain separate.",
+      "availability": "available",
       "ownerPhase": "7",
-      "risk": "unassigned"
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one grant batch JSON file (32 KiB max).",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/authorization-grant-batch-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/declaration-revision",
+      "examples": [
+        {
+          "summary": "Draft one exact user lifecycle change.",
+          "arguments": [
+            "user",
+            "onboard",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/user.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
         "user",
         "resume"
       ],
-      "summary": "Create an inert user-resumption change.",
-      "availability": "planned",
+      "summary": "Prepare one local user lifecycle declaration; acknowledgement and apply remain separate.",
+      "availability": "available",
       "ownerPhase": "7",
-      "risk": "unassigned"
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one grant batch JSON file (32 KiB max).",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/authorization-grant-batch-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/declaration-revision",
+      "examples": [
+        {
+          "summary": "Draft one exact user lifecycle change.",
+          "arguments": [
+            "user",
+            "resume",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/user.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
         "user",
         "suspend"
       ],
-      "summary": "Create an inert user-suspension change.",
-      "availability": "planned",
+      "summary": "Prepare one local user lifecycle declaration; acknowledgement and apply remain separate.",
+      "availability": "available",
       "ownerPhase": "7",
-      "risk": "unassigned"
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one grant batch JSON file (32 KiB max).",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/authorization-grant-batch-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/declaration-revision",
+      "examples": [
+        {
+          "summary": "Draft one exact user lifecycle change.",
+          "arguments": [
+            "user",
+            "suspend",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/user.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [

@@ -16,6 +16,7 @@ This directory holds VegaStack Labs development planning. Executable work will b
 - [Phase 3 plan](phases/03-secure-read-console-and-operator-access.md): accepted static embedded Console, generated read client, source truth, secure browser sessions, read/status screens, and exact-commit integrated proof.
 - [Phase 4 plan](phases/04-declarations-plans-authorization-execution.md): accepted inert declarations, immutable plans, effective authorization, Slack acknowledgement, durable execution, CLI/Console parity, and exact-commit integrated hostile proof.
 - [Phase 5 plan](phases/05-evidence-secrets-backups-recovery.md): accepted evidence, credential, backup, audit, recovery, scheduling, surface, and 47-scenario hostile proof at exact `main` commit `9a433b43b59030285607435a8326814a311f3687`.
+- [Phase 7 implementation map](phases/07-people-devices-network-access.md): approved user/device development slices, existing browser task, and separate live network prerequisites.
 - [Repository contract](../../AGENTS.md): platform invariants and live-operation authority, which this mandate does not relax.
 - [Specification map](../../README.md#documentation-map): canonical architecture, behavior, safety, and deployment requirements.
 

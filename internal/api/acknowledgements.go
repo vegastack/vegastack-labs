@@ -236,6 +236,9 @@ func secureAPIEqual(left, right string) bool {
 func approvalReviewText(plan generated.Plan, readable string) string {
 	var b strings.Builder
 	if batch := plan.AuthorizationGrantBatch; batch != nil {
+		if batch.LifecycleAction != "" {
+			fmt.Fprintf(&b, "User %s: %s\n\nThis changes only local controller access. Onboard creates no grants; suspend preserves grants and ends current browser sessions; resume requires fresh login; offboard permanently revokes local authority and bindings. External accounts, host accounts and credentials require their own workflows.\n\n", batch.LifecycleAction, batch.PrincipalID)
+		}
 		fmt.Fprintf(&b, "Permission changes for %s\n\nThis changes this account's permissions in the controller. It does not itself inspect, configure or register a host.\n\n", batch.PrincipalID)
 		for _, g := range batch.Changes {
 			fmt.Fprintf(&b, "• %s: %s — %s on %s %s (role: %s", g.Change, g.Action, g.Capability, g.ResourceKind, g.ResourceID, g.RoleID)

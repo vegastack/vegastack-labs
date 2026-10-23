@@ -13,11 +13,11 @@ func TestAuthorizationGrantBatchContractIsBounded(t *testing.T) {
 		}
 		found = true
 		for _, f := range s.Fields {
-			if f.JSONName == "changes" && f.MaxItems != nil && *f.MaxItems == 32 && f.MinItems != nil && *f.MinItems == 1 {
+			if f.JSONName == "changes" && f.MaxItems != nil && *f.MaxItems == 32 && f.MinItems != nil && *f.MinItems == 0 {
 				return
 			}
 		}
-		t.Fatal("grant batch is not bounded to1..32 exact changes")
+		t.Fatal("grant batch is not bounded to0..32 exact changes")
 	}
 	if !found {
 		t.Fatal("fresh setup has no bounded grant-batch contract")
