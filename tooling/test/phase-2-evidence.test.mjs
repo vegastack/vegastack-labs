@@ -18,15 +18,16 @@ test("the original Phase 2 baseline stays immutable while later waves have exact
   assert.equal(manifest.contract.postPhase2MutationBoundaryDigest, "sha256:ec30a4cc9d4a6e5a3fc9817a55a5b0a1697adcae57b950325edd563637d308a8");
   assert.equal(manifest.contract.productionDependencyDigest, "sha256:a9e8788558fa5c3347b5b8464d8d5e4a67dcc9357e5ae07478b606a806f78133");
   assert.equal(manifest.contract.mutationAvailable, false);
-  assert.equal(manifest.contract.reviewedWaves?.length, 46);
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-1), {"id":"pilot-issue262-v1","issue":262,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:a714fbc89cd92a62de77cc1e8935d3e910c68eb8cbb04063813cd0ed9689bd0a"});
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-2), {"id":"console-issue259-v1","issue":259,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:5225bad1b34b81aa497b2d0036569e0202b092c9169aea8d98bea8dd2b2cd32d"});
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-3), {"id":"phase6-issue228-v1","issue":228,"commands":["qualification fixture-peer","qualification inspect","qualification native","qualification step"],"imports":["github.com/vegastack/vegastack-labs/internal/qualification"],"mutationBoundaryDigest":"sha256:2fc7d12613bebeefdcc902c7a32939491b02ac9f84a453af98abc88271413dab"});
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-4), {"id":"phase6-issue247-v1","issue":247,"commands":["authorization grants draft"],"imports":[],"mutationBoundaryDigest":"sha256:388380f58d57e7479aa867d95a016e29d0a560c1d254893f813459b5c9336020"});
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-5), {"id":"phase6-issue239-v1","issue":239,"commands":["node access prepare","node action prepare","node observation inspect","node replacement inspect","node replacement prepare","node target prepare"],"imports":[],"mutationBoundaryDigest":"sha256:abf4f0c3f9291923d94f7d46c4853c0c84b5cfc7e59311d2712f624403e388ad"});
-  assert.equal(manifest.contract.reviewedWaves.at(-6).issue,233);
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-6).commands,[]);
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-6).imports,["github.com/vegastack/vegastack-labs/internal/hostreplacement"]);
+  assert.equal(manifest.contract.reviewedWaves?.length, 47);
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-1), {"id":"slack-review-issue263-v1","issue":263,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:c47ce07befd582a1de6b1d000a27fbe54f6d0ce08714109906a87f6c32b81e5d"});
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-2), {"id":"pilot-issue262-v1","issue":262,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:a714fbc89cd92a62de77cc1e8935d3e910c68eb8cbb04063813cd0ed9689bd0a"});
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-3), {"id":"console-issue259-v1","issue":259,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:5225bad1b34b81aa497b2d0036569e0202b092c9169aea8d98bea8dd2b2cd32d"});
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-4), {"id":"phase6-issue228-v1","issue":228,"commands":["qualification fixture-peer","qualification inspect","qualification native","qualification step"],"imports":["github.com/vegastack/vegastack-labs/internal/qualification"],"mutationBoundaryDigest":"sha256:2fc7d12613bebeefdcc902c7a32939491b02ac9f84a453af98abc88271413dab"});
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-5), {"id":"phase6-issue247-v1","issue":247,"commands":["authorization grants draft"],"imports":[],"mutationBoundaryDigest":"sha256:388380f58d57e7479aa867d95a016e29d0a560c1d254893f813459b5c9336020"});
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-6), {"id":"phase6-issue239-v1","issue":239,"commands":["node access prepare","node action prepare","node observation inspect","node replacement inspect","node replacement prepare","node target prepare"],"imports":[],"mutationBoundaryDigest":"sha256:abf4f0c3f9291923d94f7d46c4853c0c84b5cfc7e59311d2712f624403e388ad"});
+  assert.equal(manifest.contract.reviewedWaves.at(-7).issue,233);
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-7).commands,[]);
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-7).imports,["github.com/vegastack/vegastack-labs/internal/hostreplacement"]);
   assert.equal(manifest.contract.reviewedWaves.find(wave => wave.issue === 230).mutationBoundaryDigest, "sha256:e677914fa02a8774fe05cfaa4ca272ad9cfc03b3b9a96c4e08b5b105ec2945e2");
   assert.deepEqual(manifest.contract.reviewedWaves.at(-17), {
     id: "phase6-issue213-v1",
@@ -186,7 +187,7 @@ test("the original Phase 2 baseline stays immutable while later waves have exact
   assert.deepEqual(manifest.contract.reviewedWaves[28].commands, []);
   assert.deepEqual(manifest.contract.reviewedWaves[28].imports, []);
   assert.equal(manifest.contract.reviewedWaves[28].mutationBoundaryDigest, "sha256:09af428deadb5b53538bbeb5986d2a7ada85adf97d4eda8c146d989f020b461a");
-  assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.reviewedWaves.at(-1).mutationBoundaryDigest);
+  assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.reviewedWaves.at(-2).mutationBoundaryDigest);
   assert.equal(validateEvidence(manifest, facts).status, "pass");
 });
 
@@ -444,7 +445,7 @@ test("Phase 4 mutation commands require the exact reviewed safety boundary", asy
   assert.ok(protectedFiles.includes("internal/adapter/hostaction/adapter.go"));
   assert.ok(protectedFiles.includes("internal/store/migrations/0009_runs.sql"));
   assert.ok(protectedFiles.every((filename) => !filename.endsWith("_test.go") && !filename.includes("/testdata/")));
-  assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.reviewedWaves.at(-1).mutationBoundaryDigest);
+  assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.reviewedWaves.at(-2).mutationBoundaryDigest);
 
   facts.postPhase2MutationBoundaryDigest = `sha256:${"0".repeat(64)}`;
   const result = validateEvidence(manifest, facts);
@@ -454,7 +455,7 @@ test("Phase 4 mutation commands require the exact reviewed safety boundary", asy
 test("the mutation boundary detects changed and added production source files", async () => {
   const manifest = await loadManifest();
   const facts = await collectIntegratedFacts(ROOT);
-  assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.reviewedWaves.at(-1).mutationBoundaryDigest);
+  assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.reviewedWaves.at(-2).mutationBoundaryDigest);
   const protectedFiles = await postPhase2MutationBoundaryFiles(ROOT, facts.productionImports);
   const temporary = await mkdtemp(path.join(tmpdir(), "vsk-phase2-boundary-"));
   try {
