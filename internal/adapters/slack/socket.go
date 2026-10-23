@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -29,7 +30,12 @@ const (
 var dynamicSlackSocketHost = regexp.MustCompile(`^wss-[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.slack\.com$`)
 
 type HTTPTransport struct {
-	client *http.Client
+	client         *http.Client
+	mu             sync.Mutex
+	updateRetryAt  time.Time
+	receiptChannel string
+	receipts       acknowledgement.MessageReceiptRepository
+	messages       map[string]messageReceipt
 }
 
 func NewHTTPTransport(client *http.Client) (*HTTPTransport, error) {
@@ -42,7 +48,7 @@ func NewHTTPTransport(client *http.Client) (*HTTPTransport, error) {
 	boundedClient.CheckRedirect = func(*http.Request, []*http.Request) error {
 		return http.ErrUseLastResponse
 	}
-	return &HTTPTransport{client: &boundedClient}, nil
+	return &HTTPTransport{client: &boundedClient, messages: make(map[string]messageReceipt)}, nil
 }
 
 func (transport *HTTPTransport) Open(ctx context.Context, appToken []byte) (Socket, error) {
@@ -128,10 +134,25 @@ func (transport *HTTPTransport) Publish(ctx context.Context, botToken []byte, ch
 		return fmt.Errorf("slack publish response")
 	}
 	var status struct {
-		OK bool `json:"ok"`
+		OK      bool   `json:"ok"`
+		Channel string `json:"channel"`
+		TS      string `json:"ts"`
 	}
 	if decodeProvider(ctx, result, &status, MaxEnvelopeBytes) != nil || !status.OK {
 		return fmt.Errorf("slack publish response")
+	}
+	if transport.receipts != nil && (status.Channel != channel || !messageTimestamp.MatchString(status.TS)) {
+		return fmt.Errorf("slack delivery receipt unavailable")
+	}
+	if status.Channel == channel && messageTimestamp.MatchString(status.TS) {
+		if transport.receipts != nil {
+			if err := transport.receipts.SaveMessageReceipt(ctx, acknowledgement.MessageReceipt{Destination: channel, MessageID: status.TS, PlanID: card.Request.PlanID, PlanDigest: card.Request.PlanDigest, ReviewText: card.ReviewText}); err != nil {
+				return err
+			}
+		}
+		transport.mu.Lock()
+		transport.messages[channel+":"+status.TS] = messageReceipt{Channel: channel, TS: status.TS, PlanID: card.Request.PlanID, Digest: card.Request.PlanDigest, Review: card.ReviewText}
+		transport.mu.Unlock()
 	}
 	return nil
 }

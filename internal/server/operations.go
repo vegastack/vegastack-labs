@@ -633,7 +633,7 @@ func (operations *Operations) openAuthorityWithPromotion(ctx context.Context, pr
 		return nil, err
 	}
 	configFor := func(path string) store.Config {
-		return store.Config{DatabasePath: path, Mode: store.OpenExisting, ExpectedUID: profile.SocketOwnerUID, ToolVersion: operations.build.ToolVersion, BuildVersion: operations.build.ReleaseBuildID}
+		return store.Config{DatabasePath: path, Mode: store.OpenExisting, Recovery: migrationRecoveryFor(path, profile.SocketOwnerUID), ExpectedUID: profile.SocketOwnerUID, ToolVersion: operations.build.ToolVersion, BuildVersion: operations.build.ReleaseBuildID}
 	}
 	authority, err := operations.openStore(ctx, configFor(operations.databasePath))
 	if err != nil {

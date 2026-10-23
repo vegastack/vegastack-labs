@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 23-10-2026 — Slack cards follow recorded approval and execution state ([#263](https://github.com/vegastack/vegastack-labs/issues/263))
+
+- **What:** The bot updates its own approval message and removes buttons after a recorded decision. Applied is shown only for a verified successful run.
+- **Why:** Earlier cards retained buttons; manual edits did not demonstrate working product behavior.
+- **How it went:** Added focused lifecycle, restart and retry tests. Durable message receipts use the existing server database; no new service or dependency.
+- **Changed:** Slack adapter, presentation receipts and schema upgrade recovery wiring. Historical cards without stored receipts are not reconstructed or manually relabelled.
+- **Decisions:** Keep approval separate from execution. Slack updates cannot grant permissions or execute plans. Use official Socket Mode and chat.update behavior.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/263-slack-card-lifecycle
+
 ## 23-10-2026 — Slack approvals explain what the operator is approving ([#263](https://github.com/vegastack/vegastack-labs/issues/263))
 
 - **What:** Both normal approval routes supply server-owned review text. Permission changes list the principal, every grant action, capability, target and role, plus plan identity and expiry.

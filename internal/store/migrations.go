@@ -21,6 +21,7 @@ import (
 // 0018 to #140, 0019 to #117, 0020 to #163, 0021 to #154, 0022 to #115,
 // 0023 to #114, 0024 to #108, 0025 to #118, 0026 to #109, 0027 to #217, and 0028 to #222.
 // 0034 belongs to #228: verified-recovery host registration refresh.
+// 0035 belongs to #262: durable acknowledgement notification receipts.
 
 //go:embed migrations/*.sql
 var embeddedMigrations embed.FS
@@ -75,6 +76,7 @@ var embeddedMigrationManifest = []migrationManifestEntry{
 	{ID: 32, Name: "0032_host_control_results", SHA256: mustSHA256("7ad5ba9bcffb93f14e47c13d9e63c3577b88fe33f4179a00f3cd8b5da3589688")},
 	{ID: 33, Name: "0033_host_replacement", SHA256: mustSHA256("3a36c241026ebf5127ef2680d6e861186aedb50f82b5056848d9b74ebf7d347c")},
 	{ID: 34, Name: "0034_host_recovery_readoption", SHA256: mustSHA256("f5caf4af865eb9d919e356703cee922bd5fb09613ee44c80de4d6d69d265e383")},
+	{ID: 35, Name: "0035_acknowledgement_deliveries", SHA256: mustSHA256("e13f4bd402a1f85b397f43698bed44bc06931c29a1d8a43e6a1374d9d45ac988")},
 }
 
 func Catalog() ([]Migration, error) {

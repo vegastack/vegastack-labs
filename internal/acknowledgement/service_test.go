@@ -417,3 +417,29 @@ func (repository *memoryRepository) RecordDenial(_ context.Context, record Denia
 	repository.lastDenial = record
 	return repository.denialErr
 }
+
+func TestMessageStatusUsesDurableApproval(t *testing.T) {
+	for _, action := range []string{ActionApprove, ActionReject, "expired"} {
+		t.Run(action, func(t *testing.T) {
+			s, _, p := newService(t)
+			card, err := s.Request(context.Background(), requestScope(), p.PlanID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if action == "expired" {
+				s.config.Clock = func() time.Time { return time.Date(2026, 9, 13, 2, 0, 0, 0, time.UTC) }
+			} else {
+				if _, err = s.Decide(context.Background(), candidateFor(card, p, action)); err != nil {
+					t.Fatal(err)
+				}
+			}
+			got, err := s.MessageStatus(context.Background(), p.PlanID, p.PlanDigest)
+			if err != nil || got != action {
+				t.Fatalf("status=%s err=%v", got, err)
+			}
+			if _, err = s.MessageStatus(context.Background(), p.PlanID, "wrong"); err == nil {
+				t.Fatal("wrong plan digest accepted")
+			}
+		})
+	}
+}
