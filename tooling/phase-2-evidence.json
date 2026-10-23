@@ -516,6 +516,18 @@
         "commands": [],
         "imports": [],
         "mutationBoundaryDigest": "sha256:d0141caaadcaeba99305a1da295f4dcdc58c22f03727d7a328b95a600cd6b8b4"
+      },
+      {
+        "id": "phase7-issue269-v1",
+        "issue": 269,
+        "commands": [
+          "user offboard",
+          "user onboard",
+          "user resume",
+          "user suspend"
+        ],
+        "imports": [],
+        "mutationBoundaryDigest": "sha256:5e96ac023243311b523932fede76f010dacb3d42b020d140e9c4b694468bd4c8"
       }
     ]
   },
