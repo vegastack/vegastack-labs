@@ -35,7 +35,7 @@ func Validate(r generated.HostAdoptionRequest, o generated.HostObservation, t ge
 	if e1 != nil || e2 != nil || e3 != nil || !now.Before(expires) || observed.After(now) || !expires.After(observed) || expires.Sub(observed) > hostdiscovery.Freshness || confirmed.Before(observed) || confirmed.After(now) || !confirmed.Before(expires) {
 		return deny()
 	}
-	if t.ExpectedOS != "debian" || t.ExpectedArchitecture != "amd64" || (t.ExpectedVersion != "13" && t.ExpectedVersion != "13.6") || t.ProfileID != "debian-13-amd64" {
+	if t.ExpectedOS != "debian" || t.ExpectedArchitecture != "amd64" || (t.ExpectedVersion != "13" && t.ExpectedVersion != "13.6") || t.ProfileID == "" {
 		return deny()
 	}
 	facts := map[string]string{}

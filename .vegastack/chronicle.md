@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 23-10-2026 — Physical registration keeps deployment profiles distinct from OS checks ([#263](https://github.com/vegastack/vegastack-labs/issues/263))
+
+- **What:** Registration accepts the bound deployment profile while preserving Debian and architecture checks. An optional, explicitly approved discovery mode reads only the hardware serial with existing sudo rights.
+- **Why:** Live discovery connected successfully, but registration incorrectly required an OS profile name and the non-root collector could not read the serial.
+- **How it went:** Added profile regression and fixed-command SSH fixture coverage, including default behavior and sudo denial. Live use of the new mode requires separate authorization.
+- **Changed:** Adoption validation, discovery target contract and serial collector; no new service or dependency.
+- **Decisions:** Keep physical serial mandatory. No sudoers changes, password fallback, host qualification or workload admission.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/263-physical-registration
+
 ## 23-10-2026 — Slack cards follow recorded approval and execution state ([#263](https://github.com/vegastack/vegastack-labs/issues/263))
 
 - **What:** The bot updates its own approval message and removes buttons after a recorded decision. Applied is shown only for a verified successful run.

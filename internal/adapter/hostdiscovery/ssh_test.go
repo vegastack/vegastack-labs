@@ -150,6 +150,9 @@ func fixturePeer(t *testing.T, mode string) (domain.Target, *testBorrower, *atom
 				}
 				index := int(requests.Add(1)) - 1
 				approvedCommands := []string{"/usr/bin/cat /etc/os-release", "/usr/bin/cat /etc/debian_version", "/usr/bin/uname -m", "/usr/bin/cat /etc/machine-id", "/usr/bin/cat /sys/class/dmi/id/product_uuid", "/usr/bin/cat /sys/class/dmi/id/product_serial", "/usr/bin/cat /proc/meminfo", "/usr/bin/cat /sys/devices/system/cpu/online", "/usr/bin/lsblk --json --bytes --output NAME,TYPE,SIZE", "/usr/bin/ip -j link show"}
+				if mode == "administrator-sudo" || mode == "administrator-sudo-denied" {
+					approvedCommands[5] = "/usr/bin/sudo -n /usr/bin/cat /sys/class/dmi/id/product_serial"
+				}
 				if index >= len(approvedCommands) || payload.Command != approvedCommands[index] {
 					t.Errorf("unexpected command %q", payload.Command)
 					_ = channel.Close()
@@ -170,7 +173,7 @@ func fixturePeer(t *testing.T, mode string) (domain.Target, *testBorrower, *atom
 					}
 				}
 				status := uint32(0)
-				if mode == "partial" && index == 5 {
+				if (mode == "partial" || mode == "administrator-sudo-denied") && index == 5 {
 					_, _ = channel.Stderr().Write([]byte("SYNTHETIC-CANARY-SECRET"))
 					status = 1
 				}
@@ -195,9 +198,14 @@ func fixturePeer(t *testing.T, mode string) (domain.Target, *testBorrower, *atom
 	return domain.Target{Binding: generated.HostDiscoveryTarget{Schema: generated.SchemaIDHostDiscoveryTarget, SchemaVersion: "1.0.0", TargetID: "candidate-a", Revision: 1, Address: "127.0.0.1", Port: int64(port), User: "inspect", HostKey: strings.TrimSpace(string(ssh.MarshalAuthorizedKey(host.PublicKey()))), ProfileID: "profile-a", CredentialReferenceID: "credential-a", MaterialVersion: "version-a", ExpectedOS: "debian", ExpectedVersion: "13", ExpectedArchitecture: "amd64"}, StateRevision: 1, GrantRevision: 1}, borrower, requests
 }
 func TestCollectorActualSSHBoundary(t *testing.T) {
-	for _, mode := range []string{"complete", "partial", "wrong-key", "overflow", "stall", "none-auth"} {
+	for _, mode := range []string{"complete", "partial", "administrator-sudo", "administrator-sudo-denied", "wrong-key", "overflow", "stall", "none-auth"} {
 		t.Run(mode, func(t *testing.T) {
 			target, borrower, count := fixturePeer(t, mode)
+			if mode == "administrator-sudo" || mode == "administrator-sudo-denied" {
+				target.Binding.CredentialMode = new("preloaded-discovery")
+				target.Binding.CredentialPublicKeyDigest = new("sha256:" + strings.Repeat("a", 64))
+				target.Binding.IdentityReadMode = new("administrator-sudo")
+			}
 			ctx := context.Background()
 			if mode == "wrong-key" {
 				other, _ := testKey(t)
@@ -209,14 +217,14 @@ func TestCollectorActualSSHBoundary(t *testing.T) {
 				defer cancel()
 			}
 			result, err := (&Collector{Borrower: borrower}).Collect(ctx, target)
-			if mode == "complete" || mode == "partial" {
+			if mode == "complete" || mode == "partial" || mode == "administrator-sudo" || mode == "administrator-sudo-denied" {
 				if err != nil {
 					t.Fatal(err)
 				}
 				if count.Load() != 10 {
 					t.Fatal("incomplete command coverage")
 				}
-				if mode == "partial" && (len(result.Missing) != 1 || result.Missing[0] != "product-serial") {
+				if (mode == "partial" || mode == "administrator-sudo-denied") && (len(result.Missing) != 1 || result.Missing[0] != "product-serial") {
 					t.Fatal("missing fact not recorded")
 				}
 			} else {

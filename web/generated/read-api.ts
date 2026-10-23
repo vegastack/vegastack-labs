@@ -1109,6 +1109,7 @@ export interface HostDiscoveryTarget {
   readonly "assetId": string | null;
   readonly "recoveryEpoch": number;
   readonly "credentialMode"?: "preloaded-discovery" | null;
+  readonly "identityReadMode"?: "administrator-sudo" | null;
   readonly "credentialPublicKeyDigest"?: string | null;
 }
 
@@ -8415,6 +8416,16 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "omitEmpty": true,
         "enum": [
           "preloaded-discovery"
+        ]
+      },
+      {
+        "name": "identityReadMode",
+        "kind": "string",
+        "required": false,
+        "nullable": true,
+        "omitEmpty": true,
+        "enum": [
+          "administrator-sudo"
         ]
       },
       {

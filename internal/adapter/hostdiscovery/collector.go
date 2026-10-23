@@ -116,7 +116,13 @@ func (c *Collector) Collect(ctx context.Context, target domain.Target) (domain.C
 		session.Stdout = stdout
 		session.Stderr = stderr
 		session.Stdin = nil
-		err = session.Run(command.command)
+		remoteCommand := command.command
+		if command.operation == "product-serial" && target.Binding.IdentityReadMode != nil && *target.Binding.IdentityReadMode == "administrator-sudo" {
+			// This opt-in is part of the administrator-confirmed immutable
+			// target binding. Never elevate any other discovery operation.
+			remoteCommand = "/usr/bin/sudo -n /usr/bin/cat /sys/class/dmi/id/product_serial"
+		}
+		err = session.Run(remoteCommand)
 		expired := commandCtx.Err() != nil
 		stopClose()
 		stopCommand()

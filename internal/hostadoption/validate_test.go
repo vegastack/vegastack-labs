@@ -51,7 +51,7 @@ func TestRegistrationRejectsInvalidIdentity(t *testing.T) {
 			case "os":
 				b.ExpectedOS = "ubuntu"
 			case "profile":
-				b.ProfileID = "macos"
+				b.ProfileID = ""
 			case "observation":
 				r.ObservationDigest = hostdiscovery.Digest("wrong")
 			}
@@ -128,5 +128,17 @@ func TestRegistrationVirtualSerialUsesObservedIdentity(t *testing.T) {
 				t.Fatal("unverified identity accepted")
 			}
 		})
+	}
+}
+
+func TestRegistrationUsesDeploymentProfileWithoutHardcodedName(t *testing.T) {
+	r, o, target, now := registrationFixture(t)
+	target.ProfileID = "deployment-profile"
+	if err := Validate(r, o, target, now); err != nil {
+		t.Fatalf("supported Debian host rejected for deployment profile name: %v", err)
+	}
+	target.ExpectedOS = "unsupported"
+	if Validate(r, o, target, now) == nil {
+		t.Fatal("unsupported OS accepted")
 	}
 }

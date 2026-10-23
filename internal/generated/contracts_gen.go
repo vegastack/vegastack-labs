@@ -2608,6 +2608,7 @@ type HostDiscoveryTarget struct {
 	AssetID                   *string `json:"assetId"`
 	RecoveryEpoch             int64   `json:"recoveryEpoch"`
 	CredentialMode            *string `json:"credentialMode,omitempty"`
+	IdentityReadMode          *string `json:"identityReadMode,omitempty"`
 	CredentialPublicKeyDigest *string `json:"credentialPublicKeyDigest,omitempty"`
 }
 
