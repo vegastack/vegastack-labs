@@ -19,7 +19,7 @@ test("the original Phase 2 baseline stays immutable while later waves have exact
   assert.equal(manifest.contract.productionDependencyDigest, "sha256:a9e8788558fa5c3347b5b8464d8d5e4a67dcc9357e5ae07478b606a806f78133");
   assert.equal(manifest.contract.mutationAvailable, false);
   assert.equal(manifest.contract.reviewedWaves?.length, 49);
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-1), {"id":"physical-registration-issue263-v3","issue":263,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:00b2d68c90711d240ee0ac1e6147c8412e52a2e766c501cc8a3eaa61c4123291"});
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-1), {"id":"physical-registration-issue263-v3","issue":263,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:d0141caaadcaeba99305a1da295f4dcdc58c22f03727d7a328b95a600cd6b8b4"});
   assert.deepEqual(manifest.contract.reviewedWaves.at(-2), {"id":"slack-lifecycle-issue263-v2","issue":263,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:6b74217815162603e6affedb4af5a39a1ad86f0ac365ba2bb64e90a7febcb9bc"});
   assert.deepEqual(manifest.contract.reviewedWaves.at(-3), {"id":"slack-review-issue263-v1","issue":263,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:c47ce07befd582a1de6b1d000a27fbe54f6d0ce08714109906a87f6c32b81e5d"});
   assert.deepEqual(manifest.contract.reviewedWaves.at(-4), {"id":"pilot-issue262-v1","issue":262,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:a714fbc89cd92a62de77cc1e8935d3e910c68eb8cbb04063813cd0ed9689bd0a"});
