@@ -4,7 +4,10 @@ import (
 	"context"
 	"crypto/subtle"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/acknowledgement"
 	"github.com/vegastack/vegastack-labs/internal/authorization"
@@ -117,6 +120,7 @@ func (app *Application) createBrowserApprovalRequest(config AcknowledgementOpera
 			app.operationFailure(writer, operation, requestID, err)
 			return
 		}
+		card.ReviewText = approvalReviewText(plan, planResult.Readable)
 		if err := config.Publisher.Publish(request.Context(), card); err != nil {
 			app.operationFailure(writer, operation, requestID, failure.New(generated.ErrorCodeDependencyUnavailable, "acknowledgement-provider", true))
 			return
@@ -198,6 +202,7 @@ func (app *Application) createAcknowledgement(config AcknowledgementOperationCon
 			app.operationFailure(writer, operation, requestID, failure.New(generated.ErrorCodeIntegrityFailure, "acknowledgement-binding", false))
 			return
 		}
+		card.ReviewText = approvalReviewText(plan, planResult.Readable)
 		if err := config.Publisher.Publish(request.Context(), card); err != nil {
 			app.operationFailure(writer, operation, requestID, failure.New(generated.ErrorCodeDependencyUnavailable, "acknowledgement-provider", true))
 			return
@@ -225,4 +230,28 @@ func sameAcknowledgementRequestExceptNonce(left, right generated.Acknowledgement
 
 func secureAPIEqual(left, right string) bool {
 	return len(left) == len(right) && subtle.ConstantTimeCompare([]byte(left), []byte(right)) == 1
+}
+
+// Render the server-owned plan, never caller-supplied approval prose.
+func approvalReviewText(plan generated.Plan, readable string) string {
+	var b strings.Builder
+	if batch := plan.AuthorizationGrantBatch; batch != nil {
+		fmt.Fprintf(&b, "Permission changes for %s\n\nThis changes this account's permissions in the controller. It does not itself inspect, configure or register a host.\n\n", batch.PrincipalID)
+		for _, g := range batch.Changes {
+			fmt.Fprintf(&b, "• %s: %s — %s on %s %s (role: %s", g.Change, g.Action, g.Capability, g.ResourceKind, g.ResourceID, g.RoleID)
+			if g.Branch != "" {
+				fmt.Fprintf(&b, "; approval: %s", g.Branch)
+			}
+			fmt.Fprintf(&b, "; grant: %s)\n", g.GrantID)
+		}
+	} else {
+		b.WriteString("Review the proposed change\n\n")
+		b.WriteString(readable)
+	}
+	expiry := plan.ExpiresAt
+	if t, err := time.Parse(time.RFC3339, expiry); err == nil {
+		expiry = t.In(time.FixedZone("IST", 19800)).Format("02-01-2006 03:04:05 PM MST")
+	}
+	fmt.Fprintf(&b, "\nApprove authorizes only this exact plan; execution is a separate step.\nExpires: %s\nPlan: %s\nDigest: %s", expiry, plan.PlanID, plan.PlanDigest)
+	return b.String()
 }
