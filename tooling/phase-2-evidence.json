@@ -538,7 +538,7 @@
           "device revoke"
         ],
         "imports": [],
-        "mutationBoundaryDigest": "sha256:81bf4b42086bf7b396ec14b1927cdf39f7cba87d97342527f5d2f807ad1488e3"
+        "mutationBoundaryDigest": "sha256:0169a3072c212b8288df2c957bd5843e42637296dd1a02a802251b340ebecf0d"
       }
     ]
   },
