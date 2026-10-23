@@ -299,3 +299,8 @@ Local-only initial setup, database preservation and the normal single-writer res
 ## Platform user and device lifecycle — 23-10-2026
 
 The [Phase 7 implementation map](development/phases/07-people-devices-network-access.md) records the supported user/device actions, transactional denial behavior and live limitations. `user onboard` creates only a platform human with no grants or authentication binding. Suspension and permanent offboarding end browser sessions; resumption does not restore ended sessions or independently suspended external bindings. Device request/approve/revoke acts only on immutable controller-owned records; an actual attributed request also needs a protected UID/device binding, current active owner and its existing grants. Browser identities with no verified device claim remain governed by principal/session revocation.
+
+
+## Approved browser identity mapping — 23-10-2026
+
+An existing active platform human may receive an exact external browser identity through the existing authorization grant-batch workflow's `identityBinding` object. This is mapping metadata, not an authentication assertion: the existing browser adapter must still verify the actual login. The [Phase 7 procedure](development/phases/07-people-devices-network-access.md#browser-identity-binding-implementation) uses the same inert draft, exact plan, Slack acknowledgement, recovery precheck and apply as permission changes; an identity binding grants no permissions. Revoke ends only the exact owned binding's browser sessions. Local/SSH access and unrelated bindings remain governed by their current authorization. Cloudflare configuration, real subject mapping and Console ingress require their separately scoped operational approval.

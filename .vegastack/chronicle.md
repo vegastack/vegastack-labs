@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 23-10-2026 — Browser logins can be linked through an approved plan ([#272](https://github.com/vegastack/vegastack-labs/issues/272))
+
+- **What:** An administrator can link an existing verified browser identity to an existing platform human and revoke that exact link through the normal approval flow. Revocation ends only its browser sessions and grants no permissions.
+- **Why:** The browser adapter could validate a login, but production software had no supported way to create its identity mapping. This was a concrete prerequisite for the real Console.
+- **How it went:** Integrated Linux fixtures exercise binding and revocation beside ordinary grants, user and device changes. Disk exhaustion interrupted generation; saved source was retained and generation resumed after rebuildable artifacts were freed. No live hosts or providers were used.
+- **Changed:** Exact identity metadata in existing grant batches · durable owner and terminal-state checks · matching session revocation · human-readable approval and fallback procedure.
+- **Decisions:** Reuse existing tables and authentication adapters; no extra login system, service or independent review round. Publishing the Console still needs the account-specific Cloudflare inputs and authorization.
+
+— approved by (omkarmohanta09) · built by Codex with GPT-6.1 Sol medium implementation agent · branch feat/7.4-browser-identity-binding
+
 ## 23-10-2026 — Approved devices are checked again on every attributed request ([#270](https://github.com/vegastack/vegastack-labs/issues/270))
 
 - **What:** An administrator can request, approve and revoke an operator device through the same existing plan and acknowledgement flow. A pending or revoked device receives no access; suspension of its owner also denies its requests.

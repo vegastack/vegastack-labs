@@ -1,0 +1,63 @@
+{
+  "$id": "vegastack-labs.dev/browser-identity-binding-change",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "action": {
+      "enum": [
+        "bind",
+        "revoke"
+      ],
+      "type": "string"
+    },
+    "audiences": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 16,
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "issuer": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "type": "string"
+    },
+    "method": {
+      "enum": [
+        "cloudflare-access"
+      ],
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/browser-identity-binding-change"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "subject": {
+      "maxLength": 512,
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "action",
+    "method",
+    "issuer",
+    "subject",
+    "audiences"
+  ],
+  "title": "VegaStack Labs browser identity binding change",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

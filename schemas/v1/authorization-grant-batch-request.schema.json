@@ -78,6 +78,65 @@
         "branch"
       ],
       "type": "object"
+    },
+    "browser-identity-binding-change": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "enum": [
+            "bind",
+            "revoke"
+          ],
+          "type": "string"
+        },
+        "audiences": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "issuer": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "type": "string"
+        },
+        "method": {
+          "enum": [
+            "cloudflare-access"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/browser-identity-binding-change"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "subject": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "action",
+        "method",
+        "issuer",
+        "subject",
+        "audiences"
+      ],
+      "type": "object"
     }
   },
   "$id": "vegastack-labs.dev/authorization-grant-batch-request",
@@ -123,6 +182,16 @@
     "idempotencyKey": {
       "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
       "type": "string"
+    },
+    "identityBinding": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/browser-identity-binding-change"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "lifecycleAction": {
       "enum": [

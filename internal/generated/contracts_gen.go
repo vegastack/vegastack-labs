@@ -102,6 +102,7 @@ const (
 	SchemaIDBrowserBackupStatusData                = "vegastack-labs.dev/browser-backup-status-data"
 	SchemaIDBrowserDeclarationOperation            = "vegastack-labs.dev/browser-declaration-operation"
 	SchemaIDBrowserDeclarationRevision             = "vegastack-labs.dev/browser-declaration-revision"
+	SchemaIDBrowserIdentityBindingChange           = "vegastack-labs.dev/browser-identity-binding-change"
 	SchemaIDBrowserRecoveryPoint                   = "vegastack-labs.dev/browser-recovery-point"
 	SchemaIDBrowserRecoveryPointListData           = "vegastack-labs.dev/browser-recovery-point-list-data"
 	SchemaIDBrowserRestoreDraftRequest             = "vegastack-labs.dev/browser-restore-draft-request"
@@ -1032,20 +1033,21 @@ type AuthorizationDecision struct {
 }
 
 type AuthorizationGrantBatchRequest struct {
-	Schema                      string                     `json:"schema"`
-	SchemaVersion               string                     `json:"schemaVersion"`
-	DeviceAction                string                     `json:"deviceAction,omitempty"`
-	DeviceID                    string                     `json:"deviceId,omitempty"`
-	ExpectedDeviceRevision      int64                      `json:"expectedDeviceRevision,omitempty"`
-	PrincipalID                 string                     `json:"principalId"`
-	LifecycleAction             string                     `json:"lifecycleAction,omitempty"`
-	ExpectedGrantRevision       int64                      `json:"expectedGrantRevision"`
-	ExpectedDeclarationRevision int64                      `json:"expectedDeclarationRevision"`
-	ExpectedStateRevision       int64                      `json:"expectedStateRevision"`
-	RecoveryEpoch               int64                      `json:"recoveryEpoch"`
-	IdempotencyKey              string                     `json:"idempotencyKey"`
-	ReasonDigest                string                     `json:"reasonDigest"`
-	Changes                     []AuthorizationGrantChange `json:"changes"`
+	Schema                      string                        `json:"schema"`
+	SchemaVersion               string                        `json:"schemaVersion"`
+	DeviceAction                string                        `json:"deviceAction,omitempty"`
+	DeviceID                    string                        `json:"deviceId,omitempty"`
+	ExpectedDeviceRevision      int64                         `json:"expectedDeviceRevision,omitempty"`
+	PrincipalID                 string                        `json:"principalId"`
+	IdentityBinding             *BrowserIdentityBindingChange `json:"identityBinding,omitempty"`
+	LifecycleAction             string                        `json:"lifecycleAction,omitempty"`
+	ExpectedGrantRevision       int64                         `json:"expectedGrantRevision"`
+	ExpectedDeclarationRevision int64                         `json:"expectedDeclarationRevision"`
+	ExpectedStateRevision       int64                         `json:"expectedStateRevision"`
+	RecoveryEpoch               int64                         `json:"recoveryEpoch"`
+	IdempotencyKey              string                        `json:"idempotencyKey"`
+	ReasonDigest                string                        `json:"reasonDigest"`
+	Changes                     []AuthorizationGrantChange    `json:"changes"`
 }
 
 type AuthorizationGrantChange struct {
@@ -1549,6 +1551,16 @@ type BrowserDeclarationRevision struct {
 	Operations      []BrowserDeclarationOperation `json:"operations"`
 	CreatedAt       string                        `json:"createdAt"`
 	Extensions      []ContractExtension           `json:"extensions"`
+}
+
+type BrowserIdentityBindingChange struct {
+	Schema        string   `json:"schema"`
+	SchemaVersion string   `json:"schemaVersion"`
+	Action        string   `json:"action"`
+	Method        string   `json:"method"`
+	Issuer        string   `json:"issuer"`
+	Subject       string   `json:"subject"`
+	Audiences     []string `json:"audiences"`
 }
 
 type BrowserRecoveryPoint struct {

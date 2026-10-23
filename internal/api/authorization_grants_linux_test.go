@@ -29,14 +29,14 @@ import (
 )
 
 func TestGrantBatchApprovedAPIFromInitialSetup(t *testing.T) {
-	for _, variant := range []string{"fresh-host-workflow", "user-lifecycle", "device-lifecycle", "atomic-read-sync-failure", "subject-revision-changed", "recovery-epoch-changed", "policy-author-revoked", "acknowledgement-replayed"} {
+	for _, variant := range []string{"fresh-host-workflow", "identity-binding", "identity-binding-stale", "user-lifecycle", "device-lifecycle", "atomic-read-sync-failure", "subject-revision-changed", "recovery-epoch-changed", "policy-author-revoked", "acknowledgement-replayed"} {
 		t.Run(variant, func(t *testing.T) { testGrantBatchApprovedAPI(t, variant) })
 	}
 }
 
 func testGrantBatchApprovedAPI(t *testing.T, variant string) {
 	failReadSync := variant == "atomic-read-sync-failure"
-	denyBeforeExecution := variant != "user-lifecycle" && variant != "device-lifecycle" && variant != "fresh-host-workflow" && variant != "acknowledgement-replayed" && !failReadSync
+	denyBeforeExecution := variant != "identity-binding" && variant != "user-lifecycle" && variant != "device-lifecycle" && variant != "fresh-host-workflow" && variant != "acknowledgement-replayed" && !failReadSync
 	now := time.Now().UTC().Truncate(time.Second)
 	clock := func() time.Time { return now }
 	dir := t.TempDir()
@@ -161,7 +161,7 @@ func testGrantBatchApprovedAPI(t *testing.T, variant string) {
 			defer faultDB.Close()
 			var query string
 			switch variant {
-			case "subject-revision-changed":
+			case "subject-revision-changed", "identity-binding-stale":
 				query = `UPDATE effective_authorization_principals SET grant_revision=grant_revision+1 WHERE principal_id='human-a'`
 			case "recovery-epoch-changed":
 				query = `UPDATE system_meta SET recovery_epoch=recovery_epoch+1 WHERE id=1`
@@ -218,7 +218,7 @@ func testGrantBatchApprovedAPI(t *testing.T, variant string) {
 			}
 			return
 		}
-		if variant != "device-lifecycle" {
+		if variant != "device-lifecycle" && doc.AuthorizationGrantBatch.IdentityBinding == nil {
 			grantRevision++
 		}
 		declarationRevision = p.Plan.Binding.DeclarationRevision
@@ -249,6 +249,88 @@ func testGrantBatchApprovedAPI(t *testing.T, variant string) {
 			if w := serve(http.MethodPost, "/api/v1/authorization/grant-batches", batch); w.Code < 400 {
 				t.Fatal("stale device request accepted")
 			}
+		}
+		return
+	}
+	if variant == "identity-binding" || variant == "identity-binding-stale" {
+		binding := generated.BrowserIdentityBindingChange{Schema: generated.SchemaIDBrowserIdentityBindingChange, SchemaVersion: "1.0.0", Action: "bind", Method: identity.CloudflareAccessMethod, Issuer: "https://synthetic.cloudflareaccess.com", Subject: "human-subject", Audiences: []string{"aud-a", "aud-b"}}
+		draftBinding := func(b generated.BrowserIdentityBindingChange, key string) generated.DeclarationRevision {
+			t.Helper()
+			rev, e := revisions.CurrentRevision(ctx)
+			if e != nil {
+				t.Fatal(e)
+			}
+			input := generated.AuthorizationGrantBatchRequest{Schema: generated.SchemaIDAuthorizationGrantBatchRequest, SchemaVersion: "1.0.0", PrincipalID: human, IdentityBinding: &b, ExpectedGrantRevision: grantRevision, ExpectedDeclarationRevision: declarationRevision, ExpectedStateRevision: rev.StateRevision, RecoveryEpoch: rev.RecoveryEpoch, IdempotencyKey: key, ReasonDigest: digest, Changes: []generated.AuthorizationGrantChange{}}
+			var doc generated.DeclarationRevision
+			post("/api/v1/authorization/grant-batches", input, &doc)
+			return doc
+		}
+		d, e := store.BrowserIdentityBindingDigest(binding)
+		if e != nil {
+			t.Fatal(e)
+		}
+		doc := draftBinding(binding, "bind-primary")
+		if _, e = authority.ResolveRemoteIdentity(ctx, d); e == nil {
+			t.Fatal("draft bound identity")
+		}
+		applyDraft(doc, "bind-primary")
+		if variant == "identity-binding-stale" {
+			return
+		}
+		resolved, e := authority.ResolveRemoteIdentity(ctx, d)
+		if e != nil || resolved.ID != human {
+			t.Fatal("approved binding unresolved", resolved, e)
+		}
+		for _, which := range []string{"issuer", "subject", "audience"} {
+			v := binding
+			v.Audiences = append([]string{}, binding.Audiences...)
+			switch which {
+			case "issuer":
+				v.Issuer += "/other"
+			case "subject":
+				v.Subject += "-other"
+			case "audience":
+				v.Audiences[0] = "aud-0"
+			}
+			wrong, _ := store.BrowserIdentityBindingDigest(v)
+			if _, e = authority.ResolveRemoteIdentity(ctx, wrong); e == nil {
+				t.Fatal("wrong identity resolved", which)
+			}
+		}
+		first, firstRaw, e := authority.CreateBrowserSession(ctx, store.BrowserSessionCreate{Principal: resolved, BindingDigest: d, ExternalExpiresAt: now.Add(time.Hour)})
+		if e != nil {
+			t.Fatal(e)
+		}
+		second := binding
+		second.Subject = "other-subject"
+		applyDraft(draftBinding(second, "bind-secondary"), "bind-secondary")
+		secondDigest, _ := store.BrowserIdentityBindingDigest(second)
+		_, secondRaw, e := authority.CreateBrowserSession(ctx, store.BrowserSessionCreate{Principal: resolved, BindingDigest: secondDigest, ExternalExpiresAt: now.Add(time.Hour)})
+		if e != nil {
+			t.Fatal(e)
+		}
+		binding.Action = "revoke"
+		applyDraft(draftBinding(binding, "revoke-primary"), "revoke-primary")
+		if _, e = authority.ResolveRemoteIdentity(ctx, d); e == nil {
+			t.Fatal("revoked binding resolved")
+		}
+		if _, e = authority.ValidateAndTouchBrowserSession(ctx, firstRaw, d, now.Add(time.Hour)); e == nil {
+			t.Fatal("revoked binding session active", first)
+		}
+		if _, e = authority.ResolveRemoteIdentity(ctx, secondDigest); e != nil {
+			t.Fatal("unrelated binding revoked", e)
+		}
+		if _, e = authority.ValidateAndTouchBrowserSession(ctx, secondRaw, secondDigest, now.Add(time.Hour)); e != nil {
+			t.Fatal("unrelated session revoked", e)
+		}
+		binding.Action = "bind"
+		rev, e := revisions.CurrentRevision(ctx)
+		if e != nil {
+			t.Fatal(e)
+		}
+		terminal := generated.AuthorizationGrantBatchRequest{Schema: generated.SchemaIDAuthorizationGrantBatchRequest, SchemaVersion: "1.0.0", PrincipalID: human, IdentityBinding: &binding, ExpectedGrantRevision: grantRevision, ExpectedDeclarationRevision: declarationRevision, ExpectedStateRevision: rev.StateRevision, RecoveryEpoch: rev.RecoveryEpoch, IdempotencyKey: "terminal-rebind", ReasonDigest: digest, Changes: []generated.AuthorizationGrantChange{}}
+		if w := serve(http.MethodPost, "/api/v1/authorization/grant-batches", terminal); w.Code < 400 {
+			t.Fatal("terminal binding rebound")
 		}
 		return
 	}

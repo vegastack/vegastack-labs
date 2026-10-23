@@ -1128,6 +1128,7 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 - `deviceId`
 - `expectedDeviceRevision`
 - `principalId`
+- `identityBinding`
 - `lifecycleAction`: `onboard`, `suspend`, `resume`, `offboard`
 - `expectedGrantRevision`
 - `expectedDeclarationRevision`
