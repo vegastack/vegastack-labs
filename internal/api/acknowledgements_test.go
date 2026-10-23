@@ -203,3 +203,13 @@ func TestGrantApprovalReviewExplainsExactPermissions(t *testing.T) {
 		t.Fatal("used unrelated prose")
 	}
 }
+
+func TestUserLifecycleApprovalNamesExactActionAndBoundary(t *testing.T) {
+	for _, action := range []string{"onboard", "suspend", "resume", "offboard"} {
+		p := generated.Plan{PlanID: "plan-user", PlanDigest: testAPIDigest("a"), AuthorizationGrantBatch: &generated.AuthorizationGrantBatchRequest{PrincipalID: "human-b", LifecycleAction: action, Changes: []generated.AuthorizationGrantChange{}}}
+		text := approvalReviewText(p, "ignored caller prose")
+		if !strings.Contains(text, "User "+action+": human-b") || !strings.Contains(text, "local controller access") || !strings.Contains(text, p.PlanDigest) {
+			t.Fatal("lifecycle approval omitted action, target or boundary", text)
+		}
+	}
+}

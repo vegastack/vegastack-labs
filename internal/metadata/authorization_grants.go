@@ -11,11 +11,11 @@ func authorizationGrantSchemas() []SchemaDefinition {
 			phase5ID("capability", "Capability"), phase5ID("resourceKind", "ResourceKind"), phase5ID("resourceId", "ResourceID"),
 			phase5Enum("branch", "Branch", "", "human")),
 		phase5Schema(authorizationGrantBatchRequestID,
-			phase5ID("principalId", "PrincipalID"), phase5Positive("expectedGrantRevision", "ExpectedGrantRevision"),
+			phase5ID("principalId", "PrincipalID"), FieldDefinition{JSONName: "lifecycleAction", GoName: "LifecycleAction", Kind: ValueString, OmitEmpty: true, Enum: []string{"onboard", "suspend", "resume", "offboard"}}, phase5Nonnegative("expectedGrantRevision", "ExpectedGrantRevision"),
 			phase5Nonnegative("expectedDeclarationRevision", "ExpectedDeclarationRevision"),
 			phase5Nonnegative("expectedStateRevision", "ExpectedStateRevision"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 			phase5ID("idempotencyKey", "IdempotencyKey"), phase5Digest("reasonDigest", "ReasonDigest"),
-			FieldDefinition{JSONName: "changes", GoName: "Changes", Kind: ValueArray, Required: true, ItemRef: "vegastack-labs.dev/authorization-grant-change", MinItems: intPointer(1), MaxItems: intPointer(32)}),
+			FieldDefinition{JSONName: "changes", GoName: "Changes", Kind: ValueArray, Required: true, ItemRef: "vegastack-labs.dev/authorization-grant-change", MinItems: intPointer(0), MaxItems: intPointer(32)}),
 	}
 }
 
@@ -29,4 +29,17 @@ func authorizationGrantEndpoint() EndpointDefinition {
 	e.Availability = AvailabilityAvailable
 	e.OwnerPhase = "6"
 	return e
+}
+
+func userLifecycleCommands() []CommandDefinition {
+	var commands []CommandDefinition
+	for _, action := range []string{"onboard", "suspend", "resume", "offboard"} {
+		c := authorizationGrantCommand()
+		c.Path = []string{"user", action}
+		c.OwnerPhase = "7"
+		c.Examples = []ExampleDefinition{{Summary: "Draft one exact user lifecycle change.", Arguments: []string{"user", action, "--config", "fixture/server-profile.json", "--file", "fixture/user.json", "--output", "json"}}}
+		c.Summary = "Prepare one local user lifecycle declaration; acknowledgement and apply remain separate."
+		commands = append(commands, c)
+	}
+	return commands
 }

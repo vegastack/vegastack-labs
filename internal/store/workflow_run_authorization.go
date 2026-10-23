@@ -39,9 +39,11 @@ func verifyWorkflowRunAuthorization(ctx context.Context, row discoveryRow, run g
 		}
 	}
 	if b := p.AuthorizationGrantBatch; b != nil {
-		var revision int64
-		if row(`SELECT grant_revision FROM effective_authorization_principals WHERE principal_id=? AND status='active'`, b.PrincipalID).Scan(&revision) != nil || revision != b.ExpectedGrantRevision {
-			return actionError(generated.ErrorCodePlanStale)
+		if err := validateLifecycleActor(ctx, *b); err != nil {
+			return err
+		}
+		if err := validateGrantBatchPrincipal(row, *b); err != nil {
+			return err
 		}
 		if _, err := adoptionGrant(ctx, row, b.PrincipalID, "authorization-policy", "author", "authorization.policy.write", true); err != nil {
 			return err

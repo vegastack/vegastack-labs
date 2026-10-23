@@ -352,7 +352,7 @@
             "$ref": "#/$defs/authorization-grant-change"
           },
           "maxItems": 32,
-          "minItems": 1,
+          "minItems": 0,
           "type": "array"
         },
         "expectedDeclarationRevision": {
@@ -360,7 +360,7 @@
           "type": "integer"
         },
         "expectedGrantRevision": {
-          "minimum": 1,
+          "minimum": 0,
           "type": "integer"
         },
         "expectedStateRevision": {
@@ -369,6 +369,15 @@
         },
         "idempotencyKey": {
           "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "lifecycleAction": {
+          "enum": [
+            "onboard",
+            "suspend",
+            "resume",
+            "offboard"
+          ],
           "type": "string"
         },
         "principalId": {

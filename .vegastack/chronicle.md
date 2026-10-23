@@ -2,6 +2,26 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 23-10-2026 — User lifecycle passes the real Linux approval workflow ([#269](https://github.com/vegastack/vegastack-labs/issues/269))
+
+- **What:** Native Linux tests now exercise user onboarding through suspension, resumption and permanent offboarding using the real declaration, plan, approval and executor path. Existing grant-addition and revocation workflows also pass.
+- **Why:** The source checkpoint needed runtime evidence before landing.
+- **How it went:** A small temporary Debian VM supplied the missing Linux runtime. Native tests caught an optional-field decoding regression in ordinary permission requests; the field is now optional and all seven approved workflow variants pass. No managed hosts were contacted.
+- **Changed:** Backward-compatible lifecycle request decoding · verified migration, retained grants, session invalidation and denied terminal resumption.
+- **Decisions:** No new service or authentication system; independent review rounds omitted under the operator's explicit instruction, while affected checks remain required.
+
+— approved by (omkarmohanta09) · built by Codex with GPT-6.1 Sol medium implementation agent · branch feat/7.1-user-lifecycle
+
+## 23-10-2026 — Platform user lifecycle enters implementation ([#269](https://github.com/vegastack/vegastack-labs/issues/269))
+
+- **What:** The development branch adds onboarding, suspension, resumption and permanent offboarding through the existing authorization-plan path. It creates platform identities, not external accounts, and grants no permissions implicitly.
+- **Why:** Phase 7 user and device development can proceed while live browser publication waits for Cloudflare inputs.
+- **How it went:** Existing tables needed a reversible suspended state while preserving terminal revocation. Portable checks and a populated SQLite migration exercise are available; native Linux workflow execution remains unverified on this Mac. This entry is an implementation checkpoint, not a deployment or phase-completion claim.
+- **Changed:** Bounded user CLI/request contracts · principal lifecycle and session invalidation · Phase 7 issue/dependency map.
+- **Decisions:** Reuse the existing database, approval engine and identity model. No new service, login framework or live infrastructure change; accepted Phase 6 deferrals remain unchanged.
+
+— approved by (omkarmohanta09) · built by Codex with GPT-6.1 Sol medium implementation agent · branch feat/7.1-user-lifecycle
+
 ## 23-10-2026 — Physical registration keeps deployment profiles distinct from OS checks ([#263](https://github.com/vegastack/vegastack-labs/issues/263))
 
 - **What:** Registration accepts the bound deployment profile while preserving Debian and architecture checks. An optional, explicitly approved discovery mode reads only the hardware serial with existing sudo rights.

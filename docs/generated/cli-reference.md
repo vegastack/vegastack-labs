@@ -874,6 +874,58 @@ Owner phase: `2` · risk: `read-only` · availability: `available`
 
 - Show the current platform summary.: `vsk-labs status --config fixture/server-profile.json --output json`
 
+### `vsk-labs user offboard`
+
+Prepare one local user lifecycle declaration; acknowledgement and apply remain separate.
+
+Owner phase: `7` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected server profile.
+- `--file <path>` — Read one grant batch JSON file (32 KiB max).
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Draft one exact user lifecycle change.: `vsk-labs user offboard --config fixture/server-profile.json --file fixture/user.json --output json`
+
+### `vsk-labs user onboard`
+
+Prepare one local user lifecycle declaration; acknowledgement and apply remain separate.
+
+Owner phase: `7` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected server profile.
+- `--file <path>` — Read one grant batch JSON file (32 KiB max).
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Draft one exact user lifecycle change.: `vsk-labs user onboard --config fixture/server-profile.json --file fixture/user.json --output json`
+
+### `vsk-labs user resume`
+
+Prepare one local user lifecycle declaration; acknowledgement and apply remain separate.
+
+Owner phase: `7` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected server profile.
+- `--file <path>` — Read one grant batch JSON file (32 KiB max).
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Draft one exact user lifecycle change.: `vsk-labs user resume --config fixture/server-profile.json --file fixture/user.json --output json`
+
+### `vsk-labs user suspend`
+
+Prepare one local user lifecycle declaration; acknowledgement and apply remain separate.
+
+Owner phase: `7` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected server profile.
+- `--file <path>` — Read one grant batch JSON file (32 KiB max).
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Draft one exact user lifecycle change.: `vsk-labs user suspend --config fixture/server-profile.json --file fixture/user.json --output json`
+
 ### `vsk-labs version`
 
 Show the vsk-labs build and contract version.
@@ -989,30 +1041,6 @@ Create an inert service-rollback change.
 
 Owner phase: `8` · risk: `unassigned` · availability: `planned`
 
-### `vsk-labs user offboard`
-
-Create an inert user-offboarding change.
-
-Owner phase: `7` · risk: `unassigned` · availability: `planned`
-
-### `vsk-labs user onboard`
-
-Create an inert user-onboarding change.
-
-Owner phase: `7` · risk: `unassigned` · availability: `planned`
-
-### `vsk-labs user resume`
-
-Create an inert user-resumption change.
-
-Owner phase: `7` · risk: `unassigned` · availability: `planned`
-
-### `vsk-labs user suspend`
-
-Create an inert user-suspension change.
-
-Owner phase: `7` · risk: `unassigned` · availability: `planned`
-
 
 ## Phase 4 contract graph
 
@@ -1076,6 +1104,7 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 - `schema`: `vegastack-labs.dev/authorization-grant-batch-request`
 - `schemaVersion`: `1.0.0`
 - `principalId`
+- `lifecycleAction`: `onboard`, `suspend`, `resume`, `offboard`
 - `expectedGrantRevision`
 - `expectedDeclarationRevision`
 - `expectedStateRevision`

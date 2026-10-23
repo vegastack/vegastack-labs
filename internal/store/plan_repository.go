@@ -176,9 +176,11 @@ func (repository *PlanRepository) CommitDeclarationAndPlan(ctx context.Context, 
 			}
 		}
 		if b := request.DesiredDeclaration.AuthorizationGrantBatch; b != nil {
-			var revision int64
-			if row(`SELECT grant_revision FROM effective_authorization_principals WHERE principal_id=? AND status='active'`, b.PrincipalID).Scan(&revision) != nil || revision != b.ExpectedGrantRevision {
-				return actionError(generated.ErrorCodePlanStale)
+			if err := validateLifecycleActor(ctx, *b); err != nil {
+				return err
+			}
+			if err := validateGrantBatchPrincipal(row, *b); err != nil {
+				return err
 			}
 			if err := validateGrantBatchChanges(row, *b); err != nil {
 				return err

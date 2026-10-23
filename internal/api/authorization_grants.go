@@ -31,7 +31,7 @@ func (app *Application) grantBatchDraft(c AuthorizationGrantOperations) func(htt
 	return func(w http.ResponseWriter, r *http.Request, _ authorization.ReadScope, _ map[string]string) {
 		const op = "api.v1.authorization.grant-batches.create"
 		var input generated.AuthorizationGrantBatchRequest
-		if err := decodeOperationRequest(r, 32768, []string{"schema", "schemaVersion", "principalId", "expectedGrantRevision", "expectedDeclarationRevision", "expectedStateRevision", "recoveryEpoch", "idempotencyKey", "reasonDigest", "changes"}, &input); err != nil {
+		if err := decodeOperationRequest(r, 32768, []string{"schema", "schemaVersion", "principalId", "expectedGrantRevision", "expectedDeclarationRevision", "expectedStateRevision", "recoveryEpoch", "idempotencyKey", "reasonDigest", "changes"}, &input, "lifecycleAction"); err != nil {
 			app.failure(w, op, err)
 			return
 		}

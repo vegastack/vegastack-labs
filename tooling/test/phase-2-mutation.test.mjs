@@ -5,7 +5,7 @@ import test from "node:test";
 import { proveUnavailableMutations } from "../verify-phase-2.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "../..");
-// #232 activates exactly node discover/add/inspect; other lifecycle commands stay planned.
+// Approved #232 node and #269 user commands are active; remaining commands stay planned.
 const EXPECTED_PLANNED_MUTATIONS = [
   "audit",
   "connect",
@@ -24,10 +24,6 @@ const EXPECTED_PLANNED_MUTATIONS = [
   "service deploy",
   "service plan",
   "service rollback",
-  "user offboard",
-  "user onboard",
-  "user resume",
-  "user suspend",
 ];
 const PROHIBITED_GATE_SETTERS = ["gate close", "gate pass", "gate profile bind", "gate profile apply"];
 
