@@ -65,6 +65,9 @@ func composeSlackAcknowledgementWithTransport(ctx context.Context, path string, 
 			return slackAcknowledgementRuntime{}, transportErr
 		}
 	}
+	if httpTransport, ok := transport.(*slack.HTTPTransport); ok {
+		httpTransport.SetReceiptRepository(service, profile.ChannelID)
+	}
 	adapter, err := slack.NewAdapter(slack.Config{
 		AppTokenReference: credentialref.Reference{ID: profile.AppTokenReference, Consumer: "slack-acknowledgement"},
 		BotTokenReference: credentialref.Reference{ID: profile.BotTokenReference, Consumer: "slack-acknowledgement"},

@@ -231,3 +231,21 @@ func hashBytes(value []byte) string {
 	sum := sha256.Sum256(value)
 	return "sha256:" + hex.EncodeToString(sum[:])
 }
+
+// ExecutionStatus reads only an exact plan/digest's recorded run result.
+func (repository *AcknowledgementRepository) ExecutionStatus(ctx context.Context, planID, digest string) (string, error) {
+	var status, verification string
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		return tx.queryRow(ctx, `SELECT status,verification_status FROM plan_runs WHERE plan_id=? AND plan_digest=? ORDER BY created_at DESC,run_id DESC LIMIT 1`, planID, digest).Scan(&status, &verification)
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	if status == "succeeded" && verification != "verified" {
+		return "partial", nil
+	}
+	return status, nil
+}

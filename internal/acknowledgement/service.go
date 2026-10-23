@@ -484,3 +484,57 @@ func errorCode(err error) string {
 	}
 	return ""
 }
+
+// MessageStatus is a presentation-only projection, never an execution trigger.
+func (service *Service) MessageStatus(ctx context.Context, planID, digest string) (string, error) {
+	status, err := service.Status(ctx, planID)
+	if err != nil {
+		return "", err
+	}
+	if status.PlanDigest != digest {
+		return "", acknowledgementError(generated.ErrorCodeIntegrityFailure, "message-plan")
+	}
+	if reader, ok := service.config.Repository.(interface {
+		ExecutionStatus(context.Context, string, string) (string, error)
+	}); ok {
+		run, err := reader.ExecutionStatus(ctx, planID, digest)
+		if err != nil {
+			return "", err
+		}
+		if run != "" {
+			return run, nil
+		}
+	}
+	if status.Status == "approved" || status.Status == "pending" {
+		projection, err := service.Projection(ctx, planID)
+		if err != nil {
+			return "", err
+		}
+		if !projection.AuthorizationCurrent {
+			return "stale", nil
+		}
+	}
+	return status.Status, nil
+}
+
+func (service *Service) SaveMessageReceipt(ctx context.Context, r MessageReceipt) error {
+	repo, ok := service.config.Repository.(MessageReceiptRepository)
+	if !ok {
+		return acknowledgementError(generated.ErrorCodePrerequisiteBlocked, "message-receipts")
+	}
+	return repo.SaveMessageReceipt(ctx, r)
+}
+func (service *Service) MessageReceipts(ctx context.Context) ([]MessageReceipt, error) {
+	repo, ok := service.config.Repository.(MessageReceiptRepository)
+	if !ok {
+		return nil, acknowledgementError(generated.ErrorCodePrerequisiteBlocked, "message-receipts")
+	}
+	return repo.MessageReceipts(ctx)
+}
+func (service *Service) CompleteMessageReceipt(ctx context.Context, destination, messageID, status string) error {
+	repo, ok := service.config.Repository.(MessageReceiptRepository)
+	if !ok {
+		return acknowledgementError(generated.ErrorCodePrerequisiteBlocked, "message-receipts")
+	}
+	return repo.CompleteMessageReceipt(ctx, destination, messageID, status)
+}

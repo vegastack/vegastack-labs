@@ -117,6 +117,37 @@ func (adapter *Adapter) Run(ctx context.Context) error {
 	if adapter == nil || ctx == nil {
 		return slackError(generated.ErrorCodeInputInvalid, "slack-adapter", false)
 	}
+	if updater, ok := adapter.transport.(interface {
+		Refresh(context.Context, []byte, func(context.Context, string, string) (string, error)) error
+	}); ok {
+		if reader, ok := adapter.sink.(interface {
+			MessageStatus(context.Context, string, string) (string, error)
+		}); ok {
+			updateCtx, cancel := context.WithCancel(ctx)
+			done := make(chan struct{})
+			defer func() { cancel(); <-done }()
+			go func() {
+				defer close(done)
+				ticker := time.NewTicker(2 * time.Second)
+				defer ticker.Stop()
+				for {
+					select {
+					case <-updateCtx.Done():
+						return
+					case <-ticker.C:
+						token, err := adapter.resolve(updateCtx, adapter.config.BotTokenReference)
+						if err == nil {
+							err = updater.Refresh(updateCtx, token, reader.MessageStatus)
+							zero(token)
+						}
+						if err != nil {
+							adapter.log("message-update-unavailable")
+						}
+					}
+				}
+			}()
+		}
+	}
 	delay := adapter.config.ReconnectDelay
 	for {
 		if err := ctx.Err(); err != nil {

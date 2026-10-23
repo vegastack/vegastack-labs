@@ -502,6 +502,13 @@
         "commands": [],
         "imports": [],
         "mutationBoundaryDigest": "sha256:c47ce07befd582a1de6b1d000a27fbe54f6d0ce08714109906a87f6c32b81e5d"
+      },
+      {
+        "id": "slack-lifecycle-issue263-v2",
+        "issue": 263,
+        "commands": [],
+        "imports": [],
+        "mutationBoundaryDigest": "sha256:6b74217815162603e6affedb4af5a39a1ad86f0ac365ba2bb64e90a7febcb9bc"
       }
     ]
   },

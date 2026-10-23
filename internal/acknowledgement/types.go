@@ -108,3 +108,18 @@ type PlanReader interface {
 type Authorizer interface {
 	Authorize(context.Context, identity.Principal, authorization.Request) (authorization.Decision, error)
 }
+
+// MessageReceipt tracks a delivered notification, never an approval credential.
+type MessageReceipt struct {
+	Destination string
+	MessageID   string
+	PlanID      string
+	PlanDigest  string
+	ReviewText  string
+	Status      string
+}
+type MessageReceiptRepository interface {
+	SaveMessageReceipt(context.Context, MessageReceipt) error
+	MessageReceipts(context.Context) ([]MessageReceipt, error)
+	CompleteMessageReceipt(context.Context, string, string, string) error
+}
