@@ -48,7 +48,13 @@ func reviewedHostActionPackage(c checkedSourcePackage, module, relative string) 
 		expectedImports[i] = strings.Replace(v, "github.com/vegastack/vegastack-labs/", module+"/", 1)
 	}
 	slices.Sort(expectedImports)
-	return slices.Equal(imports, expectedImports) && digestSourceFiles(c.listed.Dir, names) == seal.digest || (reviewedDebianAccessPackage(c, module, relative) || reviewedDebianBaselinePackage(c, module, relative))
+	digest := digestSourceFiles(c.listed.Dir, names)
+	// #270 copies only DeviceID from the protected UID binding. Preserve the
+	// historical seal and its exact import/file sets for this current variant.
+	deviceProfile := relative == "internal/serverconfig" &&
+		(strings.Join(names, ",") == "profile.go,profile_linux.go,restic.go" && digest == "47e97fb35749bb92c0940b68179498a50d6cf36de6d7d99d8a54ee1520f9b59d" ||
+			strings.Join(names, ",") == "profile.go,profile_unsupported.go,restic.go" && digest == "687eddf33c12baa351ccb6b7a2a408d6f43ed616d04ec39a2a9f89fe44f00aa9")
+	return slices.Equal(imports, expectedImports) && (digest == seal.digest || deviceProfile) || (reviewedDebianAccessPackage(c, module, relative) || reviewedDebianBaselinePackage(c, module, relative))
 }
 func reviewedHostActionServerSigner(c checkedSourcePackage, serverImport string) bool {
 	if c.listed.ImportPath != serverImport {

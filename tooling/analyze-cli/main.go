@@ -788,14 +788,13 @@ func reviewedControlPlatformSource(candidate checkedSourcePackage, kind string) 
 	if digest == expected {
 		return true
 	}
-	// #231 adds only frozen-byte DecodeProfile; #270 copies the protected UID
-	// binding's DeviceID. Retain both exact variants and historical snapshots.
+	// #231 adds only frozen-byte DecodeProfile; retain historical snapshots above.
 	if kind == "serverconfig" {
 		switch strings.Join(names, ",") {
 		case "profile.go,profile_linux.go,restic.go":
-			return digest == "c1dc99d73c31551abfa5ff6100167837b4d14329bc97def48f6360d0de5d40c8" || digest == "47e97fb35749bb92c0940b68179498a50d6cf36de6d7d99d8a54ee1520f9b59d"
+			return digest == "c1dc99d73c31551abfa5ff6100167837b4d14329bc97def48f6360d0de5d40c8"
 		case "profile.go,profile_unsupported.go,restic.go":
-			return digest == "b04d95ce7a72e5718b87bc8d3e95be2daf3590c7222567d6271bb9ec9e60b2f8" || digest == "687eddf33c12baa351ccb6b7a2a408d6f43ed616d04ec39a2a9f89fe44f00aa9"
+			return digest == "b04d95ce7a72e5718b87bc8d3e95be2daf3590c7222567d6271bb9ec9e60b2f8"
 		}
 	}
 	return false
