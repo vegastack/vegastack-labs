@@ -24,7 +24,7 @@ func validateGrantBatchPrincipal(row discoveryRow, in generated.AuthorizationGra
 	if in.LifecycleAction == "resume" {
 		want = "suspended"
 	}
-	if err != nil || (status != want && !(in.LifecycleAction == "offboard" && status == "suspended")) || readStatus != status || revision != in.ExpectedGrantRevision || (in.LifecycleAction != "" && kind != "human") {
+	if err != nil || (status != want && !(in.LifecycleAction == "offboard" && status == "suspended")) || readStatus != status || revision != in.ExpectedGrantRevision || ((in.LifecycleAction != "" || in.DeviceAction != "") && kind != "human") {
 		return actionError(generated.ErrorCodePlanStale)
 	}
 	if in.LifecycleAction == "suspend" || in.LifecycleAction == "offboard" {
@@ -34,10 +34,13 @@ func validateGrantBatchPrincipal(row discoveryRow, in generated.AuthorizationGra
 			return actionError(generated.ErrorCodeAuthorizationDenied)
 		}
 	}
+	if in.DeviceAction != "" {
+		return validateDeviceLifecycle(row, in)
+	}
 	return nil
 }
 func validateLifecycleActor(ctx context.Context, in generated.AuthorizationGrantBatchRequest) error {
-	if in.LifecycleAction == "" {
+	if in.LifecycleAction == "" && (in.DeviceAction == "" || in.DeviceAction == "request") {
 		return nil
 	}
 	actor, ok := identity.PrincipalFromContext(ctx)

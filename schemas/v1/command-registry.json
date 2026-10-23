@@ -1751,30 +1751,213 @@
         "device",
         "approve"
       ],
-      "summary": "Create an inert device-approval change.",
-      "availability": "planned",
+      "summary": "Draft one device access change; exact-plan acknowledgement and apply remain separate.",
+      "availability": "available",
       "ownerPhase": "7",
-      "risk": "unassigned"
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one grant batch JSON file (32 KiB max).",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/authorization-grant-batch-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/declaration-revision",
+      "examples": [
+        {
+          "summary": "Draft one explicit device and human binding.",
+          "arguments": [
+            "device",
+            "approve",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/device.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
         "device",
         "request"
       ],
-      "summary": "Create an inert device-enrollment request.",
-      "availability": "planned",
+      "summary": "Draft one device access change; exact-plan acknowledgement and apply remain separate.",
+      "availability": "available",
       "ownerPhase": "7",
-      "risk": "unassigned"
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one grant batch JSON file (32 KiB max).",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/authorization-grant-batch-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/declaration-revision",
+      "examples": [
+        {
+          "summary": "Draft one explicit device and human binding.",
+          "arguments": [
+            "device",
+            "request",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/device.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
         "device",
         "revoke"
       ],
-      "summary": "Create an inert device-revocation change.",
-      "availability": "planned",
+      "summary": "Draft one device access change; exact-plan acknowledgement and apply remain separate.",
+      "availability": "available",
       "ownerPhase": "7",
-      "risk": "unassigned"
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one grant batch JSON file (32 KiB max).",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/authorization-grant-batch-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/declaration-revision",
+      "examples": [
+        {
+          "summary": "Draft one explicit device and human binding.",
+          "arguments": [
+            "device",
+            "revoke",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/device.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [

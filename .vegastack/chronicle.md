@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 23-10-2026 — Approved devices are checked again on every attributed request ([#270](https://github.com/vegastack/vegastack-labs/issues/270))
+
+- **What:** An administrator can request, approve and revoke an operator device through the same existing plan and acknowledgement flow. A pending or revoked device receives no access; suspension of its owner also denies its requests.
+- **Why:** Recording an approved device alone would leave existing connections able to continue using stale access.
+- **How it went:** Native database/API cases and an actual reused HTTP connection verify revocation. The current read/effective authorizers reuse the device predicate so continuing read authorization sees current state. Existing profiles remain compatible.
+- **Changed:** Device declarations and durable ownership · protected UID-derived device identity · per-request and continuing authorization checks. Browser and legacy profiles without verified device attribution retain their existing principal authorization and have no device-specific revocation claim.
+- **Decisions:** No extra service, provider enrollment, OS account/key installation or independent review round. Live deployment stays separate.
+
+— approved by (omkarmohanta09) · built by Codex with GPT-6.1 Sol medium implementation agent · branch feat/7.2-device-access
+
 ## 23-10-2026 — User lifecycle passes the real Linux approval workflow ([#269](https://github.com/vegastack/vegastack-labs/issues/269))
 
 - **What:** Native Linux tests now exercise user onboarding through suspension, resumption and permanent offboarding using the real declaration, plan, approval and executor path. Existing grant-addition and revocation workflows also pass.

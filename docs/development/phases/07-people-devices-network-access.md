@@ -6,8 +6,9 @@ Status: development started 23-10-2026. This is an implementation map, not live 
 
 | Slice | Issue | Outcome | Dependency / present status |
 | --- | --- | --- | --- |
-| 7.1 Platform users | [#269](https://github.com/vegastack/vegastack-labs/issues/269) | Onboard, suspend, resume and offboard through existing exact plans; invalidate access/sessions | Implemented; native Linux lifecycle/migration and approved API workflows passed; landing in progress |
-| 7.2 Operator devices | [#270](https://github.com/vegastack/vegastack-labs/issues/270) | Request, approve, revoke a device bound to an active human | Depends on 7.1; transport binding must be explicit in its implementation plan |
+| 7.1 Platform users | [#269](https://github.com/vegastack/vegastack-labs/issues/269) | Onboard, suspend, resume and offboard through existing exact plans; invalidate access/sessions | Merged in [PR #273](https://github.com/vegastack/vegastack-labs/pull/273); native lifecycle/migration and approved API workflows passed |
+| 7.2 Operator devices | [#270](https://github.com/vegastack/vegastack-labs/issues/270) | Request, approve, revoke a device bound to an active human | Implemented for protected local/SSH device attribution; native lifecycle and existing-connection denial checks passed; landing in progress |
+| 7.4 Browser identity binding | [#272](https://github.com/vegastack/vegastack-labs/issues/272) | Link an existing verified browser identity to an existing human through approved plans; revoke only its sessions | Software implementation/verification in progress; no provider changes |
 | Pilot browser access | [#264](https://github.com/vegastack/vegastack-labs/issues/264) | Authenticated real Console at the selected hostname | Cloudflare permissions and exact ingress/identity inputs pending; existing issue retained |
 | 7.3 Network implementation map | [#271](https://github.com/vegastack/vegastack-labs/issues/271) | Ground remaining LAN/Mesh/edge/identity slices before implementation | Source and official documentation research; no provider changes |
 
@@ -24,6 +25,16 @@ The existing Cloudflare Access adapter verifies external identity; the browser s
 Extend the existing authorization grant batch with a bounded lifecycle action. Draft creation remains inert. Onboard creates an absent human with no implicit grants or authentication binding. Suspend denies the principal while retaining explicit grants; resume reactivates only the retained grants and never restores old sessions. Offboard is terminal, preserves history and revokes grants, external bindings and sessions. Reject self-directed lifecycle changes and loss of the final active administrator. Repeat current identity, revision and authorization checks at execution.
 
 Existing principal tables require a distinct suspended state; do not implement resume by undoing permanent revocation. Preserve existing rows, foreign keys, terminal-state triggers, recovery preimages and audit attribution. Required evidence includes inert drafts, allowed transitions, denied unauthorized/stale/terminal transitions, session invalidation and denied subsequent mutation. Native Linux evidence for this slice includes four lifecycle/migration cases and seven approved API workflow variants, executed in a disposable local Debian ARM64 VM. A cross-build alone is not native execution evidence.
+
+## Device access implementation
+
+`device request`, `device approve` and `device revoke` prepare inert changes for one existing active human and immutable device identity. The existing exact-plan acknowledgement/apply path owns all three state changes. Request creates pending state and grants no access; approval allows only requests already authenticated and authorized as that human/device. Revocation is terminal. Owner grants and revisions are not changed by device lifecycle.
+
+Device identity comes from the protected server profile's optional `principalBindings[].deviceId` associated with the socket peer UID. The SSH forced-command identity must match that configured identity. The server, read authorizer and effective authorization repository check the current device and active owning human, including subsequent requests on an existing HTTP connection and repeated stream authorization. Client HTTP headers never establish device identity.
+
+Legacy bindings without `deviceId` and browser adapters without a verified device claim retain their existing principal authorization; they are unattributed and carry no device-specific revocation promise. Approving a record does not install a key, edit an OS account or enroll a Cloudflare device. Applying that local profile binding on a live controller remains a separately scoped operation.
+
+Native Linux evidence uses the real store and approved API workflow, plus an actual HTTP keep-alive connection that is denied after device revocation or owner suspension. This is software evidence, not live provider/host admission.
 
 ## Remaining network slices and evidence
 
@@ -53,3 +64,11 @@ The historical G012 multi-connector qualification contract cannot be reported as
 ## Verification and tracking
 
 Issue comments carry the current plan, ledger and evidence. Only focused affected tests run during implementation; required generation and affected-branch checks remain at shipping. No redundant independent review rounds are added under the operator's simplicity instruction. Missing native runtime evidence is recorded explicitly. Public repository records contain schemas, synthetic examples and sanitized outcomes; private operational values and credentials stay outside Git.
+
+## Network research result — 23-10-2026
+
+Issue [#271](https://github.com/vegastack/vegastack-labs/issues/271) confirms that existing protected client profiles have one fixed SSH destination, while inventory address rows do not label LAN/Mesh paths or prove provider registration. Automatic selection therefore still needs an authoritative routing-data contract and an executable consumer. No standalone selector library or provider client is counted as a completed workflow. A bounded controller LAN/status slice was outlined as future planning; it is not implemented or accepted Phase 7 evidence. The immediate website prerequisite found during this research is the missing supported external-identity binding writer, tracked as #272.
+
+Cloudflare's current [registration list API](https://developers.cloudflare.com/api/resources/zero_trust/subresources/devices/subresources/registrations/methods/list/) distinguishes registration and physical device identity, supports cursor pagination and reports virtual IPs. Its [registration revoke API](https://developers.cloudflare.com/api/resources/zero_trust/subresources/devices/subresources/registrations/methods/revoke/) is deprecated in favor of [registration deletion](https://developers.cloudflare.com/api/resources/zero_trust/subresources/devices/subresources/registrations/methods/delete/); neither local controller revocation nor provider deletion proves termination of an OS shell. Account-specific ownership, registration binding and policy scopes must be supplied before live reconciliation. No such provider action occurred.
+
+[Managed-network TLS detection](https://developers.cloudflare.com/cloudflare-one/team-and-resources/devices/cloudflare-one-client/configure/managed-networks/) uses a whole-certificate SHA-256 fingerprint in its documented self-signed configuration; SPKI is not interchangeable. [Tunnel credential rotation](https://developers.cloudflare.com/tunnel/reference/tunnel-tokens/) does not automatically end existing connector connections; any disconnection operation needs the full target set and protected-host exclusion checked. [Google OIDC](https://developers.google.com/identity/openid-connect/openid-connect#an-id-tokens-payload) uses stable subject identity rather than mutable email. None of these provider facts introduces another authentication service or account-provisioning requirement.

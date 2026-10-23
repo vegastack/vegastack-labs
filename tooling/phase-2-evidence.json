@@ -528,6 +528,17 @@
         ],
         "imports": [],
         "mutationBoundaryDigest": "sha256:5e96ac023243311b523932fede76f010dacb3d42b020d140e9c4b694468bd4c8"
+      },
+      {
+        "id": "phase7-issue270-v1",
+        "issue": 270,
+        "commands": [
+          "device approve",
+          "device request",
+          "device revoke"
+        ],
+        "imports": [],
+        "mutationBoundaryDigest": "sha256:0169a3072c212b8288df2c957bd5843e42637296dd1a02a802251b340ebecf0d"
       }
     ]
   },

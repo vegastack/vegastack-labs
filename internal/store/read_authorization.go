@@ -27,6 +27,9 @@ func (authorizer *ReadAuthorizer) AuthorizeRead(ctx context.Context, principal i
 	}
 	var scope authorization.ReadScope
 	err := authorizer.store.Read(ctx, func(tx ReadTx) error {
+		if err := authorizeDeviceRow(func(q string, a ...any) *sql.Row { return tx.queryRow(ctx, q, a...) }, principal); err != nil {
+			return err
+		}
 		var status string
 		if err := tx.queryRow(ctx, `SELECT status,grant_revision FROM read_principals WHERE principal_id=?`, principal.ID).Scan(&status, &scope.GrantRevision); err != nil {
 			return err

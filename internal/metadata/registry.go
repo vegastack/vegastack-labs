@@ -227,10 +227,11 @@ func Current() Registry {
 	commands = append(commands, hostCommands()...)
 	commands = append(commands, authorizationGrantCommand())
 	commands = append(commands, userLifecycleCommands()...)
+	commands = append(commands, deviceLifecycleCommands()...)
 	commands = append(commands, linuxRoleCommands()...)
 	commands = append(commands, qualificationCommands()...)
 	for _, command := range plannedCommands {
-		if strings.HasPrefix(command.path, "user ") || command.path == "node discover" || command.path == "node add" || command.path == "node inspect" || command.path == "status" || strings.HasPrefix(command.path, "database ") || strings.HasPrefix(command.path, "inventory ") || strings.HasPrefix(command.path, "gate ") || strings.HasPrefix(command.path, "backup ") || strings.HasPrefix(command.path, "restore ") || command.path == "credential import" || command.path == "audit checkpoints" || command.path == "audit verify" || isAvailablePhase4Command(command.path) {
+		if strings.HasPrefix(command.path, "device ") || strings.HasPrefix(command.path, "user ") || command.path == "node discover" || command.path == "node add" || command.path == "node inspect" || command.path == "status" || strings.HasPrefix(command.path, "database ") || strings.HasPrefix(command.path, "inventory ") || strings.HasPrefix(command.path, "gate ") || strings.HasPrefix(command.path, "backup ") || strings.HasPrefix(command.path, "restore ") || command.path == "credential import" || command.path == "audit checkpoints" || command.path == "audit verify" || isAvailablePhase4Command(command.path) {
 			continue
 		}
 		requestSchema, dataSchema := phase5CommandSchemas(command.path)
@@ -748,6 +749,7 @@ func currentSchemas() []SchemaDefinition {
 			ID:      localPrincipalBindingSchemaID,
 			Version: "1.0.0",
 			Fields: []FieldDefinition{
+				{JSONName: "deviceId", GoName: "DeviceID", Kind: ValueString, OmitEmpty: true, Pattern: `^[a-z][a-z0-9._:-]{0,127}$`},
 				{JSONName: "uid", GoName: "UID", Kind: ValueInteger, Required: true, Minimum: int64Pointer(0), Maximum: int64Pointer(4294967295)},
 				{JSONName: "principalId", GoName: "PrincipalID", Kind: ValueString, Required: true, Pattern: `^[a-z][a-z0-9._:-]{0,127}$`},
 			},

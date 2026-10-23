@@ -29,14 +29,14 @@ import (
 )
 
 func TestGrantBatchApprovedAPIFromInitialSetup(t *testing.T) {
-	for _, variant := range []string{"fresh-host-workflow", "user-lifecycle", "atomic-read-sync-failure", "subject-revision-changed", "recovery-epoch-changed", "policy-author-revoked", "acknowledgement-replayed"} {
+	for _, variant := range []string{"fresh-host-workflow", "user-lifecycle", "device-lifecycle", "atomic-read-sync-failure", "subject-revision-changed", "recovery-epoch-changed", "policy-author-revoked", "acknowledgement-replayed"} {
 		t.Run(variant, func(t *testing.T) { testGrantBatchApprovedAPI(t, variant) })
 	}
 }
 
 func testGrantBatchApprovedAPI(t *testing.T, variant string) {
 	failReadSync := variant == "atomic-read-sync-failure"
-	denyBeforeExecution := variant != "user-lifecycle" && variant != "fresh-host-workflow" && variant != "acknowledgement-replayed" && !failReadSync
+	denyBeforeExecution := variant != "user-lifecycle" && variant != "device-lifecycle" && variant != "fresh-host-workflow" && variant != "acknowledgement-replayed" && !failReadSync
 	now := time.Now().UTC().Truncate(time.Second)
 	clock := func() time.Time { return now }
 	dir := t.TempDir()
@@ -46,7 +46,7 @@ func testGrantBatchApprovedAPI(t *testing.T, variant string) {
 	digest := hostaction.Digest("synthetic-grant-setup")
 	human := "human-a"
 	policyTarget := human
-	if variant == "user-lifecycle" {
+	if variant == "user-lifecycle" || variant == "device-lifecycle" {
 		policyTarget = "human-b"
 	}
 	db := filepath.Join(dir, "control.db")
@@ -218,11 +218,39 @@ func testGrantBatchApprovedAPI(t *testing.T, variant string) {
 			}
 			return
 		}
-		grantRevision++
+		if variant != "device-lifecycle" {
+			grantRevision++
+		}
 		declarationRevision = p.Plan.Binding.DeclarationRevision
 		if w := serve(http.MethodGet, "/api/v1/runs/"+run.Run.RunID, nil); w.Code != 200 {
 			t.Fatal("run navigation lost after revision rollover", w.Code, w.Body.String())
 		}
+	}
+
+	if variant == "device-lifecycle" {
+		rev, _ := revisions.CurrentRevision(ctx)
+		onboard := generated.AuthorizationGrantBatchRequest{Schema: generated.SchemaIDAuthorizationGrantBatchRequest, SchemaVersion: "1.0.0", PrincipalID: policyTarget, LifecycleAction: "onboard", ExpectedGrantRevision: 0, ExpectedDeclarationRevision: declarationRevision, ExpectedStateRevision: rev.StateRevision, RecoveryEpoch: rev.RecoveryEpoch, IdempotencyKey: "device-owner", ReasonDigest: digest, Changes: []generated.AuthorizationGrantChange{}}
+		var doc generated.DeclarationRevision
+		post("/api/v1/authorization/grant-batches", onboard, &doc)
+		applyDraft(doc, "device-owner")
+		policy := store.NewEffectiveAuthorizationRepository(authority)
+		devicePrincipal := identity.Principal{ID: policyTarget, Method: identity.LocalOSPeerMethod, DeviceID: "device.synthetic"}
+		for i, action := range []string{"request", "approve", "revoke"} {
+			rev, _ = revisions.CurrentRevision(ctx)
+			batch := generated.AuthorizationGrantBatchRequest{Schema: generated.SchemaIDAuthorizationGrantBatchRequest, SchemaVersion: "1.0.0", PrincipalID: policyTarget, DeviceAction: action, DeviceID: devicePrincipal.DeviceID, ExpectedDeviceRevision: int64(i), ExpectedGrantRevision: 1, ExpectedDeclarationRevision: declarationRevision, ExpectedStateRevision: rev.StateRevision, RecoveryEpoch: rev.RecoveryEpoch, IdempotencyKey: "device-" + action, ReasonDigest: digest, Changes: []generated.AuthorizationGrantChange{}}
+			post("/api/v1/authorization/grant-batches", batch, &doc)
+			if policy.AuthorizeDevice(ctx, devicePrincipal) == nil && action != "revoke" {
+				t.Fatal("draft granted access")
+			}
+			applyDraft(doc, "device-"+action)
+			if got := policy.AuthorizeDevice(ctx, devicePrincipal) == nil; got != (action == "approve") {
+				t.Fatalf("device %s access=%v", action, got)
+			}
+			if w := serve(http.MethodPost, "/api/v1/authorization/grant-batches", batch); w.Code < 400 {
+				t.Fatal("stale device request accepted")
+			}
+		}
+		return
 	}
 	if variant == "user-lifecycle" {
 		grantRevision = 0

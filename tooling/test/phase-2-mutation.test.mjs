@@ -5,16 +5,13 @@ import test from "node:test";
 import { proveUnavailableMutations } from "../verify-phase-2.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "../..");
-// Approved #232 node and #269 user commands are active; remaining commands stay planned.
+// Approved node, user and device lifecycle commands are active; remaining commands stay planned.
 const EXPECTED_PLANNED_MUTATIONS = [
   "audit",
   "connect",
   "control-plane plan",
   "control-plane recover",
   "control-plane verify",
-  "device approve",
-  "device request",
-  "device revoke",
   "doctor",
   "maintenance plan",
   "maintenance run",

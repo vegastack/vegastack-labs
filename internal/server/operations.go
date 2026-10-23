@@ -616,7 +616,7 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 	if acknowledgementBackground != nil {
 		background = append(background, acknowledgementBackground)
 	}
-	service, err := New(Config{Profile: profile, Application: application, Results: factory, PlatformProbe: fixedPlatformProbe{platform: platform}, Remote: remote, Background: background})
+	service, err := New(Config{DeviceAuthorizer: effectiveAuthorization, Profile: profile, Application: application, Results: factory, PlatformProbe: fixedPlatformProbe{platform: platform}, Remote: remote, Background: background})
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err

@@ -75,3 +75,19 @@ func TestVerifiedPrincipalContextRejectsInvalidMethodsAndIDs(t *testing.T) {
 		}
 	}
 }
+
+func TestResolverAttributesDeviceFromProtectedUIDBinding(t *testing.T) {
+	bindings := []Binding{{UID: 42, PrincipalID: "human-a", DeviceID: "device-a"}}
+	resolver, e := NewLocalPrincipalResolver(bindings)
+	if e != nil {
+		t.Fatal(e)
+	}
+	bindings[0].DeviceID = "device-other"
+	p, e := resolver.ResolveLocalPeer(context.Background(), LocalPeer{UID: 42})
+	if e != nil || p.DeviceID != "device-a" {
+		t.Fatal(p, e)
+	}
+	if _, e = NewLocalPrincipalResolver([]Binding{{UID: 42, PrincipalID: "human-a", DeviceID: "INVALID"}}); e == nil {
+		t.Fatal("invalid device binding accepted")
+	}
+}
