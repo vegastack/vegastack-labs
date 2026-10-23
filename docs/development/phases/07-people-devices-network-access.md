@@ -6,7 +6,7 @@ Status: development started 23-10-2026. This is an implementation map, not live 
 
 | Slice | Issue | Outcome | Dependency / present status |
 | --- | --- | --- | --- |
-| 7.1 Platform users | [#269](https://github.com/vegastack/vegastack-labs/issues/269) | Onboard, suspend, resume and offboard through existing exact plans; invalidate access/sessions | Implementation started; local software only |
+| 7.1 Platform users | [#269](https://github.com/vegastack/vegastack-labs/issues/269) | Onboard, suspend, resume and offboard through existing exact plans; invalidate access/sessions | Implemented; native Linux lifecycle/migration and approved API workflows passed; landing in progress |
 | 7.2 Operator devices | [#270](https://github.com/vegastack/vegastack-labs/issues/270) | Request, approve, revoke a device bound to an active human | Depends on 7.1; transport binding must be explicit in its implementation plan |
 | Pilot browser access | [#264](https://github.com/vegastack/vegastack-labs/issues/264) | Authenticated real Console at the selected hostname | Cloudflare permissions and exact ingress/identity inputs pending; existing issue retained |
 | 7.3 Network implementation map | [#271](https://github.com/vegastack/vegastack-labs/issues/271) | Ground remaining LAN/Mesh/edge/identity slices before implementation | Source and official documentation research; no provider changes |
@@ -23,7 +23,7 @@ The existing Cloudflare Access adapter verifies external identity; the browser s
 
 Extend the existing authorization grant batch with a bounded lifecycle action. Draft creation remains inert. Onboard creates an absent human with no implicit grants or authentication binding. Suspend denies the principal while retaining explicit grants; resume reactivates only the retained grants and never restores old sessions. Offboard is terminal, preserves history and revokes grants, external bindings and sessions. Reject self-directed lifecycle changes and loss of the final active administrator. Repeat current identity, revision and authorization checks at execution.
 
-Existing principal tables require a distinct suspended state; do not implement resume by undoing permanent revocation. Preserve existing rows, foreign keys, terminal-state triggers, recovery preimages and audit attribution. Required evidence includes inert drafts, allowed transitions, denied unauthorized/stale/terminal transitions, session invalidation and denied subsequent mutation. A cross-build is not native Linux transaction evidence.
+Existing principal tables require a distinct suspended state; do not implement resume by undoing permanent revocation. Preserve existing rows, foreign keys, terminal-state triggers, recovery preimages and audit attribution. Required evidence includes inert drafts, allowed transitions, denied unauthorized/stale/terminal transitions, session invalidation and denied subsequent mutation. Native Linux evidence for this slice includes four lifecycle/migration cases and seven approved API workflow variants, executed in a disposable local Debian ARM64 VM. A cross-build alone is not native execution evidence.
 
 ## Remaining network slices and evidence
 
