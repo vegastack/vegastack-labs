@@ -36,6 +36,9 @@ func ValidateTarget(value generated.HostDiscoveryTarget) error {
 	} else if *value.CredentialMode != "preloaded-discovery" || value.CredentialPublicKeyDigest == nil {
 		return deny()
 	}
+	if value.IdentityReadMode != nil && (*value.IdentityReadMode != "administrator-sudo" || value.CredentialMode == nil || *value.CredentialMode != "preloaded-discovery") {
+		return deny()
+	}
 	return nil
 }
 

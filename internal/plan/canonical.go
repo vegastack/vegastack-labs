@@ -132,7 +132,11 @@ func readablePlan(plan generated.Plan) string {
 	if plan.HostDiscoveryTarget != nil {
 		r := plan.HostDiscoveryTarget
 		raw, _, _ := stateexport.CanonicalJSON(r)
-		fmt.Fprintf(&body, "Discovery-only target %s: %s\nExact target and administrator confirmation: %s\nAcknowledging this plan confirms independent machine identity and console access. No host configuration, global credential qualification or workload admission.\n", r.Target.TargetID, r.Action, raw)
+		fmt.Fprintf(&body, "Discovery-only target %s: %s\n", r.Target.TargetID, r.Action)
+		if r.Target.IdentityReadMode != nil && *r.Target.IdentityReadMode == "administrator-sudo" {
+			body.WriteString("Administrator sudo identity read: later discovery uses existing sudo rights solely to read the hardware serial with the fixed command /usr/bin/sudo -n /usr/bin/cat /sys/class/dmi/id/product_serial. No permission changes.\n")
+		}
+		fmt.Fprintf(&body, "Exact target and administrator confirmation: %s\nAcknowledging this plan confirms independent machine identity and console access. No host configuration, global credential qualification or workload admission.\n", raw)
 	}
 	return body.String()
 }

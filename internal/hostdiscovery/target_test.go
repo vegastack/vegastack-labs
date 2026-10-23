@@ -41,3 +41,40 @@ func TestTargetRejectsArbitraryDestination(t *testing.T) {
 		}
 	}
 }
+
+func TestAdministratorIdentityReadRequiresConfirmedPreloadedTarget(t *testing.T) {
+	target := validTarget(t)
+	target.IdentityReadMode = new("administrator-sudo")
+	if ValidateTarget(target) == nil {
+		t.Fatal("administrator identity read accepted without preloaded credentials")
+	}
+	target.CredentialMode = new("preloaded-discovery")
+	target.CredentialPublicKeyDigest = new("sha256:" + strings.Repeat("a", 64))
+	if err := ValidateTarget(target); err != nil {
+		t.Fatal(err)
+	}
+	request := generated.HostDiscoveryTargetDraftRequest{
+		Schema: generated.SchemaIDHostDiscoveryTargetDraftRequest, SchemaVersion: "1.0.0",
+		Target: target, Action: "activate", IdempotencyKey: "identity-read",
+	}
+	if ValidateConsoleConfirmation(request) == nil {
+		t.Fatal("administrator identity read accepted without console confirmation")
+	}
+	request.ConsoleConfirmation = &generated.HostDiscoveryConsoleConfirmation{
+		Schema: generated.SchemaIDHostDiscoveryConsoleConfirmation, SchemaVersion: "1.0.0",
+		Method: "administrator-verified-console", TargetDigest: Digest(target),
+	}
+	if err := ValidateConsoleConfirmation(request); err != nil {
+		t.Fatal(err)
+	}
+	request.Target.IdentityReadMode = nil
+	if ValidateConsoleConfirmation(request) == nil {
+		t.Fatal("identity read mode change did not invalidate target confirmation")
+	}
+	for _, mode := range []string{"", "sudo", "administrator-sudo;id"} {
+		target.IdentityReadMode = &mode
+		if ValidateTarget(target) == nil {
+			t.Fatalf("invalid identity read mode accepted: %q", mode)
+		}
+	}
+}

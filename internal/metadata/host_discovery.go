@@ -32,6 +32,7 @@ func hostDiscoverySchemas() []SchemaDefinition {
 			phase5NullableID("inventoryDraftId", "InventoryDraftID"), phase5Nonnegative("inventoryDraftRevision", "InventoryDraftRevision"), phase5NullableID("assetId", "AssetID"),
 			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 			FieldDefinition{JSONName: "credentialMode", GoName: "CredentialMode", Kind: ValueString, Nullable: true, OmitEmpty: true, Enum: []string{"preloaded-discovery"}},
+			FieldDefinition{JSONName: "identityReadMode", GoName: "IdentityReadMode", Kind: ValueString, Nullable: true, OmitEmpty: true, Enum: []string{"administrator-sudo"}},
 			FieldDefinition{JSONName: "credentialPublicKeyDigest", GoName: "CredentialPublicKeyDigest", Kind: ValueString, Nullable: true, OmitEmpty: true, Pattern: "^sha256:[a-f0-9]{64}$"}),
 		phase5Schema(discoveryDraftID,
 			discoveryRef("target", "Target", discoveryTargetID), phase5Enum("action", "Action", "activate", "revoke"),

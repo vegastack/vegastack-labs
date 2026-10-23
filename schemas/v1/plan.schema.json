@@ -800,6 +800,16 @@
           "minLength": 1,
           "type": "string"
         },
+        "identityReadMode": {
+          "enum": [
+            null,
+            "administrator-sudo"
+          ],
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "inventoryDraftId": {
           "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
           "type": [

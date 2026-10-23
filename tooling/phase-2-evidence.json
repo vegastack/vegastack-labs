@@ -509,6 +509,13 @@
         "commands": [],
         "imports": [],
         "mutationBoundaryDigest": "sha256:6b74217815162603e6affedb4af5a39a1ad86f0ac365ba2bb64e90a7febcb9bc"
+      },
+      {
+        "id": "physical-registration-issue263-v3",
+        "issue": 263,
+        "commands": [],
+        "imports": [],
+        "mutationBoundaryDigest": "sha256:00b2d68c90711d240ee0ac1e6147c8412e52a2e766c501cc8a3eaa61c4123291"
       }
     ]
   },
