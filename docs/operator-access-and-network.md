@@ -64,11 +64,20 @@ After apply, independent provider reads verify the intended result. Outage or an
 
 The selected Labs website is `labs.vegastack.dev`. Actual account/zone permission, tunnel/Access/DNS ownership, origin TLS, audience/subject mapping, complete connector identities and applicable placement/ownership gates are required before a live change. A DNS permission alone is not evidence that these are available.
 
-Use the supported ingress observation, import and draft workflows. Review the exact hostname, origin/TLS, audience rules, complete before-state and affected connector set. Preserve unrelated configuration when the provider requires a whole-document update. The origin must remain protected when a connector fails; do not substitute an undeclared connector or broaden public access.
+Use the ingress commands with the protected operator profile and their generated request types:
+
+```sh
+vsk-labs network ingress observe --config /path/to/operator-profile.json --file /path/to/observation-request.json
+vsk-labs network ingress draft --config /path/to/operator-profile.json --file /path/to/change-request.json
+vsk-labs network ingress status --config /path/to/operator-profile.json --profile-id example-ingress
+vsk-labs network ingress rollout-evidence --config /path/to/operator-profile.json --file /path/to/rollout-observation.json
+```
+
+Observation precedes ownership import. Draft remains inert until the existing declaration/plan/acknowledgement/apply path runs. The supported changes are an existing tunnel hostname's config, an existing app-specific Access policy, an existing proxied CNAME, one explicit connector disconnection and bound tunnel-token rotation. They do not create a new tunnel or shared Access policy. Follow the [ingress procedure](cloudflare-ingress-operations.md) for exact ownership and preserved fields. Review the exact hostname, origin/TLS, audience rules, complete before-state and affected connector set. Preserve unrelated configuration when the provider requires a whole-document update. The origin must remain protected when a connector fails; do not substitute an undeclared connector or broaden public access.
 
 For routine connector removal, name the single connector explicitly. An omitted connector selector must never become an account/tunnel-wide cleanup. Shared tunnel-secret rotation has shared scope: reviewing one host does not authorize disrupting every other connector, especially a protected host.
 
-Provider rotation alone is not complete connector rollout. Keep new secret/token values inside approved credential custody; public results contain only references, versions and status. Follow the approved per-connector update/restart procedure only on separately authorized targets, then obtain the required independent verification. Until that succeeds, report the actual partial state. Never present a manual confirmation alone as proof of current-generation connectivity.
+Provider rotation alone is not complete connector rollout. Keep new secret/token values inside approved credential custody; public results contain only references, versions and status. Follow the approved per-connector update/restart procedure only on separately authorized targets, then obtain the required independent verification. The current adapter cannot independently prove which credential generation a connector uses, so rotation remains partial. A new session plus a manual receipt does not close that gap. Never present a manual confirmation alone as proof of current-generation connectivity.
 
 ## Manual router and switch work
 
