@@ -89,10 +89,10 @@ export async function verifyStaticExport(output = OUTPUT, embedded = output === 
     const routeMarkers = new Map([
       ["nodes.html", "Loading Nodes"],
       ["gates.html", "Loading derived gates"],
-      ["people.html", "Loading People status"],
+      ["people.html", "Loading people"],
       ["services.html", "Loading Services status"],
       ["backups.html", "Loading backup status"],
-      ["providers.html", "Loading Providers status"],
+      ["providers.html", "Loading providers"],
       ["changes.html", "No declaration open"],
     ]);
     for (const [route, marker] of routeMarkers) {

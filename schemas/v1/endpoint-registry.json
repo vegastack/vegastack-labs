@@ -319,6 +319,20 @@
       ]
     },
     {
+      "id": "api.v1.devices.list",
+      "method": "GET",
+      "path": "/api/v1/devices",
+      "availability": "available",
+      "ownerPhase": "7",
+      "querySchema": "vegastack-labs.dev/operator-read-query",
+      "dataSchema": "vegastack-labs.dev/operator-device-list",
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
+    },
+    {
       "id": "api.v1.events.stream",
       "method": "GET",
       "path": "/api/v1/events",
@@ -433,6 +447,20 @@
       "ownerPhase": "5",
       "querySchema": "vegastack-labs.dev/host-gate-query",
       "dataSchema": "vegastack-labs.dev/gate-list-data",
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.grants.list",
+      "method": "GET",
+      "path": "/api/v1/grants",
+      "availability": "available",
+      "ownerPhase": "7",
+      "querySchema": "vegastack-labs.dev/operator-read-query",
+      "dataSchema": "vegastack-labs.dev/operator-grant-list",
       "stream": "finite",
       "audiences": [
         "browser",
@@ -788,6 +816,20 @@
       ]
     },
     {
+      "id": "api.v1.people.list",
+      "method": "GET",
+      "path": "/api/v1/people",
+      "availability": "available",
+      "ownerPhase": "7",
+      "querySchema": "vegastack-labs.dev/operator-read-query",
+      "dataSchema": "vegastack-labs.dev/operator-people-page",
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
+    },
+    {
       "id": "api.v1.plans.acknowledgements.create",
       "method": "POST",
       "path": "/api/v1/plans/{planId}/acknowledgements",
@@ -889,6 +931,19 @@
       "availability": "available",
       "ownerPhase": "4",
       "dataSchema": "vegastack-labs.dev/run-presentation",
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.providers.list",
+      "method": "GET",
+      "path": "/api/v1/providers",
+      "availability": "available",
+      "ownerPhase": "7",
+      "dataSchema": "vegastack-labs.dev/operator-provider-list",
       "stream": "finite",
       "audiences": [
         "browser",

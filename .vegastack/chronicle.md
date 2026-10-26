@@ -11,6 +11,15 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 - **Decisions:** Reuse the existing executable, SQLite, acknowledgement engine and verified preimage path. No new service, shell surface, provider change or independent review round.
 
 — approved by (omkarmohanta09) · built by Codex with GPT-6.1 Sol medium implementation agent · branch feat/7.6-network-connect
+## 26-10-2026 — People and device records replace the Console placeholders ([#276](https://github.com/vegastack/vegastack-labs/issues/276))
+
+- **What:** Operators can inspect actual authorized platform users, their devices and grants. Providers distinguishes configured capabilities from unknown connectivity instead of implying that configuration proves a working connection.
+- **Why:** The lifecycle commands were implemented, but the Console still showed only capability placeholders.
+- **How it went:** Existing identity tables and permissions supplied the read workflow without a migration. Linux fixtures passed current user/device/grant denials; browser fixtures verified narrow layouts, refresh/error states and removal of cached records after denial. A stale generator count was corrected to the already approved command inventory.
+- **Changed:** Scoped generated read APIs · real People and Providers screens · bounded continuation · identity-cache removal on denial.
+- **Decisions:** No new service, account provisioning or live update. Independent review rounds remain omitted under the operator's instruction; required focused and shipping checks remain.
+
+— approved by (omkarmohanta09) · built by Codex with GPT-6.1 Sol medium implementation agent · branch feat/7.5-operator-access-views
 
 ## 23-10-2026 — Browser logins can be linked through an approved plan ([#272](https://github.com/vegastack/vegastack-labs/issues/272))
 

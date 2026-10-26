@@ -1,0 +1,97 @@
+{
+  "$defs": {
+    "operator-device": {
+      "additionalProperties": false,
+      "properties": {
+        "deviceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "deviceRevision": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "principalId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/operator-device"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "pending",
+            "approved",
+            "revoked"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "deviceId",
+        "principalId",
+        "status",
+        "deviceRevision"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/operator-device-list",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "devices": {
+      "items": {
+        "$ref": "#/$defs/operator-device"
+      },
+      "maxItems": 100,
+      "type": "array"
+    },
+    "nextAfter": {
+      "maxLength": 128,
+      "type": "string"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/operator-device-list"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "stateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "devices",
+    "nextAfter",
+    "stateRevision",
+    "recoveryEpoch"
+  ],
+  "title": "VegaStack Labs operator device list",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

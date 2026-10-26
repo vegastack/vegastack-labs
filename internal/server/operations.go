@@ -408,6 +408,12 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 	if err := api.RegisterHostReplacementOperations(application, api.HostReplacementOperations{Replacements: replacementRepository, Declarations: declarations, Results: factory}); err != nil {
 		return err
 	}
+	if err := api.RegisterProviderReadOperations(application, store.NewOperatorAccessRepository(authority), api.ProviderConfiguration{Identity: profile.RemoteRead.Enabled && profile.RemoteRead.ConfigurationValid, Acknowledgement: profile.AcknowledgementAdapterConfigPath != "", LocalBackup: profile.LocalBackup != nil, OffsiteBackup: profile.OffsiteBackup != nil}); err != nil {
+		return err
+	}
+	if err := api.RegisterOperatorAccessOperations(application, store.NewOperatorAccessRepository(authority)); err != nil {
+		return err
+	}
 	if err := api.RegisterHostAdoptionOperations(application, api.HostAdoptionOperations{Hosts: store.NewHostAdoptionRepository(authority), Declarations: declarations, Results: factory}); err != nil {
 		return err
 	}
