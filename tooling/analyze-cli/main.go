@@ -851,6 +851,7 @@ func reviewedLocalClientDependencies(closure map[string]bool, modulePath, localA
 		localTransportImport:                    true,
 		sshTransportImport:                      true,
 		modulePath + "/internal/networkconnect": true,
+		modulePath + "/internal/servicecatalog": true,
 		modulePath + "/internal/apissh":         true,
 		modulePath + "/internal/credentialref":  true,
 		modulePath + "/internal/backupidentity": true,
@@ -872,6 +873,10 @@ func reviewedLocalClientDependencies(closure map[string]bool, modulePath, localA
 }
 
 func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, localAPIImport, localTransportImport, sshTransportImport string) bool {
+	if candidate.listed.ImportPath == modulePath+"/internal/servicecatalog" {
+		return approvedServiceCatalogPackage(candidate, modulePath, "internal/servicecatalog")
+	}
+
 	if candidate.listed.ImportPath == modulePath+"/internal/networkconnect" {
 		return approvedNetworkConnectPackage(candidate, modulePath, "internal/networkconnect")
 	}
@@ -907,7 +912,7 @@ func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, loca
 		return false
 	}
 	for _, imported := range candidate.listed.Imports {
-		if imported == "os/exec" || imported == "plugin" || imported == "database/sql" || imported == "net/http" || imported == "net/url" || imported == "crypto/tls" || imported == "reflect" || imported == "unsafe" || imported == "syscall" {
+		if imported == "os/exec" || imported == "plugin" || imported == "database/sql" || imported == "net/http" || imported == "net/url" && !approvedServiceCatalogPackage(candidate, modulePath, "internal/localapi") || imported == "crypto/tls" || imported == "reflect" || imported == "unsafe" || imported == "syscall" {
 			return false
 		}
 		if strings.HasPrefix(imported, modulePath+"/") || !strings.Contains(imported, ".") || approvedExternal(imported) {
@@ -973,7 +978,9 @@ func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, loca
 			switch function.Pkg().Path() {
 			case "net":
 				valid = reviewedUnixDial(function, call)
-			case "net/http", "net/url", "crypto/tls":
+			case "net/url":
+				valid = approvedServiceCatalogPackage(candidate, modulePath, "internal/localapi") && slices.Contains([]string{"Parse", "ParseQuery", "Set", "Encode", "IsAbs"}, function.Name())
+			case "net/http", "crypto/tls":
 				valid = false
 			}
 			return valid
