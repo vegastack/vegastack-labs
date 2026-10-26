@@ -18,7 +18,7 @@ test("the original Phase 2 baseline stays immutable while later waves have exact
   assert.equal(manifest.contract.postPhase2MutationBoundaryDigest, "sha256:ec30a4cc9d4a6e5a3fc9817a55a5b0a1697adcae57b950325edd563637d308a8");
   assert.equal(manifest.contract.productionDependencyDigest, "sha256:a9e8788558fa5c3347b5b8464d8d5e4a67dcc9357e5ae07478b606a806f78133");
   assert.equal(manifest.contract.mutationAvailable, false);
-  assert.equal(manifest.contract.reviewedWaves?.length, 57);
+  assert.equal(manifest.contract.reviewedWaves?.length, 58);
   assert.deepEqual(manifest.contract.reviewedWaves.find(wave => wave.issue === 269), {"id":"phase7-issue269-v1","issue":269,"commands":["user offboard","user onboard","user resume","user suspend"],"imports":[],"mutationBoundaryDigest":"sha256:5e96ac023243311b523932fede76f010dacb3d42b020d140e9c4b694468bd4c8"});
   assert.deepEqual(manifest.contract.reviewedWaves.find(wave => wave.issue === 270), {"id":"phase7-issue270-v1","issue":270,"commands":["device approve","device request","device revoke"],"imports":[],"mutationBoundaryDigest":"sha256:0169a3072c212b8288df2c957bd5843e42637296dd1a02a802251b340ebecf0d"});
   assert.deepEqual(manifest.contract.reviewedWaves.find(wave => wave.issue === 272), {"id":"phase7-issue272-v1","issue":272,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:8e4068713b60b3568f07b68683a22741a68137c7e185360cee580e11e21e0da0"});
@@ -36,6 +36,11 @@ test("the original Phase 2 baseline stays immutable while later waves have exact
   {
     const {mutationBoundaryDigest, ...wave} = manifest.contract.reviewedWaves.find(wave => wave.issue === 286);
     assert.deepEqual(wave, {id:"phase8-issue286-v1",issue:286,commands:["service import draft","service list","service observe","service show"],imports:["github.com/vegastack/vegastack-labs/internal/adapter/coolify","github.com/vegastack/vegastack-labs/internal/adapter/harbor","github.com/vegastack/vegastack-labs/internal/servicecatalog"]});
+    assert.match(mutationBoundaryDigest, /^sha256:[a-f0-9]{64}$/);
+  }
+  {
+    const {mutationBoundaryDigest, ...wave} = manifest.contract.reviewedWaves.find(wave => wave.issue === 288);
+    assert.deepEqual(wave, {id:"phase8-issue288-v1",issue:288,commands:["service deployment draft","service deployment show"],imports:["github.com/vegastack/vegastack-labs/internal/adapter/serviceruntime"]});
     assert.match(mutationBoundaryDigest, /^sha256:[a-f0-9]{64}$/);
   }
   const priorWaves = manifest.contract.reviewedWaves.slice(0, 49);
