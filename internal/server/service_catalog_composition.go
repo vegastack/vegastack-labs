@@ -152,8 +152,11 @@ func (c *serviceCatalogComposition) credential(ctx context.Context, def generate
 		return credentialref.StepBinding{}, serviceCredentialIdentity{}, serviceUnavailable(serviceFailure(generated.ErrorCodePrerequisiteBlocked), true)
 	}
 	operationID := servicecatalog.OperationID
-	if consumer == "hosting.coolify.deploy" || consumer == "service.runtime" {
+	if consumer == "hosting.coolify.deploy" || consumer == "service.runtime" || consumer == "service.environment" {
 		operationID = servicecatalog.DeploymentOperationID
+	}
+	if consumer == "service.recovery" || consumer == "service.recovery.repository" {
+		operationID = "service-recovery"
 	}
 	binding := credentialref.StepBinding{OperationID: operationID, AdapterID: consumer, ConsumerID: consumer, PurposeID: purpose, TargetID: def.ServiceID, ReferenceID: reference, ResolverID: ref.ResolverID, MaterialVersion: ref.MaterialVersion, StateRevision: revision.StateRevision, RecoveryEpoch: epoch}
 	if !credentialref.ValidBinding(binding) {

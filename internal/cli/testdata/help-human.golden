@@ -171,6 +171,16 @@ Available commands:
   help                     Show generated command help.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  hosting lifecycle draft  Prepare or inspect one exact hosting lifecycle.
+    --config <path>        Read one protected operator profile.
+    --file <path>          Read one inert hosting lifecycle request.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  hosting lifecycle show   Prepare or inspect one exact hosting lifecycle.
+    --config <path>        Read one protected operator profile.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+    --target-id <id>       Select one exact hosting target.
   inventory diff           Compare one inert draft or local candidate with a compatible inert draft.
     --captured-at <timestamp> Record an RFC 3339 UTC capture time.
     --config <path>        Read the protected server profile at this explicit path.
@@ -399,6 +409,11 @@ Available commands:
     --config <path>        Read the protected server profile at this explicit path.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  service configuration show Inspect service settings and explicit target eligibility.
+    --config <path>        Read one protected operator profile.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+    --service-id <id>      Select one exact registered service.
   service deployment draft Draft an exact service deployment or rollback for human acknowledgement.
     --config <path>        Read one protected operator profile.
     --file <path>          Read one inert deployment or rollback draft request.
@@ -425,6 +440,16 @@ Available commands:
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
     --service-id <id>      Select one exact registered service.
+  service recovery draft   Prepare or inspect consistent workload recovery.
+    --config <path>        Read one protected operator profile.
+    --file <path>          Read one inert workload recovery request.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  service recovery show    Prepare or inspect consistent workload recovery.
+    --config <path>        Read one protected operator profile.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+    --service-id <id>      Select one exact service.
   service show             Read one registered service; host admission remains unverified.
     --config <path>        Read one protected operator profile.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.

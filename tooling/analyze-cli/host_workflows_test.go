@@ -17,12 +17,12 @@ func TestNetworkConnectSourceSealsRejectDrift(t *testing.T) {
 			current[key] = seal
 		}
 	}
-	for key, seal := range serviceDeploymentSourceSeals {
+	for key, seal := range phase8FinishSourceSeals {
 		current[key] = seal
 	}
 	for key, seal := range current {
 		relative, joined, _ := strings.Cut(key, "|")
-		if relative != "internal/localapi" && relative != "internal/networkconnect" && relative != "internal/serverconfig" && relative != "internal/servicecatalog" {
+		if relative != "internal/localapi" && relative != "internal/networkconnect" && relative != "internal/serverconfig" && relative != "internal/servicecatalog" && relative != "internal/hostinglifecycle" && relative != "internal/servicerecovery" && relative != "cmd/vsk-labs" && relative != "internal/hostingplatform" && relative != "internal/adapter/harbor" {
 			t.Fatalf("unexpected source seal %q", relative)
 		}
 		names := strings.Split(joined, ",")
@@ -69,7 +69,7 @@ func TestNetworkConnectSourceSealsRejectDrift(t *testing.T) {
 		}
 		checked++
 	}
-	if checked != 7 {
-		t.Fatal("all seven platform and domain source variants must be sealed")
+	if checked != 14 {
+		t.Fatal("all fourteen platform and domain source variants must be sealed")
 	}
 }

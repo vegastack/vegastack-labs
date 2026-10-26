@@ -1,0 +1,97 @@
+{
+  "$defs": {
+    "service-recovery-mount": {
+      "additionalProperties": false,
+      "properties": {
+        "destination": {
+          "maxLength": 1024,
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/service-recovery-mount"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "source": {
+          "maxLength": 1024,
+          "type": "string"
+        },
+        "targetSource": {
+          "maxLength": 1024,
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "volume",
+            "bind"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "destination",
+        "type",
+        "source",
+        "targetSource"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/service-recovery-component",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "imageDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "mounts": {
+      "items": {
+        "$ref": "#/$defs/service-recovery-mount"
+      },
+      "maxItems": 64,
+      "minItems": 0,
+      "type": "array"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/service-recovery-component"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "sourceContainerId": {
+      "maxLength": 64,
+      "type": "string"
+    },
+    "targetContainerId": {
+      "maxLength": 64,
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "sourceContainerId",
+    "targetContainerId",
+    "imageDigest",
+    "mounts"
+  ],
+  "title": "VegaStack Labs service recovery component",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

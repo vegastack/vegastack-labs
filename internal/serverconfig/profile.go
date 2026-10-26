@@ -28,6 +28,8 @@ var offsiteBucketName = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]{1,62}$`)
 var scheduledRunnerPath = regexp.MustCompile(`^/[A-Za-z0-9._/-]+$`)
 
 type Profile struct {
+	HostingLifecycleProfiles         []generated.HostingLifecycleProfile
+	ServiceRecoveryProfiles          []generated.ServiceRecoveryProfile
 	ServiceBindings                  []generated.ServiceProviderBinding
 	ServiceDeploymentBindings        []generated.ServiceDeploymentProviderBinding
 	NetworkConnectExcludedHostIDs    []string
@@ -264,7 +266,21 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 	if err != nil {
 		return invalid()
 	}
+	recoveryProfiles, err := FreezeServiceRecoveryProfiles(input.ServiceRecoveryProfiles)
+	if err != nil {
+		return invalid()
+	}
+	hostingProfiles := append([]generated.HostingLifecycleProfile(nil), input.HostingLifecycleProfiles...)
+	seenHosting := map[string]bool{}
+	for _, item := range hostingProfiles {
+		raw, _ := json.Marshal(item)
+		if seenHosting[item.TargetID] || generated.ValidateContractJSON(generated.SchemaIDHostingLifecycleProfile, raw, generated.ContractExact) != nil {
+			return invalid()
+		}
+		seenHosting[item.TargetID] = true
+	}
 	return Profile{
+		HostingLifecycleProfiles: hostingProfiles, ServiceRecoveryProfiles: recoveryProfiles,
 		ServiceBindings:                  serviceBindings,
 		ServiceDeploymentBindings:        deploymentBindings,
 		NetworkConnectExcludedHostIDs:    append([]string(nil), input.NetworkConnectExcludedHostIDs...),

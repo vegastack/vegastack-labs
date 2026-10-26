@@ -939,6 +939,12 @@ func browserMethodName(endpoint metadata.EndpointDefinition) string {
 	switch endpoint.ID {
 	case "api.v1.services.deployment-drafts.create":
 		return "createServiceDeploymentDraft"
+	case "api.v1.services.configuration.get":
+		return "getServiceConfiguration"
+	case "api.v1.services.recovery.get":
+		return "getServiceRecovery"
+	case "api.v1.hosting.lifecycle.get":
+		return "getHostingLifecycle"
 	case "api.v1.services.deployment.get":
 		return "getServiceDeployment"
 	case "api.v1.services.list":
@@ -1100,6 +1106,10 @@ func browserType(field metadata.FieldDefinition) string {
 // These exact discovery plan fields carry references and a public fingerprint,
 // never private key bytes. Other credential-shaped browser fields remain denied.
 func discoveryPublicPlanField(schemaID, name string) bool {
+	// Service configuration exposes logical references only; values remain server-only.
+	if schemaID == "vegastack-labs.dev/service-configuration" {
+		return name == "secretReferenceIds"
+	}
 	// These finite arrays carry only service credential file names, never bytes.
 	if schemaID == "vegastack-labs.dev/linux-role-input" {
 		return name == "controlPlainCredentials" || name == "controlEncryptedCredentials"

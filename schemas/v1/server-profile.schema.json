@@ -134,6 +134,59 @@
       ],
       "type": "object"
     },
+    "hosting-lifecycle-profile": {
+      "additionalProperties": false,
+      "properties": {
+        "bindingId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "configurationDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "configurationPath": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "type": "string"
+        },
+        "mutationReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "platformReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/hosting-lifecycle-profile"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "targetId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "bindingId",
+        "targetId",
+        "configurationPath",
+        "configurationDigest",
+        "mutationReferenceId",
+        "platformReferenceId"
+      ],
+      "type": "object"
+    },
     "local-principal-binding": {
       "additionalProperties": false,
       "properties": {
@@ -255,6 +308,164 @@
       ],
       "type": "object"
     },
+    "service-configuration": {
+      "additionalProperties": false,
+      "properties": {
+        "backupPolicyId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "consistencyProcedureId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "cpuQuotaPercent": {
+          "maximum": 100000,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "dataClass": {
+          "enum": [
+            "stateless",
+            "stateful"
+          ],
+          "type": "string"
+        },
+        "environmentClass": {
+          "enum": [
+            "development",
+            "production-like"
+          ],
+          "type": "string"
+        },
+        "exposure": {
+          "enum": [
+            "private",
+            "public"
+          ],
+          "type": "string"
+        },
+        "exposureHostname": {
+          "maxLength": 253,
+          "type": "string"
+        },
+        "exposurePolicyId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "healthExpectedStatus": {
+          "maximum": 599,
+          "minimum": 100,
+          "type": "integer"
+        },
+        "healthIntervalSeconds": {
+          "maximum": 300,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "healthPath": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "healthRetries": {
+          "maximum": 20,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "healthTimeoutSeconds": {
+          "maximum": 60,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "memoryBytes": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "migration": {
+          "enum": [
+            "none",
+            "backward-compatible",
+            "irreversible"
+          ],
+          "type": "string"
+        },
+        "originIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "originPort": {
+          "maximum": 65535,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "port": {
+          "maximum": 65535,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "recoveryObjectiveSeconds": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "recoveryRecordId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "rollback": {
+          "enum": [
+            "previous-artifact",
+            "recovery-required"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/service-configuration"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "secretReferenceIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "storageBytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "environmentClass",
+        "cpuQuotaPercent",
+        "memoryBytes",
+        "storageBytes",
+        "port",
+        "exposure",
+        "healthPath",
+        "healthExpectedStatus",
+        "healthIntervalSeconds",
+        "healthTimeoutSeconds",
+        "healthRetries",
+        "dataClass",
+        "recoveryObjectiveSeconds",
+        "migration",
+        "rollback",
+        "secretReferenceIds"
+      ],
+      "type": "object"
+    },
     "service-deployment-artifact-source": {
       "additionalProperties": false,
       "properties": {
@@ -372,10 +583,27 @@
         "binding": {
           "$ref": "#/$defs/service-deployment-binding"
         },
+        "configuration": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/service-configuration"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "destinationUuid": {
           "maxLength": 1024,
           "minLength": 1,
           "type": "string"
+        },
+        "environmentSecrets": {
+          "items": {
+            "$ref": "#/$defs/service-environment-secret"
+          },
+          "maxItems": 32,
+          "type": "array"
         },
         "exclusiveOwnership": {
           "type": "boolean"
@@ -426,6 +654,44 @@
         "runtimeReferenceId",
         "exclusiveOwnership",
         "artifacts"
+      ],
+      "type": "object"
+    },
+    "service-environment-secret": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedFingerprint": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "referenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/service-environment-secret"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "name",
+        "referenceId",
+        "expectedFingerprint"
       ],
       "type": "object"
     },
@@ -501,6 +767,313 @@
         "coolify"
       ],
       "type": "object"
+    },
+    "service-recovery-binding": {
+      "additionalProperties": false,
+      "properties": {
+        "configurationDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "consistencyProcedureId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "dataClass": {
+          "enum": [
+            "platform",
+            "workload",
+            "registry"
+          ],
+          "type": "string"
+        },
+        "policyId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/service-recovery-binding"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "serviceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "sourceHostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "targetHostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "policyId",
+        "serviceId",
+        "configurationDigest",
+        "dataClass",
+        "consistencyProcedureId",
+        "sourceHostId",
+        "targetHostId"
+      ],
+      "type": "object"
+    },
+    "service-recovery-component": {
+      "additionalProperties": false,
+      "properties": {
+        "imageDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "mounts": {
+          "items": {
+            "$ref": "#/$defs/service-recovery-mount"
+          },
+          "maxItems": 64,
+          "minItems": 0,
+          "type": "array"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/service-recovery-component"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "sourceContainerId": {
+          "maxLength": 64,
+          "type": "string"
+        },
+        "targetContainerId": {
+          "maxLength": 64,
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "sourceContainerId",
+        "targetContainerId",
+        "imageDigest",
+        "mounts"
+      ],
+      "type": "object"
+    },
+    "service-recovery-mount": {
+      "additionalProperties": false,
+      "properties": {
+        "destination": {
+          "maxLength": 1024,
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/service-recovery-mount"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "source": {
+          "maxLength": 1024,
+          "type": "string"
+        },
+        "targetSource": {
+          "maxLength": 1024,
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "volume",
+            "bind"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "destination",
+        "type",
+        "source",
+        "targetSource"
+      ],
+      "type": "object"
+    },
+    "service-recovery-profile": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "maxLength": 32,
+          "type": "string"
+        },
+        "binding": {
+          "$ref": "#/$defs/service-recovery-binding"
+        },
+        "components": {
+          "items": {
+            "$ref": "#/$defs/service-recovery-component"
+          },
+          "maxItems": 32,
+          "minItems": 0,
+          "type": "array"
+        },
+        "cutoverBindingDigest": {
+          "maxLength": 71,
+          "type": "string"
+        },
+        "cutoverIngressId": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "cutoverOriginServiceId": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "exchangeRoot": {
+          "maxLength": 1024,
+          "type": "string"
+        },
+        "harborArtifactDigest": {
+          "maxLength": 71,
+          "type": "string"
+        },
+        "harborOrigin": {
+          "maxLength": 2048,
+          "type": "string"
+        },
+        "harborProject": {
+          "maxLength": 256,
+          "type": "string"
+        },
+        "harborReferenceId": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "harborRepository": {
+          "maxLength": 512,
+          "type": "string"
+        },
+        "harborUsername": {
+          "maxLength": 256,
+          "type": "string"
+        },
+        "maximumBytes": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "platformOwnerId": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "recoveryObjectiveSeconds": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "repositoryId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "repositoryKeyReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "repositoryRoot": {
+          "maxLength": 1024,
+          "type": "string"
+        },
+        "repositoryUrl": {
+          "maxLength": 2048,
+          "type": "string"
+        },
+        "resticBinaryPath": {
+          "maxLength": 1024,
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/service-recovery-profile"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "sourceProject": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "sourceReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "targetProject": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "targetReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "targetServiceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "binding",
+        "sourceProject",
+        "targetProject",
+        "components",
+        "targetServiceId",
+        "sourceReferenceId",
+        "targetReferenceId",
+        "repositoryKeyReferenceId",
+        "repositoryId",
+        "repositoryUrl",
+        "repositoryRoot",
+        "exchangeRoot",
+        "resticBinaryPath",
+        "architecture",
+        "maximumBytes",
+        "recoveryObjectiveSeconds",
+        "harborOrigin",
+        "harborProject",
+        "harborRepository",
+        "harborArtifactDigest",
+        "harborUsername",
+        "harborReferenceId",
+        "platformOwnerId",
+        "cutoverIngressId",
+        "cutoverBindingDigest",
+        "cutoverOriginServiceId"
+      ],
+      "type": "object"
     }
   },
   "$id": "vegastack-labs.dev/server-profile",
@@ -548,6 +1121,13 @@
       "minLength": 2,
       "pattern": "^/[^\\x00]*$",
       "type": "string"
+    },
+    "hostingLifecycleProfiles": {
+      "items": {
+        "$ref": "#/$defs/hosting-lifecycle-profile"
+      },
+      "maxItems": 128,
+      "type": "array"
     },
     "ingressScopeDigests": {
       "items": {
@@ -785,6 +1365,13 @@
     "serviceDeploymentBindings": {
       "items": {
         "$ref": "#/$defs/service-deployment-provider-binding"
+      },
+      "maxItems": 128,
+      "type": "array"
+    },
+    "serviceRecoveryProfiles": {
+      "items": {
+        "$ref": "#/$defs/service-recovery-profile"
       },
       "maxItems": 128,
       "type": "array"

@@ -124,6 +124,15 @@ func (p *peer) output(command string) (string, uint32) {
 		}
 		return strings.Repeat("a", 32) + "\n", 0
 	}
+	if command == capacityCPUCommand {
+		return "4\n", 0
+	}
+	if command == capacityMemoryCommand {
+		return "MemTotal: 8388608 kB\nMemAvailable: 4194304 kB\n", 0
+	}
+	if command == capacityDiskCommand {
+		return "Avail\n10737418240\n", 0
+	}
 	if !strings.HasPrefix(command, docker) {
 		return "", 1
 	}
@@ -143,6 +152,10 @@ func (p *peer) output(command string) (string, uint32) {
 			health = "unknown"
 		}
 		projection := containerProjection{ID: strings.Repeat("1", 64), ImageID: "sha256:" + strings.Repeat("c", 64), Running: true, Health: health, Managed: "true", Type: "application", Name: "application-one", PullRequestID: "0"}
+		if p.mode == "resources" {
+			projection.NanoCPUs = 1250000000
+			projection.MemoryBytes = 268435456
+		}
 		if p.mode == "changing" && p.containerReads > 1 {
 			projection.ImageID = "sha256:" + strings.Repeat("d", 64)
 		}
@@ -256,5 +269,19 @@ func TestObserveRejectsUntrustedCommandInputBeforeConnection(t *testing.T) {
 	_, e := NewClient().Observe(context.Background(), target, selection, value, func(context.Context) error { called = true; return nil })
 	if !errors.Is(e, ErrInput) || called {
 		t.Fatal("invalid selector reached connection checks")
+	}
+}
+
+func TestObserveRuntimeVerifiesAppliedResourceLimits(t *testing.T) {
+	for _, mode := range []string{"resources", "healthy"} {
+		t.Run(mode, func(t *testing.T) {
+			target, selection, value, _ := fixture(t, mode)
+			selection.CPUQuotaPercent = 125
+			selection.MemoryBytes = 268435456
+			_, e := NewClient().Observe(context.Background(), target, selection, value, func(context.Context) error { return nil })
+			if (mode == "resources") != (e == nil) {
+				t.Fatalf("resource verification mode %s err %v", mode, e)
+			}
+		})
 	}
 }

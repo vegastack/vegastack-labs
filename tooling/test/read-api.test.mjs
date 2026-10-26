@@ -391,3 +391,21 @@ test("approved #288 deployment routes stay exact and exclude direct mutation", a
   const root = await fixtureRepo(t, {"schemas/v1/endpoint-registry.json": `${JSON.stringify(browserDraft)}\n`});
   assert.ok((await verifyReadAPI(root)).codes.includes("READ_API_ENDPOINT_DRIFT"), "browser deployment draft");
 });
+
+
+test("Phase8 finish admits only exact reads and inert operator drafts", async(t) => {
+ const registry=JSON.parse(await readFile(path.join(process.cwd(),"schemas/v1/endpoint-registry.json"),"utf8"));
+ for(const id of ["api.v1.services.configuration.get","api.v1.services.recovery.get","api.v1.services.recovery-drafts.create","api.v1.hosting.lifecycle.get","api.v1.hosting.lifecycle-drafts.create"]){
+  const original=registry.endpoints.find(e=>e.id===id); assert.ok(original,id);
+  for(const change of ["remove","duplicate","direct-write","browser-draft","unknown-field"]){
+   const copy=structuredClone(registry);const e=copy.endpoints.find(e=>e.id===id);
+   if(change==="remove")copy.endpoints=copy.endpoints.filter(e=>e.id!==id);
+   if(change==="duplicate")copy.endpoints.push({...e});
+   if(change==="direct-write") {e.method="POST";e.path+="/execute";}
+   if(change==="browser-draft")e.audiences=e.method==="POST"?["browser","operator"]:["browser","operator","unknown"];
+   if(change==="unknown-field")e.directExecute=true;
+   const root=await fixtureRepo(t,{"schemas/v1/endpoint-registry.json":JSON.stringify(copy)+"\n"});
+   assert.ok((await verifyReadAPI(root)).codes.includes("READ_API_ENDPOINT_DRIFT"),id+"/"+change);
+  }
+ }
+});

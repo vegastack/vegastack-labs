@@ -1,0 +1,196 @@
+{
+  "$defs": {
+    "service-definition": {
+      "additionalProperties": false,
+      "properties": {
+        "bindingDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "bindingId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "environmentId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "hostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "hostIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "ownerId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/service-definition"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "serviceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "serviceId",
+        "environmentId",
+        "ownerId",
+        "hostId",
+        "hostIdentityDigest",
+        "bindingId",
+        "bindingDigest"
+      ],
+      "type": "object"
+    },
+    "service-recovery-binding": {
+      "additionalProperties": false,
+      "properties": {
+        "configurationDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "consistencyProcedureId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "dataClass": {
+          "enum": [
+            "platform",
+            "workload",
+            "registry"
+          ],
+          "type": "string"
+        },
+        "policyId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/service-recovery-binding"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "serviceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "sourceHostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "targetHostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "policyId",
+        "serviceId",
+        "configurationDigest",
+        "dataClass",
+        "consistencyProcedureId",
+        "sourceHostId",
+        "targetHostId"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/service-recovery-request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "action": {
+      "enum": [
+        "backup",
+        "migration-freeze",
+        "isolated-restore",
+        "migration-cutover",
+        "rollback-before-writers",
+        "recovery-after-writers"
+      ],
+      "type": "string"
+    },
+    "backupPointId": {
+      "maxLength": 128,
+      "type": "string"
+    },
+    "binding": {
+      "$ref": "#/$defs/service-recovery-binding"
+    },
+    "definition": {
+      "$ref": "#/$defs/service-definition"
+    },
+    "expectedRecoveryRevision": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "expectedStateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "idempotencyKey": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "reasonDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/service-recovery-request"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "definition",
+    "binding",
+    "action",
+    "backupPointId",
+    "expectedRecoveryRevision",
+    "expectedStateRevision",
+    "recoveryEpoch",
+    "idempotencyKey",
+    "reasonDigest"
+  ],
+  "title": "VegaStack Labs service recovery request",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

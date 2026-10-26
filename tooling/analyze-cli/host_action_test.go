@@ -49,20 +49,20 @@ func TestHostActionSourceSealRejectsChangedAddedOrImportedAuthority(t *testing.T
 	for key, seal := range phase228SourceSeals {
 		currentSeals[key] = seal
 	}
-	// Current local clients/profiles use the additive approved #288 variants;
-	// historical source maps remain immutable, rather than today's fixtures.
+	// Current source variants use only the exact additive Phase8 closure.
 	for key := range currentSeals {
 		relative := strings.SplitN(key, "|", 2)[0]
-		if relative == "internal/localapi" || relative == "internal/serverconfig" {
-			delete(currentSeals, key)
+		for current := range phase8FinishSourceSeals {
+			if strings.HasPrefix(current, relative+"|") {
+				delete(currentSeals, key)
+				break
+			}
 		}
 	}
-	for key, seal := range serviceDeploymentSourceSeals {
-		relative := strings.SplitN(key, "|", 2)[0]
-		if relative == "internal/localapi" || relative == "internal/serverconfig" {
-			currentSeals[key] = seal
-		}
+	for key, seal := range phase8FinishSourceSeals {
+		currentSeals[key] = seal
 	}
+
 	for key, seal := range currentSeals {
 		t.Run(key, func(t *testing.T) {
 			parts := strings.SplitN(key, "|", 2)

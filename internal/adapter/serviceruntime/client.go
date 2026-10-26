@@ -23,11 +23,16 @@ import (
 
 type Target struct {
 	HostID, HostIdentityDigest string
+	ApplicationUUID            string
 	Address, User, HostKey     string
 	ExpectedMachineIDDigest    string
 	Port                       uint16
 }
-type Selection struct{ ApplicationUUID, Repository, Digest string }
+type Selection struct {
+	ApplicationUUID, Repository, Digest string
+	CPUQuotaPercent, MemoryBytes        int64
+	Environment                         []EnvironmentFingerprint
+}
 type Snapshot struct {
 	ContainerID, ImageID, RepoDigest string
 	Running                          bool
@@ -57,10 +62,14 @@ const docker = "/usr/bin/docker --host unix:///var/run/docker.sock "
 const machineCommand = "/usr/bin/cat /etc/machine-id"
 
 // Project fields individually: Config.Env and health-check logs are secret-bearing.
-const containerFormat = `{"id":{{json .Id}},"imageId":{{json .Image}},"running":{{json .State.Running}},"health":{{if .State.Health}}{{json .State.Health.Status}}{{else}}"unknown"{{end}},"managed":{{json (index .Config.Labels "coolify.managed")}},"type":{{json (index .Config.Labels "coolify.type")}},"name":{{json (index .Config.Labels "coolify.name")}},"pullRequestId":{{json (index .Config.Labels "coolify.pullRequestId")}}}`
+const containerFormat = `{"id":{{json .Id}},"imageId":{{json .Image}},"running":{{json .State.Running}},"health":{{if .State.Health}}{{json .State.Health.Status}}{{else}}"unknown"{{end}},"managed":{{json (index .Config.Labels "coolify.managed")}},"type":{{json (index .Config.Labels "coolify.type")}},"name":{{json (index .Config.Labels "coolify.name")}},"pullRequestId":{{json (index .Config.Labels "coolify.pullRequestId")}},"nanoCpus":{{json .HostConfig.NanoCpus}},"cpuQuota":{{json .HostConfig.CpuQuota}},"cpuPeriod":{{json .HostConfig.CpuPeriod}},"memoryBytes":{{json .HostConfig.Memory}}}`
 const imageFormat = `{"id":{{json .Id}},"repoDigests":{{json .RepoDigests}}}`
 
 type containerProjection struct {
+	NanoCPUs      int64  `json:"nanoCpus"`
+	CPUQuota      int64  `json:"cpuQuota"`
+	CPUPeriod     int64  `json:"cpuPeriod"`
+	MemoryBytes   int64  `json:"memoryBytes"`
 	ID            string `json:"id"`
 	ImageID       string `json:"imageId"`
 	Running       bool   `json:"running"`
@@ -190,6 +199,11 @@ func (c *Client) Observe(ctx context.Context, t Target, s Selection, value *cred
 		if decode(ctx, b, &p) != nil || p.ID != id || !digestRE.MatchString(p.ImageID) || p.Managed != "true" || p.Type != "application" || p.Name != s.ApplicationUUID || p.PullRequestID != "0" {
 			return p, ErrIdentity
 		}
+		if s.CPUQuotaPercent > 0 {
+			if p.MemoryBytes != s.MemoryBytes || !(p.NanoCPUs == s.CPUQuotaPercent*10000000 || (p.CPUQuota > 0 && p.CPUPeriod > 0 && p.CPUQuota <= 1000000000 && p.CPUPeriod <= 1000000000 && p.CPUQuota*100 == p.CPUPeriod*s.CPUQuotaPercent)) {
+				return p, ErrIdentity
+			}
+		}
 		switch p.Health {
 		case "unknown", "starting", "healthy", "unhealthy":
 		default:
@@ -199,6 +213,9 @@ func (c *Client) Observe(ctx context.Context, t Target, s Selection, value *cred
 	}
 	first, e := inspect()
 	if e != nil {
+		return out, e
+	}
+	if e := verifyEnvironment(s.Environment, id, run); e != nil {
 		return out, e
 	}
 	b, e := run(docker + "image inspect --format " + quote(imageFormat) + " " + first.ImageID)

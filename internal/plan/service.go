@@ -255,6 +255,15 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 	if declaration.ServiceImport != nil || declaration.AuthorizationGrantBatch != nil || declaration.NetworkEndpoint != nil {
 		risk = string(authorization.RiskControlPlane)
 	}
+	if declaration.HostingLifecycle != nil || declaration.ServiceRecovery != nil {
+		risk = string(authorization.RiskProductionLike)
+		if declaration.HostingLifecycle != nil {
+			risk = string(authorization.RiskControlPlane)
+		}
+		if service.config.AuthorizationBranch != "human" || service.config.ExecutorMode != "central" {
+			return store.PlanCommitResult{}, planError(generated.ErrorCodeAuthorizationDenied)
+		}
+	}
 	if declaration.ServiceDeployment != nil {
 		risk = string(authorization.RiskProductionLike)
 		if service.config.AuthorizationBranch != "human" || service.config.ExecutorMode != "central" {
@@ -390,6 +399,8 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 	candidate := generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", DeclarationID: declaration.DeclarationID, Binding: generated.PlanBinding{RecoveryEpoch: current.RecoveryEpoch, PriorStateRevision: current.StateRevision, StateRevision: current.StateRevision + 1, DeclarationRevision: desired.Revision, ObservationFingerprint: fingerprint, TargetDigest: targets, ReasonDigest: reason, PolicyVersion: service.config.PolicyVersion, ToolVersion: service.config.ToolVersion, ContractVersion: service.config.ContractVersion}, Operations: operations, Status: "planned", Risk: risk, AuthorizationBranch: service.config.AuthorizationBranch, ExecutorMode: service.config.ExecutorMode, ExecutorID: service.config.ExecutorID, CreatedAt: created.Format(time.RFC3339), ExpiresAt: created.Add(time.Duration(generated.PlanValiditySeconds) * time.Second).Format(time.RFC3339), Extensions: extensions}
 	candidate.HostReplacement, candidate.HostAliasClaim = replacement, aliasClaim
 	candidate.AuthorizationGrantBatch = declaration.AuthorizationGrantBatch
+	candidate.HostingLifecycle = declaration.HostingLifecycle
+	candidate.ServiceRecovery = declaration.ServiceRecovery
 	candidate.ServiceDeployment = declaration.ServiceDeployment
 	candidate.ServiceImport = declaration.ServiceImport
 	candidate.NetworkEndpoint = declaration.NetworkEndpoint

@@ -46,6 +46,14 @@ func readablePlan(plan generated.Plan) string {
 		raw, _, _ := stateexport.CanonicalJSON(plan.HostReplacement)
 		fmt.Fprintf(&body, "Host replacement exact intent: %s\nFreeze prevents new authority on the former host. Commit moves only the named aliases after current denial and qualification; no disk reset, workload move or automatic rollback.\n", raw)
 	}
+	if plan.HostingLifecycle != nil {
+		raw, _, _ := stateexport.CanonicalJSON(plan.HostingLifecycle)
+		fmt.Fprintf(&body, "Hosting lifecycle: %s\n", raw)
+	}
+	if plan.ServiceRecovery != nil {
+		raw, _, _ := stateexport.CanonicalJSON(plan.ServiceRecovery)
+		fmt.Fprintf(&body, "Service recovery: %s\n", raw)
+	}
 	if plan.ServiceDeployment != nil {
 		raw, _, _ := stateexport.CanonicalJSON(plan.ServiceDeployment)
 		d := plan.ServiceDeployment

@@ -335,6 +335,11 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/host-role-scope.schema.json",
 		"schemas/v1/host-role.schema.json",
 		"schemas/v1/host-volume-binding.schema.json",
+		"schemas/v1/hosting-lifecycle-draft-request.schema.json",
+		"schemas/v1/hosting-lifecycle-profile.schema.json",
+		"schemas/v1/hosting-lifecycle-record.schema.json",
+		"schemas/v1/hosting-lifecycle-request.schema.json",
+		"schemas/v1/hosting-owned-resource.schema.json",
 		"schemas/v1/ingress-change.schema.json",
 		"schemas/v1/ingress-connector-target.schema.json",
 		"schemas/v1/ingress-draft-request.schema.json",
@@ -412,7 +417,6 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/native-volume-case-witness.schema.json",
 		"schemas/v1/native-volume-seal-witness.schema.json",
 		"schemas/v1/native-witness-request.schema.json",
-
 		"schemas/v1/network-connect-descriptor.schema.json",
 		"schemas/v1/network-connect-result.schema.json",
 		"schemas/v1/network-endpoint-request.schema.json",
@@ -470,6 +474,9 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/scheduled-runner-profile.schema.json",
 		"schemas/v1/server-profile.schema.json",
 		"schemas/v1/server-status-data.schema.json",
+		"schemas/v1/service-capacity.schema.json",
+		"schemas/v1/service-configuration-status.schema.json",
+		"schemas/v1/service-configuration.schema.json",
 		"schemas/v1/service-definition.schema.json",
 		"schemas/v1/service-deployment-artifact-source.schema.json",
 		"schemas/v1/service-deployment-artifact.schema.json",
@@ -478,7 +485,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/service-deployment-provider-binding.schema.json",
 		"schemas/v1/service-deployment-record.schema.json",
 		"schemas/v1/service-deployment-request.schema.json",
-
+		"schemas/v1/service-environment-secret.schema.json",
 		"schemas/v1/service-import-draft-request.schema.json",
 		"schemas/v1/service-import-request.schema.json",
 		"schemas/v1/service-list.schema.json",
@@ -486,6 +493,13 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/service-provider-binding.schema.json",
 		"schemas/v1/service-read-query.schema.json",
 		"schemas/v1/service-record.schema.json",
+		"schemas/v1/service-recovery-binding.schema.json",
+		"schemas/v1/service-recovery-component.schema.json",
+		"schemas/v1/service-recovery-draft-request.schema.json",
+		"schemas/v1/service-recovery-mount.schema.json",
+		"schemas/v1/service-recovery-profile.schema.json",
+		"schemas/v1/service-recovery-record.schema.json",
+		"schemas/v1/service-recovery-request.schema.json",
 		"schemas/v1/signed-inventory-draft-export.schema.json",
 		"schemas/v1/suitability-facts.schema.json",
 		"schemas/v1/volume-observation.schema.json",
@@ -915,8 +929,8 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 			}
 		}
 	}
-	if available != 89 || planned != 13 {
-		t.Fatalf("command availability = (%d available, %d planned), want (89, 13)", available, planned)
+	if available != 94 || planned != 13 {
+		t.Fatalf("command availability = (%d available, %d planned), want (94, 13)", available, planned)
 	}
 	// #286 adds four exact service list/show/observe/import-draft commands.
 	// #269/#270 promote seven existing people/device CLI operations.

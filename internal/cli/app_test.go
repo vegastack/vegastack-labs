@@ -111,6 +111,13 @@ func TestEveryGeneratedCommandHasTruthfulRuntimeBehavior(t *testing.T) {
 				}
 				return
 			}
+			switch commandName(command.Path) {
+			case generated.CommandNameServiceConfigurationShow, generated.CommandNameHostingLifecycleDraft, generated.CommandNameHostingLifecycleShow, generated.CommandNameServiceRecoveryDraft, generated.CommandNameServiceRecoveryShow:
+				if code != 6 || !strings.Contains(stdout, `"code":"PREREQUISITE_BLOCKED"`) || stderr != "" {
+					t.Fatalf("missing typed dependency: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+				}
+				return
+			}
 			if strings.HasPrefix(commandName(command.Path), "qualification ") {
 				wantCode, wantError := 2, `"code":"INPUT_INVALID"`
 				if commandName(command.Path) == generated.CommandNameQualificationFixturePeer {

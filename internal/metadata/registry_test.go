@@ -438,6 +438,7 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 	}
 
 	wantAvailable := map[string]bool{
+ "service configuration show":false, "service recovery draft":false,"service recovery show":false,"hosting lifecycle draft":false,"hosting lifecycle show":false,
 		"service deployment draft": false, "service deployment show": false,
 		"service list": false, "service show": false, "service observe": false, "service import draft": false,
 		"network ingress status": false, "network ingress observe": false, "network ingress draft": false, "network ingress rollout-evidence": false,

@@ -31,8 +31,10 @@ const DeploymentOperation = "service.deploy"
 const DeploymentOperationID = "service-deployment"
 
 type DeploymentPolicy struct {
-	Binding   generated.ServiceDeploymentBinding
-	Artifacts []generated.ServiceDeploymentArtifact
+	EnvironmentBindings []generated.ServiceEnvironmentSecret
+	Configuration       *generated.ServiceConfiguration
+	Binding             generated.ServiceDeploymentBinding
+	Artifacts           []generated.ServiceDeploymentArtifact
 }
 type DeploymentOutcome struct {
 	ProviderReceiptID string

@@ -621,6 +621,24 @@
           "github.com/vegastack/vegastack-labs/internal/adapter/serviceruntime"
         ],
         "mutationBoundaryDigest": "sha256:6c6407ff42bb8ef02e0d157238bf5c720f40d0a693f3caca4dbd00fb35b9a900"
+      },
+      {
+        "id": "phase8-finish-issues290-293-v1",
+        "issue": 293,
+        "commands": [
+          "hosting lifecycle draft",
+          "hosting lifecycle show",
+          "service configuration show",
+          "service recovery draft",
+          "service recovery show"
+        ],
+        "imports": [
+          "github.com/vegastack/vegastack-labs/internal/adapter/workloadrecovery",
+          "github.com/vegastack/vegastack-labs/internal/hostinglifecycle",
+          "github.com/vegastack/vegastack-labs/internal/hostingplatform",
+          "github.com/vegastack/vegastack-labs/internal/servicerecovery"
+        ],
+        "mutationBoundaryDigest": "sha256:43e840c84ae4650079e3dff1d2a171453e1b31fa97b04a4fb1042b8bc46900de"
       }
     ]
   },

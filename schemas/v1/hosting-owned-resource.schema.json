@@ -1,0 +1,51 @@
+{
+  "$id": "vegastack-labs.dev/hosting-owned-resource",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "externalId": {
+      "maxLength": 1024,
+      "minLength": 1,
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "coolify-project",
+        "coolify-environment",
+        "coolify-application",
+        "coolify-service",
+        "harbor-project",
+        "harbor-retention",
+        "harbor-robot"
+      ],
+      "type": "string"
+    },
+    "parentId": {
+      "maxLength": 1024,
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/hosting-owned-resource"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "kind",
+    "externalId",
+    "parentId"
+  ],
+  "title": "VegaStack Labs hosting owned resource",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

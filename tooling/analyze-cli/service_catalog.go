@@ -22,7 +22,10 @@ func approvedServiceCatalogPackage(c checkedSourcePackage, module, relative stri
 	}
 	names := slices.Clone(c.listed.GoFiles)
 	slices.Sort(names)
-	seal, ok := serviceDeploymentSourceSeals[relative+"|"+strings.Join(names, ",")]
+	seal, ok := phase8FinishSourceSeals[relative+"|"+strings.Join(names, ",")]
+	if !ok {
+		seal, ok = serviceDeploymentSourceSeals[relative+"|"+strings.Join(names, ",")]
+	}
 	if !ok {
 		seal, ok = serviceCatalogSourceSeals[relative+"|"+strings.Join(names, ",")]
 	}

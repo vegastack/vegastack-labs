@@ -83,6 +83,16 @@ function serviceFixtureObservation(serviceId: string) {
   return { ...serviceSchema("service-observation"), serviceId, bindingDigest: digest, observedAt: "2026-10-26T04:01:00Z", hostingState: unavailable ? "unavailable" : "observed", hostingReason: unavailable ? "provider-unavailable" : "observed", providerStatus: unavailable ? "unknown" : "running:healthy", ...(unavailable ? {} : { configuredImage: "fixture/app:v1" }), artifactState: unavailable ? "unavailable" : "observed", artifactReason: unavailable ? "provider-unavailable" : "observed", ...(unavailable ? {} : { artifactDigest: digest }), artifactKind: unavailable ? "unknown" : "image", scanState: unavailable ? "unavailable" : "findings", signatureState: "unverified", provenanceState: "unverified", runningDigestState: "unknown", healthState: "unknown", hostAdmission: "not-verified", stateRevision: 8, recoveryEpoch: 2 };
 }
 
+export function serviceFixtureConfiguration(serviceId = "service-a") {
+ return { ...serviceSchema("service-configuration-status"), serviceId, configurationDigest: digest, configuration: { ...serviceSchema("service-configuration"), environmentClass: "development", cpuQuotaPercent: 100, memoryBytes: 268435456, storageBytes: 1048576, port: 8080, exposure: "private", healthPath: "/ready", healthExpectedStatus: 200, healthIntervalSeconds: 10, healthTimeoutSeconds: 2, healthRetries: 3, dataClass: "stateless", recoveryObjectiveSeconds: 0, migration: "none", rollback: "previous-artifact", secretReferenceIds: [] }, placementState: "blocked", placementReason: "admission-or-capacity-unavailable", observedAt: "2026-10-26T04:02:00Z", stateRevision: 8, recoveryEpoch: 2 };
+}
+export function serviceFixtureDeployment(serviceId = "service-a") {
+ return { ...serviceSchema("service-deployment-record"), request: { ...serviceSchema("service-deployment-request"), definition: serviceFixtureRecord(serviceId).definition, binding: { ...serviceSchema("service-deployment-binding"), configurationDigest: digest, serviceId, bindingId: "binding-a", dataPolicy: "stateless" }, artifact: { ...serviceSchema("service-deployment-artifact"), artifactId: "image-a", repository: "registry.fixture/app", digest, manifestSha: digest, bundleSha: digest, policySha: digest }, artifactProofDigest: digest, action: "deploy", expectedDeploymentRevision: 0, expectedStateRevision: 8, recoveryEpoch: 2, idempotencyKey: "deploy-a", reasonDigest: digest }, revision: 1, status: "partial", providerStage: "unknown", receiptDigest: digest, runtimeDigest: digest, runningDigest: "unknown", running: false, healthy: false, planId: "plan-a", runId: "run-a", completedAt: "2026-10-26T04:02:00Z" };
+}
+export function serviceFixtureRecovery(serviceId = "service-a") {
+ return { ...serviceSchema("service-recovery-record"), request: { ...serviceSchema("service-recovery-request"), definition: serviceFixtureRecord(serviceId).definition, binding: { ...serviceSchema("service-recovery-binding"), policyId: "backup-a", serviceId, configurationDigest: digest, dataClass: "workload", consistencyProcedureId: "docker-stack-cold-v1", sourceHostId: "fixture-host", targetHostId: "restore-host" }, action: "backup", backupPointId: "", expectedRecoveryRevision: 0, expectedStateRevision: 8, recoveryEpoch: 2, idempotencyKey: "recovery-a", reasonDigest: digest }, revision: 1, status: "blocked", sourceImageDigests: [digest], elapsedSeconds: 1, backupPointId: "", snapshotId: "", manifestDigest: digest, contentDigest: digest, runtimeDigest: digest, sourceResumed: true, isolatedRestoreVerified: false, targetWritersEnabled: false, sourceFenced: false, nextAction: "retry-with-new-plan", planId: "plan-recovery-a", runId: "run-recovery-a", completedAt: "2026-10-26T04:02:00Z" };
+}
+
 async function respond(route: Route) {
   const requestUrl = route.request().url();
   fixtureAudit.requests.push(requestUrl);
@@ -111,6 +121,12 @@ async function respond(route: Route) {
     const second = Boolean(url.searchParams.get("after"));
     const records = serviceBackingRecords.filter(record => record.scope === "current-project" && record.serviceId === (second ? "service-b" : "service-a"));
     data = { ...serviceSchema("service-list"), services: fixtureState.mode === "empty" ? [] : records.map(record => serviceFixtureRecord(record.serviceId)), ...(fixtureState.mode === "empty" || second ? {} : { nextAfter: "service-a" }), stateRevision: 8, recoveryEpoch: 2 };
+  } else if (/^\/api\/v1\/services\/[^/]+\/configuration$/.test(path)) {
+    command = "api.v1.services.configuration.get"; data = serviceFixtureConfiguration(path.split("/")[4]);
+  } else if (/^\/api\/v1\/services\/[^/]+\/deployment$/.test(path)) {
+    command = "api.v1.services.deployment.get"; data = serviceFixtureDeployment(path.split("/")[4]);
+  } else if (/^\/api\/v1\/services\/[^/]+\/recovery$/.test(path)) {
+    command = "api.v1.services.recovery.get"; data = serviceFixtureRecovery(path.split("/")[4]);
   } else if (/^\/api\/v1\/services\/[^/]+\/observation$/.test(path)) {
     const denied = serviceFixtureState.deniedObservation;
     if (serviceFixtureState.observationDelay) await new Promise(resolve => setTimeout(resolve, serviceFixtureState.observationDelay));
