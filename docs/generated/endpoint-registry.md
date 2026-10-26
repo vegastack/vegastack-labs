@@ -49,6 +49,8 @@ Contract schema: `1.29.0`
 | `api.v1.host-observations.get` | `GET` | `/api/v1/host-observations/{observationID}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/host-observation` |
 | `api.v1.host-replacements.create` | `POST` | `/api/v1/host-replacements` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/host-replacement-request` | `vegastack-labs.dev/host-replacement-submission` |
 | `api.v1.host-replacements.get` | `GET` | `/api/v1/host-replacements/{replacementId}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/host-replacement-state` |
+| `api.v1.hosting.lifecycle-drafts.create` | `POST` | `/api/v1/hosting/lifecycle-drafts` | `available` | `operator` | `finite` | `vegastack-labs.dev/hosting-lifecycle-draft-request` | `vegastack-labs.dev/declaration-revision` |
+| `api.v1.hosting.lifecycle.get` | `GET` | `/api/v1/hosting/{targetID}/lifecycle` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/hosting-lifecycle-record` |
 | `api.v1.hosts.connection-descriptor.get` | `GET` | `/api/v1/hosts/{hostID}/connection-descriptor` | `available` | `operator` | `finite` | `` | `vegastack-labs.dev/network-connect-descriptor` |
 | `api.v1.hosts.get` | `GET` | `/api/v1/hosts/{hostID}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/managed-host` |
 | `api.v1.hosts.list` | `GET` | `/api/v1/hosts` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/managed-host-list` |
@@ -101,12 +103,15 @@ Contract schema: `1.29.0`
 | `api.v1.scheduled-jobs.cancel` | `POST` | `/api/v1/scheduled-jobs/{jobId}/cancel` | `available` | `operator` | `finite` | `vegastack-labs.dev/scheduled-job-cancel-request` | `vegastack-labs.dev/scheduled-job` |
 | `api.v1.scheduled-jobs.list` | `GET` | `/api/v1/scheduled-jobs` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/browser-scheduled-job-list-data` |
 | `api.v1.scheduled-occurrences.create` | `POST` | `/api/v1/scheduled-job-policies/{policyId}/occurrences` | `available` | `operator` | `finite` | `vegastack-labs.dev/scheduled-job-request` | `vegastack-labs.dev/scheduled-job` |
+| `api.v1.services.configuration.get` | `GET` | `/api/v1/services/{serviceID}/configuration` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/service-configuration-status` |
 | `api.v1.services.deployment-drafts.create` | `POST` | `/api/v1/services/deployment-drafts` | `available` | `operator` | `finite` | `vegastack-labs.dev/service-deployment-draft-request` | `vegastack-labs.dev/declaration-revision` |
 | `api.v1.services.deployment.get` | `GET` | `/api/v1/services/{serviceID}/deployment` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/service-deployment-record` |
 | `api.v1.services.get` | `GET` | `/api/v1/services/{serviceID}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/service-record` |
 | `api.v1.services.import-drafts.create` | `POST` | `/api/v1/services/import-drafts` | `available` | `operator` | `finite` | `vegastack-labs.dev/service-import-draft-request` | `vegastack-labs.dev/declaration-revision` |
 | `api.v1.services.list` | `GET` | `/api/v1/services` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/service-list` |
 | `api.v1.services.observation.get` | `GET` | `/api/v1/services/{serviceID}/observation` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/service-observation` |
+| `api.v1.services.recovery-drafts.create` | `POST` | `/api/v1/services/recovery-drafts` | `available` | `operator` | `finite` | `vegastack-labs.dev/service-recovery-draft-request` | `vegastack-labs.dev/declaration-revision` |
+| `api.v1.services.recovery.get` | `GET` | `/api/v1/services/{serviceID}/recovery` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/service-recovery-record` |
 | `api.v1.session.create` | `POST` | `/api/v1/session` | `available` | `browser` | `finite` | `vegastack-labs.dev/api-browser-session-request` | `vegastack-labs.dev/api-browser-session-data` |
 | `api.v1.session.logout` | `POST` | `/api/v1/session/logout` | `available` | `browser` | `finite` | `vegastack-labs.dev/api-browser-session-request` | `vegastack-labs.dev/api-browser-session-data` |
 | `api.v1.session.renew` | `POST` | `/api/v1/session/renew` | `available` | `browser` | `finite` | `vegastack-labs.dev/api-browser-session-request` | `vegastack-labs.dev/api-browser-session-data` |

@@ -23,6 +23,7 @@
 // api.v1.host-observations.get
 // api.v1.host-replacements.create
 // api.v1.host-replacements.get
+// api.v1.hosting.lifecycle.get
 // api.v1.hosts.get
 // api.v1.hosts.list
 // api.v1.inventory-draft-aliases.get
@@ -54,10 +55,12 @@
 // api.v1.scheduled-job-policies.get
 // api.v1.scheduled-job-policies.list
 // api.v1.scheduled-jobs.list
+// api.v1.services.configuration.get
 // api.v1.services.deployment.get
 // api.v1.services.get
 // api.v1.services.list
 // api.v1.services.observation.get
+// api.v1.services.recovery.get
 // api.v1.sources.list
 // api.v1.summary.get
 
@@ -803,6 +806,8 @@ export interface DeclarationOperation {
 export interface DeclarationRevisionRequest {
   readonly "schema": "vegastack-labs.dev/declaration-revision-request";
   readonly "schemaVersion": "1.0.0";
+  readonly "hostingLifecycle"?: HostingLifecycleRequest | null;
+  readonly "serviceRecovery"?: ServiceRecoveryRequest | null;
   readonly "serviceDeployment"?: ServiceDeploymentRequest | null;
   readonly "serviceImport"?: ServiceImportRequest | null;
   readonly "networkEndpoint"?: NetworkEndpointRequest | null;
@@ -1372,6 +1377,42 @@ export interface HostVolumeBinding {
   readonly "recoveryEpoch": number;
 }
 
+export interface HostingLifecycleRecord {
+  readonly "schema": "vegastack-labs.dev/hosting-lifecycle-record";
+  readonly "schemaVersion": "1.0.0";
+  readonly "request": HostingLifecycleRequest;
+  readonly "ownedResources": ReadonlyArray<HostingOwnedResource>;
+  readonly "revision": number;
+  readonly "status": "succeeded" | "partial" | "failed";
+  readonly "resultDigest": string;
+  readonly "planId": string;
+  readonly "runId": string;
+  readonly "completedAt": string;
+}
+
+export interface HostingLifecycleRequest {
+  readonly "schema": "vegastack-labs.dev/hosting-lifecycle-request";
+  readonly "schemaVersion": "1.0.0";
+  readonly "targetId": string;
+  readonly "bindingId": string;
+  readonly "configurationDigest": string;
+  readonly "observedDigest": string;
+  readonly "action": "resources.apply";
+  readonly "expectedLifecycleRevision": number;
+  readonly "expectedStateRevision": number;
+  readonly "recoveryEpoch": number;
+  readonly "idempotencyKey": string;
+  readonly "reasonDigest": string;
+}
+
+export interface HostingOwnedResource {
+  readonly "schema": "vegastack-labs.dev/hosting-owned-resource";
+  readonly "schemaVersion": "1.0.0";
+  readonly "kind": "coolify-project" | "coolify-environment" | "coolify-application" | "coolify-service" | "harbor-project" | "harbor-retention" | "harbor-robot";
+  readonly "externalId": string;
+  readonly "parentId": string;
+}
+
 export interface IngressStatusData {
   readonly "schema": "vegastack-labs.dev/ingress-status-data";
   readonly "schemaVersion": "1.0.0";
@@ -1758,6 +1799,8 @@ export interface OperatorReadQuery {
 export interface Plan {
   readonly "schema": "vegastack-labs.dev/plan";
   readonly "schemaVersion": "1.0.0";
+  readonly "hostingLifecycle"?: HostingLifecycleRequest | null;
+  readonly "serviceRecovery"?: ServiceRecoveryRequest | null;
   readonly "serviceDeployment"?: ServiceDeploymentRequest | null;
   readonly "serviceImport"?: ServiceImportRequest | null;
   readonly "networkEndpoint"?: NetworkEndpointRequest | null;
@@ -1953,6 +1996,61 @@ export interface ServerStatusData {
   readonly "remoteReadReason": "none" | "preflight-unavailable" | "authentication-unavailable" | "listener-unavailable" | "serve-failed";
 }
 
+export interface ServiceCapacity {
+  readonly "schema": "vegastack-labs.dev/service-capacity";
+  readonly "schemaVersion": "1.0.0";
+  readonly "hostId": string;
+  readonly "hostIdentityDigest": string;
+  readonly "targetDigest": string;
+  readonly "cpuQuotaPercent": number;
+  readonly "memoryBytes": number;
+  readonly "storageBytes": number;
+  readonly "observedAt": string;
+  readonly "expiresAt": string;
+  readonly "recoveryEpoch": number;
+}
+
+export interface ServiceConfiguration {
+  readonly "schema": "vegastack-labs.dev/service-configuration";
+  readonly "schemaVersion": "1.0.0";
+  readonly "environmentClass": "development" | "production-like";
+  readonly "cpuQuotaPercent": number;
+  readonly "memoryBytes": number;
+  readonly "storageBytes": number;
+  readonly "port": number;
+  readonly "exposure": "private" | "public";
+  readonly "exposurePolicyId"?: string;
+  readonly "exposureHostname"?: string;
+  readonly "originPort"?: number;
+  readonly "originIdentityDigest"?: string;
+  readonly "healthPath": string;
+  readonly "healthExpectedStatus": number;
+  readonly "healthIntervalSeconds": number;
+  readonly "healthTimeoutSeconds": number;
+  readonly "healthRetries": number;
+  readonly "dataClass": "stateless" | "stateful";
+  readonly "backupPolicyId"?: string;
+  readonly "consistencyProcedureId"?: string;
+  readonly "recoveryRecordId"?: string;
+  readonly "recoveryObjectiveSeconds": number;
+  readonly "migration": "none" | "backward-compatible" | "irreversible";
+  readonly "rollback": "previous-artifact" | "recovery-required";
+  readonly "secretReferenceIds": ReadonlyArray<string>;
+}
+
+export interface ServiceConfigurationStatus {
+  readonly "schema": "vegastack-labs.dev/service-configuration-status";
+  readonly "schemaVersion": "1.0.0";
+  readonly "serviceId": string;
+  readonly "configuration"?: ServiceConfiguration | null;
+  readonly "configurationDigest"?: string;
+  readonly "placementState": "eligible" | "blocked" | "unknown";
+  readonly "placementReason": string;
+  readonly "observedAt": string;
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
+}
+
 export interface ServiceDefinition {
   readonly "schema": "vegastack-labs.dev/service-definition";
   readonly "schemaVersion": "1.0.0";
@@ -1989,7 +2087,7 @@ export interface ServiceDeploymentRecord {
   readonly "schema": "vegastack-labs.dev/service-deployment-record";
   readonly "schemaVersion": "1.0.0";
   readonly "providerReceiptId"?: string;
-  readonly "providerStage": "validated" | "patch_attempted" | "configured" | "deploy_attempted" | "queued" | "unknown";
+  readonly "providerStage": "validated" | "environment_attempted" | "patch_attempted" | "configured" | "deploy_attempted" | "queued" | "unknown";
   readonly "request": ServiceDeploymentRequest;
   readonly "revision": number;
   readonly "status": "succeeded" | "partial" | "failed";
@@ -2006,6 +2104,9 @@ export interface ServiceDeploymentRecord {
 export interface ServiceDeploymentRequest {
   readonly "schema": "vegastack-labs.dev/service-deployment-request";
   readonly "schemaVersion": "1.0.0";
+  readonly "environmentBindings"?: ReadonlyArray<ServiceEnvironmentSecret>;
+  readonly "configuration"?: ServiceConfiguration | null;
+  readonly "capacity"?: ServiceCapacity | null;
   readonly "definition": ServiceDefinition;
   readonly "binding": ServiceDeploymentBinding;
   readonly "artifact": ServiceDeploymentArtifact;
@@ -2016,6 +2117,14 @@ export interface ServiceDeploymentRequest {
   readonly "recoveryEpoch": number;
   readonly "idempotencyKey": string;
   readonly "reasonDigest": string;
+}
+
+export interface ServiceEnvironmentSecret {
+  readonly "schema": "vegastack-labs.dev/service-environment-secret";
+  readonly "schemaVersion": "1.0.0";
+  readonly "name": string;
+  readonly "referenceId": string;
+  readonly "expectedFingerprint": string;
 }
 
 export interface ServiceImportRequest {
@@ -2079,6 +2188,55 @@ export interface ServiceRecord {
   readonly "registeredAt": string;
   readonly "stateRevision": number;
   readonly "recoveryEpoch": number;
+}
+
+export interface ServiceRecoveryBinding {
+  readonly "schema": "vegastack-labs.dev/service-recovery-binding";
+  readonly "schemaVersion": "1.0.0";
+  readonly "policyId": string;
+  readonly "serviceId": string;
+  readonly "configurationDigest": string;
+  readonly "dataClass": "platform" | "workload" | "registry";
+  readonly "consistencyProcedureId": string;
+  readonly "sourceHostId": string;
+  readonly "targetHostId": string;
+}
+
+export interface ServiceRecoveryRecord {
+  readonly "schema": "vegastack-labs.dev/service-recovery-record";
+  readonly "schemaVersion": "1.0.0";
+  readonly "request": ServiceRecoveryRequest;
+  readonly "revision": number;
+  readonly "sourceImageDigests": ReadonlyArray<string>;
+  readonly "elapsedSeconds": number;
+  readonly "status": "succeeded" | "partial" | "failed" | "blocked";
+  readonly "backupPointId": string;
+  readonly "snapshotId": string;
+  readonly "manifestDigest": string;
+  readonly "contentDigest": string;
+  readonly "runtimeDigest": string;
+  readonly "sourceResumed": boolean;
+  readonly "sourceFenced": boolean;
+  readonly "isolatedRestoreVerified": boolean;
+  readonly "targetWritersEnabled": boolean;
+  readonly "nextAction": "none" | "retry-with-new-plan" | "recovery-required" | "roll-forward-required" | "route-proof-required";
+  readonly "planId": string;
+  readonly "runId": string;
+  readonly "completedAt": string;
+}
+
+export interface ServiceRecoveryRequest {
+  readonly "schema": "vegastack-labs.dev/service-recovery-request";
+  readonly "schemaVersion": "1.0.0";
+  readonly "definition": ServiceDefinition;
+  readonly "binding": ServiceRecoveryBinding;
+  readonly "action": "backup" | "migration-freeze" | "isolated-restore" | "migration-cutover" | "rollback-before-writers" | "recovery-after-writers";
+  readonly "backupPointId": string;
+  readonly "expectedRecoveryRevision": number;
+  readonly "expectedStateRevision": number;
+  readonly "recoveryEpoch": number;
+  readonly "idempotencyKey": string;
+  readonly "reasonDigest": string;
 }
 
 export interface VolumeRecoveryInput {
@@ -6784,6 +6942,22 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         ]
       },
       {
+        "name": "hostingLifecycle",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "omitEmpty": true,
+        "ref": "vegastack-labs.dev/hosting-lifecycle-request"
+      },
+      {
+        "name": "serviceRecovery",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "omitEmpty": true,
+        "ref": "vegastack-labs.dev/service-recovery-request"
+      },
+      {
         "name": "serviceDeployment",
         "kind": "object",
         "required": false,
@@ -10406,6 +10580,240 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/hosting-lifecycle-record",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/hosting-lifecycle-record"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "request",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/hosting-lifecycle-request"
+      },
+      {
+        "name": "ownedResources",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/hosting-owned-resource",
+        "minItems": 0,
+        "maxItems": 512
+      },
+      {
+        "name": "revision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "status",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "succeeded",
+          "partial",
+          "failed"
+        ]
+      },
+      {
+        "name": "resultDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "planId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "runId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "completedAt",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/hosting-lifecycle-request",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/hosting-lifecycle-request"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "targetId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "bindingId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "configurationDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "observedDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "action",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "resources.apply"
+        ]
+      },
+      {
+        "name": "expectedLifecycleRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "expectedStateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "idempotencyKey",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "reasonDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/hosting-owned-resource",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/hosting-owned-resource"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "kind",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "coolify-project",
+          "coolify-environment",
+          "coolify-application",
+          "coolify-service",
+          "harbor-project",
+          "harbor-retention",
+          "harbor-robot"
+        ]
+      },
+      {
+        "name": "externalId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 1024
+      },
+      {
+        "name": "parentId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 1024
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/ingress-status-data",
     "fields": [
       {
@@ -12922,6 +13330,22 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         ]
       },
       {
+        "name": "hostingLifecycle",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "omitEmpty": true,
+        "ref": "vegastack-labs.dev/hosting-lifecycle-request"
+      },
+      {
+        "name": "serviceRecovery",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "omitEmpty": true,
+        "ref": "vegastack-labs.dev/service-recovery-request"
+      },
+      {
         "name": "serviceDeployment",
         "kind": "object",
         "required": false,
@@ -14194,6 +14618,395 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/service-capacity",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/service-capacity"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "hostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "hostIdentityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "targetDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "cpuQuotaPercent",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "memoryBytes",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "storageBytes",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "observedAt",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      {
+        "name": "expiresAt",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/service-configuration",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/service-configuration"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "environmentClass",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "development",
+          "production-like"
+        ]
+      },
+      {
+        "name": "cpuQuotaPercent",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1,
+        "maximum": 100000
+      },
+      {
+        "name": "memoryBytes",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "storageBytes",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "port",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1,
+        "maximum": 65535
+      },
+      {
+        "name": "exposure",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "private",
+          "public"
+        ]
+      },
+      {
+        "name": "exposurePolicyId",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "exposureHostname",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "maxLength": 253
+      },
+      {
+        "name": "originPort",
+        "kind": "integer",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "minimum": 1,
+        "maximum": 65535
+      },
+      {
+        "name": "originIdentityDigest",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "healthPath",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 256
+      },
+      {
+        "name": "healthExpectedStatus",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 100,
+        "maximum": 599
+      },
+      {
+        "name": "healthIntervalSeconds",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1,
+        "maximum": 300
+      },
+      {
+        "name": "healthTimeoutSeconds",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1,
+        "maximum": 60
+      },
+      {
+        "name": "healthRetries",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1,
+        "maximum": 20
+      },
+      {
+        "name": "dataClass",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "stateless",
+          "stateful"
+        ]
+      },
+      {
+        "name": "backupPolicyId",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "consistencyProcedureId",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "recoveryRecordId",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "recoveryObjectiveSeconds",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "migration",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "none",
+          "backward-compatible",
+          "irreversible"
+        ]
+      },
+      {
+        "name": "rollback",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "previous-artifact",
+          "recovery-required"
+        ]
+      },
+      {
+        "name": "secretReferenceIds",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "maxItems": 32,
+        "uniqueItems": true
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/service-configuration-status",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/service-configuration-status"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "serviceId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "configuration",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "omitEmpty": true,
+        "ref": "vegastack-labs.dev/service-configuration"
+      },
+      {
+        "name": "configurationDigest",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "placementState",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "eligible",
+          "blocked",
+          "unknown"
+        ]
+      },
+      {
+        "name": "placementReason",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 128
+      },
+      {
+        "name": "observedAt",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/service-definition",
     "fields": [
       {
@@ -14423,6 +15236,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "nullable": false,
         "enum": [
           "validated",
+          "environment_attempted",
           "patch_attempted",
           "configured",
           "deploy_attempted",
@@ -14534,6 +15348,31 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         ]
       },
       {
+        "name": "environmentBindings",
+        "kind": "array",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "itemRef": "vegastack-labs.dev/service-environment-secret",
+        "maxItems": 32
+      },
+      {
+        "name": "configuration",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "omitEmpty": true,
+        "ref": "vegastack-labs.dev/service-configuration"
+      },
+      {
+        "name": "capacity",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "omitEmpty": true,
+        "ref": "vegastack-labs.dev/service-capacity"
+      },
+      {
         "name": "definition",
         "kind": "object",
         "required": true,
@@ -14601,6 +15440,51 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
       },
       {
         "name": "reasonDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/service-environment-secret",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/service-environment-secret"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "name",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 128
+      },
+      {
+        "name": "referenceId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "expectedFingerprint",
         "kind": "string",
         "required": true,
         "nullable": false,
@@ -15041,6 +15925,332 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "minimum": 0
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/service-recovery-binding",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/service-recovery-binding"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "policyId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "serviceId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "configurationDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "dataClass",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "platform",
+          "workload",
+          "registry"
+        ]
+      },
+      {
+        "name": "consistencyProcedureId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "sourceHostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "targetHostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/service-recovery-record",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/service-recovery-record"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "request",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/service-recovery-request"
+      },
+      {
+        "name": "revision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "sourceImageDigests",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "maxItems": 32
+      },
+      {
+        "name": "elapsedSeconds",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "status",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "succeeded",
+          "partial",
+          "failed",
+          "blocked"
+        ]
+      },
+      {
+        "name": "backupPointId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "maxLength": 128
+      },
+      {
+        "name": "snapshotId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "maxLength": 128
+      },
+      {
+        "name": "manifestDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "contentDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "runtimeDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "sourceResumed",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "sourceFenced",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "isolatedRestoreVerified",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "targetWritersEnabled",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "nextAction",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "none",
+          "retry-with-new-plan",
+          "recovery-required",
+          "roll-forward-required",
+          "route-proof-required"
+        ]
+      },
+      {
+        "name": "planId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "runId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "completedAt",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/service-recovery-request",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/service-recovery-request"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "definition",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/service-definition"
+      },
+      {
+        "name": "binding",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/service-recovery-binding"
+      },
+      {
+        "name": "action",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "backup",
+          "migration-freeze",
+          "isolated-restore",
+          "migration-cutover",
+          "rollback-before-writers",
+          "recovery-after-writers"
+        ]
+      },
+      {
+        "name": "backupPointId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "maxLength": 128
+      },
+      {
+        "name": "expectedRecoveryRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "expectedStateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "idempotencyKey",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "reasonDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
       }
     ]
   },
@@ -15735,6 +16945,18 @@ function decodeHostVolumeBinding(value: unknown): HostVolumeBinding {
   return decodeSchema("vegastack-labs.dev/host-volume-binding", value) as unknown as HostVolumeBinding;
 }
 
+function decodeHostingLifecycleRecord(value: unknown): HostingLifecycleRecord {
+  return decodeSchema("vegastack-labs.dev/hosting-lifecycle-record", value) as unknown as HostingLifecycleRecord;
+}
+
+function decodeHostingLifecycleRequest(value: unknown): HostingLifecycleRequest {
+  return decodeSchema("vegastack-labs.dev/hosting-lifecycle-request", value) as unknown as HostingLifecycleRequest;
+}
+
+function decodeHostingOwnedResource(value: unknown): HostingOwnedResource {
+  return decodeSchema("vegastack-labs.dev/hosting-owned-resource", value) as unknown as HostingOwnedResource;
+}
+
 function decodeIngressStatusData(value: unknown): IngressStatusData {
   return decodeSchema("vegastack-labs.dev/ingress-status-data", value) as unknown as IngressStatusData;
 }
@@ -15915,6 +17137,18 @@ function decodeServerStatusData(value: unknown): ServerStatusData {
   return decodeSchema("vegastack-labs.dev/server-status-data", value) as unknown as ServerStatusData;
 }
 
+function decodeServiceCapacity(value: unknown): ServiceCapacity {
+  return decodeSchema("vegastack-labs.dev/service-capacity", value) as unknown as ServiceCapacity;
+}
+
+function decodeServiceConfiguration(value: unknown): ServiceConfiguration {
+  return decodeSchema("vegastack-labs.dev/service-configuration", value) as unknown as ServiceConfiguration;
+}
+
+function decodeServiceConfigurationStatus(value: unknown): ServiceConfigurationStatus {
+  return decodeSchema("vegastack-labs.dev/service-configuration-status", value) as unknown as ServiceConfigurationStatus;
+}
+
 function decodeServiceDefinition(value: unknown): ServiceDefinition {
   return decodeSchema("vegastack-labs.dev/service-definition", value) as unknown as ServiceDefinition;
 }
@@ -15935,6 +17169,10 @@ function decodeServiceDeploymentRequest(value: unknown): ServiceDeploymentReques
   return decodeSchema("vegastack-labs.dev/service-deployment-request", value) as unknown as ServiceDeploymentRequest;
 }
 
+function decodeServiceEnvironmentSecret(value: unknown): ServiceEnvironmentSecret {
+  return decodeSchema("vegastack-labs.dev/service-environment-secret", value) as unknown as ServiceEnvironmentSecret;
+}
+
 function decodeServiceImportRequest(value: unknown): ServiceImportRequest {
   return decodeSchema("vegastack-labs.dev/service-import-request", value) as unknown as ServiceImportRequest;
 }
@@ -15953,6 +17191,18 @@ function decodeServiceReadQuery(value: unknown): ServiceReadQuery {
 
 function decodeServiceRecord(value: unknown): ServiceRecord {
   return decodeSchema("vegastack-labs.dev/service-record", value) as unknown as ServiceRecord;
+}
+
+function decodeServiceRecoveryBinding(value: unknown): ServiceRecoveryBinding {
+  return decodeSchema("vegastack-labs.dev/service-recovery-binding", value) as unknown as ServiceRecoveryBinding;
+}
+
+function decodeServiceRecoveryRecord(value: unknown): ServiceRecoveryRecord {
+  return decodeSchema("vegastack-labs.dev/service-recovery-record", value) as unknown as ServiceRecoveryRecord;
+}
+
+function decodeServiceRecoveryRequest(value: unknown): ServiceRecoveryRequest {
+  return decodeSchema("vegastack-labs.dev/service-recovery-request", value) as unknown as ServiceRecoveryRequest;
 }
 
 function decodeVolumeRecoveryInput(value: unknown): VolumeRecoveryInput {
@@ -16249,6 +17499,7 @@ export type ReadClient = {
   readonly getHealth: (options?: RequestOptions) => Promise<ReadResult<ServerStatusData>>;
   readonly getHostObservation: (path: { readonly observationID: string }, options?: RequestOptions) => Promise<ReadResult<HostObservation>>;
   readonly getHostReplacement: (path: { readonly replacementId: string }, options?: RequestOptions) => Promise<ReadResult<HostReplacementState>>;
+  readonly getHostingLifecycle: (path: { readonly targetID: string }, options?: RequestOptions) => Promise<ReadResult<HostingLifecycleRecord>>;
   readonly getHosts: (path: { readonly hostID: string }, options?: RequestOptions) => Promise<ReadResult<ManagedHost>>;
   readonly listHosts: (options?: RequestOptions) => Promise<ReadResult<ManagedHostList>>;
   readonly getInventoryDraftAlias: (path: { readonly draftId: string; readonly revision: number; readonly recordId: string }, options?: RequestOptions) => Promise<ReadResult<ApiInventoryAliasData>>;
@@ -16274,10 +17525,12 @@ export type ReadClient = {
   readonly getScheduledJobPolicy: (path: { readonly policyId: string }, options?: RequestOptions) => Promise<ReadResult<BrowserScheduledJobPolicy>>;
   readonly listScheduledJobPolicies: (query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<BrowserScheduledJobPolicyListData>>;
   readonly listScheduledJobs: (query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<BrowserScheduledJobListData>>;
+  readonly getServiceConfiguration: (path: { readonly serviceID: string }, options?: RequestOptions) => Promise<ReadResult<ServiceConfigurationStatus>>;
   readonly getServiceDeployment: (path: { readonly serviceID: string }, options?: RequestOptions) => Promise<ReadResult<ServiceDeploymentRecord>>;
   readonly getService: (path: { readonly serviceID: string }, options?: RequestOptions) => Promise<ReadResult<ServiceRecord>>;
   readonly listServices: (query?: ServiceReadQuery, options?: RequestOptions) => Promise<ReadResult<ServiceList>>;
   readonly getServiceObservation: (path: { readonly serviceID: string }, options?: RequestOptions) => Promise<ReadResult<ServiceObservation>>;
+  readonly getServiceRecovery: (path: { readonly serviceID: string }, options?: RequestOptions) => Promise<ReadResult<ServiceRecoveryRecord>>;
   readonly listSources: (query?: ApiSourceListQuery, options?: RequestOptions) => Promise<ReadResult<ApiSourceListData>>;
   readonly getSummary: (options?: RequestOptions) => Promise<ReadResult<ApiSummaryData>>;
 };
@@ -16350,6 +17603,10 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
       const data = result.data;
       requireHostBinding(data.replacementId === path.replacementId && data.stateRevision === result.stateRevision && data.recoveryEpoch === result.recoveryEpoch, operation);
       return result;
+    },
+    async getHostingLifecycle(path, options = {}) {
+      const operation = "api.v1.hosting.lifecycle.get";
+      return performRead(fetchTransport, "/api/v1/hosting/" + encodePathString(path.targetID, "targetID") + "/lifecycle", options, operation, decodeHostingLifecycleRecord);
     },
     async getHosts(path, options = {}) {
       const operation = "api.v1.hosts.get";
@@ -16463,6 +17720,10 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
       const operation = "api.v1.scheduled-jobs.list";
       return performRead(fetchTransport, "/api/v1/scheduled-jobs" + pageQuery(query), options, operation, decodeBrowserScheduledJobListData);
     },
+    async getServiceConfiguration(path, options = {}) {
+      const operation = "api.v1.services.configuration.get";
+      return performRead(fetchTransport, "/api/v1/services/" + encodePathString(path.serviceID, "serviceID") + "/configuration", options, operation, decodeServiceConfigurationStatus);
+    },
     async getServiceDeployment(path, options = {}) {
       const operation = "api.v1.services.deployment.get";
       return performRead(fetchTransport, "/api/v1/services/" + encodePathString(path.serviceID, "serviceID") + "/deployment", options, operation, value => {
@@ -16490,6 +17751,10 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
         if (data.serviceId !== path.serviceID) return mismatch(operation, "service response does not match the exact request");
         return data;
       });
+    },
+    async getServiceRecovery(path, options = {}) {
+      const operation = "api.v1.services.recovery.get";
+      return performRead(fetchTransport, "/api/v1/services/" + encodePathString(path.serviceID, "serviceID") + "/recovery", options, operation, decodeServiceRecoveryRecord);
     },
     async listSources(query = {}, options = {}) {
       const operation = "api.v1.sources.list";

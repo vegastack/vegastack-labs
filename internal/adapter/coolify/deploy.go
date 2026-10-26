@@ -21,6 +21,8 @@ type ImageDeploymentRequest struct {
 	ServerID        int64
 	Repository      string
 	Digest          string
+	Environment     []EnvironmentValue
+	Settings        *ImageSettings
 	Check           func() error
 }
 
@@ -118,14 +120,27 @@ func (c *Client) DeployImage(ctx context.Context, q ImageDeploymentRequest, v *c
 	if server.ID != q.ServerID || server.UUID != q.ServerUUID {
 		return out, ErrIdentity
 	}
-	patch := struct {
-		Name string `json:"docker_registry_image_name"`
-		Tag  string `json:"docker_registry_image_tag"`
-	}{q.Repository, "sha256-" + strings.TrimPrefix(q.Digest, "sha256:")}
+	patch := map[string]any{"docker_registry_image_name": q.Repository, "docker_registry_image_tag": "sha256-" + strings.TrimPrefix(q.Digest, "sha256:")}
+	if q.Settings != nil {
+		raw, _ := json.Marshal(q.Settings)
+		var fields map[string]any
+		if json.Unmarshal(raw, &fields) != nil {
+			return out, ErrInput
+		}
+		for k, v := range fields {
+			patch[k] = v
+		}
+	}
 	// Run the mutation check before recording attempted effects; the request helper
 	// checks again immediately before dispatch to close cancellation windows.
 	if e := q.Check(); e != nil {
 		return out, e
+	}
+	if len(q.Environment) > 0 {
+		out.Stage = "environment_attempted"
+		if e := c.applyEnvironment(ctx, t.ApplicationUUID, q.Environment, v, q.Check); e != nil {
+			return out, e
+		}
 	}
 	out.Stage = "patch_attempted"
 	var updated struct {
@@ -136,6 +151,11 @@ func (c *Client) DeployImage(ctx context.Context, q ImageDeploymentRequest, v *c
 	}
 	if updated.UUID != t.ApplicationUUID {
 		return out, ErrIdentity
+	}
+	if q.Settings != nil {
+		if e := c.VerifyImageSettings(ctx, t.ApplicationUUID, *q.Settings, v, q.Check); e != nil {
+			return out, e
+		}
 	}
 	out.Stage = "configured"
 	if e := q.Check(); e != nil {

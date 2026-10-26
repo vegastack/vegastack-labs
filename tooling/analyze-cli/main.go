@@ -463,17 +463,18 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 		sealedHostActionMain := reviewedHostActionPackage(parsed, modulePath, "cmd/vsk-labs")
 		sealedHostActionMain = sealedHostActionMain || reviewedPhase228Package(parsed, modulePath, "cmd/vsk-labs")
 		sealedDebianAccess := reviewedLinuxRolePackage(parsed, modulePath, "internal/linuxrole") || reviewedDebianAccessPackage(parsed, modulePath, "internal/debianaccess") || reviewedDebianBaselinePackage(parsed, modulePath, "internal/debianaccess") || reviewedDebianBaselinePackage(parsed, modulePath, "internal/debianbaseline")
+		sealedHostingPlatform := reviewedPhase228Package(parsed, modulePath, "internal/hostingplatform")
 		sealedDebianAccess = sealedDebianAccess || reviewedPhase228Package(parsed, modulePath, "internal/linuxrole") || reviewedPhase228Package(parsed, modulePath, "internal/debianaccess") || reviewedPhase228Package(parsed, modulePath, "internal/debianbaseline")
 		sealedAccessAdapter := reviewedLinuxRolePackage(parsed, modulePath, "internal/adapter/hostaction") || reviewedDebianAccessPackage(parsed, modulePath, "internal/adapter/hostaction") || reviewedDebianBaselinePackage(parsed, modulePath, "internal/adapter/hostaction")
 		sealedAccessAdapter = sealedAccessAdapter || reviewedPhase228Package(parsed, modulePath, "internal/adapter/hostaction")
 		sealedQualification := reviewedPhase228Package(parsed, modulePath, "internal/qualification")
 		sealedRecoveryCustodian := candidate.ImportPath == recoveryImport && reviewedRecoveryCustodianPackage(parsed)
-		isControlCapabilityPackage := isControlPackage && !(localClosure[candidate.ImportPath] && !result.LocalClientBoundary) && !sealedNativeCredential && !sealedRecoveryCustodian && !sealedHostAction && !sealedDebianAccess
+		isControlCapabilityPackage := isControlPackage && !(localClosure[candidate.ImportPath] && !result.LocalClientBoundary) && !sealedNativeCredential && !sealedRecoveryCustodian && !sealedHostAction && !sealedDebianAccess && !sealedHostingPlatform
 		// The custodian command imports recovery's fixed protected pin/receipt
 		// source. Only this exact reviewed source closure may carry those paths.
-		inspectControlPaths := isControlPackage && candidate.ImportPath != generatedImport && candidate.ImportPath != serverConfigImport && !sealedNativeCredential && !sealedRecoveryCustodian && !sealedHostAction && !sealedHostActionMain && !sealedDebianAccess
+		inspectControlPaths := isControlPackage && candidate.ImportPath != generatedImport && candidate.ImportPath != serverConfigImport && !sealedNativeCredential && !sealedRecoveryCustodian && !sealedHostAction && !sealedHostActionMain && !sealedDebianAccess && !sealedHostingPlatform
 		for _, imported := range candidate.Imports {
-			if imported == "os/exec" && !isReleasePackage && !(candidate.ImportPath == sshTransportImport && reviewedSSHTransportPackage(parsed, localTransportImport)) && !reviewedNativeCredentialPackage(parsed, nativeCredentialImport, modulePath) && !reviewedBackupProcessPackage(parsed, backupImport) && !reviewedPhase228ReceiveProcess(parsed, serverImport) && !sealedDebianAccess && !sealedAccessAdapter && !sealedQualification {
+			if imported == "os/exec" && !isReleasePackage && !(candidate.ImportPath == sshTransportImport && reviewedSSHTransportPackage(parsed, localTransportImport)) && !reviewedNativeCredentialPackage(parsed, nativeCredentialImport, modulePath) && !reviewedBackupProcessPackage(parsed, backupImport) && !reviewedPhase228ReceiveProcess(parsed, serverImport) && !sealedDebianAccess && !sealedAccessAdapter && !sealedQualification && !sealedHostingPlatform {
 				result.ShellDispatch = true
 			}
 			switch imported {
@@ -486,7 +487,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 				if !(candidate.ImportPath == auditImport && reviewedAuditVerificationPackage(parsed)) &&
 					!(candidate.ImportPath == recoveryImport && (reviewedRecoveryVerificationPackage(parsed) || reviewedRecoveryCustodianPackage(parsed))) &&
 					!reviewedRecoveryDenialVerificationPackage(parsed, modulePath) &&
-					!reviewedRecoveryCanaryVerificationFile(parsed, serverImport) && !sealedHostAction && !sealedDebianAccess && !reviewedHostActionServerSigner(parsed, serverImport) {
+					!reviewedRecoveryCanaryVerificationFile(parsed, serverImport) && !sealedHostAction && !sealedDebianAccess && !sealedHostingPlatform && !reviewedHostActionServerSigner(parsed, serverImport) {
 					result.StateExportTrust = true
 				}
 			case "crypto/rsa":
@@ -537,7 +538,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 			}
 		}
 		if !sealedNativeCredential {
-			registryGeneratedOrReviewed := sealedHostAction || sealedHostActionMain || sealedDebianAccess || sealedAccessAdapter || sealedQualification || candidate.ImportPath == apiImport || candidate.ImportPath == localAPIImport || (candidate.ImportPath == recoveryImport && reviewedRecoveryCustodianPackage(parsed)) ||
+			registryGeneratedOrReviewed := reviewedPhase228Package(parsed, modulePath, "internal/adapter/harbor") || sealedHostingPlatform || sealedHostAction || sealedHostActionMain || sealedDebianAccess || sealedAccessAdapter || sealedQualification || candidate.ImportPath == apiImport || candidate.ImportPath == localAPIImport || (candidate.ImportPath == recoveryImport && reviewedRecoveryCustodianPackage(parsed)) ||
 				(candidate.ImportPath == modulePath+"/internal/adapter/hostdiscovery" && reviewedHostDiscoveryCollectorPackage(parsed))
 			inspectPackage(parsed, generatedImport, stateExportImport, isReleasePackage, registryGeneratedOrReviewed, inspectControlPaths, &result)
 		}
@@ -611,7 +612,10 @@ func reviewedPhase228Package(c checkedSourcePackage, module, relative string) bo
 	}
 	names := append([]string(nil), c.listed.GoFiles...)
 	sort.Strings(names)
-	seal, ok := phase228SourceSeals[relative+"|"+strings.Join(names, ",")]
+	seal, ok := phase8FinishSourceSeals[relative+"|"+strings.Join(names, ",")]
+	if !ok {
+		seal, ok = phase228SourceSeals[relative+"|"+strings.Join(names, ",")]
+	}
 	if !ok {
 		return false
 	}
@@ -847,22 +851,24 @@ func moduleDependencyClosurePruned(packages []listedPackage, root string, stop m
 
 func reviewedLocalClientDependencies(closure map[string]bool, modulePath, localAPIImport, localTransportImport, sshTransportImport string) bool {
 	approved := map[string]bool{
-		localAPIImport:                          true,
-		localTransportImport:                    true,
-		sshTransportImport:                      true,
-		modulePath + "/internal/networkconnect": true,
-		modulePath + "/internal/servicecatalog": true,
-		modulePath + "/internal/apissh":         true,
-		modulePath + "/internal/credentialref":  true,
-		modulePath + "/internal/backupidentity": true,
-		modulePath + "/internal/failure":        true,
-		modulePath + "/internal/generated":      true,
-		modulePath + "/internal/principal":      true,
-		modulePath + "/internal/result":         true,
-		modulePath + "/internal/runprotocol":    true,
-		modulePath + "/internal/serverconfig":   true,
-		modulePath + "/internal/strictjson":     true,
-		modulePath + "/internal/hostaction":     true,
+		localAPIImport:                            true,
+		localTransportImport:                      true,
+		sshTransportImport:                        true,
+		modulePath + "/internal/networkconnect":   true,
+		modulePath + "/internal/servicecatalog":   true,
+		modulePath + "/internal/hostinglifecycle": true,
+		modulePath + "/internal/servicerecovery":  true,
+		modulePath + "/internal/apissh":           true,
+		modulePath + "/internal/credentialref":    true,
+		modulePath + "/internal/backupidentity":   true,
+		modulePath + "/internal/failure":          true,
+		modulePath + "/internal/generated":        true,
+		modulePath + "/internal/principal":        true,
+		modulePath + "/internal/result":           true,
+		modulePath + "/internal/runprotocol":      true,
+		modulePath + "/internal/serverconfig":     true,
+		modulePath + "/internal/strictjson":       true,
+		modulePath + "/internal/hostaction":       true,
 	}
 	for importPath := range closure {
 		if !approved[importPath] {
@@ -873,6 +879,12 @@ func reviewedLocalClientDependencies(closure map[string]bool, modulePath, localA
 }
 
 func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, localAPIImport, localTransportImport, sshTransportImport string) bool {
+	if candidate.listed.ImportPath == modulePath+"/internal/hostinglifecycle" {
+		return approvedServiceCatalogPackage(candidate, modulePath, "internal/hostinglifecycle")
+	}
+	if candidate.listed.ImportPath == modulePath+"/internal/servicerecovery" {
+		return approvedServiceCatalogPackage(candidate, modulePath, "internal/servicerecovery")
+	}
 	if candidate.listed.ImportPath == modulePath+"/internal/servicecatalog" {
 		return approvedServiceCatalogPackage(candidate, modulePath, "internal/servicecatalog")
 	}

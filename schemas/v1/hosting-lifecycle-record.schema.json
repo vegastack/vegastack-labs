@@ -1,0 +1,196 @@
+{
+  "$defs": {
+    "hosting-lifecycle-request": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "enum": [
+            "resources.apply"
+          ],
+          "type": "string"
+        },
+        "bindingId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "configurationDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "expectedLifecycleRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "expectedStateRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "idempotencyKey": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "observedDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "reasonDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/hosting-lifecycle-request"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "targetId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "targetId",
+        "bindingId",
+        "configurationDigest",
+        "observedDigest",
+        "action",
+        "expectedLifecycleRevision",
+        "expectedStateRevision",
+        "recoveryEpoch",
+        "idempotencyKey",
+        "reasonDigest"
+      ],
+      "type": "object"
+    },
+    "hosting-owned-resource": {
+      "additionalProperties": false,
+      "properties": {
+        "externalId": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "coolify-project",
+            "coolify-environment",
+            "coolify-application",
+            "coolify-service",
+            "harbor-project",
+            "harbor-retention",
+            "harbor-robot"
+          ],
+          "type": "string"
+        },
+        "parentId": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/hosting-owned-resource"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "kind",
+        "externalId",
+        "parentId"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/hosting-lifecycle-record",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "completedAt": {
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": "string"
+    },
+    "ownedResources": {
+      "items": {
+        "$ref": "#/$defs/hosting-owned-resource"
+      },
+      "maxItems": 512,
+      "minItems": 0,
+      "type": "array"
+    },
+    "planId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "request": {
+      "$ref": "#/$defs/hosting-lifecycle-request"
+    },
+    "resultDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "revision": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "runId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/hosting-lifecycle-record"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "succeeded",
+        "partial",
+        "failed"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "request",
+    "ownedResources",
+    "revision",
+    "status",
+    "resultDigest",
+    "planId",
+    "runId",
+    "completedAt"
+  ],
+  "title": "VegaStack Labs hosting lifecycle record",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

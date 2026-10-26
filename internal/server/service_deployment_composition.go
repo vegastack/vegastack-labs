@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"github.com/vegastack/vegastack-labs/internal/credentialref"
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/adapter/coolify"
@@ -50,7 +51,7 @@ func deploymentPolicies(ctx context.Context, p serverconfig.Profile) ([]servicec
 	}
 	out := make([]servicecatalog.DeploymentPolicy, 0, len(bindings))
 	for _, b := range bindings {
-		policy := servicecatalog.DeploymentPolicy{Binding: b.Binding}
+		policy := servicecatalog.DeploymentPolicy{Binding: b.Binding, Configuration: b.Configuration, EnvironmentBindings: b.EnvironmentSecrets}
 		for _, source := range b.Artifacts {
 			a, err := deploymentArtifact(ctx, source, p.SocketOwnerUID)
 			if err != nil {
@@ -78,7 +79,7 @@ func newServiceDeploymentComposition(p serverconfig.Profile, base *serviceCatalo
 }
 func (c *serviceDeploymentComposition) binding(q generated.ServiceDeploymentRequest) (generated.ServiceDeploymentProviderBinding, error) {
 	b, ok := c.bindings[q.Definition.ServiceID]
-	if !ok || b.Binding != q.Binding || b.ServiceBindingID != q.Definition.BindingID || !b.ExclusiveOwnership {
+	if !ok || b.Binding != q.Binding || servicecatalog.Digest(b.EnvironmentSecrets) != servicecatalog.Digest(q.EnvironmentBindings) || b.ServiceBindingID != q.Definition.BindingID || !b.ExclusiveOwnership {
 		return b, serviceFailure(generated.ErrorCodePlanStale)
 	}
 	if _, err := c.base.binding(q.Definition); err != nil {
@@ -101,11 +102,11 @@ func (c *serviceDeploymentComposition) artifact(ctx context.Context, q generated
 	}
 	return serviceFailure(generated.ErrorCodePrerequisiteBlocked)
 }
-func (c *serviceDeploymentComposition) authority(ctx context.Context, q generated.ServiceDeploymentRequest, initial *store.ServiceRuntimeTarget) (store.ServiceRuntimeTarget, error) {
+func (c *serviceDeploymentComposition) authority(ctx context.Context, q generated.ServiceDeploymentRequest, initial *store.ServiceRuntimeTarget, preparing ...bool) (store.ServiceRuntimeTarget, error) {
 	if _, err := c.binding(q); err != nil {
 		return store.ServiceRuntimeTarget{}, err
 	}
-	if err := c.repo.Authorize(ctx, q); err != nil {
+	if err := c.repo.AuthorizeConfiguration(ctx, q, len(preparing) > 0); err != nil {
 		return store.ServiceRuntimeTarget{}, err
 	}
 	if _, err := c.base.check(ctx, q.Definition, false, q.RecoveryEpoch); err != nil {
@@ -132,6 +133,11 @@ func (c *serviceDeploymentComposition) authority(ctx context.Context, q generate
 	if err != nil {
 		return target, err
 	}
+	if q.Configuration != nil {
+		if err := c.checkDataContract(ctx, q); err != nil {
+			return target, err
+		}
+	}
 	if admission.IdentityDigest != q.Definition.HostIdentityDigest || admission.Revision.RecoveryEpoch != q.RecoveryEpoch || admission.Profile.RoleID != "application" {
 		return target, serviceFailure(generated.ErrorCodePrerequisiteBlocked)
 	}
@@ -146,12 +152,25 @@ func (c *serviceDeploymentComposition) Prepare(ctx context.Context, d generated.
 	if err != nil {
 		return q, err
 	}
+	if b.Configuration == nil {
+		return q, serviceFailure(generated.ErrorCodePrerequisiteBlocked)
+	}
 	q.ArtifactProofDigest = servicecatalog.Digest(q.Artifact)
 	if err = c.artifact(ctx, q, b); err != nil {
 		return q, err
 	}
-	if _, err = c.authority(ctx, q, nil); err != nil {
+	if _, err = c.authority(ctx, q, nil, true); err != nil {
 		return q, err
+	}
+	if q.Configuration != nil {
+		capacity, e := c.observeCapacity(ctx, q.Definition, b)
+		if e != nil {
+			return q, e
+		}
+		q.Capacity = &capacity
+		if err = c.repo.Authorize(ctx, q); err != nil {
+			return q, err
+		}
 	}
 	return q, nil
 }
@@ -168,6 +187,9 @@ func (c *serviceDeploymentComposition) Deploy(ctx context.Context, q generated.S
 	b, err := c.binding(q)
 	if err != nil {
 		return out, err
+	}
+	if b.Configuration == nil {
+		return out, serviceFailure(generated.ErrorCodePrerequisiteBlocked)
 	}
 	target, err := c.authority(ctx, q, nil)
 	if err != nil {
@@ -200,12 +222,39 @@ func (c *serviceDeploymentComposition) Deploy(ctx context.Context, q generated.S
 		return out, err
 	}
 	defer runtimeValue.Close()
+	environment := make([]coolify.EnvironmentValue, 0, len(b.EnvironmentSecrets))
+	environmentIdentities := make([]serviceCredentialIdentity, 0, len(b.EnvironmentSecrets))
+	environmentProof := make([]serviceruntime.EnvironmentFingerprint, 0, len(b.EnvironmentSecrets))
+	environmentValues := make([]*credentialref.Value, 0, len(b.EnvironmentSecrets))
+	defer func() {
+		for _, value := range environmentValues {
+			value.Close()
+		}
+	}()
+	for _, secret := range b.EnvironmentSecrets {
+		value, identity, e := c.base.borrow(ctx, q.Definition, false, q.RecoveryEpoch, secret.ReferenceID, "service.environment", "workload-env", "credential.service-environment.read")
+		if e != nil {
+			return out, e
+		}
+		environmentValues = append(environmentValues, value)
+		if identity.Fingerprint != secret.ExpectedFingerprint {
+			return out, serviceFailure(generated.ErrorCodePlanStale)
+		}
+		environment = append(environment, coolify.EnvironmentValue{Name: secret.Name, Value: value})
+		environmentIdentities = append(environmentIdentities, identity)
+		environmentProof = append(environmentProof, serviceruntime.EnvironmentFingerprint{Name: secret.Name, Digest: serviceruntime.EnvironmentDigest(secret.Name, value.Bytes())})
+	}
 	check := func(ctx context.Context) error {
 		if _, err := c.authority(ctx, q, &target); err != nil {
 			return err
 		}
 		if err := c.base.recheckCredential(ctx, q.Definition, false, q.RecoveryEpoch, b.MutationReferenceID, "hosting.coolify.deploy", "hosting-deploy", "credential.hosting.deploy", credential); err != nil {
 			return err
+		}
+		for i, secret := range b.EnvironmentSecrets {
+			if e := c.base.recheckCredential(ctx, q.Definition, false, q.RecoveryEpoch, secret.ReferenceID, "service.environment", "workload-env", "credential.service-environment.read", environmentIdentities[i]); e != nil {
+				return e
+			}
 		}
 		return c.base.recheckCredential(ctx, q.Definition, false, q.RecoveryEpoch, b.RuntimeReferenceID, "service.runtime", "runtime-observe", "credential.service-runtime.read", runtimeCredential)
 	}
@@ -217,7 +266,22 @@ func (c *serviceDeploymentComposition) Deploy(ctx context.Context, q generated.S
 		return out, err
 	}
 	cb := service.Coolify
-	receipt, err := client.DeployImage(ctx, coolify.ImageDeploymentRequest{Target: coolify.ApplicationTarget{TeamID: cb.TeamID, ProjectID: cb.ProjectID, EnvironmentID: cb.EnvironmentID, DestinationID: cb.DestinationID, ProjectUUID: cb.ProjectUUID, Environment: cb.Environment, ApplicationUUID: cb.ApplicationUUID, DestinationType: cb.DestinationType}, DestinationUUID: b.DestinationUUID, ServerUUID: b.ServerUUID, ServerID: b.ServerID, Repository: q.Artifact.Repository, Digest: q.Artifact.Digest, Check: func() error { return check(ctx) }}, value)
+	var settings *coolify.ImageSettings
+	if q.Configuration != nil {
+		mapped, e := coolify.Settings(*q.Configuration)
+		if e != nil {
+			return out, e
+		}
+		settings = &mapped
+		actual, e := c.observeCapacity(ctx, q.Definition, b)
+		if e != nil {
+			return out, e
+		}
+		if e = c.repo.CheckPlacement(ctx, q.Definition, *q.Configuration, actual); e != nil {
+			return out, e
+		}
+	}
+	receipt, err := client.DeployImage(ctx, coolify.ImageDeploymentRequest{Environment: environment, Settings: settings, Target: coolify.ApplicationTarget{TeamID: cb.TeamID, ProjectID: cb.ProjectID, EnvironmentID: cb.EnvironmentID, DestinationID: cb.DestinationID, ProjectUUID: cb.ProjectUUID, Environment: cb.Environment, ApplicationUUID: cb.ApplicationUUID, DestinationType: cb.DestinationType}, DestinationUUID: b.DestinationUUID, ServerUUID: b.ServerUUID, ServerID: b.ServerID, Repository: q.Artifact.Repository, Digest: q.Artifact.Digest, Check: func() error { return check(ctx) }}, value)
 	out.ReceiptDigest = servicecatalog.Digest(receipt)
 	out.ProviderReceiptID = receipt.DeploymentUUID
 	out.ProviderStage = receipt.Stage
@@ -225,7 +289,11 @@ func (c *serviceDeploymentComposition) Deploy(ctx context.Context, q generated.S
 		return out, err
 	}
 	runtimeTarget := serviceruntime.Target{HostID: target.HostID, HostIdentityDigest: target.HostIdentityDigest, Address: target.Address, User: target.User, HostKey: target.HostKey, Port: target.Port, ExpectedMachineIDDigest: target.ExpectedMachineIDDigest}
-	selection := serviceruntime.Selection{ApplicationUUID: cb.ApplicationUUID, Repository: q.Artifact.Repository, Digest: q.Artifact.Digest}
+	selection := serviceruntime.Selection{Environment: environmentProof, ApplicationUUID: cb.ApplicationUUID, Repository: q.Artifact.Repository, Digest: q.Artifact.Digest}
+	if q.Configuration != nil {
+		selection.CPUQuotaPercent = q.Configuration.CPUQuotaPercent
+		selection.MemoryBytes = q.Configuration.MemoryBytes
+	}
 	for {
 		if err = check(ctx); err != nil {
 			return out, err
@@ -254,6 +322,11 @@ func (c *serviceDeploymentComposition) Deploy(ctx context.Context, q generated.S
 			if receipt.ProviderStatus == "finished" && out.Running && out.Healthy && out.RunningDigest == q.Artifact.Digest {
 				if err = check(ctx); err != nil {
 					return out, err
+				}
+				if settings != nil {
+					if err = client.VerifyImageSettings(ctx, cb.ApplicationUUID, *settings, value, func() error { return check(ctx) }); err != nil {
+						return out, err
+					}
 				}
 				out.Status = "succeeded"
 				return out, nil

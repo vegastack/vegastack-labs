@@ -1,0 +1,49 @@
+{
+  "$id": "vegastack-labs.dev/service-recovery-mount",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "destination": {
+      "maxLength": 1024,
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/service-recovery-mount"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "source": {
+      "maxLength": 1024,
+      "type": "string"
+    },
+    "targetSource": {
+      "maxLength": 1024,
+      "type": "string"
+    },
+    "type": {
+      "enum": [
+        "volume",
+        "bind"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "destination",
+    "type",
+    "source",
+    "targetSource"
+  ],
+  "title": "VegaStack Labs service recovery mount",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

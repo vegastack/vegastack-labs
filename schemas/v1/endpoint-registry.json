@@ -591,6 +591,32 @@
       ]
     },
     {
+      "id": "api.v1.hosting.lifecycle-drafts.create",
+      "method": "POST",
+      "path": "/api/v1/hosting/lifecycle-drafts",
+      "availability": "available",
+      "ownerPhase": "8",
+      "requestSchema": "vegastack-labs.dev/hosting-lifecycle-draft-request",
+      "dataSchema": "vegastack-labs.dev/declaration-revision",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.hosting.lifecycle.get",
+      "method": "GET",
+      "path": "/api/v1/hosting/{targetID}/lifecycle",
+      "availability": "available",
+      "ownerPhase": "8",
+      "dataSchema": "vegastack-labs.dev/hosting-lifecycle-record",
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
+    },
+    {
       "id": "api.v1.hosts.connection-descriptor.get",
       "method": "GET",
       "path": "/api/v1/hosts/{hostID}/connection-descriptor",
@@ -1292,6 +1318,19 @@
       "transportScope": "local"
     },
     {
+      "id": "api.v1.services.configuration.get",
+      "method": "GET",
+      "path": "/api/v1/services/{serviceID}/configuration",
+      "availability": "available",
+      "ownerPhase": "8",
+      "dataSchema": "vegastack-labs.dev/service-configuration-status",
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
+    },
+    {
       "id": "api.v1.services.deployment-drafts.create",
       "method": "POST",
       "path": "/api/v1/services/deployment-drafts",
@@ -1364,6 +1403,32 @@
       "availability": "available",
       "ownerPhase": "8",
       "dataSchema": "vegastack-labs.dev/service-observation",
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.services.recovery-drafts.create",
+      "method": "POST",
+      "path": "/api/v1/services/recovery-drafts",
+      "availability": "available",
+      "ownerPhase": "8",
+      "requestSchema": "vegastack-labs.dev/service-recovery-draft-request",
+      "dataSchema": "vegastack-labs.dev/declaration-revision",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.services.recovery.get",
+      "method": "GET",
+      "path": "/api/v1/services/{serviceID}/recovery",
+      "availability": "available",
+      "ownerPhase": "8",
+      "dataSchema": "vegastack-labs.dev/service-recovery-record",
       "stream": "finite",
       "audiences": [
         "browser",

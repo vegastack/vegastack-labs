@@ -120,3 +120,26 @@ func TestFreezeDeploymentBindingsRejectsUnsupportedOrUnboundTargets(t *testing.T
 		t.Fatal("duplicate service ownership accepted")
 	}
 }
+
+func TestDeploymentConfigurationFreezesExactSecretConsumers(t *testing.T) {
+	b, service := deploymentBindingFixture()
+	b.Configuration = &generated.ServiceConfiguration{Schema: generated.SchemaIDServiceConfiguration, SchemaVersion: "1.0.0", EnvironmentClass: "development", CPUQuotaPercent: 100, MemoryBytes: 268435456, Port: 8080, Exposure: "private", HealthPath: "/ready", HealthExpectedStatus: 200, HealthIntervalSeconds: 10, HealthTimeoutSeconds: 2, HealthRetries: 3, DataClass: "stateless", Migration: "none", Rollback: "previous-artifact", SecretReferenceIDs: []string{"application-key"}}
+	b.EnvironmentSecrets = []generated.ServiceEnvironmentSecret{{Schema: generated.SchemaIDServiceEnvironmentSecret, SchemaVersion: "1.0.0", Name: "APP_KEY", ReferenceID: "application-key", ExpectedFingerprint: "sha256:" + strings.Repeat("c", 64)}}
+	frozen, e := FreezeDeploymentBindings([]generated.ServiceDeploymentProviderBinding{b}, []generated.ServiceProviderBinding{service})
+	if e != nil {
+		t.Fatal(e)
+	}
+	original := frozen[0].Binding.ConfigurationDigest
+	b.EnvironmentSecrets[0].Name = "ROTATED_KEY"
+	changed, e := FreezeDeploymentBindings([]generated.ServiceDeploymentProviderBinding{b}, []generated.ServiceProviderBinding{service})
+	if e != nil || changed[0].Binding.ConfigurationDigest == original || frozen[0].EnvironmentSecrets[0].Name != "APP_KEY" {
+		t.Fatal("consumer map not frozen", e)
+	}
+	b.Configuration.SecretReferenceIDs[0] = "unbound-key"
+	if _, e = FreezeDeploymentBindings([]generated.ServiceDeploymentProviderBinding{b}, []generated.ServiceProviderBinding{service}); e == nil {
+		t.Fatal("unbound secret reference accepted")
+	}
+	if frozen[0].Configuration.SecretReferenceIDs[0] != "application-key" {
+		t.Fatal("frozen configuration aliases input")
+	}
+}

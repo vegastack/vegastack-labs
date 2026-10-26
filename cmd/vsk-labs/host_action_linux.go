@@ -8,6 +8,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/debianaccess"
 	"github.com/vegastack/vegastack-labs/internal/debianbaseline"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
+	"github.com/vegastack/vegastack-labs/internal/hostingplatform"
 	"github.com/vegastack/vegastack-labs/internal/linuxrole"
 	"github.com/vegastack/vegastack-labs/internal/qualification"
 	"github.com/vegastack/vegastack-labs/internal/server"
@@ -76,6 +77,10 @@ func runHostActionOnce(ctx context.Context, args []string) (bool, int) {
 type nativeHostDispatcher struct{ access, baseline, role, recovery hostaction.Dispatcher }
 
 func (d nativeHostDispatcher) Lookup(id, version string) (hostaction.Handler, bool) {
+	if version == "1.0.0" && hostingplatform.IsAction(id) {
+		h, e := hostingplatform.NewHandler(id, hostingplatform.NewNativeRuntime())
+		return h, e == nil
+	}
 	if h, ok := d.access.Lookup(id, version); ok {
 		return h, true
 	}

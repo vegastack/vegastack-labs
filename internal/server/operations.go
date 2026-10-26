@@ -301,6 +301,43 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 		_ = application.Shutdown(ctx)
 		return err
 	}
+	hostingSource, err := newHostingLifecycleComposition(profile, authority, adapters)
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	hostingSource.gates = serviceSource.gates
+	if err = api.RegisterHostingLifecycleOperations(application, api.HostingLifecycleOperations{Lifecycles: hostingSource.repo, Declarations: declarations, Results: factory, Prepare: hostingSource.Prepare}); err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	recoverySource, err := newServiceRecoveryComposition(profile, serviceSource)
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	recoverySource.routeProof = func(ctx context.Context, p generated.ServiceRecoveryProfile, q generated.ServiceRecoveryRequest) error {
+		repo := store.NewServiceRecoveryRepository(authority)
+		if p.CutoverOriginServiceID != p.TargetServiceID {
+			return serviceFailure(generated.ErrorCodePrerequisiteBlocked)
+		}
+		targetID := p.CutoverOriginServiceID
+		if q.Action == "rollback-before-writers" {
+			crossed, e := repo.HasServiceRecoveryTargetRoute(ctx, p.CutoverIngressID, p.CutoverBindingDigest, targetID, q.RecoveryEpoch)
+			if e != nil {
+				return e
+			}
+			if crossed {
+				return serviceFailure(generated.ErrorCodePrerequisiteBlocked)
+			}
+			targetID = q.Definition.ServiceID
+		}
+		return repo.ValidateServiceRecoveryRoute(ctx, p.CutoverIngressID, p.CutoverBindingDigest, targetID, q.RecoveryEpoch)
+	}
+	if err = api.RegisterServiceRecoveryOperations(application, api.ServiceRecoveryOperations{Recoveries: recoverySource.repo, Declarations: declarations, Results: factory, Prepare: recoverySource.Prepare}); err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
 	deploymentSource, err := newServiceDeploymentComposition(profile, serviceSource)
 	if err != nil {
 		_ = application.Shutdown(ctx)
@@ -310,6 +347,11 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 		_ = application.Shutdown(ctx)
 		return err
 	}
+	if err = api.RegisterServiceConfigurationOperations(application, api.ServiceConfigurationOperations{Configuration: deploymentSource.Configuration}); err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+
 	// The default factory returns nil. A qualified site composition may supply
 	// the concrete runner/catalog execution, but profile presence alone never
 	// turns fixture evidence into a live adapter.
@@ -421,7 +463,7 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 		return err
 	}
 	replacementComposition := hostReplacementComposition{authority: authority, repository: replacementRepository, gates: gateRepository, clock: time.Now}
-	coreRouter := runengine.CoreRouter{ServiceDeployment: &runengine.ServiceDeploymentEffect{Repository: deploymentSource.repo, Approvals: store.NewAcknowledgementRepository(authority), Deploy: deploymentSource.Deploy}, ServiceImport: &runengine.ServiceImportEffect{Repository: serviceSource.repo, Approvals: store.NewAcknowledgementRepository(authority), VerifyImport: serviceSource.VerifyImport}, NetworkEndpoint: &runengine.NetworkEndpointEffect{Repository: store.NewNetworkEndpointRepository(authority), Approvals: store.NewAcknowledgementRepository(authority)}, Authorization: &runengine.GrantBatchEffect{Repository: store.NewGrantBatchRepository(authority), Approvals: store.NewAcknowledgementRepository(authority)}, HostReplacement: &runengine.HostReplacementEffect{Operations: replacementComposition, Approvals: store.NewAcknowledgementRepository(authority)}, Adoption: &runengine.HostAdoptionEffect{Repository: store.NewHostAdoptionRepository(authority), Approvals: store.NewAcknowledgementRepository(authority)}, DiscoveryTarget: discoveryEffect, Gate: coreGate, Recovery: recoveryCore, Schedule: scheduleCore, ScheduleObserve: scheduleObserver}
+	coreRouter := runengine.CoreRouter{HostingLifecycle: &runengine.HostingLifecycleEffect{Repository: hostingSource.repo, Approvals: store.NewAcknowledgementRepository(authority), Apply: hostingSource.Apply}, ServiceRecovery: &runengine.ServiceRecoveryEffect{Repository: recoverySource.repo, Approvals: store.NewAcknowledgementRepository(authority), Recover: recoverySource.Recover}, ServiceDeployment: &runengine.ServiceDeploymentEffect{Repository: deploymentSource.repo, Approvals: store.NewAcknowledgementRepository(authority), Deploy: deploymentSource.Deploy}, ServiceImport: &runengine.ServiceImportEffect{Repository: serviceSource.repo, Approvals: store.NewAcknowledgementRepository(authority), VerifyImport: serviceSource.VerifyImport}, NetworkEndpoint: &runengine.NetworkEndpointEffect{Repository: store.NewNetworkEndpointRepository(authority), Approvals: store.NewAcknowledgementRepository(authority)}, Authorization: &runengine.GrantBatchEffect{Repository: store.NewGrantBatchRepository(authority), Approvals: store.NewAcknowledgementRepository(authority)}, HostReplacement: &runengine.HostReplacementEffect{Operations: replacementComposition, Approvals: store.NewAcknowledgementRepository(authority)}, Adoption: &runengine.HostAdoptionEffect{Repository: store.NewHostAdoptionRepository(authority), Approvals: store.NewAcknowledgementRepository(authority)}, DiscoveryTarget: discoveryEffect, Gate: coreGate, Recovery: recoveryCore, Schedule: scheduleCore, ScheduleObserve: scheduleObserver}
 	credentialRepository := store.NewCredentialRepository(authority)
 	if err := api.RegisterHostReplacementOperations(application, api.HostReplacementOperations{Replacements: replacementRepository, Declarations: declarations, Results: factory}); err != nil {
 		return err
@@ -439,7 +481,7 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	if err := api.RegisterHostActionOperations(application, api.HostActionOperations{RecoveryReceivePreparer: NewRecoveryReceivePreparer(authority, gateRepository, operations.databasePath, profile.SocketOwnerUID, time.Now), RolePreparer: roleComposition, BaselineRenderer: hostAccessComposition{}, Hosts: store.NewHostActionRepository(authority), Declarations: declarations, Credentials: credentialRepository, Results: factory}); err != nil {
+	if err := api.RegisterHostActionOperations(application, api.HostActionOperations{HostingPlatformPreparer: hostingSource, RecoveryReceivePreparer: NewRecoveryReceivePreparer(authority, gateRepository, operations.databasePath, profile.SocketOwnerUID, time.Now), RolePreparer: roleComposition, BaselineRenderer: hostAccessComposition{}, Hosts: store.NewHostActionRepository(authority), Declarations: declarations, Credentials: credentialRepository, Results: factory}); err != nil {
 		return err
 	}
 	if err := api.RegisterHostAccessOperations(application, api.HostAccessOperations{Hosts: store.NewHostActionRepository(authority), Declarations: declarations, Credentials: credentialRepository, Renderer: hostAccessComposition{}, Results: factory}); err != nil {
@@ -598,7 +640,15 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 		if err != nil {
 			return nil, err
 		}
-		return operations.openStore(ctx, store.Config{ServiceDeploymentPolicies: deploymentPolicy, ServiceImportPolicies: policies, NetworkConnectExcludedHostIDs: profile.NetworkConnectExcludedHostIDs, DatabasePath: path, Mode: store.OpenExisting, ExpectedUID: profile.SocketOwnerUID, ToolVersion: operations.build.ToolVersion, BuildVersion: operations.build.ReleaseBuildID})
+		hostingPolicies, err := hostingLifecyclePolicies(profile)
+		if err != nil {
+			return nil, err
+		}
+		recoveryPolicies, err := serviceRecoveryPolicies(profile)
+		if err != nil {
+			return nil, err
+		}
+		return operations.openStore(ctx, store.Config{HostingLifecycleProfiles: hostingPolicies, ServiceRecoveryPolicies: recoveryPolicies, ServiceDeploymentPolicies: deploymentPolicy, ServiceImportPolicies: policies, NetworkConnectExcludedHostIDs: profile.NetworkConnectExcludedHostIDs, DatabasePath: path, Mode: store.OpenExisting, ExpectedUID: profile.SocketOwnerUID, ToolVersion: operations.build.ToolVersion, BuildVersion: operations.build.ReleaseBuildID})
 	}
 	health, err := authority.Health(ctx)
 	if err != nil {
@@ -688,8 +738,16 @@ func (operations *Operations) openAuthorityWithPromotion(ctx context.Context, pr
 	if err != nil {
 		return nil, err
 	}
+	hostingPolicies, err := hostingLifecyclePolicies(profile)
+	if err != nil {
+		return nil, err
+	}
+	recoveryPolicies, err := serviceRecoveryPolicies(profile)
+	if err != nil {
+		return nil, err
+	}
 	configFor := func(path string) store.Config {
-		return store.Config{ServiceDeploymentPolicies: deploymentPolicy, ServiceImportPolicies: policies, NetworkConnectExcludedHostIDs: profile.NetworkConnectExcludedHostIDs, DatabasePath: path, Mode: store.OpenExisting, Recovery: migrationRecoveryFor(path, profile.SocketOwnerUID), ExpectedUID: profile.SocketOwnerUID, ToolVersion: operations.build.ToolVersion, BuildVersion: operations.build.ReleaseBuildID}
+		return store.Config{HostingLifecycleProfiles: hostingPolicies, ServiceRecoveryPolicies: recoveryPolicies, ServiceDeploymentPolicies: deploymentPolicy, ServiceImportPolicies: policies, NetworkConnectExcludedHostIDs: profile.NetworkConnectExcludedHostIDs, DatabasePath: path, Mode: store.OpenExisting, Recovery: migrationRecoveryFor(path, profile.SocketOwnerUID), ExpectedUID: profile.SocketOwnerUID, ToolVersion: operations.build.ToolVersion, BuildVersion: operations.build.ReleaseBuildID}
 	}
 	authority, err := operations.openStore(ctx, configFor(operations.databasePath))
 	if err != nil {

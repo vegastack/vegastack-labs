@@ -144,6 +144,16 @@ func workflowDeclarationTargets(row discoveryRow, d generated.DeclarationRevisio
 	var raw []byte
 	var digest string
 	switch d.DeclarationType {
+	case "hosting.lifecycle":
+		if d.HostingLifecycle == nil || !ValidateHostingLifecycleDeclaration(d) {
+			return deny()
+		}
+		add("hosting.lifecycle.prepare", "hosting.read", "hosting", d.HostingLifecycle.TargetID)
+	case "service.recovery":
+		if d.ServiceRecovery == nil || !ValidateServiceRecoveryDeclaration(d) {
+			return deny()
+		}
+		add("service.recovery.prepare", "service.read", "service", d.ServiceRecovery.Definition.ServiceID)
 	case "service.deployment":
 		if d.ServiceDeployment == nil || !ValidateServiceDeploymentDeclaration(d) {
 			return deny()

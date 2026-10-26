@@ -1,0 +1,57 @@
+{
+  "$id": "vegastack-labs.dev/hosting-lifecycle-profile",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "bindingId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "configurationDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "configurationPath": {
+      "maxLength": 1024,
+      "minLength": 1,
+      "type": "string"
+    },
+    "mutationReferenceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "platformReferenceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/hosting-lifecycle-profile"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "targetId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "bindingId",
+    "targetId",
+    "configurationPath",
+    "configurationDigest",
+    "mutationReferenceId",
+    "platformReferenceId"
+  ],
+  "title": "VegaStack Labs hosting lifecycle profile",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

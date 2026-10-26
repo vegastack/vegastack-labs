@@ -2,7 +2,9 @@ package store
 
 import (
 	"context"
+	"github.com/vegastack/vegastack-labs/internal/hostinglifecycle"
 	"github.com/vegastack/vegastack-labs/internal/servicecatalog"
+	"github.com/vegastack/vegastack-labs/internal/servicerecovery"
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/audit"
@@ -151,6 +153,8 @@ type IntentStore interface {
 }
 
 type Config struct {
+	HostingLifecycleProfiles      []hostinglifecycle.Profile
+	ServiceRecoveryPolicies       []servicerecovery.Policy
 	ServiceImportPolicies         []servicecatalog.Policy
 	ServiceDeploymentPolicies     []servicecatalog.DeploymentPolicy
 	NetworkConnectExcludedHostIDs []string

@@ -439,6 +439,32 @@ Owner phase: `1` · risk: `read-only` · availability: `available`
 
 - Show all generated command help.: `vsk-labs help`
 
+### `vsk-labs hosting lifecycle draft`
+
+Prepare or inspect one exact hosting lifecycle.
+
+Owner phase: `8` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--file <path>` — Read one inert hosting lifecycle request.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Prepare or inspect one exact hosting lifecycle.: `vsk-labs hosting lifecycle draft --config fixture/client.json --file fixture/hosting.json --output json`
+
+### `vsk-labs hosting lifecycle show`
+
+Prepare or inspect one exact hosting lifecycle.
+
+Owner phase: `8` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+- `--target-id <id>` — Select one exact hosting target.
+
+- Prepare or inspect one exact hosting lifecycle.: `vsk-labs hosting lifecycle show --config fixture/client.json --target-id hosting-a --output json`
+
 ### `vsk-labs inventory diff`
 
 Compare one inert draft or local candidate with a compatible inert draft.
@@ -1020,6 +1046,19 @@ Owner phase: `2` · risk: `read-only` · availability: `available`
 
 - Query local control-service health as versioned JSON.: `vsk-labs server status --config fixture/server-profile.json --output json`
 
+### `vsk-labs service configuration show`
+
+Inspect service settings and explicit target eligibility.
+
+Owner phase: `8` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+- `--service-id <id>` — Select one exact registered service.
+
+- Inspect service settings and explicit target eligibility.: `vsk-labs service configuration show --config fixture/client.json --service-id service-a --output json`
+
 ### `vsk-labs service deployment draft`
 
 Draft an exact service deployment or rollback for human acknowledgement.
@@ -1085,6 +1124,32 @@ Owner phase: `8` · risk: `read-only` · availability: `available`
 - `--service-id <id>` — Select one exact registered service.
 
 - Read current provider observations for one registered service.: `vsk-labs service observe --config fixture/client.json --service-id service-a --output json`
+
+### `vsk-labs service recovery draft`
+
+Prepare or inspect consistent workload recovery.
+
+Owner phase: `8` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--file <path>` — Read one inert workload recovery request.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Prepare or inspect consistent workload recovery.: `vsk-labs service recovery draft --config fixture/client.json --file fixture/service-recovery.json --output json`
+
+### `vsk-labs service recovery show`
+
+Prepare or inspect consistent workload recovery.
+
+Owner phase: `8` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+- `--service-id <id>` — Select one exact service.
+
+- Prepare or inspect consistent workload recovery.: `vsk-labs service recovery show --config fixture/client.json --service-id service-a --output json`
 
 ### `vsk-labs service show`
 

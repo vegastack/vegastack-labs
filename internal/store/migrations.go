@@ -84,6 +84,9 @@ var embeddedMigrationManifest = []migrationManifestEntry{
 	{ID: 40, Name: "0040_cloudflare_ingress", SHA256: mustSHA256("3f39cc4a57cd86f3918f961fd5b0dab381ba184ab5ca8968e744bc9708a8384d")},
 	{ID: 41, Name: "0041_service_catalog", SHA256: mustSHA256("4de57d5f9575955ba5d88cc0da0dbbe90728f9fe04736b6eede99ebc2d0c2515")},
 	{ID: 42, Name: "0042_service_deployment", SHA256: mustSHA256("e4559cfd591a6b6a1315c206d47f1a16d3283209de1e0f8917d297266bf73348")},
+	{ID: 43, Name: "0043_service_capacity", SHA256: mustSHA256("1c0a32617f71489d15ac6166f5fd32e47a8734f5f8d8ddc238abb238e8a445df")},
+	{ID: 44, Name: "0044_hosting_lifecycle", SHA256: mustSHA256("65e5a9aebacf1f6be81e0cdee6ab2950edab13f66c2e27a43c0d56b76b93c6f1")},
+	{ID: 45, Name: "0045_service_recovery", SHA256: mustSHA256("91bae59dd74c6f240ce83206868588626571a9f43471939726733b5946007056")},
 }
 
 func Catalog() ([]Migration, error) {

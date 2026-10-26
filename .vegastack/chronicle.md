@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 26-10-2026 — Services can be configured, placed and recovered through one approval flow ([#293](https://github.com/vegastack/vegastack-labs/issues/293))
+
+- **What:** Added the remaining Phase8 software paths for service settings and explicit capacity-aware placement, owned Coolify/Harbor resources, and consistent encrypted stack recovery. The existing executable, Console, database and exact approval/apply flow remain the operator entry points. Provider installation uses the existing finite host-action path; no new daemon or signing system was added.
+- **Why:** The operator asked to finish the working hosting phase quickly while leaving agreed deferrals and live deployment prerequisites separate.
+- **How it went:** Three implementation owners worked in parallel. Integration exposed contract/risk bindings and test architecture/filesystem mistakes; those were corrected. Actual encrypted recovery, provider protocol effects, API denial/no-replay and built-Console privacy checks supply bounded software evidence; no independent reviewer rounds were added.
+- **Changed:** Desired settings and placement status · protected secret environment bindings · owned provider resources and two registry robots · cold backup/isolated restore and safe migration branches · matching operator procedures and issue evidence.
+- **Decisions:** none. Existing working-first architecture, native deferrals, protected nodes and live authorization boundaries remain in force.
+
+— approved by (omkarmohanta09) · built by Codex with GPT-6.1 Sol medium implementation agents · branch feat/8.5-phase8-finish
+
 ## 26-10-2026 — Approved image changes gain independent runtime evidence ([#288](https://github.com/vegastack/vegastack-labs/issues/288))
 
 - **What:** A registered service can prepare an exact immutable-image change through the existing human-approved controller flow. Deployment records separate a provider receipt from observed running image and health. A compatible rollback uses another approved plan and a previously verified artifact.

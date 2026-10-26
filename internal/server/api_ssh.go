@@ -419,6 +419,35 @@ func apiSSHStatusForCode(code string) int {
 }
 
 func serviceSSHArgumentsAllowed(operationID, path string, args []string) (string, bool) {
+	if operationID == "api.v1.hosting.lifecycle-drafts.create" {
+		want := []string{"hosting", "lifecycle", "draft"}
+		return path, path == "/api/v1/hosting/lifecycle-drafts" && apiSSHCommandAvailable(want) && reflect.DeepEqual(args, want)
+	}
+	if operationID == "api.v1.services.recovery-drafts.create" {
+		want := []string{"service", "recovery", "draft"}
+		return path, path == "/api/v1/services/recovery-drafts" && apiSSHCommandAvailable(want) && reflect.DeepEqual(args, want)
+	}
+	if operationID == "api.v1.hosting.lifecycle.get" {
+		if id, ok := apiSSHPathID(path, "/api/v1/hosting/", "/lifecycle"); ok {
+			want := []string{"hosting", "lifecycle", "show", "--target-id", id}
+			return path, apiSSHCommandAvailable(want) && reflect.DeepEqual(args, want)
+		}
+		return path, false
+	}
+	if operationID == "api.v1.services.recovery.get" {
+		if id, ok := apiSSHPathID(path, "/api/v1/services/", "/recovery"); ok {
+			want := []string{"service", "recovery", "show", "--service-id", id}
+			return path, apiSSHCommandAvailable(want) && reflect.DeepEqual(args, want)
+		}
+		return path, false
+	}
+	if operationID == "api.v1.services.configuration.get" {
+		if id, ok := apiSSHPathID(path, "/api/v1/services/", "/configuration"); ok {
+			want := []string{"service", "configuration", "show", "--service-id", id}
+			return path, apiSSHCommandAvailable(want) && reflect.DeepEqual(args, want)
+		}
+		return path, false
+	}
 	if operationID == "api.v1.services.deployment-drafts.create" {
 		want := []string{"service", "deployment", "draft"}
 		return path, path == "/api/v1/services/deployment-drafts" && apiSSHCommandAvailable(want) && reflect.DeepEqual(args, want)

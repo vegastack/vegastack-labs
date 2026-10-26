@@ -65,6 +65,11 @@ type TypedResponse[T any] struct {
 }
 
 type Client interface {
+	GetServiceConfiguration(context.Context, serverconfig.Profile, string) (TypedResponse[generated.ServiceConfigurationStatus], error)
+	GetHostingLifecycle(context.Context, serverconfig.Profile, string) (TypedResponse[generated.HostingLifecycleRecord], error)
+	DraftHostingLifecycle(context.Context, serverconfig.Profile, generated.HostingLifecycleDraftRequest) (TypedResponse[generated.DeclarationRevision], error)
+	GetServiceRecovery(context.Context, serverconfig.Profile, string) (TypedResponse[generated.ServiceRecoveryRecord], error)
+	DraftServiceRecovery(context.Context, serverconfig.Profile, generated.ServiceRecoveryDraftRequest) (TypedResponse[generated.DeclarationRevision], error)
 	GetServiceDeployment(context.Context, serverconfig.Profile, string) (TypedResponse[generated.ServiceDeploymentRecord], error)
 	DraftServiceDeployment(context.Context, serverconfig.Profile, generated.ServiceDeploymentDraftRequest) (TypedResponse[generated.DeclarationRevision], error)
 	ListServices(context.Context, serverconfig.Profile, string, int) (TypedResponse[generated.ServiceList], error)
@@ -347,6 +352,15 @@ func requestTyped[T any](client *client, ctx context.Context, profile serverconf
 }
 
 func remoteCommandArguments(spec requestSpec) []string {
+	if args := serviceConfigurationRemoteArguments(spec); args != nil {
+		return args
+	}
+	if args := hostingLifecycleRemoteArguments(spec); args != nil {
+		return args
+	}
+	if args := serviceRecoveryRemoteArguments(spec); args != nil {
+		return args
+	}
 	if args := serviceDeploymentRemoteArguments(spec); args != nil {
 		return args
 	}

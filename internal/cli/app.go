@@ -464,6 +464,12 @@ func (app *App) Run(ctx context.Context, args []string) int {
 			return app.failServer(mode, parsed.commandName(), err)
 		}
 		return app.handlePlanResponse(mode, response)
+	case generated.CommandNameServiceConfigurationShow:
+		return app.runServiceConfiguration(ctx, mode, parsed)
+	case generated.CommandNameHostingLifecycleDraft, generated.CommandNameHostingLifecycleShow:
+		return app.runHostingLifecycle(ctx, mode, parsed)
+	case generated.CommandNameServiceRecoveryDraft, generated.CommandNameServiceRecoveryShow:
+		return app.runServiceRecovery(ctx, mode, parsed)
 	case generated.CommandNameServiceDeploymentDraft, generated.CommandNameServiceDeploymentShow:
 		return app.runServiceDeployment(ctx, mode, parsed)
 	case generated.CommandNameServiceList, generated.CommandNameServiceShow, generated.CommandNameServiceObserve, generated.CommandNameServiceImportDraft:

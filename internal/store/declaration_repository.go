@@ -62,6 +62,24 @@ func (repository *DeclarationRepository) CreateRevision(ctx context.Context, req
 			}
 		}
 		row := func(q string, a ...any) *sql.Row { return transaction.QueryRowContext(ctx, q, a...) }
+		if in := request.Document.HostingLifecycle; in != nil {
+			actor, err := serviceActor(ctx)
+			if err != nil {
+				return err
+			}
+			if err := NewHostingLifecycleRepository(repository.store).validate(actor, row, *in); err != nil {
+				return err
+			}
+		}
+		if in := request.Document.ServiceRecovery; in != nil {
+			actor, err := serviceActor(ctx)
+			if err != nil {
+				return err
+			}
+			if err := NewServiceRecoveryRepository(repository.store).validate(actor, row, *in); err != nil {
+				return err
+			}
+		}
 		if in := request.Document.ServiceDeployment; in != nil {
 			actor, err := serviceActor(ctx)
 			if err != nil {
@@ -180,7 +198,7 @@ func decodeStoredDeclaration(raw []byte, reasonDigest string, document *generate
 }
 
 func validDeclarationContent(document generated.DeclarationRevision, reasonDigest string) bool {
-	return ValidateServiceDeploymentDeclaration(document) && ValidateServiceImportDeclaration(document) && ValidateNetworkEndpointDeclaration(document) && ValidateGrantBatchDeclaration(document) && validAliasClaimDeclarationShape(document, reasonDigest) && validOffsiteDeclarationShape(document) && document.ContentDigest == declarationContentDigest(document, reasonDigest)
+	return ValidateHostingLifecycleDeclaration(document) && ValidateServiceRecoveryDeclaration(document) && ValidateServiceDeploymentDeclaration(document) && ValidateServiceImportDeclaration(document) && ValidateNetworkEndpointDeclaration(document) && ValidateGrantBatchDeclaration(document) && validAliasClaimDeclarationShape(document, reasonDigest) && validOffsiteDeclarationShape(document) && document.ContentDigest == declarationContentDigest(document, reasonDigest)
 }
 
 func validOffsiteDeclarationShape(document generated.DeclarationRevision) bool {
@@ -202,6 +220,8 @@ func validOffsiteDeclarationShape(document generated.DeclarationRevision) bool {
 
 func declarationContentDigest(document generated.DeclarationRevision, reasonDigest string) string {
 	semantic := struct {
+		HostingLifecycle        *generated.HostingLifecycleRequest        `json:"hostingLifecycle,omitempty"`
+		ServiceRecovery         *generated.ServiceRecoveryRequest         `json:"serviceRecovery,omitempty"`
 		ServiceDeployment       *generated.ServiceDeploymentRequest       `json:"serviceDeployment,omitempty"`
 		ServiceImport           *generated.ServiceImportRequest           `json:"serviceImport,omitempty"`
 		NetworkEndpoint         *generated.NetworkEndpointRequest         `json:"networkEndpoint,omitempty"`
@@ -212,7 +232,7 @@ func declarationContentDigest(document generated.DeclarationRevision, reasonDige
 		Operations              []generated.DeclarationOperation          `json:"operations"`
 		ReasonDigest            string                                    `json:"reasonDigest"`
 		Extensions              []generated.ContractExtension             `json:"extensions"`
-	}{document.ServiceDeployment, document.ServiceImport, document.NetworkEndpoint, document.HostAliasClaim, document.AuthorizationGrantBatch, document.DeclarationID, document.DeclarationType, document.Operations, reasonDigest, document.Extensions}
+	}{document.HostingLifecycle, document.ServiceRecovery, document.ServiceDeployment, document.ServiceImport, document.NetworkEndpoint, document.HostAliasClaim, document.AuthorizationGrantBatch, document.DeclarationID, document.DeclarationType, document.Operations, reasonDigest, document.Extensions}
 	encoded, err := json.Marshal(semantic)
 	if err != nil {
 		return ""

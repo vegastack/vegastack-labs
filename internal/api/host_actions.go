@@ -11,6 +11,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"github.com/vegastack/vegastack-labs/internal/hostdiscovery"
+	"github.com/vegastack/vegastack-labs/internal/hostingplatform"
 	"github.com/vegastack/vegastack-labs/internal/identity"
 	"github.com/vegastack/vegastack-labs/internal/linuxrole"
 	"github.com/vegastack/vegastack-labs/internal/result"
@@ -27,7 +28,11 @@ type RolePreparer interface {
 type RecoveryReceivePreparer interface {
 	PrepareRecoveryReceive(context.Context, generated.HostActionRequest) (generated.HostActionRequest, error)
 }
+type HostingPlatformPreparer interface {
+	PrepareHostingPlatform(context.Context, generated.HostActionRequest) (generated.HostActionRequest, error)
+}
 type HostActionOperations struct {
+	HostingPlatformPreparer HostingPlatformPreparer
 	RecoveryReceivePreparer RecoveryReceivePreparer
 	RolePreparer            RolePreparer
 	BaselineRenderer        BaselineRenderer
@@ -61,6 +66,22 @@ func (app *Application) hostActionDraft(c HostActionOperations) func(http.Respon
 		if generated.ValidateContractJSON(generated.SchemaIDHostActionRequest, raw, generated.ContractExact) != nil {
 			app.failure(w, operation, apiFailure(generated.ErrorCodeInputInvalid, "host-action"))
 			return
+		}
+		if hostingplatform.IsAction(input.ActionID) {
+			if _, err := app.authorizeAction(r, authorization.ActionAuthor, authorization.Target{Capability: "host.action.prepare", ResourceKind: "host", ResourceID: input.HostID}); err != nil {
+				app.failure(w, operation, err)
+				return
+			}
+			if c.HostingPlatformPreparer == nil {
+				app.failure(w, operation, apiFailure(generated.ErrorCodePrerequisiteBlocked, "hosting-platform"))
+				return
+			}
+			prepared, err := c.HostingPlatformPreparer.PrepareHostingPlatform(r.Context(), input)
+			if err != nil {
+				app.failure(w, operation, err)
+				return
+			}
+			input = prepared
 		}
 		if input.ActionID == store.ControlRecoveryReceiveAction {
 			if _, err := app.authorizeAction(r, authorization.ActionAuthor, authorization.Target{Capability: "host.action.prepare", ResourceKind: "host", ResourceID: input.HostID}); err != nil {

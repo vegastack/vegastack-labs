@@ -40,3 +40,24 @@ export function useServiceObservation(serviceId: string) {
     queryFn: ({ signal }) => readClient.getServiceObservation({ serviceID: serviceId }, { signal }),
   }));
 }
+
+export function useServiceConfiguration(serviceId: string) {
+  return useServiceState(useQuery({
+    queryKey: [...serviceKey, "configuration", serviceId],
+    queryFn: ({ signal }) => readClient.getServiceConfiguration({ serviceID: serviceId }, { signal }),
+  }));
+}
+
+export function useServiceDeployment(serviceId: string) {
+  return useServiceState(useQuery({
+    queryKey: [...serviceKey, "deployment", serviceId],
+    queryFn: ({ signal }) => readClient.getServiceDeployment({ serviceID: serviceId }, { signal }),
+  }));
+}
+
+export function useServiceRecovery(serviceId: string) {
+  return useServiceState(useQuery({
+    queryKey: [...serviceKey, "recovery", serviceId],
+    queryFn: ({ signal }) => readClient.getServiceRecovery({ serviceID: serviceId }, { signal }),
+  }));
+}

@@ -164,6 +164,12 @@ func Open(ctx context.Context, config Config) (*Store, error) {
 }
 
 func normalizeConfig(config Config) (Config, error) {
+	if err := normalizeHostingLifecycleProfiles(&config); err != nil {
+		return Config{}, err
+	}
+	if err := normalizeServiceRecoveryPolicies(&config); err != nil {
+		return Config{}, err
+	}
 	if err := normalizeDeploymentPolicies(&config); err != nil {
 		return Config{}, err
 	}

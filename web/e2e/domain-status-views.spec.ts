@@ -20,10 +20,12 @@ async function accessible(page: Page) {
 
 test("Services is accessible on mobile with keyboard, truthful observations and bounded pagination", async ({ page }, info) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  fixtureState.delay = 150;
+  let releaseList = () => {};
+  const listGate = new Promise<void>(resolve => { releaseList = resolve; });
+  await page.route(/\/api\/v1\/services(?:\?|$)/, async route => { await listGate; await route.fallback(); }, { times: 1 });
   await page.goto("/services");
   await expect(page.locator('[data-read-state="loading"]')).toBeVisible();
-  fixtureState.delay = 0;
+  releaseList();
   const inspectButton = page.getByRole("button", { name: "Inspect service-a", exact: true });
   await inspectButton.focus();
   await page.keyboard.press("Enter");
@@ -144,4 +146,18 @@ test("a valid but wrong source response is rejected", async ({ page }) => {
     await expect(page.locator("main")).not.toContainText("wrong-service-image-canary");
     await page.unroute(url);
   }
+});
+
+test("Services distinguishes desired settings and blocked placement from partial deployment and unverified recovery", async ({ page }) => {
+  await page.goto("/services");
+  await inspect(page);
+  await expect(page.getByText("Explicit target eligibility: blocked · admission-or-capacity-unavailable", { exact: true })).toBeVisible();
+  await expect(page.getByText("CPU quota: 100% · Memory: 268435456 bytes", { exact: true })).toBeVisible();
+  await expect(page.getByText("Deployment: partial · deploy", { exact: true })).toBeVisible();
+  await expect(page.getByText("Recovery: blocked · backup", { exact: true })).toBeVisible();
+  await expect(page.getByText("Consistent restore verified: false", { exact: true })).toBeVisible();
+  fixtureState.mode = "denied";
+  await page.getByRole("button", { name: "Refresh Services", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Service detail" })).toHaveCount(0);
+  for (const text of ["CPU quota: 100% · Memory: 268435456 bytes", "Deployment: partial · deploy", "Recovery: blocked · backup"]) await expect(page.getByText(text, { exact: true })).toHaveCount(0);
 });

@@ -38,6 +38,15 @@ func normalizeDeploymentPolicies(c *Config) error {
 			}
 			ids[a.ArtifactID] = true
 		}
+		if p.Configuration != nil {
+			if servicecatalog.ValidateConfiguration(*p.Configuration) != nil {
+				return actionError(generated.ErrorCodeInputInvalid)
+			}
+			copy := *p.Configuration
+			copy.SecretReferenceIDs = append([]string{}, p.Configuration.SecretReferenceIDs...)
+			out[i].Configuration = &copy
+		}
+		out[i].EnvironmentBindings = append([]generated.ServiceEnvironmentSecret(nil), p.EnvironmentBindings...)
 		out[i].Artifacts = append([]generated.ServiceDeploymentArtifact(nil), p.Artifacts...)
 	}
 	c.ServiceDeploymentPolicies = out
@@ -59,7 +68,7 @@ func deploymentRevision(row discoveryRow, id string) (int64, error) {
 	err := row(`SELECT COALESCE(MAX(revision),0) FROM service_deployments WHERE service_id=?`, id).Scan(&n)
 	return n, err
 }
-func (r *DeploymentRepository) validate(p identity.Principal, row discoveryRow, in generated.ServiceDeploymentRequest) error {
+func (r *DeploymentRepository) validate(p identity.Principal, row discoveryRow, in generated.ServiceDeploymentRequest, preparing ...bool) error {
 	if servicecatalog.ValidateDeploymentRequest(in) != nil {
 		return actionError(generated.ErrorCodeInputInvalid)
 	}
@@ -67,7 +76,7 @@ func (r *DeploymentRepository) validate(p identity.Principal, row discoveryRow, 
 	if err != nil {
 		return err
 	}
-	if policy.Binding != in.Binding {
+	if policy.Binding != in.Binding || servicecatalog.Digest(policy.Configuration) != servicecatalog.Digest(in.Configuration) || servicecatalog.Digest(policy.EnvironmentBindings) != servicecatalog.Digest(in.EnvironmentBindings) {
 		return actionError(generated.ErrorCodePlanStale)
 	}
 	found := false
@@ -91,11 +100,24 @@ func (r *DeploymentRepository) validate(p identity.Principal, row discoveryRow, 
 	if err != nil {
 		return err
 	}
+	if in.Configuration != nil && in.Configuration.Exposure == "public" {
+		if _, err := adoptionPrincipalGrant(p, row, in.Definition.ServiceID, "service", "author", "service.deploy.prepare", true); err != nil {
+			return err
+		}
+	}
 	if revision != in.ExpectedDeploymentRevision {
 		return actionError(generated.ErrorCodePlanStale)
 	}
-	if in.Binding.DataPolicy != "stateless" && in.Binding.DataPolicy != "compatible" {
+	if in.Binding.DataPolicy != "stateless" && in.Binding.DataPolicy != "compatible" && !(in.Configuration != nil && in.Configuration.DataClass == "stateful" && in.Configuration.Migration == "irreversible" && in.Binding.DataPolicy == "irreversible" && in.Action == "deploy") {
 		return actionError(generated.ErrorCodePrerequisiteBlocked)
+	}
+	if len(preparing) == 0 {
+		if err := r.validateConfiguration(row, in, r.store.config.Clock().UTC()); err != nil {
+			return err
+		}
+	}
+	if err := validateEnvironmentContinuity(row, in); err != nil {
+		return err
 	}
 	if in.Action == "rollback" {
 		if in.Binding.DataPolicy != "stateless" && in.Binding.DataPolicy != "compatible" {
@@ -121,7 +143,7 @@ func (r *DeploymentRepository) Prepare(ctx context.Context, in generated.Service
 	if err != nil {
 		return out, err
 	}
-	out = generated.ServiceDeploymentRequest{Schema: generated.SchemaIDServiceDeploymentRequest, SchemaVersion: "1.0.0", Binding: policy.Binding, Action: in.Action, ExpectedStateRevision: in.ExpectedStateRevision, RecoveryEpoch: in.RecoveryEpoch, IdempotencyKey: in.IdempotencyKey, ReasonDigest: in.ReasonDigest}
+	out = generated.ServiceDeploymentRequest{Schema: generated.SchemaIDServiceDeploymentRequest, SchemaVersion: "1.0.0", Binding: policy.Binding, Configuration: policy.Configuration, EnvironmentBindings: policy.EnvironmentBindings, Action: in.Action, ExpectedStateRevision: in.ExpectedStateRevision, RecoveryEpoch: in.RecoveryEpoch, IdempotencyKey: in.IdempotencyKey, ReasonDigest: in.ReasonDigest}
 	for _, a := range policy.Artifacts {
 		if a.ArtifactID == in.ArtifactID {
 			out.Artifact = a
@@ -143,7 +165,7 @@ func (r *DeploymentRepository) Prepare(ctx context.Context, in generated.Service
 		if e != nil {
 			return e
 		}
-		return r.validate(actor, row, out)
+		return r.validate(actor, row, out, true)
 	})
 	// Only the server's offline artifact verifier can seal the proof.
 	out.ArtifactProofDigest = ""
@@ -266,4 +288,47 @@ func (r *DeploymentRepository) Authorize(ctx context.Context, in generated.Servi
 		}
 		return r.validateDeploymentExecution(ctx, row, p, in, apply, r.store.config.Clock().UTC())
 	})
+}
+
+func (r *DeploymentRepository) AuthorizeConfiguration(ctx context.Context, in generated.ServiceDeploymentRequest, preparing bool) error {
+	p, e := serviceActor(ctx)
+	if e != nil {
+		return e
+	}
+	return r.store.Read(ctx, func(tx ReadTx) error {
+		row := func(q string, a ...any) *sql.Row { return tx.queryRow(ctx, q, a...) }
+		if preparing {
+			return r.validate(p, row, in, true)
+		}
+		return r.validate(p, row, in)
+	})
+}
+
+// Removing a managed environment key requires a separate cleanup operation.
+// Do not report an exact applied configuration while leaving its old credential
+// active in the provider merely because it disappeared from a declaration.
+func validateEnvironmentContinuity(row discoveryRow, in generated.ServiceDeploymentRequest) error {
+	var raw []byte
+	var digest string
+	e := row(`SELECT canonical_bytes,digest FROM service_deployments WHERE service_id=? AND status='succeeded' ORDER BY revision DESC LIMIT 1`, in.Definition.ServiceID).Scan(&raw, &digest)
+	if errors.Is(e, sql.ErrNoRows) {
+		return nil
+	}
+	if e != nil {
+		return actionError(generated.ErrorCodeDependencyUnavailable)
+	}
+	var previous generated.ServiceDeploymentRecord
+	if json.Unmarshal(raw, &previous) != nil || servicecatalog.Digest(previous) != digest {
+		return actionError(generated.ErrorCodeIntegrityFailure)
+	}
+	current := map[string]bool{}
+	for _, binding := range in.EnvironmentBindings {
+		current[binding.Name] = true
+	}
+	for _, binding := range previous.Request.EnvironmentBindings {
+		if !current[binding.Name] {
+			return actionError(generated.ErrorCodePrerequisiteBlocked)
+		}
+	}
+	return nil
 }
