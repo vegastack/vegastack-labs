@@ -593,6 +593,22 @@
           "github.com/vegastack/vegastack-labs/internal/networkingress"
         ],
         "mutationBoundaryDigest": "sha256:1a4eb5a90c4fde021491cec2799ccd8a05e4e992ce70d33c6b3b109851a7ec20"
+      },
+      {
+        "id": "phase8-issue286-v1",
+        "issue": 286,
+        "commands": [
+          "service import draft",
+          "service list",
+          "service observe",
+          "service show"
+        ],
+        "imports": [
+          "github.com/vegastack/vegastack-labs/internal/adapter/coolify",
+          "github.com/vegastack/vegastack-labs/internal/adapter/harbor",
+          "github.com/vegastack/vegastack-labs/internal/servicecatalog"
+        ],
+        "mutationBoundaryDigest": "sha256:b74cdf5b4c04beedbc3b4a64e9812ff7c74bf3f80f80ec0527e3c595516c1542"
       }
     ]
   },

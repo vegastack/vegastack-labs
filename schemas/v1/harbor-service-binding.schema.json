@@ -1,0 +1,61 @@
+{
+  "$id": "vegastack-labs.dev/harbor-service-binding",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "artifactDigest": {
+      "maxLength": 256,
+      "minLength": 1,
+      "type": "string"
+    },
+    "observationReferenceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "origin": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "type": "string"
+    },
+    "project": {
+      "maxLength": 256,
+      "minLength": 1,
+      "type": "string"
+    },
+    "repository": {
+      "maxLength": 512,
+      "minLength": 1,
+      "type": "string"
+    },
+    "robotUsername": {
+      "maxLength": 256,
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/harbor-service-binding"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "origin",
+    "project",
+    "repository",
+    "artifactDigest",
+    "robotUsername",
+    "observationReferenceId"
+  ],
+  "title": "VegaStack Labs harbor service binding",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

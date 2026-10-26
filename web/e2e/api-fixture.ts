@@ -67,6 +67,22 @@ async function fulfill(route: Route, status: number, body: string) {
   await route.fulfill({ status, contentType: "application/json", body });
 }
 
+// Synthetic registered records only: these fixtures confer no host admission.
+const serviceBackingRecords = [
+  { scope: "current-project", serviceId: "service-a" },
+  { scope: "current-project", serviceId: "service-b" },
+  { scope: "another-project", serviceId: "private-service-canary" },
+] as const;
+export const serviceFixtureState = { deniedObservation: false, unavailableProviders: false, observationDelay: 0 };
+const serviceSchema = (name: string) => ({ schema: `vegastack-labs.dev/${name}`, schemaVersion: "1.0.0" });
+export function serviceFixtureRecord(serviceId = "service-a") {
+  return { ...serviceSchema("service-record"), definition: { ...serviceSchema("service-definition"), serviceId, environmentId: "staging", ownerId: "owner-a", hostId: "fixture-host", hostIdentityDigest: digest, bindingId: "binding-a", bindingDigest: digest }, revision: 1, registrationStatus: "registered", hostAdmission: "not-verified", registeredAt: "2026-10-26T04:00:00Z", stateRevision: 8, recoveryEpoch: 2 };
+}
+function serviceFixtureObservation(serviceId: string) {
+  const unavailable = serviceFixtureState.unavailableProviders;
+  return { ...serviceSchema("service-observation"), serviceId, bindingDigest: digest, observedAt: "2026-10-26T04:01:00Z", hostingState: unavailable ? "unavailable" : "observed", hostingReason: unavailable ? "provider-unavailable" : "observed", providerStatus: unavailable ? "unknown" : "running:healthy", ...(unavailable ? {} : { configuredImage: "fixture/app:v1" }), artifactState: unavailable ? "unavailable" : "observed", artifactReason: unavailable ? "provider-unavailable" : "observed", ...(unavailable ? {} : { artifactDigest: digest }), artifactKind: unavailable ? "unknown" : "image", scanState: unavailable ? "unavailable" : "findings", signatureState: "unverified", provenanceState: "unverified", runningDigestState: "unknown", healthState: "unknown", hostAdmission: "not-verified", stateRevision: 8, recoveryEpoch: 2 };
+}
+
 async function respond(route: Route) {
   const requestUrl = route.request().url();
   fixtureAudit.requests.push(requestUrl);
@@ -90,7 +106,21 @@ async function respond(route: Route) {
   if (method === "POST" && /^\/api\/v1\/gates\/[^/]+\/evidence$/.test(path)) return fulfill(route, 200, JSON.stringify(envelope("api.v1.gate-evidence.create", { schema: "vegastack-labs.dev/gate-evidence-submission", schemaVersion: "1.1.0", draftId: "draft-gate-a", changeId: "change-gate-a", evidenceId: "evidence-a", status: "draft", stateRevision: 9, recoveryEpoch: 2 })));
   let command = "api.v1.summary.get";
   let data: unknown;
-  if (path === "/api/v1/hosts") return route.fulfill({json:{...envelope("api.v1.hosts.list", {}), data:{schema:"vegastack-labs.dev/managed-host-list",schemaVersion:"1.0.0",hosts:[],stateRevision:8,recoveryEpoch:2}}});
+  if (path === "/api/v1/services") {
+    command = "api.v1.services.list";
+    const second = Boolean(url.searchParams.get("after"));
+    const records = serviceBackingRecords.filter(record => record.scope === "current-project" && record.serviceId === (second ? "service-b" : "service-a"));
+    data = { ...serviceSchema("service-list"), services: fixtureState.mode === "empty" ? [] : records.map(record => serviceFixtureRecord(record.serviceId)), ...(fixtureState.mode === "empty" || second ? {} : { nextAfter: "service-a" }), stateRevision: 8, recoveryEpoch: 2 };
+  } else if (/^\/api\/v1\/services\/[^/]+\/observation$/.test(path)) {
+    const denied = serviceFixtureState.deniedObservation;
+    if (serviceFixtureState.observationDelay) await new Promise(resolve => setTimeout(resolve, serviceFixtureState.observationDelay));
+    command = "api.v1.services.observation.get";
+    if (denied) return fulfill(route, 403, JSON.stringify(envelope(command, {}, "failed", [{ code: "AUTHORIZATION_DENIED", target: "service", retryable: false }])));
+    data = serviceFixtureObservation(path.split("/")[4]);
+  } else if (/^\/api\/v1\/services\/[^/]+$/.test(path)) {
+    command = "api.v1.services.get";
+    data = serviceFixtureRecord(path.split("/")[4]);
+  } else if (path === "/api/v1/hosts") return route.fulfill({json:{...envelope("api.v1.hosts.list", {}), data:{schema:"vegastack-labs.dev/managed-host-list",schemaVersion:"1.0.0",hosts:[],stateRevision:8,recoveryEpoch:2}}});
   else if (path === "/api/v1/summary") data = { databaseMode: "ready", readAvailable: true, mutationAvailable: false, draftCount: fixtureState.mode === "empty" ? 0 : 1, validDraftCount: fixtureState.mode === "empty" ? 0 : 1, blockedDraftCount: 0, lastEventId: 4, recoveryEpoch: 2, stateRevision: 8, sourceCounts: { total: fixtureState.mode === "empty" ? 0 : 7, healthy: fixtureState.mode === "empty" ? 0 : 2, stale: 0, unknown: 0, unavailable: fixtureState.mode === "empty" ? 0 : 5, failed: 0 }, worstSourceState: fixtureState.mode === "empty" ? "unknown" : "unavailable" };
   else if (path === "/api/v1/backups/status") {
     command = "api.v1.backups.status";
@@ -162,6 +192,9 @@ async function respond(route: Route) {
 }
 
 export async function installReadFixture(page: Page) {
+  serviceFixtureState.deniedObservation = false;
+  serviceFixtureState.unavailableProviders = false;
+  serviceFixtureState.observationDelay = 0;
   fixtureState.mode = "healthy";
   fixtureState.delay = 0;
   fixtureState.domainState = "unavailable";

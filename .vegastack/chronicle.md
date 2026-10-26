@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 26-10-2026 — Existing applications gain a scoped service registration workflow ([#286](https://github.com/vegastack/vegastack-labs/issues/286))
+
+- **What:** The service import implementation connects protected existing Coolify and optional Harbor resources to one service/environment record through the current declaration, plan and human acknowledgement flow. CLI/API reads and the Services Console expose registered records and separate provider observations.
+- **Why:** Read adapters alone could not establish local ownership or replace the Console placeholder with authorized records.
+- **How it went:** Parallel source work reused the existing local effect and query boundaries. Generated service read methods needed distinct names, and denial handling cancels older pending service requests before clearing retained records. Real Linux SQLite import/API and six production-composition tests pass, as do eight built-Console Chromium tests. Fixtures caught an absent read-principal row, an invalid grant revival and a raw-query serialization mismatch; those were corrected without weakening guards. Exact shipping evidence lives in the issue.
+- **Changed:** Initial local-only registration · exact scoped service reads · bounded Console pagination/detail/refresh · truthful unavailable/stale provider states · signature/provenance unverified and actual digest/health unknown · matching operator procedure. Registration does not qualify host security, workload admission, deployment or recovery.
+- **Decisions:** Reuse the executable, SQLite, current credential resolver and approval flow. No new service, framework, provider mutation, live access or independent review round. Phase 8 acceptance and existing Phase 6 deferrals remain open.
+
+— approved by (omkarmohanta09) · built by Codex with GPT-6.1 Sol medium implementation agents · branch feat/8.3-service-import
+
 ## 26-10-2026 — Phase 8 starts with scoped hosting and image observations ([#283](https://github.com/vegastack/vegastack-labs/issues/283), [#284](https://github.com/vegastack/vegastack-labs/issues/284))
 
 - **What:** The first Coolify and Harbor adapter foundations can inspect explicitly selected existing resources through fixed read-only HTTPS calls. They produce sanitized observations for the upcoming service workflow; no new operator CLI/API/Console feature is claimed yet.

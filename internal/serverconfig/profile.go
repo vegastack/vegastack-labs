@@ -28,6 +28,7 @@ var offsiteBucketName = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]{1,62}$`)
 var scheduledRunnerPath = regexp.MustCompile(`^/[A-Za-z0-9._/-]+$`)
 
 type Profile struct {
+	ServiceBindings                  []generated.ServiceProviderBinding
 	NetworkConnectExcludedHostIDs    []string
 	NetworkConnectPrivateKeyPath     string
 	SocketPath                       string
@@ -254,7 +255,12 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 		}
 		scheduledRunner = &ScheduledRunner{UID: uid, PrincipalID: runner.PrincipalID, BinaryPath: runner.BinaryPath, ConfigPath: runner.ConfigPath}
 	}
+	serviceBindings, err := FreezeServiceBindings(input.ServiceBindings)
+	if err != nil {
+		return invalid()
+	}
 	return Profile{
+		ServiceBindings:                  serviceBindings,
 		NetworkConnectExcludedHostIDs:    append([]string(nil), input.NetworkConnectExcludedHostIDs...),
 		NetworkConnectPrivateKeyPath:     input.NetworkConnectPrivateKeyPath,
 		SocketPath:                       input.SocketPath,

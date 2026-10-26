@@ -229,6 +229,7 @@ func Current() Registry {
 	commands = append(commands, ingressCommands()...)
 	commands = append(commands, authorizationGrantCommand())
 	commands = append(commands, networkConnectCommands()...)
+	commands = append(commands, serviceCatalogCommands()...)
 	commands = append(commands, userLifecycleCommands()...)
 	commands = append(commands, deviceLifecycleCommands()...)
 	commands = append(commands, linuxRoleCommands()...)
@@ -250,6 +251,7 @@ func Current() Registry {
 	}
 
 	endpoints := append([]EndpointDefinition{authorizationGrantEndpoint()}, networkConnectEndpoints()...)
+	endpoints = append(endpoints, serviceCatalogEndpoints()...)
 	for _, family := range [][]EndpointDefinition{operatorAccessEndpoints(), readEndpoints(), meshEndpoints(), ingressEndpoints(), phase4Endpoints(), phase5Endpoints(), hostDiscoveryEndpoints(), hostAdoptionEndpoints(), hostActionEndpoints(), accessEndpoints(), hostReplacementEndpoints(), qualificationEndpoints()} {
 		endpoints = append(endpoints, family...)
 	}
@@ -927,6 +929,7 @@ func currentSchemas() []SchemaDefinition {
 				{JSONName: "socketMode", GoName: "SocketMode", Kind: ValueString, Required: true, Enum: []string{"0600", "0660"}},
 				{JSONName: "shutdownGraceSeconds", GoName: "ShutdownGraceSeconds", Kind: ValueInteger, Required: true, Minimum: int64Pointer(5), Maximum: int64Pointer(5)},
 				{JSONName: "inventoryExportRoot", GoName: "InventoryExportRoot", Kind: ValueString, Required: true, Pattern: `^/[^\x00]*$`, MinLength: intPointer(2), MaxLength: intPointer(4096)},
+				{JSONName: "serviceBindings", GoName: "ServiceBindings", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/service-provider-binding", MaxItems: intPointer(128)},
 				{JSONName: "networkConnectExcludedHostIds", GoName: "NetworkConnectExcludedHostIDs", Kind: ValueArray, OmitEmpty: true, ItemKind: ValueString, MaxItems: intPointer(256), UniqueItems: true},
 				{JSONName: "networkConnectPrivateKeyPath", GoName: "NetworkConnectPrivateKeyPath", Kind: ValueString, OmitEmpty: true, MaxLength: intPointer(4096)},
 				{JSONName: "principalBindings", GoName: "PrincipalBindings", Kind: ValueArray, Required: true, ItemRef: localPrincipalBindingSchemaID, MinItems: intPointer(1), MaxItems: intPointer(256), UniqueItems: true},
@@ -1004,6 +1007,7 @@ func currentSchemas() []SchemaDefinition {
 	schemas = append(schemas, hostReplacementSchemas()...)
 	schemas = append(schemas, authorizationGrantSchemas()...)
 	schemas = append(schemas, networkConnectSchemas()...)
+	schemas = append(schemas, serviceCatalogSchemas()...)
 	schemas = append(schemas, qualificationSchemas()...)
 	schemas = append(schemas, nativeWitnessSchemas()...)
 	schemas = append(schemas, nativePreparationSchemas()...)

@@ -464,6 +464,8 @@ func (app *App) Run(ctx context.Context, args []string) int {
 			return app.failServer(mode, parsed.commandName(), err)
 		}
 		return app.handlePlanResponse(mode, response)
+	case generated.CommandNameServiceList, generated.CommandNameServiceShow, generated.CommandNameServiceObserve, generated.CommandNameServiceImportDraft:
+		return app.runService(ctx, mode, parsed)
 	case generated.CommandNameNetworkEndpointDraft:
 		return app.runNetworkEndpoint(ctx, mode, parsed)
 	case generated.CommandNameConnect:
@@ -593,7 +595,7 @@ var serverErrorTargets = map[string]struct{}{
 	"local-setup":          {},
 	"host-replacement":     {}, "replacement-id": {},
 	"application-health": {}, "application-shutdown": {}, "application-start": {},
-	"context": {}, "control-operations": {}, "control-service": {}, "control-service-drain": {}, "control-service-lock": {}, "control-service-request": {},
+	"service-control": {}, "service-request": {}, "service-query": {}, "service-id": {}, "context": {}, "control-operations": {}, "control-service": {}, "control-service-drain": {}, "control-service-lock": {}, "control-service-request": {},
 	"control-service-response": {}, "control-socket": {}, "control-socket-parent": {},
 	"identity-header": {}, "local-peer": {}, "method": {}, "principal-bindings": {},
 	"inventory-file": {}, "request-body": {}, "server-config": {}, "server-platform": {},

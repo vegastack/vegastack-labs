@@ -1,0 +1,21 @@
+{
+  "$id": "vegastack-labs.dev/service-read-query",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "after": {
+      "maxLength": 128,
+      "minLength": 1,
+      "type": "string"
+    },
+    "limit": {
+      "maximum": 100,
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [],
+  "title": "VegaStack Labs service read query",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

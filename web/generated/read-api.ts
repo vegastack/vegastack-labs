@@ -54,6 +54,9 @@
 // api.v1.scheduled-job-policies.get
 // api.v1.scheduled-job-policies.list
 // api.v1.scheduled-jobs.list
+// api.v1.services.get
+// api.v1.services.list
+// api.v1.services.observation.get
 // api.v1.sources.list
 // api.v1.summary.get
 
@@ -799,6 +802,7 @@ export interface DeclarationOperation {
 export interface DeclarationRevisionRequest {
   readonly "schema": "vegastack-labs.dev/declaration-revision-request";
   readonly "schemaVersion": "1.0.0";
+  readonly "serviceImport"?: ServiceImportRequest | null;
   readonly "networkEndpoint"?: NetworkEndpointRequest | null;
   readonly "grantBatch"?: AuthorizationGrantBatchRequest | null;
   readonly "hostAliasClaim"?: HostAliasClaimRequest | null;
@@ -1752,6 +1756,7 @@ export interface OperatorReadQuery {
 export interface Plan {
   readonly "schema": "vegastack-labs.dev/plan";
   readonly "schemaVersion": "1.0.0";
+  readonly "serviceImport"?: ServiceImportRequest | null;
   readonly "networkEndpoint"?: NetworkEndpointRequest | null;
   readonly "grantBatch"?: AuthorizationGrantBatchRequest | null;
   readonly "planId": string;
@@ -1943,6 +1948,81 @@ export interface ServerStatusData {
   readonly "stateRevision": number;
   readonly "remoteReadState": "disabled" | "starting" | "ready" | "unavailable";
   readonly "remoteReadReason": "none" | "preflight-unavailable" | "authentication-unavailable" | "listener-unavailable" | "serve-failed";
+}
+
+export interface ServiceDefinition {
+  readonly "schema": "vegastack-labs.dev/service-definition";
+  readonly "schemaVersion": "1.0.0";
+  readonly "serviceId": string;
+  readonly "environmentId": string;
+  readonly "ownerId": string;
+  readonly "hostId": string;
+  readonly "hostIdentityDigest": string;
+  readonly "bindingId": string;
+  readonly "bindingDigest": string;
+}
+
+export interface ServiceImportRequest {
+  readonly "schema": "vegastack-labs.dev/service-import-request";
+  readonly "schemaVersion": "1.0.0";
+  readonly "definition": ServiceDefinition;
+  readonly "observationDigest": string;
+  readonly "expectedServiceRevision": number;
+  readonly "expectedDeclarationRevision": number;
+  readonly "expectedStateRevision": number;
+  readonly "recoveryEpoch": number;
+  readonly "idempotencyKey": string;
+  readonly "reasonDigest": string;
+}
+
+export interface ServiceList {
+  readonly "schema": "vegastack-labs.dev/service-list";
+  readonly "schemaVersion": "1.0.0";
+  readonly "services": ReadonlyArray<ServiceRecord>;
+  readonly "nextAfter"?: string;
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
+}
+
+export interface ServiceObservation {
+  readonly "schema": "vegastack-labs.dev/service-observation";
+  readonly "schemaVersion": "1.0.0";
+  readonly "serviceId": string;
+  readonly "bindingDigest": string;
+  readonly "observedAt": string;
+  readonly "hostingState": "observed" | "unavailable" | "unknown" | "not-configured";
+  readonly "hostingReason": "observed" | "not-configured" | "credential-unavailable" | "provider-unavailable";
+  readonly "providerStatus": string;
+  readonly "configuredImage"?: string;
+  readonly "artifactState": "observed" | "unavailable" | "unknown" | "not-configured";
+  readonly "artifactReason": "observed" | "not-configured" | "credential-unavailable" | "provider-unavailable";
+  readonly "artifactDigest"?: string;
+  readonly "artifactKind": "image" | "index" | "unknown";
+  readonly "scanState": "not-scanned" | "pending" | "running" | "error" | "unavailable" | "passed" | "findings" | "unknown";
+  readonly "signatureState": "unverified";
+  readonly "provenanceState": "unverified";
+  readonly "runningDigestState": "unknown";
+  readonly "healthState": "unknown";
+  readonly "hostAdmission": "not-verified";
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
+}
+
+export interface ServiceReadQuery {
+  readonly "after"?: string;
+  readonly "limit"?: number;
+}
+
+export interface ServiceRecord {
+  readonly "schema": "vegastack-labs.dev/service-record";
+  readonly "schemaVersion": "1.0.0";
+  readonly "definition": ServiceDefinition;
+  readonly "revision": number;
+  readonly "registrationStatus": "registered";
+  readonly "hostAdmission": "not-verified";
+  readonly "registeredAt": string;
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
 }
 
 export interface VolumeRecoveryInput {
@@ -6646,6 +6726,14 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "enum": [
           "1.0.0"
         ]
+      },
+      {
+        "name": "serviceImport",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "omitEmpty": true,
+        "ref": "vegastack-labs.dev/service-import-request"
       },
       {
         "name": "networkEndpoint",
@@ -12770,6 +12858,14 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         ]
       },
       {
+        "name": "serviceImport",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "omitEmpty": true,
+        "ref": "vegastack-labs.dev/service-import-request"
+      },
+      {
         "name": "networkEndpoint",
         "kind": "object",
         "required": false,
@@ -14026,6 +14122,514 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/service-definition",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/service-definition"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "serviceId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "environmentId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "ownerId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "hostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "hostIdentityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "bindingId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "bindingDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/service-import-request",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/service-import-request"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "definition",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/service-definition"
+      },
+      {
+        "name": "observationDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "expectedServiceRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "expectedDeclarationRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "expectedStateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "idempotencyKey",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "reasonDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/service-list",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/service-list"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "services",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/service-record",
+        "maxItems": 100
+      },
+      {
+        "name": "nextAfter",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "minLength": 1,
+        "maxLength": 128
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/service-observation",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/service-observation"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "serviceId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "bindingDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "observedAt",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      {
+        "name": "hostingState",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "observed",
+          "unavailable",
+          "unknown",
+          "not-configured"
+        ]
+      },
+      {
+        "name": "hostingReason",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "observed",
+          "not-configured",
+          "credential-unavailable",
+          "provider-unavailable"
+        ]
+      },
+      {
+        "name": "providerStatus",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 128
+      },
+      {
+        "name": "configuredImage",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "minLength": 1,
+        "maxLength": 1024
+      },
+      {
+        "name": "artifactState",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "observed",
+          "unavailable",
+          "unknown",
+          "not-configured"
+        ]
+      },
+      {
+        "name": "artifactReason",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "observed",
+          "not-configured",
+          "credential-unavailable",
+          "provider-unavailable"
+        ]
+      },
+      {
+        "name": "artifactDigest",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "minLength": 1,
+        "maxLength": 256
+      },
+      {
+        "name": "artifactKind",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "image",
+          "index",
+          "unknown"
+        ]
+      },
+      {
+        "name": "scanState",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "not-scanned",
+          "pending",
+          "running",
+          "error",
+          "unavailable",
+          "passed",
+          "findings",
+          "unknown"
+        ]
+      },
+      {
+        "name": "signatureState",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "unverified"
+        ]
+      },
+      {
+        "name": "provenanceState",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "unverified"
+        ]
+      },
+      {
+        "name": "runningDigestState",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "unknown"
+        ]
+      },
+      {
+        "name": "healthState",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "unknown"
+        ]
+      },
+      {
+        "name": "hostAdmission",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "not-verified"
+        ]
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/service-read-query",
+    "fields": [
+      {
+        "name": "after",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "minLength": 1,
+        "maxLength": 128
+      },
+      {
+        "name": "limit",
+        "kind": "integer",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "minimum": 1,
+        "maximum": 100
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/service-record",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/service-record"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "definition",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/service-definition"
+      },
+      {
+        "name": "revision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "registrationStatus",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "registered"
+        ]
+      },
+      {
+        "name": "hostAdmission",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "not-verified"
+        ]
+      },
+      {
+        "name": "registeredAt",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/volume-recovery-input",
     "fields": [
       {
@@ -14896,6 +15500,30 @@ function decodeServerStatusData(value: unknown): ServerStatusData {
   return decodeSchema("vegastack-labs.dev/server-status-data", value) as unknown as ServerStatusData;
 }
 
+function decodeServiceDefinition(value: unknown): ServiceDefinition {
+  return decodeSchema("vegastack-labs.dev/service-definition", value) as unknown as ServiceDefinition;
+}
+
+function decodeServiceImportRequest(value: unknown): ServiceImportRequest {
+  return decodeSchema("vegastack-labs.dev/service-import-request", value) as unknown as ServiceImportRequest;
+}
+
+function decodeServiceList(value: unknown): ServiceList {
+  return decodeSchema("vegastack-labs.dev/service-list", value) as unknown as ServiceList;
+}
+
+function decodeServiceObservation(value: unknown): ServiceObservation {
+  return decodeSchema("vegastack-labs.dev/service-observation", value) as unknown as ServiceObservation;
+}
+
+function decodeServiceReadQuery(value: unknown): ServiceReadQuery {
+  return decodeSchema("vegastack-labs.dev/service-read-query", value) as unknown as ServiceReadQuery;
+}
+
+function decodeServiceRecord(value: unknown): ServiceRecord {
+  return decodeSchema("vegastack-labs.dev/service-record", value) as unknown as ServiceRecord;
+}
+
 function decodeVolumeRecoveryInput(value: unknown): VolumeRecoveryInput {
   return decodeSchema("vegastack-labs.dev/volume-recovery-input", value) as unknown as VolumeRecoveryInput;
 }
@@ -15168,6 +15796,13 @@ function operatorReadQuery(query: OperatorReadQuery): string {
  if (query.limit !== undefined) { if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new ReadClientError("schema-mismatch", "INPUT_INVALID", "limit"); params.set("limit", String(query.limit)); }
  return params.size ? "?" + params.toString() : "";
 }
+function serviceReadQuery(query: ServiceReadQuery): string {
+ const checked = decodeServiceReadQuery(query);
+ const params = new URLSearchParams();
+ if (checked.after !== undefined) params.set("after", checked.after);
+ if (checked.limit !== undefined) params.set("limit", String(checked.limit));
+ return params.size ? "?" + params.toString() : "";
+}
 export type ReadClient = {
   readonly listAuditCheckpoints: (query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<BrowserAuditCheckpointListData>>;
   readonly getAuditVerification: (options?: RequestOptions) => Promise<ReadResult<BrowserAuditVerificationData>>;
@@ -15208,6 +15843,9 @@ export type ReadClient = {
   readonly getScheduledJobPolicy: (path: { readonly policyId: string }, options?: RequestOptions) => Promise<ReadResult<BrowserScheduledJobPolicy>>;
   readonly listScheduledJobPolicies: (query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<BrowserScheduledJobPolicyListData>>;
   readonly listScheduledJobs: (query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<BrowserScheduledJobListData>>;
+  readonly getService: (path: { readonly serviceID: string }, options?: RequestOptions) => Promise<ReadResult<ServiceRecord>>;
+  readonly listServices: (query?: ServiceReadQuery, options?: RequestOptions) => Promise<ReadResult<ServiceList>>;
+  readonly getServiceObservation: (path: { readonly serviceID: string }, options?: RequestOptions) => Promise<ReadResult<ServiceObservation>>;
   readonly listSources: (query?: ApiSourceListQuery, options?: RequestOptions) => Promise<ReadResult<ApiSourceListData>>;
   readonly getSummary: (options?: RequestOptions) => Promise<ReadResult<ApiSummaryData>>;
 };
@@ -15392,6 +16030,18 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
     async listScheduledJobs(query = {}, options = {}) {
       const operation = "api.v1.scheduled-jobs.list";
       return performRead(fetchTransport, "/api/v1/scheduled-jobs" + pageQuery(query), options, operation, decodeBrowserScheduledJobListData);
+    },
+    async getService(path, options = {}) {
+      const operation = "api.v1.services.get";
+      return performRead(fetchTransport, "/api/v1/services/" + encodePathString(path.serviceID, "serviceID") + "", options, operation, decodeServiceRecord);
+    },
+    async listServices(query = {}, options = {}) {
+      const operation = "api.v1.services.list";
+      return performRead(fetchTransport, "/api/v1/services" + serviceReadQuery(query), options, operation, decodeServiceList);
+    },
+    async getServiceObservation(path, options = {}) {
+      const operation = "api.v1.services.observation.get";
+      return performRead(fetchTransport, "/api/v1/services/" + encodePathString(path.serviceID, "serviceID") + "/observation", options, operation, decodeServiceObservation);
     },
     async listSources(query = {}, options = {}) {
       const operation = "api.v1.sources.list";

@@ -46,6 +46,10 @@ func readablePlan(plan generated.Plan) string {
 		raw, _, _ := stateexport.CanonicalJSON(plan.HostReplacement)
 		fmt.Fprintf(&body, "Host replacement exact intent: %s\nFreeze prevents new authority on the former host. Commit moves only the named aliases after current denial and qualification; no disk reset, workload move or automatic rollback.\n", raw)
 	}
+	if plan.ServiceImport != nil {
+		raw, _, _ := stateexport.CanonicalJSON(plan.ServiceImport)
+		fmt.Fprintf(&body, "Exact service import intent: %s\nRegisters an existing service only. Host admission is not verified; provider configuration is unchanged.\n", raw)
+	}
 	if plan.NetworkEndpoint != nil {
 		raw, _, _ := stateexport.CanonicalJSON(plan.NetworkEndpoint)
 		fmt.Fprintf(&body, "Exact endpoint intent: %s\nDatabase-only endpoint declaration; no host or network configuration changes.\n", raw)

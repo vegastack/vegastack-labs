@@ -1,0 +1,165 @@
+{
+  "$id": "vegastack-labs.dev/service-observation",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "artifactDigest": {
+      "maxLength": 256,
+      "minLength": 1,
+      "type": "string"
+    },
+    "artifactKind": {
+      "enum": [
+        "image",
+        "index",
+        "unknown"
+      ],
+      "type": "string"
+    },
+    "artifactReason": {
+      "enum": [
+        "observed",
+        "not-configured",
+        "credential-unavailable",
+        "provider-unavailable"
+      ],
+      "type": "string"
+    },
+    "artifactState": {
+      "enum": [
+        "observed",
+        "unavailable",
+        "unknown",
+        "not-configured"
+      ],
+      "type": "string"
+    },
+    "bindingDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "configuredImage": {
+      "maxLength": 1024,
+      "minLength": 1,
+      "type": "string"
+    },
+    "healthState": {
+      "enum": [
+        "unknown"
+      ],
+      "type": "string"
+    },
+    "hostAdmission": {
+      "enum": [
+        "not-verified"
+      ],
+      "type": "string"
+    },
+    "hostingReason": {
+      "enum": [
+        "observed",
+        "not-configured",
+        "credential-unavailable",
+        "provider-unavailable"
+      ],
+      "type": "string"
+    },
+    "hostingState": {
+      "enum": [
+        "observed",
+        "unavailable",
+        "unknown",
+        "not-configured"
+      ],
+      "type": "string"
+    },
+    "observedAt": {
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": "string"
+    },
+    "provenanceState": {
+      "enum": [
+        "unverified"
+      ],
+      "type": "string"
+    },
+    "providerStatus": {
+      "maxLength": 128,
+      "minLength": 1,
+      "type": "string"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "runningDigestState": {
+      "enum": [
+        "unknown"
+      ],
+      "type": "string"
+    },
+    "scanState": {
+      "enum": [
+        "not-scanned",
+        "pending",
+        "running",
+        "error",
+        "unavailable",
+        "passed",
+        "findings",
+        "unknown"
+      ],
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/service-observation"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "serviceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "signatureState": {
+      "enum": [
+        "unverified"
+      ],
+      "type": "string"
+    },
+    "stateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "serviceId",
+    "bindingDigest",
+    "observedAt",
+    "hostingState",
+    "hostingReason",
+    "providerStatus",
+    "artifactState",
+    "artifactReason",
+    "artifactKind",
+    "scanState",
+    "signatureState",
+    "provenanceState",
+    "runningDigestState",
+    "healthState",
+    "hostAdmission",
+    "stateRevision",
+    "recoveryEpoch"
+  ],
+  "title": "VegaStack Labs service observation",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

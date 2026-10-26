@@ -699,6 +699,14 @@ async function* streamSSE<T>(fetchTransport: FetchTransport, url: string, option
  return params.size ? "?" + params.toString() : "";
 }
 `)
+	output.WriteString(`function serviceReadQuery(query: ServiceReadQuery): string {
+ const checked = decodeServiceReadQuery(query);
+ const params = new URLSearchParams();
+ if (checked.after !== undefined) params.set("after", checked.after);
+ if (checked.limit !== undefined) params.set("limit", String(checked.limit));
+ return params.size ? "?" + params.toString() : "";
+}
+`)
 	renderFiniteReadClient(&output, endpoints)
 	renderChangeClient(&output, endpoints)
 	renderPhase5Client(&output, endpoints)
@@ -872,6 +880,9 @@ func renderFiniteMethod(output *bytes.Buffer, endpoint metadata.EndpointDefiniti
 	}
 	if endpoint.QuerySchema != "" {
 		queryFunction := "pageQuery"
+		if endpoint.QuerySchema == "vegastack-labs.dev/service-read-query" {
+			queryFunction = "serviceReadQuery"
+		}
 		if endpoint.QuerySchema == "vegastack-labs.dev/operator-read-query" {
 			queryFunction = "operatorReadQuery"
 		}
@@ -915,6 +926,12 @@ func browserPathParameters(path string) []string {
 
 func browserMethodName(endpoint metadata.EndpointDefinition) string {
 	switch endpoint.ID {
+	case "api.v1.services.list":
+		return "listServices"
+	case "api.v1.services.get":
+		return "getService"
+	case "api.v1.services.observation.get":
+		return "getServiceObservation"
 	case "api.v1.network.mesh.status":
 		return "getNetworkMesh"
 	case "api.v1.network.ingress.status":

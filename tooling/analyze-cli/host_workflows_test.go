@@ -17,7 +17,7 @@ func TestNetworkConnectSourceSealsRejectDrift(t *testing.T) {
 			current[key] = seal
 		}
 	}
-	for key, seal := range combinedNetworkSourceSeals {
+	for key, seal := range serviceCatalogSourceSeals {
 		current[key] = seal
 	}
 	for key, seal := range current {

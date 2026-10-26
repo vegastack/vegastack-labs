@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"io"
 	"mime"
+	"net/url"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -159,6 +161,10 @@ func (handler apiSSHHandler) readRequest(ctx context.Context, input io.Reader) (
 }
 
 func apiSSHArgumentsAllowed(operationID, requestPath string, arguments []string) (string, bool) {
+	if strings.HasPrefix(operationID, "api.v1.services.") {
+		return serviceSSHArgumentsAllowed(operationID, requestPath, arguments)
+	}
+
 	if operationID == "api.v1.hosts.connection-descriptor.get" {
 		if id, ok := apiSSHPathID(requestPath, "/api/v1/hosts/", "/connection-descriptor"); ok && apiSSHCommandAvailable([]string{"connect"}) && reflect.DeepEqual(arguments, []string{"connect", "--node", id, "--port", "22", "--path", "auto"}) {
 			return requestPath, true
@@ -410,4 +416,49 @@ func apiSSHStatusForCode(code string) int {
 		generated.ErrorCodeExecutionPartial:       localtransport.StatusConflict,
 		generated.ErrorCodeRecoveryRequired:       localtransport.StatusConflict,
 	}[code]
+}
+
+func serviceSSHArgumentsAllowed(operationID, path string, args []string) (string, bool) {
+	switch operationID {
+	case "api.v1.services.import-drafts.create":
+		want := []string{"service", "import", "draft"}
+		return path, path == "/api/v1/services/import-drafts" && apiSSHCommandAvailable(want) && reflect.DeepEqual(args, want)
+	case "api.v1.services.get", "api.v1.services.observation.get":
+		action, suffix := "show", ""
+		if operationID == "api.v1.services.observation.get" {
+			action, suffix = "observe", "/observation"
+		}
+		id, ok := apiSSHPathID(path, "/api/v1/services/", suffix)
+		want := []string{"service", action, "--service-id", id}
+		return path, ok && apiSSHCommandAvailable([]string{"service", action}) && reflect.DeepEqual(args, want)
+	case "api.v1.services.list":
+		if path != "/api/v1/services" || !apiSSHCommandAvailable([]string{"service", "list"}) || len(args) < 2 || args[0] != "service" || args[1] != "list" || (len(args)-2)%2 != 0 {
+			return "", false
+		}
+		query := url.Values{}
+		for i := 2; i < len(args); i += 2 {
+			key := args[i]
+			value := args[i+1]
+			switch key {
+			case "--after":
+				if _, exists := query["after"]; exists || !principal.ValidID(value) {
+					return "", false
+				}
+				query.Set("after", value)
+			case "--limit":
+				n, err := strconv.Atoi(value)
+				if _, exists := query["limit"]; exists || err != nil || n < 1 || n > 100 || strconv.Itoa(n) != value {
+					return "", false
+				}
+				query.Set("limit", value)
+			default:
+				return "", false
+			}
+		}
+		if len(query) == 0 {
+			return path, true
+		}
+		return path + "?" + query.Encode(), true
+	}
+	return "", false
 }

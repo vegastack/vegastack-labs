@@ -1,5 +1,139 @@
 {
   "$defs": {
+    "coolify-service-binding": {
+      "additionalProperties": false,
+      "properties": {
+        "applicationUuid": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "destinationId": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "destinationType": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "environment": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "environmentId": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "observationReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "origin": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "type": "string"
+        },
+        "projectId": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "projectUuid": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/coolify-service-binding"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "teamId": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "origin",
+        "teamId",
+        "projectId",
+        "environmentId",
+        "destinationId",
+        "projectUuid",
+        "environment",
+        "applicationUuid",
+        "destinationType",
+        "observationReferenceId"
+      ],
+      "type": "object"
+    },
+    "harbor-service-binding": {
+      "additionalProperties": false,
+      "properties": {
+        "artifactDigest": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "observationReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "origin": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "type": "string"
+        },
+        "project": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "repository": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "robotUsername": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/harbor-service-binding"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "origin",
+        "project",
+        "repository",
+        "artifactDigest",
+        "robotUsername",
+        "observationReferenceId"
+      ],
+      "type": "object"
+    },
     "local-principal-binding": {
       "additionalProperties": false,
       "properties": {
@@ -118,6 +252,79 @@
         "principalId",
         "binaryPath",
         "configPath"
+      ],
+      "type": "object"
+    },
+    "service-provider-binding": {
+      "additionalProperties": false,
+      "properties": {
+        "bindingId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "coolify": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/coolify-service-binding"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "environmentId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "harbor": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/harbor-service-binding"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "hostIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "ownerId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/service-provider-binding"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "serviceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "bindingId",
+        "serviceId",
+        "environmentId",
+        "ownerId",
+        "hostId",
+        "hostIdentityDigest",
+        "coolify"
       ],
       "type": "object"
     }
@@ -393,6 +600,13 @@
         "1.3.0"
       ],
       "type": "string"
+    },
+    "serviceBindings": {
+      "items": {
+        "$ref": "#/$defs/service-provider-binding"
+      },
+      "maxItems": 128,
+      "type": "array"
     },
     "shutdownGraceSeconds": {
       "maximum": 5,
