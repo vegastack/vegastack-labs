@@ -31,7 +31,7 @@ func (client *client) ConnectionDescriptor(ctx context.Context, p serverconfig.P
 	if !principal.ValidID(host) {
 		return TypedResponse[generated.NetworkConnectDescriptor]{}, failure.New(generated.ErrorCodeInputInvalid, "host", false)
 	}
-	return requestTyped[generated.NetworkConnectDescriptor](client, ctx, p, requestSpec{localtransport.MethodGet, "/api/v1/hosts/" + host + "/connection-descriptor", "api.v1.hosts.connection-descriptor.get", maxOperationResponseBodyBytes, operationTimeout, false}, nil, func(d generated.NetworkConnectDescriptor, r generated.RunResult) bool {
+	return requestTyped(client, ctx, p, requestSpec{localtransport.MethodGet, "/api/v1/hosts/" + host + "/connection-descriptor", "api.v1.hosts.connection-descriptor.get", maxOperationResponseBodyBytes, operationTimeout, false}, nil, func(d generated.NetworkConnectDescriptor, r generated.RunResult) bool {
 		return validGateData(d, generated.SchemaIDNetworkConnectDescriptor) && networkconnect.ValidateEndpoint(d.Endpoint) == nil && d.Endpoint.HostID == host && d.StateRevision == r.StateRevision && d.RecoveryEpoch == r.RecoveryEpoch
 	})
 }

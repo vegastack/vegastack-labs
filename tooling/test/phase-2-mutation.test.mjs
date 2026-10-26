@@ -8,7 +8,6 @@ const ROOT = path.resolve(import.meta.dirname, "../..");
 // Approved node, user and device lifecycle commands are active; remaining commands stay planned.
 const EXPECTED_PLANNED_MUTATIONS = [
   "audit",
-  "connect",
   "control-plane plan",
   "control-plane recover",
   "control-plane verify",

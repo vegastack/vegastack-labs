@@ -21,7 +21,7 @@ import (
 )
 
 func TestConnectPinnedRoutesFreshAuthorityAndNoChannels(t *testing.T) {
-	for _, scenario := range []string{"lan", "marker-mismatch", "marker-unavailable", "forced-lan", "forced-mesh", "wrong-key", "auth-denied", "before-denied", "after-denied", "after-grant-changed", "after-endpoint-changed", "after-epoch-changed"} {
+	for _, scenario := range []string{"lan", "lan-unreachable", "forced-lan-unreachable", "marker-mismatch", "marker-unavailable", "forced-lan", "forced-mesh", "wrong-key", "auth-denied", "before-denied", "after-denied", "after-grant-changed", "after-endpoint-changed", "after-epoch-changed"} {
 		t.Run(scenario, func(t *testing.T) {
 			_, private, e := ed25519.GenerateKey(rand.Reader)
 			if e != nil {
@@ -113,6 +113,9 @@ func TestConnectPinnedRoutesFreshAuthorityAndNoChannels(t *testing.T) {
 					destination = marker.Listener.Addr().String()
 				case endpoint.LANAddress:
 					lanCalls.Add(1)
+					if scenario == "lan-unreachable" || scenario == "forced-lan-unreachable" {
+						return nil, unavailable()
+					}
 				case endpoint.MeshAddress:
 					meshCalls.Add(1)
 				default:
@@ -141,28 +144,28 @@ func TestConnectPinnedRoutesFreshAuthorityAndNoChannels(t *testing.T) {
 				return d, nil
 			}
 			path := "auto"
-			if scenario == "forced-lan" {
+			if scenario == "forced-lan" || scenario == "forced-lan-unreachable" {
 				path = "lan"
 			}
 			if scenario == "forced-mesh" {
 				path = "mesh"
 			}
 			result, e := client.connect(context.Background(), path, raw, fetch)
-			wantSuccess := scenario == "lan" || scenario == "marker-mismatch" || scenario == "marker-unavailable" || scenario == "forced-lan" || scenario == "forced-mesh"
+			wantSuccess := scenario == "lan" || scenario == "lan-unreachable" || scenario == "marker-mismatch" || scenario == "marker-unavailable" || scenario == "forced-lan" || scenario == "forced-mesh"
 			if (e == nil) != wantSuccess {
 				t.Fatalf("success=%v expected=%v err=%v", e == nil, wantSuccess, e)
 			}
-			if scenario == "before-denied" {
-				if lanCalls.Load()+meshCalls.Load()+markerCalls.Load() != 0 {
+			if scenario == "before-denied" || scenario == "forced-lan-unreachable" {
+				if scenario == "before-denied" && lanCalls.Load()+meshCalls.Load()+markerCalls.Load() != 0 {
 					t.Fatal("dial before authorization")
 				}
 				_ = listener.Close()
-			} else if lanCalls.Load()+meshCalls.Load() != 1 {
+			} else if scenario == "lan-unreachable" && (lanCalls.Load() != 1 || meshCalls.Load() != 1) || scenario != "lan-unreachable" && lanCalls.Load()+meshCalls.Load() != 1 {
 				t.Fatal("SSH automatic retry", lanCalls.Load(), meshCalls.Load())
 			}
 			if wantSuccess {
 				expected := "lan"
-				if scenario == "marker-mismatch" || scenario == "marker-unavailable" || scenario == "forced-mesh" {
+				if scenario == "lan-unreachable" || scenario == "marker-mismatch" || scenario == "marker-unavailable" || scenario == "forced-mesh" {
 					expected = "mesh"
 				}
 				if result.Path != expected || result.Outcome != "authenticated-and-closed" || fetches != 2 {

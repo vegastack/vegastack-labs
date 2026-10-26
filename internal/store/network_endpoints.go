@@ -68,7 +68,7 @@ func networkHostBinding(row discoveryRow, e generated.NetworkEndpoint, excluded 
 	// Exclusions are trusted deployment-profile IDs, never Labs names in core.
 	for _, id := range excluded {
 		var n int
-		const hosts = `SELECT h.host_id FROM managed_hosts h WHERE h.host_id=?1 OR h.target_id=?1 OR h.host_id IN (SELECT owner_host_id FROM host_alias_owners WHERE alias_id=?1) OR h.identity_digest IN (SELECT owner_identity_digest FROM host_alias_owners WHERE alias_id=?1)`
+		const hosts = `SELECT h.host_id FROM managed_hosts h WHERE h.host_id=?1 OR h.target_id=?1 OR h.host_id IN (SELECT owner_host_id FROM host_alias_owners WHERE alias_id=?1) OR h.identity_digest IN (SELECT owner_identity_digest FROM host_alias_owners WHERE alias_id=?1) OR h.host_id IN (SELECT owner_host_id FROM host_alias_history WHERE alias_id=?1) OR h.identity_digest IN (SELECT owner_identity_digest FROM host_alias_history WHERE alias_id=?1)`
 		if row(`SELECT COUNT(*) FROM managed_hosts h WHERE h.host_id IN (`+hosts+`) AND (h.host_id=?2 OR h.identity_digest=?3 OR h.target_id=?4)`, id, e.HostID, e.HostIdentityDigest, e.TargetID).Scan(&n) != nil || n != 0 {
 			return actionError(generated.ErrorCodeAuthorizationDenied)
 		}

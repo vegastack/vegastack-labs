@@ -8,13 +8,13 @@ import (
 	"testing"
 )
 
-func TestHostWorkflowClientSealRejectsDrift(t *testing.T) {
+func TestNetworkConnectSourceSealsRejectDrift(t *testing.T) {
 	const module = "github.com/vegastack/vegastack-labs"
 	checked := 0
-	for key, seal := range phase228SourceSeals {
+	for key, seal := range networkConnectSourceSeals {
 		relative, joined, _ := strings.Cut(key, "|")
-		if relative != "internal/localapi" || !strings.Contains(joined, "authorization_grants.go") {
-			continue
+		if relative != "internal/localapi" && relative != "internal/networkconnect" && relative != "internal/serverconfig" {
+			t.Fatalf("unexpected source seal %q", relative)
 		}
 		names := strings.Split(joined, ",")
 		dir := t.TempDir()
@@ -32,14 +32,19 @@ func TestHostWorkflowClientSealRejectsDrift(t *testing.T) {
 		c.listed.ImportPath = module + "/" + relative
 		c.listed.GoFiles = names
 		c.listed.Imports = slices.Clone(seal.imports)
-		if !reviewedLocalAPISource(c) {
+		if !approvedNetworkConnectPackage(c, module, relative) {
 			t.Fatal("current finite source closure rejected")
 		}
 		c.listed.Imports = append(c.listed.Imports, "net/rpc")
-		if reviewedLocalAPISource(c) {
+		if approvedNetworkConnectPackage(c, module, relative) {
 			t.Fatal("widened imports accepted")
 		}
 		c.listed.Imports = slices.Clone(seal.imports)
+		c.listed.GoFiles = append(slices.Clone(names), "unapproved.go")
+		if approvedNetworkConnectPackage(c, module, relative) {
+			t.Fatal("added production source accepted")
+		}
+		c.listed.GoFiles = names
 		p := filepath.Join(dir, names[0])
 		f, e := os.OpenFile(p, os.O_APPEND|os.O_WRONLY, 0600)
 		if e != nil {
@@ -47,12 +52,12 @@ func TestHostWorkflowClientSealRejectsDrift(t *testing.T) {
 		}
 		_, _ = f.WriteString("\n// unreviewed source mutation\n")
 		_ = f.Close()
-		if reviewedLocalAPISource(c) {
+		if approvedNetworkConnectPackage(c, module, relative) {
 			t.Fatal("changed source accepted")
 		}
 		checked++
 	}
-	if checked < 2 {
-		t.Fatal("Linux and unsupported closures must both be sealed")
+	if checked != 6 {
+		t.Fatal("all six platform source variants must be sealed")
 	}
 }

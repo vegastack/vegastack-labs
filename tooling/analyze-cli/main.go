@@ -17,6 +17,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -697,6 +698,11 @@ func standardNetworkClosure(packages []listedPackage) map[string]bool {
 }
 
 func reviewedControlNetworkImport(candidate checkedSourcePackage, imported, mainImport, localAPIImport, localTransportImport, sshTransportImport, serverConfigImport string) bool {
+	module := strings.TrimSuffix(localAPIImport, "/internal/localapi")
+	if approvedNetworkConnectPackage(candidate, module, "internal/networkconnect") {
+		return slices.Contains([]string{"net", "net/http", "net/netip", "net/url", "crypto/tls"}, imported)
+	}
+
 	switch candidate.listed.ImportPath {
 	case mainImport:
 		return imported == "syscall" && reviewedMainSyscallUse(candidate)
@@ -742,6 +748,9 @@ func reviewedControlExternalImport(candidate checkedSourcePackage, imported stri
 		return true
 	}
 	candidatePath := candidate.listed.ImportPath
+	if approvedNetworkConnectPackage(candidate, modulePath, "internal/networkconnect") {
+		return imported == "golang.org/x/crypto/ssh" || imported == "golang.org/x/sys/unix"
+	}
 	if candidatePath == localAPIImport && imported == "golang.org/x/sys/unix" && reviewedLocalAPISource(candidate) {
 		return true
 	}
@@ -764,6 +773,9 @@ func reviewedControlExternalImport(candidate checkedSourcePackage, imported stri
 }
 
 func reviewedControlPlatformSource(candidate checkedSourcePackage, kind string) bool {
+	if kind == "serverconfig" && approvedNetworkConnectPackage(candidate, strings.TrimSuffix(candidate.listed.ImportPath, "/internal/serverconfig"), "internal/serverconfig") {
+		return true
+	}
 	if kind == "serverconfig" && reviewedHostActionPackage(candidate, strings.TrimSuffix(candidate.listed.ImportPath, "/internal/serverconfig"), "internal/serverconfig") {
 		return true
 	}
@@ -838,6 +850,7 @@ func reviewedLocalClientDependencies(closure map[string]bool, modulePath, localA
 		localAPIImport:                          true,
 		localTransportImport:                    true,
 		sshTransportImport:                      true,
+		modulePath + "/internal/networkconnect": true,
 		modulePath + "/internal/apissh":         true,
 		modulePath + "/internal/credentialref":  true,
 		modulePath + "/internal/backupidentity": true,
@@ -859,6 +872,9 @@ func reviewedLocalClientDependencies(closure map[string]bool, modulePath, localA
 }
 
 func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, localAPIImport, localTransportImport, sshTransportImport string) bool {
+	if candidate.listed.ImportPath == modulePath+"/internal/networkconnect" {
+		return approvedNetworkConnectPackage(candidate, modulePath, "internal/networkconnect")
+	}
 	if candidate.listed.ImportPath == modulePath+"/internal/hostaction" {
 		return reviewedPhase228Package(candidate, modulePath, "internal/hostaction")
 	}
@@ -1005,6 +1021,9 @@ const (
 )
 
 func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
+	if approvedNetworkConnectPackage(candidate, strings.TrimSuffix(candidate.listed.ImportPath, "/internal/localapi"), "internal/localapi") {
+		return true
+	}
 	if reviewedPhase228Package(candidate, strings.TrimSuffix(candidate.listed.ImportPath, "/internal/localapi"), "internal/localapi") {
 		return true
 	}
@@ -1437,8 +1456,9 @@ func reviewedLocalCallbacks(candidate checkedSourcePackage) map[*types.Var]bool 
 			switch typed := node.(type) {
 			case *ast.FuncDecl:
 				// #228's exact bound-apply validator is a local pure closure,
-				// called again when inspecting an uncertain ordinary run.
-				if typed.Name.Name == "ApplyBound" && typed.Body != nil && reviewedPhase228Package(candidate, strings.TrimSuffix(candidate.listed.ImportPath, "/internal/localapi"), "internal/localapi") {
+				// called again when inspecting an uncertain ordinary run. #277
+				// preserves it in the newly sealed local-client source variant.
+				if typed.Name.Name == "ApplyBound" && typed.Body != nil && (reviewedPhase228Package(candidate, strings.TrimSuffix(candidate.listed.ImportPath, "/internal/localapi"), "internal/localapi") || approvedNetworkConnectPackage(candidate, strings.TrimSuffix(candidate.listed.ImportPath, "/internal/localapi"), "internal/localapi")) {
 					ast.Inspect(typed.Body, func(node ast.Node) bool {
 						statement, ok := node.(*ast.AssignStmt)
 						if !ok || statement.Tok != token.DEFINE || len(statement.Lhs) != 1 || len(statement.Rhs) != 1 {

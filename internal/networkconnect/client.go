@@ -53,6 +53,7 @@ func (c client) connect(ctx context.Context, path string, key []byte, fetch desc
 	if err != nil {
 		return out, invalid()
 	}
+	automatic := path == "auto"
 	e := before.Endpoint
 	if path == "auto" {
 		path = "mesh"
@@ -66,6 +67,12 @@ func (c client) connect(ctx context.Context, path string, key []byte, fetch desc
 	}
 	remote := net.JoinHostPort(address, strconv.FormatInt(port, 10))
 	conn, err := c.dial(ctx, "tcp", remote)
+	if err != nil && automatic && path == "lan" && ctx.Err() == nil {
+		// No SSH protocol/authentication started when the LAN TCP dial failed.
+		path = "mesh"
+		remote = net.JoinHostPort(e.MeshAddress, strconv.FormatInt(e.MeshPort, 10))
+		conn, err = c.dial(ctx, "tcp", remote)
+	}
 	if err != nil {
 		return out, unavailable()
 	}

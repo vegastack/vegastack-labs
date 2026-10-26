@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 26-10-2026 — Operators can diagnose one approved node connection ([#277](https://github.com/vegastack/vegastack-labs/issues/277))
+
+- **What:** Operators can declare a node's explicit LAN and Mesh endpoints through the existing approval flow, then authenticate one pinned SSH connection and close it. Automatic selection checks a pinned TLS site marker; forced paths keep the same identity and permission checks.
+- **Why:** Inventory addresses and a recorded device were insufficient to choose a safe route or prove that current authority still allowed a connection.
+- **How it went:** Local TLS/SSH fixtures prove that no shell or forwarding opens. The native approval/API test caught a fixture attempting to revive a terminally revoked grant; the fixture now uses a separate reader and leaves the guard intact. Deployment-specific exclusions moved into the protected server profile so portable core has no Labs machine names.
+- **Changed:** Approved endpoint declarations and revocation · exact connect grants · fresh before/after authority checks · protected explicit key input · profile exclusions following identity, alias and address history. Unix key reading works; Windows fails closed pending protected ACL verification. Real Mesh and fleet access remain separate.
+- **Decisions:** Reuse the existing executable, SQLite, acknowledgement engine and verified preimage path. No new service, shell surface, provider change or independent review round.
+
+— approved by (omkarmohanta09) · built by Codex with GPT-6.1 Sol medium implementation agent · branch feat/7.6-network-connect
+
 ## 23-10-2026 — Browser logins can be linked through an approved plan ([#272](https://github.com/vegastack/vegastack-labs/issues/272))
 
 - **What:** An administrator can link an existing verified browser identity to an existing platform human and revoke that exact link through the normal approval flow. Revocation ends only its browser sessions and grants no permissions.

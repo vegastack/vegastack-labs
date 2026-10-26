@@ -546,6 +546,18 @@
         "commands": [],
         "imports": [],
         "mutationBoundaryDigest": "sha256:8e4068713b60b3568f07b68683a22741a68137c7e185360cee580e11e21e0da0"
+      },
+      {
+        "id": "phase7-issue277-v1",
+        "issue": 277,
+        "commands": [
+          "connect",
+          "network endpoint draft"
+        ],
+        "imports": [
+          "github.com/vegastack/vegastack-labs/internal/networkconnect"
+        ],
+        "mutationBoundaryDigest": "sha256:140272afdbda86785f52ce2f1353d78fb48ba5b9898076be87a0dc630cdec627"
       }
     ]
   },
