@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 26-10-2026 — Phase 8 starts with scoped hosting and image observations ([#283](https://github.com/vegastack/vegastack-labs/issues/283), [#284](https://github.com/vegastack/vegastack-labs/issues/284))
+
+- **What:** The first Coolify and Harbor adapter foundations can inspect explicitly selected existing resources through fixed read-only HTTPS calls. They produce sanitized observations for the upcoming service workflow; no new operator CLI/API/Console feature is claimed yet.
+- **Why:** The Services page was still a placeholder and neither provider had an implementation. Service import and deployment need tested provider observations before their existing approval flow can be connected.
+- **How it went:** Both packages passed focused HTTP contract tests and vet. The Coolify pinned schema cannot establish server health or an application's server relationship, so those remain unknown. Coordinator corrections kept provider errors on existing registered error codes. Harbor's initial missing-package test failed before implementation; Coolify tests were authored first but their initial red execution was skipped while the shared Go toolchain downloaded. No red execution is claimed for Coolify.
+- **Changed:** Current-team/project/environment/resource checks · exact immutable image identity · explicit scan and signature/provenance states · bounded credential-bearing HTTPS calls · status/error and malformed-response denial fixtures. Configured images and provider status do not prove a running image, health, host admission or recovery. Phase 7's bounded software milestone is closed after [PR #282](https://github.com/vegastack/vegastack-labs/pull/282); live website delivery remains pending separately.
+- **Decisions:** Reuse the existing executable and borrowed credential type, with standard Go HTTP and no new dependency or service. Remaining Phase 8 service, deployment, registry lifecycle and recovery work is explicit in its delivery map.
+
+— approved by (omkarmohanta09) · built by Codex with two GPT-6.1 Sol medium implementation agents · branch feat/8.1-hosting-observation
+
 ## 26-10-2026 — Owned ingress changes now show honest rotation progress ([#279](https://github.com/vegastack/vegastack-labs/issues/279))
 
 - **What:** Operators can observe and import existing ingress resources, then approve scoped Tunnel, Access, DNS, single-connector and token changes through the existing plan engine. Manual rollout observations remain partial when credential generation cannot be independently proven.
