@@ -563,6 +563,18 @@
       ]
     },
     {
+      "id": "api.v1.hosts.connection-descriptor.get",
+      "method": "GET",
+      "path": "/api/v1/hosts/{hostID}/connection-descriptor",
+      "availability": "available",
+      "ownerPhase": "7",
+      "dataSchema": "vegastack-labs.dev/network-connect-descriptor",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
       "id": "api.v1.hosts.get",
       "method": "GET",
       "path": "/api/v1/hosts/{hostID}",
@@ -757,6 +769,19 @@
       "ownerPhase": "2",
       "requestSchema": "vegastack-labs.dev/inventory-export-request",
       "dataSchema": "vegastack-labs.dev/inventory-export-data",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.network.endpoint-drafts.create",
+      "method": "POST",
+      "path": "/api/v1/network/endpoint-drafts",
+      "availability": "available",
+      "ownerPhase": "7",
+      "requestSchema": "vegastack-labs.dev/network-endpoint-request",
+      "dataSchema": "vegastack-labs.dev/declaration-revision",
       "stream": "finite",
       "audiences": [
         "operator"

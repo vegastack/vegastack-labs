@@ -144,6 +144,11 @@ func workflowDeclarationTargets(row discoveryRow, d generated.DeclarationRevisio
 	var raw []byte
 	var digest string
 	switch d.DeclarationType {
+	case "network.endpoint":
+		if d.NetworkEndpoint == nil || !ValidateNetworkEndpointDeclaration(d) {
+			return deny()
+		}
+		add("network.endpoint.write", "network.connect", "host", d.NetworkEndpoint.Endpoint.HostID)
 	case "authorization.policy":
 		if d.AuthorizationGrantBatch == nil || !ValidateGrantBatchDeclaration(d) {
 			return deny()

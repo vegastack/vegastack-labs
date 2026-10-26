@@ -464,6 +464,10 @@ func (app *App) Run(ctx context.Context, args []string) int {
 			return app.failServer(mode, parsed.commandName(), err)
 		}
 		return app.handlePlanResponse(mode, response)
+	case generated.CommandNameNetworkEndpointDraft:
+		return app.runNetworkEndpoint(ctx, mode, parsed)
+	case generated.CommandNameConnect:
+		return app.runNetworkConnect(ctx, mode, parsed)
 	case generated.CommandNameDeviceRequest, generated.CommandNameDeviceApprove, generated.CommandNameDeviceRevoke, generated.CommandNameAuthorizationGrantsDraft, generated.CommandNameUserOnboard, generated.CommandNameUserSuspend, generated.CommandNameUserResume, generated.CommandNameUserOffboard:
 		return app.runGrantBatchDraft(ctx, mode, parsed)
 	case generated.CommandNameQualificationFixturePeer, generated.CommandNameQualificationInspect, generated.CommandNameQualificationNative, generated.CommandNameQualificationStep:

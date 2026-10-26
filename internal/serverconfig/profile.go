@@ -28,6 +28,8 @@ var offsiteBucketName = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]{1,62}$`)
 var scheduledRunnerPath = regexp.MustCompile(`^/[A-Za-z0-9._/-]+$`)
 
 type Profile struct {
+	NetworkConnectExcludedHostIDs    []string
+	NetworkConnectPrivateKeyPath     string
 	SocketPath                       string
 	ConstrainedSSH                   *ConstrainedSSH
 	InventoryExportRoot              string
@@ -138,6 +140,19 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 		return invalid()
 	}
 
+	if path := input.NetworkConnectPrivateKeyPath; path != "" && (!filepath.IsAbs(path) || filepath.Clean(path) != path || strings.ContainsRune(path, 0) || path == string(filepath.Separator)) {
+		return invalid()
+	}
+	if len(input.NetworkConnectExcludedHostIDs) > 256 {
+		return invalid()
+	}
+	seenExclusions := map[string]bool{}
+	for _, id := range input.NetworkConnectExcludedHostIDs {
+		if !principal.ValidID(id) || seenExclusions[id] {
+			return invalid()
+		}
+		seenExclusions[id] = true
+	}
 	var mode fs.FileMode
 	var group *uint32
 	switch input.SocketMode {
@@ -239,6 +254,8 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 		scheduledRunner = &ScheduledRunner{UID: uid, PrincipalID: runner.PrincipalID, BinaryPath: runner.BinaryPath, ConfigPath: runner.ConfigPath}
 	}
 	return Profile{
+		NetworkConnectExcludedHostIDs:    append([]string(nil), input.NetworkConnectExcludedHostIDs...),
+		NetworkConnectPrivateKeyPath:     input.NetworkConnectPrivateKeyPath,
 		SocketPath:                       input.SocketPath,
 		InventoryExportRoot:              input.InventoryExportRoot,
 		SocketOwnerUID:                   expectedOwnerUID,

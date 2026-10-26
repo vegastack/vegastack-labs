@@ -656,3 +656,16 @@ func TestAPISSHLegacyBindingAndConfiguredDeviceMatch(t *testing.T) {
 		t.Fatal("exact configured device denied")
 	}
 }
+
+func TestAPISSHNetworkDescriptorBindsExactNode(t *testing.T) {
+	path := "/api/v1/hosts/synthetic-host/connection-descriptor"
+	args := []string{"connect", "--node", "synthetic-host", "--port", "22", "--path", "auto"}
+	if _, ok := apiSSHArgumentsAllowed("api.v1.hosts.connection-descriptor.get", path, args); !ok {
+		t.Fatal("exact descriptor read denied")
+	}
+	for _, bad := range [][]string{{"connect", "--node", "other-host", "--port", "22", "--path", "auto"}, append(append([]string{}, args...), "id"), {"connect", "--node", "synthetic-host", "--port", "23", "--path", "auto"}} {
+		if _, ok := apiSSHArgumentsAllowed("api.v1.hosts.connection-descriptor.get", path, bad); ok {
+			t.Fatal("mismatched node or arbitrary operation admitted")
+		}
+	}
+}

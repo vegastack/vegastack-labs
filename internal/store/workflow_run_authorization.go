@@ -10,14 +10,14 @@ import (
 
 // Repeat current resource grants in the existing run reservation transaction.
 // Later effects retain their owning transaction checks and native boundaries.
-func verifyWorkflowRunAuthorization(ctx context.Context, row discoveryRow, run generated.Run, attribution audit.Attribution) error {
+func verifyWorkflowRunAuthorization(ctx context.Context, row discoveryRow, run generated.Run, attribution audit.Attribution, excluded ...string) error {
 	var canonical []byte
 	var readable string
 	var p generated.Plan
 	if row(`SELECT canonical_bytes,readable_plan FROM immutable_plans WHERE plan_id=? AND plan_digest=?`, run.PlanID, run.PlanDigest).Scan(&canonical, &readable) != nil || !decodeStoredPlan(canonical, readable, &p) {
 		return actionError(generated.ErrorCodePlanStale)
 	}
-	if p.AuthorizationGrantBatch == nil && p.HostDiscoveryTarget == nil && p.HostAdoption == nil && p.HostAction == nil && p.HostAccessSequence == nil && p.HostReplacement == nil && p.HostAliasClaim == nil {
+	if p.NetworkEndpoint == nil && p.AuthorizationGrantBatch == nil && p.HostDiscoveryTarget == nil && p.HostAdoption == nil && p.HostAction == nil && p.HostAccessSequence == nil && p.HostReplacement == nil && p.HostAliasClaim == nil {
 		return nil
 	}
 	principal, ok := identity.PrincipalFromContext(ctx)
@@ -37,6 +37,9 @@ func verifyWorkflowRunAuthorization(ctx context.Context, row discoveryRow, run g
 				return err
 			}
 		}
+	}
+	if in := p.NetworkEndpoint; in != nil {
+		return validateNetworkEndpointState(ctx, row, *in, excluded...)
 	}
 	if b := p.AuthorizationGrantBatch; b != nil {
 		if err := validateLifecycleActor(ctx, *b); err != nil {

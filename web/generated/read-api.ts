@@ -794,6 +794,7 @@ export interface DeclarationOperation {
 export interface DeclarationRevisionRequest {
   readonly "schema": "vegastack-labs.dev/declaration-revision-request";
   readonly "schemaVersion": "1.0.0";
+  readonly "networkEndpoint"?: NetworkEndpointRequest | null;
   readonly "grantBatch"?: AuthorizationGrantBatchRequest | null;
   readonly "hostAliasClaim"?: HostAliasClaimRequest | null;
   readonly "declarationId": string;
@@ -1590,6 +1591,42 @@ export interface NativeRestartPresentation {
   readonly "expectedInvocationDigest": string;
 }
 
+export interface NetworkEndpoint {
+  readonly "schema": "vegastack-labs.dev/network-endpoint";
+  readonly "schemaVersion": "1.0.0";
+  readonly "hostId": string;
+  readonly "hostIdentityDigest": string;
+  readonly "targetId": string;
+  readonly "targetRevision": number;
+  readonly "hostKey": string;
+  readonly "user": string;
+  readonly "lanAddress": string;
+  readonly "lanPort": number;
+  readonly "meshAddress": string;
+  readonly "meshPort": number;
+  readonly "markerAddress": string;
+  readonly "markerPort": number;
+  readonly "markerPath": string;
+  readonly "markerCertificateDigest": string;
+  readonly "markerValue": string;
+  readonly "flow": "operator-client-to-host-ssh";
+  readonly "revision": number;
+  readonly "recoveryEpoch": number;
+}
+
+export interface NetworkEndpointRequest {
+  readonly "schema": "vegastack-labs.dev/network-endpoint-request";
+  readonly "schemaVersion": "1.0.0";
+  readonly "endpoint": NetworkEndpoint;
+  readonly "action": "activate" | "revoke";
+  readonly "expectedEndpointRevision": number;
+  readonly "expectedDeclarationRevision": number;
+  readonly "expectedStateRevision": number;
+  readonly "recoveryEpoch": number;
+  readonly "idempotencyKey": string;
+  readonly "reasonDigest": string;
+}
+
 export interface OffsiteRunSpec {
   readonly "generationId": string;
   readonly "sourcePointId": string;
@@ -1613,6 +1650,7 @@ export interface OffsiteRunSpec {
 export interface Plan {
   readonly "schema": "vegastack-labs.dev/plan";
   readonly "schemaVersion": "1.0.0";
+  readonly "networkEndpoint"?: NetworkEndpointRequest | null;
   readonly "grantBatch"?: AuthorizationGrantBatchRequest | null;
   readonly "planId": string;
   readonly "planDigest": string;
@@ -6506,6 +6544,14 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "enum": [
           "1.0.0"
         ]
+      },
+      {
+        "name": "networkEndpoint",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "omitEmpty": true,
+        "ref": "vegastack-labs.dev/network-endpoint-request"
       },
       {
         "name": "grantBatch",
@@ -11637,6 +11683,246 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/network-endpoint",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/network-endpoint"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "hostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "hostIdentityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "targetId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "targetRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "hostKey",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 2048
+      },
+      {
+        "name": "user",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 32
+      },
+      {
+        "name": "lanAddress",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 64
+      },
+      {
+        "name": "lanPort",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "meshAddress",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 64
+      },
+      {
+        "name": "meshPort",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "markerAddress",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 64
+      },
+      {
+        "name": "markerPort",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "markerPath",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 256
+      },
+      {
+        "name": "markerCertificateDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "markerValue",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 128
+      },
+      {
+        "name": "flow",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "operator-client-to-host-ssh"
+        ]
+      },
+      {
+        "name": "revision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/network-endpoint-request",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/network-endpoint-request"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "endpoint",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/network-endpoint"
+      },
+      {
+        "name": "action",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "activate",
+          "revoke"
+        ]
+      },
+      {
+        "name": "expectedEndpointRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "expectedDeclarationRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "expectedStateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "idempotencyKey",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "reasonDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/offsite-run-spec",
     "fields": [
       {
@@ -11784,6 +12070,14 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "enum": [
           "1.0.0"
         ]
+      },
+      {
+        "name": "networkEndpoint",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "omitEmpty": true,
+        "ref": "vegastack-labs.dev/network-endpoint-request"
       },
       {
         "name": "grantBatch",
@@ -13790,6 +14084,14 @@ function decodeNativeQualificationProducer(value: unknown): NativeQualificationP
 
 function decodeNativeRestartPresentation(value: unknown): NativeRestartPresentation {
   return decodeSchema("vegastack-labs.dev/native-restart-presentation", value) as unknown as NativeRestartPresentation;
+}
+
+function decodeNetworkEndpoint(value: unknown): NetworkEndpoint {
+  return decodeSchema("vegastack-labs.dev/network-endpoint", value) as unknown as NetworkEndpoint;
+}
+
+function decodeNetworkEndpointRequest(value: unknown): NetworkEndpointRequest {
+  return decodeSchema("vegastack-labs.dev/network-endpoint-request", value) as unknown as NetworkEndpointRequest;
 }
 
 function decodeOffsiteRunSpec(value: unknown): OffsiteRunSpec {

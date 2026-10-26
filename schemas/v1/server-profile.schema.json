@@ -182,6 +182,18 @@
       "type": "array",
       "uniqueItems": true
     },
+    "networkConnectExcludedHostIds": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 256,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "networkConnectPrivateKeyPath": {
+      "maxLength": 4096,
+      "type": "string"
+    },
     "offsiteAccountId": {
       "pattern": "^[a-f0-9]{32}$",
       "type": [

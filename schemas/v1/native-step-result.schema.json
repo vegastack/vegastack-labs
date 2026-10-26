@@ -2080,6 +2080,16 @@
             }
           ]
         },
+        "networkEndpoint": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/network-endpoint-request"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "operations": {
           "items": {
             "$ref": "#/$defs/declaration-operation"
@@ -7009,6 +7019,191 @@
       ],
       "type": "object"
     },
+    "network-endpoint": {
+      "additionalProperties": false,
+      "properties": {
+        "flow": {
+          "enum": [
+            "operator-client-to-host-ssh"
+          ],
+          "type": "string"
+        },
+        "hostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "hostIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "hostKey": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "type": "string"
+        },
+        "lanAddress": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "lanPort": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "markerAddress": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "markerCertificateDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "markerPath": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "markerPort": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "markerValue": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "meshAddress": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "meshPort": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "revision": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/network-endpoint"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "targetId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "targetRevision": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "user": {
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "hostId",
+        "hostIdentityDigest",
+        "targetId",
+        "targetRevision",
+        "hostKey",
+        "user",
+        "lanAddress",
+        "lanPort",
+        "meshAddress",
+        "meshPort",
+        "markerAddress",
+        "markerPort",
+        "markerPath",
+        "markerCertificateDigest",
+        "markerValue",
+        "flow",
+        "revision",
+        "recoveryEpoch"
+      ],
+      "type": "object"
+    },
+    "network-endpoint-request": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "enum": [
+            "activate",
+            "revoke"
+          ],
+          "type": "string"
+        },
+        "endpoint": {
+          "$ref": "#/$defs/network-endpoint"
+        },
+        "expectedDeclarationRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "expectedEndpointRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "expectedStateRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "idempotencyKey": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "reasonDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/network-endpoint-request"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "endpoint",
+        "action",
+        "expectedEndpointRevision",
+        "expectedDeclarationRevision",
+        "expectedStateRevision",
+        "recoveryEpoch",
+        "idempotencyKey",
+        "reasonDigest"
+      ],
+      "type": "object"
+    },
     "offsite-run-spec": {
       "additionalProperties": false,
       "properties": {
@@ -7260,6 +7455,16 @@
           "anyOf": [
             {
               "$ref": "#/$defs/native-restart-presentation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "networkEndpoint": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/network-endpoint-request"
             },
             {
               "type": "null"

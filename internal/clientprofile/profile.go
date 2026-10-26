@@ -27,9 +27,10 @@ const (
 var destinationPattern = regexp.MustCompile(`^[A-Za-z0-9._-]+@[A-Za-z0-9._:-]+$`)
 
 type document struct {
-	Schema        string    `json:"schema"`
-	SchemaVersion string    `json:"schemaVersion"`
-	Transport     transport `json:"transport"`
+	NetworkConnectPrivateKeyPath string    `json:"networkConnectPrivateKeyPath,omitempty"`
+	Schema                       string    `json:"schema"`
+	SchemaVersion                string    `json:"schemaVersion"`
+	Transport                    transport `json:"transport"`
 }
 
 type transport struct {
@@ -99,6 +100,9 @@ func Load(ctx context.Context, path string) (serverconfig.Profile, bool, error) 
 		!validConfiguredPath(profile.Transport.KnownHostsPath) {
 		return serverconfig.Profile{}, true, invalid()
 	}
+	if profile.NetworkConnectPrivateKeyPath != "" && !validConfiguredPath(profile.NetworkConnectPrivateKeyPath) {
+		return serverconfig.Profile{}, true, invalid()
+	}
 	if err := validateKnownHosts(profile.Transport.KnownHostsPath); err != nil {
 		return serverconfig.Profile{}, true, err
 	}
@@ -106,7 +110,7 @@ func Load(ctx context.Context, path string) (serverconfig.Profile, bool, error) 
 		return serverconfig.Profile{}, true, err
 	}
 	arguments := constrainedSSHArguments(profile.Transport.KnownHostsPath, profile.Transport.Destination)
-	return serverconfig.Profile{ConstrainedSSH: &serverconfig.ConstrainedSSH{
+	return serverconfig.Profile{NetworkConnectPrivateKeyPath: profile.NetworkConnectPrivateKeyPath, ConstrainedSSH: &serverconfig.ConstrainedSSH{
 		Executable: profile.Transport.Executable, Arguments: arguments,
 		SSHPrincipalID: profile.Transport.SSHPrincipalID, DeviceID: profile.Transport.DeviceID, RecoveryEpoch: profile.Transport.RecoveryEpoch,
 	}}, true, nil
