@@ -2,6 +2,10 @@
 
 Status: development started 23-10-2026; remaining implementation batch authorized 26-10-2026. This is an implementation map, not live authority or completed acceptance. Phase 6 accepted deferrals remain deferred. Nodes04/05 are excluded from all operations, including reads and indirect effects.
 
+## Bounded software closure — 26-10-2026
+
+All nine issues in the approved Phase 7 software milestone are closed. The final [PR #282](https://github.com/vegastack/vegastack-labs/pull/282) merged as `b0624b9060de1ad89c8b5ae37ebfc981d0c1929b` after the final affected shipping proof passed with no blocks or warnings. This closure supersedes the in-progress checkpoints retained below. Live website issue [#264](https://github.com/vegastack/vegastack-labs/issues/264), unsupported interactive SSH transport, live provider/host qualification and existing deferrals retain their stated limits. [Phase 8 software development](08-hosting-registry-application-lifecycle.md) can proceed while website access is pending.
+
 ## Small delivery order
 
 | Slice | Issue | Outcome | Dependency / present status |
