@@ -366,3 +366,28 @@ test("approved #286 services admit only scoped reads and an operator import draf
     assert.ok((await verifyReadAPI(root)).codes.includes("READ_API_ENDPOINT_DRIFT"));
   }
 });
+
+test("approved #288 deployment routes stay exact and exclude direct mutation", async (t) => {
+  const registry = JSON.parse(await readFile(path.join(process.cwd(), "schemas/v1/endpoint-registry.json"), "utf8"));
+  assert.equal((await verifyReadAPI()).status, "pass");
+  for (const id of ["api.v1.services.deployment-drafts.create", "api.v1.services.deployment.get"]) {
+    const original = registry.endpoints.find(endpoint => endpoint.id === id);
+    assert.ok(original, id);
+    for (const mutation of ["remove", "duplicate", "extra-field", "direct-execute", "unknown-sibling", ...Object.keys(original)]) {
+      const copy = structuredClone(registry);
+      const endpoint = copy.endpoints.find(endpoint => endpoint.id === id);
+      if (mutation === "remove") copy.endpoints = copy.endpoints.filter(endpoint => endpoint.id !== id);
+      else if (mutation === "duplicate") copy.endpoints.push({...endpoint});
+      else if (mutation === "extra-field") endpoint.allowDirectExecution = true;
+      else if (mutation === "direct-execute") copy.endpoints.push({...endpoint, id: "api.v1.services.deployment.execute", method: "POST", path: "/api/v1/services/{serviceID}/deployment/execute"});
+      else if (mutation === "unknown-sibling") copy.endpoints.push({...endpoint, id: "api.v1.services.deployment.unapproved"});
+      else endpoint[mutation] = mutation === "audiences" ? ["browser", "operator", "agent"] : "unapproved";
+      const root = await fixtureRepo(t, {"schemas/v1/endpoint-registry.json": `${JSON.stringify(copy)}\n`});
+      assert.ok((await verifyReadAPI(root)).codes.includes("READ_API_ENDPOINT_DRIFT"), `${id}/${mutation}`);
+    }
+  }
+  const browserDraft = structuredClone(registry);
+  browserDraft.endpoints.find(endpoint => endpoint.id === "api.v1.services.deployment-drafts.create").audiences = ["browser", "operator"];
+  const root = await fixtureRepo(t, {"schemas/v1/endpoint-registry.json": `${JSON.stringify(browserDraft)}\n`});
+  assert.ok((await verifyReadAPI(root)).codes.includes("READ_API_ENDPOINT_DRIFT"), "browser deployment draft");
+});

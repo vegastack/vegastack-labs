@@ -144,6 +144,11 @@ func workflowDeclarationTargets(row discoveryRow, d generated.DeclarationRevisio
 	var raw []byte
 	var digest string
 	switch d.DeclarationType {
+	case "service.deployment":
+		if d.ServiceDeployment == nil || !ValidateServiceDeploymentDeclaration(d) {
+			return deny()
+		}
+		add("service.deploy.prepare", "service.read", "service", d.ServiceDeployment.Definition.ServiceID)
 	case "service.import":
 		if d.ServiceImport == nil || !ValidateServiceImportDeclaration(d) {
 			return deny()

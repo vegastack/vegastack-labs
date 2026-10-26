@@ -609,6 +609,18 @@
           "github.com/vegastack/vegastack-labs/internal/servicecatalog"
         ],
         "mutationBoundaryDigest": "sha256:ddc9f90d4bde97540f88a4c524d79fcaf4ad76ea09ee9e8d8307a79a94dfec3b"
+      },
+      {
+        "id": "phase8-issue288-v1",
+        "issue": 288,
+        "commands": [
+          "service deployment draft",
+          "service deployment show"
+        ],
+        "imports": [
+          "github.com/vegastack/vegastack-labs/internal/adapter/serviceruntime"
+        ],
+        "mutationBoundaryDigest": "sha256:6c6407ff42bb8ef02e0d157238bf5c720f40d0a693f3caca4dbd00fb35b9a900"
       }
     ]
   },

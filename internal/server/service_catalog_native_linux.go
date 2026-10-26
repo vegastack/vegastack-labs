@@ -17,7 +17,7 @@ func composeServiceCatalogNative(ctx context.Context, p serverconfig.Profile, pa
 		return nil
 	}
 	resolver := hostActionNativeResolver{root: filepath.Join(filepath.Dir(path), "credential-drafts"), owner: p.SocketOwnerUID, references: store.NewCredentialRepository(s)}
-	for _, entry := range []struct{ consumer, capability string }{{"hosting.coolify", "credential.hosting.read"}, {"registry.harbor", "credential.registry.read"}} {
+	for _, entry := range []struct{ consumer, capability string }{{"hosting.coolify", "credential.hosting.read"}, {"registry.harbor", "credential.registry.read"}, {"hosting.coolify.deploy", "credential.hosting.deploy"}, {"service.runtime", "credential.service-runtime.read"}} {
 		if !slices.Contains(scope.Capabilities, entry.capability) {
 			continue
 		}

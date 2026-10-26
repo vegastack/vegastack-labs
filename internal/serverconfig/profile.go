@@ -29,6 +29,7 @@ var scheduledRunnerPath = regexp.MustCompile(`^/[A-Za-z0-9._/-]+$`)
 
 type Profile struct {
 	ServiceBindings                  []generated.ServiceProviderBinding
+	ServiceDeploymentBindings        []generated.ServiceDeploymentProviderBinding
 	NetworkConnectExcludedHostIDs    []string
 	NetworkConnectPrivateKeyPath     string
 	SocketPath                       string
@@ -259,8 +260,13 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 	if err != nil {
 		return invalid()
 	}
+	deploymentBindings, err := FreezeDeploymentBindings(input.ServiceDeploymentBindings, serviceBindings)
+	if err != nil {
+		return invalid()
+	}
 	return Profile{
 		ServiceBindings:                  serviceBindings,
+		ServiceDeploymentBindings:        deploymentBindings,
 		NetworkConnectExcludedHostIDs:    append([]string(nil), input.NetworkConnectExcludedHostIDs...),
 		NetworkConnectPrivateKeyPath:     input.NetworkConnectPrivateKeyPath,
 		SocketPath:                       input.SocketPath,

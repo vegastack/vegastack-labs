@@ -471,6 +471,14 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/server-profile.schema.json",
 		"schemas/v1/server-status-data.schema.json",
 		"schemas/v1/service-definition.schema.json",
+		"schemas/v1/service-deployment-artifact-source.schema.json",
+		"schemas/v1/service-deployment-artifact.schema.json",
+		"schemas/v1/service-deployment-binding.schema.json",
+		"schemas/v1/service-deployment-draft-request.schema.json",
+		"schemas/v1/service-deployment-provider-binding.schema.json",
+		"schemas/v1/service-deployment-record.schema.json",
+		"schemas/v1/service-deployment-request.schema.json",
+
 		"schemas/v1/service-import-draft-request.schema.json",
 		"schemas/v1/service-import-request.schema.json",
 		"schemas/v1/service-list.schema.json",
@@ -907,8 +915,8 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 			}
 		}
 	}
-	if available != 87 || planned != 13 {
-		t.Fatalf("command availability = (%d available, %d planned), want (87, 13)", available, planned)
+	if available != 89 || planned != 13 {
+		t.Fatalf("command availability = (%d available, %d planned), want (89, 13)", available, planned)
 	}
 	// #286 adds four exact service list/show/observe/import-draft commands.
 	// #269/#270 promote seven existing people/device CLI operations.

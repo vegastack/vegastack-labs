@@ -178,7 +178,7 @@ func ValidateServiceImportDeclaration(d generated.DeclarationRevision) bool {
 		return true
 	}
 	in := d.ServiceImport
-	if in == nil || servicecatalog.ValidateImportRequest(*in) != nil || d.NetworkEndpoint != nil || d.AuthorizationGrantBatch != nil || d.HostAliasClaim != nil || d.DeclarationType != "service.import" || d.DeclarationID != serviceDeclarationID(in.Definition.ServiceID) || len(d.Operations) != 1 || len(d.Extensions) != 0 || d.RecoveryEpoch != in.RecoveryEpoch {
+	if in == nil || servicecatalog.ValidateImportRequest(*in) != nil || d.ServiceDeployment != nil || d.NetworkEndpoint != nil || d.AuthorizationGrantBatch != nil || d.HostAliasClaim != nil || d.DeclarationType != "service.import" || d.DeclarationID != serviceDeclarationID(in.Definition.ServiceID) || len(d.Operations) != 1 || len(d.Extensions) != 0 || d.RecoveryEpoch != in.RecoveryEpoch {
 		return false
 	}
 	if d.Status == "draft" && (d.StateRevision != in.ExpectedStateRevision+1 || d.Revision != 1) {

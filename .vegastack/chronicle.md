@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 26-10-2026 — Approved image changes gain independent runtime evidence ([#288](https://github.com/vegastack/vegastack-labs/issues/288))
+
+- **What:** A registered service can prepare an exact immutable-image change through the existing human-approved controller flow. Deployment records separate a provider receipt from observed running image and health. A compatible rollback uses another approved plan and a previously verified artifact.
+- **Why:** Service registration and configured provider status could not deploy an image or prove what was running.
+- **How it went:** Parallel implementation reused the existing verifier, credential resolver and execution engine. The pinned provider API required explicit full-target preflight and receipt confirmation; its mutations are not atomic, so uncertain attempts remain durable partial results instead of being retried. Isolated API and transport fixtures provide software evidence; they do not qualify real hosts or providers.
+- **Changed:** Inert deployment draft and scoped result commands · actual signed manifest verification · one bound Docker-image application · finite independent Docker digest/health reads · durable attempt and sanitized receipt · no automatic replay or rollback · data-policy blocks for unsupported recovery.
+- **Decisions:** No new dependency, service, signing system, worker or independent review round. Live access, provider/platform lifecycle, stateful recovery, public website and combined Phase8 acceptance remain outside this delivery.
+
+— approved by (omkarmohanta09) · built by Codex with GPT-6.1 Sol medium implementation agents · branch feat/8.4-service-deployment
+
 ## 26-10-2026 — Existing applications gain a scoped service registration workflow ([#286](https://github.com/vegastack/vegastack-labs/issues/286))
 
 - **What:** The service import implementation connects protected existing Coolify and optional Harbor resources to one service/environment record through the current declaration, plan and human acknowledgement flow. CLI/API reads and the Services Console expose registered records and separate provider observations.

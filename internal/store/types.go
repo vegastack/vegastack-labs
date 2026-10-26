@@ -152,6 +152,7 @@ type IntentStore interface {
 
 type Config struct {
 	ServiceImportPolicies         []servicecatalog.Policy
+	ServiceDeploymentPolicies     []servicecatalog.DeploymentPolicy
 	NetworkConnectExcludedHostIDs []string
 	InitialSetup                  *InitialSetup
 	DatabasePath                  string

@@ -1292,6 +1292,32 @@
       "transportScope": "local"
     },
     {
+      "id": "api.v1.services.deployment-drafts.create",
+      "method": "POST",
+      "path": "/api/v1/services/deployment-drafts",
+      "availability": "available",
+      "ownerPhase": "8",
+      "requestSchema": "vegastack-labs.dev/service-deployment-draft-request",
+      "dataSchema": "vegastack-labs.dev/declaration-revision",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.services.deployment.get",
+      "method": "GET",
+      "path": "/api/v1/services/{serviceID}/deployment",
+      "availability": "available",
+      "ownerPhase": "8",
+      "dataSchema": "vegastack-labs.dev/service-deployment-record",
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
+    },
+    {
       "id": "api.v1.services.get",
       "method": "GET",
       "path": "/api/v1/services/{serviceID}",

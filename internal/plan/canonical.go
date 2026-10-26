@@ -46,6 +46,11 @@ func readablePlan(plan generated.Plan) string {
 		raw, _, _ := stateexport.CanonicalJSON(plan.HostReplacement)
 		fmt.Fprintf(&body, "Host replacement exact intent: %s\nFreeze prevents new authority on the former host. Commit moves only the named aliases after current denial and qualification; no disk reset, workload move or automatic rollback.\n", raw)
 	}
+	if plan.ServiceDeployment != nil {
+		raw, _, _ := stateexport.CanonicalJSON(plan.ServiceDeployment)
+		d := plan.ServiceDeployment
+		fmt.Fprintf(&body, "Service %s in %s: %s %s@%s on host %s\nProtected configuration: %s; data policy: %s; previous deployment revision: %d\nExact service deployment intent: %s\nRequires running exact image digest and Docker health verification. Rollback requires a separate approved plan.\n", d.Definition.ServiceID, d.Definition.EnvironmentID, d.Action, d.Artifact.Repository, d.Artifact.Digest, d.Definition.HostID, d.Binding.ConfigurationDigest, d.Binding.DataPolicy, d.ExpectedDeploymentRevision, raw)
+	}
 	if plan.ServiceImport != nil {
 		raw, _, _ := stateexport.CanonicalJSON(plan.ServiceImport)
 		fmt.Fprintf(&body, "Exact service import intent: %s\nRegisters an existing service only. Host admission is not verified; provider configuration is unchanged.\n", raw)

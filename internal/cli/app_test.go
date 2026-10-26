@@ -87,6 +87,14 @@ func TestEveryGeneratedCommandHasTruthfulRuntimeBehavior(t *testing.T) {
 				files.content, _ = json.Marshal(syntheticScheduledPolicy())
 			}
 			code, stdout, stderr := runTestAppWithOptions(t, context.Background(), arguments, nil, WithInput(strings.NewReader("encrypted-fixture")), WithReleaseOperations(operations), WithServerOperations(serverOperations), WithControlOperations(controlOperations, files), WithCredentialControlOperations(credentialOperations))
+			// The generic control stub intentionally lacks deployment capability;
+			// exact deployment commands must fail before reading a draft.
+			if commandName(command.Path) == generated.CommandNameServiceDeploymentDraft || commandName(command.Path) == generated.CommandNameServiceDeploymentShow {
+				if code != 6 || stderr != "" || !strings.Contains(stdout, `"code":"PREREQUISITE_BLOCKED"`) || !strings.Contains(stdout, "service-deployment-control") {
+					t.Fatalf("unconfigured deployment command: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+				}
+				return
+			}
 			// This generic control stub intentionally has no provider capabilities.
 			// Every exact provider command must fail before reading a request or
 			// suggesting that the missing control dependency is operational.

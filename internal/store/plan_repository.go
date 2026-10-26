@@ -175,6 +175,15 @@ func (repository *PlanRepository) CommitDeclarationAndPlan(ctx context.Context, 
 				return actionError(generated.ErrorCodeAuthorizationDenied)
 			}
 		}
+		if in := request.DesiredDeclaration.ServiceDeployment; in != nil {
+			actor, err := serviceActor(ctx)
+			if err != nil {
+				return err
+			}
+			if err := NewDeploymentRepository(repository.store).validate(actor, row, *in); err != nil {
+				return err
+			}
+		}
 		if in := request.DesiredDeclaration.ServiceImport; in != nil {
 			actor, err := serviceActor(ctx)
 			if err != nil {

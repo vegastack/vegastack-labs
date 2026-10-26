@@ -101,6 +101,8 @@ Contract schema: `1.29.0`
 | `api.v1.scheduled-jobs.cancel` | `POST` | `/api/v1/scheduled-jobs/{jobId}/cancel` | `available` | `operator` | `finite` | `vegastack-labs.dev/scheduled-job-cancel-request` | `vegastack-labs.dev/scheduled-job` |
 | `api.v1.scheduled-jobs.list` | `GET` | `/api/v1/scheduled-jobs` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/browser-scheduled-job-list-data` |
 | `api.v1.scheduled-occurrences.create` | `POST` | `/api/v1/scheduled-job-policies/{policyId}/occurrences` | `available` | `operator` | `finite` | `vegastack-labs.dev/scheduled-job-request` | `vegastack-labs.dev/scheduled-job` |
+| `api.v1.services.deployment-drafts.create` | `POST` | `/api/v1/services/deployment-drafts` | `available` | `operator` | `finite` | `vegastack-labs.dev/service-deployment-draft-request` | `vegastack-labs.dev/declaration-revision` |
+| `api.v1.services.deployment.get` | `GET` | `/api/v1/services/{serviceID}/deployment` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/service-deployment-record` |
 | `api.v1.services.get` | `GET` | `/api/v1/services/{serviceID}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/service-record` |
 | `api.v1.services.import-drafts.create` | `POST` | `/api/v1/services/import-drafts` | `available` | `operator` | `finite` | `vegastack-labs.dev/service-import-draft-request` | `vegastack-labs.dev/declaration-revision` |
 | `api.v1.services.list` | `GET` | `/api/v1/services` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/service-list` |

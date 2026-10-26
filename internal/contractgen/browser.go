@@ -894,8 +894,11 @@ func renderFiniteMethod(output *bytes.Buffer, endpoint metadata.EndpointDefiniti
 		}
 		pathExpression += " + " + queryFunction + "(query)"
 	}
-	if endpoint.ID == "api.v1.services.get" || endpoint.ID == "api.v1.services.observation.get" {
+	if endpoint.ID == "api.v1.services.get" || endpoint.ID == "api.v1.services.observation.get" || endpoint.ID == "api.v1.services.deployment.get" {
 		identity := "data.serviceId"
+		if endpoint.ID == "api.v1.services.deployment.get" {
+			identity = "data.request.definition.serviceId"
+		}
 		if endpoint.ID == "api.v1.services.get" {
 			identity = "data.definition.serviceId"
 		}
@@ -934,6 +937,10 @@ func browserPathParameters(path string) []string {
 
 func browserMethodName(endpoint metadata.EndpointDefinition) string {
 	switch endpoint.ID {
+	case "api.v1.services.deployment-drafts.create":
+		return "createServiceDeploymentDraft"
+	case "api.v1.services.deployment.get":
+		return "getServiceDeployment"
 	case "api.v1.services.list":
 		return "listServices"
 	case "api.v1.services.get":
