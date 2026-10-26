@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"github.com/vegastack/vegastack-labs/internal/servicecatalog"
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/audit"
@@ -150,6 +151,7 @@ type IntentStore interface {
 }
 
 type Config struct {
+	ServiceImportPolicies         []servicecatalog.Policy
 	NetworkConnectExcludedHostIDs []string
 	InitialSetup                  *InitialSetup
 	DatabasePath                  string

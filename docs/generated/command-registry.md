@@ -1020,6 +1020,59 @@ Owner phase: `2` · risk: `read-only` · availability: `available`
 
 - Query local control-service health as versioned JSON.: `vsk-labs server status --config fixture/server-profile.json --output json`
 
+### `vsk-labs service import draft`
+
+Draft a local service registration for exact-plan acknowledgement and apply.
+
+Owner phase: `8` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--file <path>` — Read one inert service-import draft request.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Draft a local service registration for exact-plan acknowledgement and apply.: `vsk-labs service import draft --config fixture/client.json --file fixture/service-import.json --output json`
+
+### `vsk-labs service list`
+
+List registered services within current read scope.
+
+Owner phase: `8` · risk: `read-only` · availability: `available`
+
+- `--after <id>` — Continue after one service ID.
+- `--config <path>` — Read one protected operator profile.
+- `--limit <count>` — Return between 1 and 100 services (default 50).
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- List registered services within current read scope.: `vsk-labs service list --config fixture/client.json --output json`
+
+### `vsk-labs service observe`
+
+Read current provider observations for one registered service.
+
+Owner phase: `8` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+- `--service-id <id>` — Select one exact registered service.
+
+- Read current provider observations for one registered service.: `vsk-labs service observe --config fixture/client.json --service-id service-a --output json`
+
+### `vsk-labs service show`
+
+Read one registered service; host admission remains unverified.
+
+Owner phase: `8` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+- `--service-id <id>` — Select one exact registered service.
+
+- Read one registered service; host admission remains unverified.: `vsk-labs service show --config fixture/client.json --service-id service-a --output json`
+
 ### `vsk-labs status`
 
 Show the current platform summary.

@@ -90,7 +90,7 @@ export async function verifyStaticExport(output = OUTPUT, embedded = output === 
       ["nodes.html", "Loading Nodes"],
       ["gates.html", "Loading derived gates"],
       ["people.html", "Loading people"],
-      ["services.html", "Loading Services status"],
+      ["services.html", "Loading services"],
       ["backups.html", "Loading backup status"],
       ["providers.html", "Loading providers"],
       ["changes.html", "No declaration open"],

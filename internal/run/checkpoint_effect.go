@@ -145,9 +145,12 @@ func checkpointDigest(data []byte) audit.Fingerprint {
 	return audit.Fingerprint("sha256:" + hex.EncodeToString(sum[:]))
 }
 
-type CoreRouter struct{ Gate, Checkpoint, Recovery, Schedule, ScheduleObserve, DiscoveryTarget, Adoption, HostReplacement, Authorization, NetworkEndpoint CoreEffect }
+type CoreRouter struct{ Gate, Checkpoint, Recovery, Schedule, ScheduleObserve, DiscoveryTarget, Adoption, HostReplacement, Authorization, NetworkEndpoint, ServiceImport CoreEffect }
 
 func (router CoreRouter) Execute(ctx context.Context, binding ExactStepBinding) (adapter.Effect, error) {
+	if binding.Step.AdapterID == "core.service-import" && router.ServiceImport != nil {
+		return router.ServiceImport.Execute(ctx, binding)
+	}
 	if binding.Step.AdapterID == "core.network-endpoint" && router.NetworkEndpoint != nil {
 		return router.NetworkEndpoint.Execute(ctx, binding)
 	}
@@ -182,6 +185,9 @@ func (router CoreRouter) Execute(ctx context.Context, binding ExactStepBinding) 
 }
 
 func (router CoreRouter) Verify(ctx context.Context, binding ExactStepBinding, result adapter.Effect) (adapter.Verification, error) {
+	if binding.Step.AdapterID == "core.service-import" && router.ServiceImport != nil {
+		return router.ServiceImport.Verify(ctx, binding, result)
+	}
 	if binding.Step.AdapterID == "core.network-endpoint" && router.NetworkEndpoint != nil {
 		return router.NetworkEndpoint.Verify(ctx, binding, result)
 	}

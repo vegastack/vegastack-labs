@@ -351,3 +351,18 @@ test("host adoption and connection descriptor contracts classify distinct exact 
     assert.ok((await verifyReadAPI(root)).codes.includes("READ_API_ENDPOINT_DRIFT"), id);
   }
 });
+
+test("approved #286 services admit only scoped reads and an operator import draft", async (t) => {
+  const registry = JSON.parse(await readFile(path.join(process.cwd(), "schemas/v1/endpoint-registry.json"), "utf8"));
+  const initial = registry.endpoints.find(({id}) => id === "api.v1.services.import-drafts.create");
+  for (const mutate of [
+    (copy) => { copy.endpoints = copy.endpoints.filter(({id}) => id !== "api.v1.services.observation.get"); },
+    (copy) => { copy.endpoints.find(({id}) => id === initial.id).audiences.push("browser"); },
+    (copy) => { copy.endpoints.push({...structuredClone(initial), id: "api.v1.services.deploy", path: "/api/v1/services/deploy"}); },
+    (copy) => { copy.endpoints.find(({id}) => id === "api.v1.services.list").querySchema = "vegastack-labs.dev/operator-read-query"; },
+  ]) {
+    const copy = structuredClone(registry); mutate(copy);
+    const root = await fixtureRepo(t, {"schemas/v1/endpoint-registry.json": `${JSON.stringify(copy)}\n`});
+    assert.ok((await verifyReadAPI(root)).codes.includes("READ_API_ENDPOINT_DRIFT"));
+  }
+});

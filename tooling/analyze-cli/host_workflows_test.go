@@ -17,12 +17,12 @@ func TestNetworkConnectSourceSealsRejectDrift(t *testing.T) {
 			current[key] = seal
 		}
 	}
-	for key, seal := range combinedNetworkSourceSeals {
+	for key, seal := range serviceCatalogSourceSeals {
 		current[key] = seal
 	}
 	for key, seal := range current {
 		relative, joined, _ := strings.Cut(key, "|")
-		if relative != "internal/localapi" && relative != "internal/networkconnect" && relative != "internal/serverconfig" {
+		if relative != "internal/localapi" && relative != "internal/networkconnect" && relative != "internal/serverconfig" && relative != "internal/servicecatalog" {
 			t.Fatalf("unexpected source seal %q", relative)
 		}
 		names := strings.Split(joined, ",")
@@ -41,6 +41,9 @@ func TestNetworkConnectSourceSealsRejectDrift(t *testing.T) {
 		c.listed.ImportPath = module + "/" + relative
 		c.listed.GoFiles = names
 		c.listed.Imports = slices.Clone(seal.imports)
+		if relative == "internal/servicecatalog" && !approvedServiceCatalogPackage(c, module, relative) {
+			t.Fatal("exact service validation source rejected")
+		}
 		if !approvedNetworkConnectPackage(c, module, relative) {
 			t.Fatal("current finite source closure rejected")
 		}
@@ -66,7 +69,7 @@ func TestNetworkConnectSourceSealsRejectDrift(t *testing.T) {
 		}
 		checked++
 	}
-	if checked != 6 {
-		t.Fatal("all six platform source variants must be sealed")
+	if checked != 7 {
+		t.Fatal("all seven platform and domain source variants must be sealed")
 	}
 }

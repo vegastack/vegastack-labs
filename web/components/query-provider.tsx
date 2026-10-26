@@ -5,7 +5,7 @@ import { createContext, useContext, useMemo, useState, type ReactNode } from "re
 import { ReadClientError } from "@/generated/read-api";
 import { isHardReadFailure } from "@/lib/read-queries";
 
-type FailureScope = "operator-access" | "all" | "inventory" | "overview" | "gates" | "changes" | "hosts" | "phase5" | `source:${string}`;
+type FailureScope = "operator-access" | "services" | "all" | "inventory" | "overview" | "gates" | "changes" | "hosts" | "phase5" | `source:${string}`;
 type FailureNotice = { error: unknown; scope: FailureScope } | null;
 const FailureContext = createContext<{ notice: FailureNotice; clear: () => void }>({ notice: null, clear: () => undefined });
 
@@ -14,6 +14,7 @@ function isInventoryKey(key: readonly unknown[]): boolean {
 }
 
 function keyScope(key: readonly unknown[]): Exclude<FailureScope, "all"> {
+  if (key[0] === "read" && key[1] === "services") return "services";
   if (key[0] === "read" && key[1] === "operator-access") return "operator-access";
   if ((key[0] === "read" || key[0] === "change") && key[1] === "hosts") return "hosts";
   if ((key[0] === "read" || key[0] === "change") && key[1] === "phase5") return "phase5";
@@ -62,7 +63,12 @@ export function ConsoleQueryProvider({ children }: { children: ReactNode }) {
       setNotice({ error, scope });
       for (const cached of queryCache.findAll()) {
         if (cached.queryKey[0] !== "read" && cached.queryKey[0] !== "change") continue;
-        if (scope === "all" || keyScope(cached.queryKey) === scope) cached.setState({ data: null });
+        if (scope === "all" || keyScope(cached.queryKey) === scope) {
+          // Cancel service reads before clearing so a late response cannot restore
+          // private records after an authorization or identity failure.
+          if (keyScope(cached.queryKey) === "services") void cached.cancel({ silent: true, revert: false });
+          cached.setState({ data: null });
+        }
       }
     }
     const queryCache = new QueryCache({

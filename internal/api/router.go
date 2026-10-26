@@ -66,6 +66,7 @@ var remoteBrowserWriteEndpoints = map[string]bool{
 }
 
 var constrainedSSHWriteEndpoints = map[string]bool{
+	"api.v1.services.import-drafts.create":        true,
 	"api.v1.host-observations.create":             true,
 	"api.v1.host-adoptions.draft":                 true,
 	"api.v1.credential-lifecycle-drafts.create":   true,

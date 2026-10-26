@@ -144,6 +144,11 @@ func workflowDeclarationTargets(row discoveryRow, d generated.DeclarationRevisio
 	var raw []byte
 	var digest string
 	switch d.DeclarationType {
+	case "service.import":
+		if d.ServiceImport == nil || !ValidateServiceImportDeclaration(d) {
+			return deny()
+		}
+		add("service.import.prepare", "service.read", "service", d.ServiceImport.Definition.ServiceID)
 	case "network.endpoint":
 		if d.NetworkEndpoint == nil || !ValidateNetworkEndpointDeclaration(d) {
 			return deny()

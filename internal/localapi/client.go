@@ -65,6 +65,10 @@ type TypedResponse[T any] struct {
 }
 
 type Client interface {
+	ListServices(context.Context, serverconfig.Profile, string, int) (TypedResponse[generated.ServiceList], error)
+	GetService(context.Context, serverconfig.Profile, string) (TypedResponse[generated.ServiceRecord], error)
+	ObserveService(context.Context, serverconfig.Profile, string) (TypedResponse[generated.ServiceObservation], error)
+	DraftServiceImport(context.Context, serverconfig.Profile, generated.ServiceImportDraftRequest) (TypedResponse[generated.DeclarationRevision], error)
 	ObserveIngress(context.Context, serverconfig.Profile, generated.IngressDraftRequest) (TypedResponse[generated.IngressStatusData], error)
 	DraftIngress(context.Context, serverconfig.Profile, generated.IngressDraftRequest) (TypedResponse[generated.IngressDraftSubmission], error)
 	IngressStatus(context.Context, serverconfig.Profile, string) (TypedResponse[generated.IngressStatusData], error)
@@ -311,11 +315,15 @@ func requestTyped[T any](client *client, ctx context.Context, profile serverconf
 		if requestIDErr != nil {
 			return zero, requestIDErr
 		}
+		remotePath := request.Path
+		if spec.command == "api.v1.services.list" && serviceRemoteArguments(spec) != nil {
+			remotePath = "/api/v1/services"
+		}
 		response, err = sshtransport.RoundTrip(ctx, sshtransport.Request{
 			Executable: profile.ConstrainedSSH.Executable, Arguments: profile.ConstrainedSSH.Arguments,
 			RequestID: requestID, SSHPrincipalID: profile.ConstrainedSSH.SSHPrincipalID, DeviceID: profile.ConstrainedSSH.DeviceID,
 			RecoveryEpoch: profile.ConstrainedSSH.RecoveryEpoch, OperationArgs: remoteCommandArgumentsForInput(spec, input),
-			Method: request.Method, Path: request.Path, Body: request.Body, Timeout: request.Timeout, ResponseLimit: request.ResponseLimit,
+			Method: request.Method, Path: remotePath, Body: request.Body, Timeout: request.Timeout, ResponseLimit: request.ResponseLimit,
 		})
 	} else {
 		response, err = localtransport.RoundTrip(ctx, request)
@@ -337,6 +345,9 @@ func requestTyped[T any](client *client, ctx context.Context, profile serverconf
 }
 
 func remoteCommandArguments(spec requestSpec) []string {
+	if strings.HasPrefix(spec.command, "api.v1.services.") {
+		return serviceRemoteArguments(spec)
+	}
 	if spec.command == "api.v1.hosts.connection-descriptor.get" {
 		if id, ok := pathID(spec.path, "/api/v1/hosts/", "/connection-descriptor"); ok {
 			return []string{"connect", "--node", id, "--port", "22", "--path", "auto"}

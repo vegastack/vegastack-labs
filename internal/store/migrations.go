@@ -82,6 +82,7 @@ var embeddedMigrationManifest = []migrationManifestEntry{
 	{ID: 38, Name: "0038_network_endpoints", SHA256: mustSHA256("3ac4e697e69784cecf37d175dd873810fe28e6c59b31ca1ceea921dff83c5a08")},
 	{ID: 39, Name: "0039_cloudflare_mesh", SHA256: mustSHA256("fde65c45501d7256093abdc8e6c4a1aba1ccfb483bae89ec2c4c41818b30d5d6")},
 	{ID: 40, Name: "0040_cloudflare_ingress", SHA256: mustSHA256("3f39cc4a57cd86f3918f961fd5b0dab381ba184ab5ca8968e744bc9708a8384d")},
+	{ID: 41, Name: "0041_service_catalog", SHA256: mustSHA256("4de57d5f9575955ba5d88cc0da0dbbe90728f9fe04736b6eede99ebc2d0c2515")},
 }
 
 func Catalog() ([]Migration, error) {

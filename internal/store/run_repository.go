@@ -111,7 +111,7 @@ func (repository *RunRepository) Create(ctx context.Context, request RunCreateRe
 	event := audit.EventDraft{Type: "run.created", CorrelationID: request.Run.RunID, Attribution: request.Attribution, Target: audit.Target{Kind: "run", ID: request.Run.RunID}, After: &fingerprint}
 	expected := RevisionToken{StateRevision: request.Run.StateRevision, RecoveryEpoch: request.Run.RecoveryEpoch}
 	intent, err := repository.store.executeAuditIntent(ctx, intentRequest{Expected: &expected, Idempotency: audit.IntentKey{Scope: "run-submit", KeyDigest: request.SubmitKeyDigest, RequestDigest: request.RequestDigest}, Event: event}, false, func(ctx context.Context, transaction *sql.Tx) error {
-		if err := verifyWorkflowRunAuthorization(ctx, func(q string, a ...any) *sql.Row { return transaction.QueryRowContext(ctx, q, a...) }, request.Run, request.Attribution, repository.store.config.NetworkConnectExcludedHostIDs...); err != nil {
+		if err := verifyWorkflowRunAuthorization(ctx, func(q string, a ...any) *sql.Row { return transaction.QueryRowContext(ctx, q, a...) }, request.Run, request.Attribution, NewServiceRepository(repository.store), repository.store.config.NetworkConnectExcludedHostIDs...); err != nil {
 			return err
 		}
 		if err := verifyPlanBindingInTx(ctx, transaction, request.Run); err != nil {
@@ -120,6 +120,9 @@ func (repository *RunRepository) Create(ctx context.Context, request RunCreateRe
 		_, err := transaction.ExecContext(ctx, `INSERT INTO plan_runs(run_id,plan_id,plan_digest,authorization_decision_id,acknowledgement_id,policy_version,executor_mode,executor_id,executor_binding_digest,status,cancellation_requested,rollback_status,verification_status,verification_digest,changed,state_revision,recovery_epoch,submit_key_digest,request_digest,canonical_bytes,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 			request.Run.RunID, request.Run.PlanID, request.Run.PlanDigest, request.Run.AuthorizationDecisionID, request.Run.AcknowledgementID, request.Run.PolicyVersion, request.Run.ExecutorMode, request.Run.ExecutorID, request.Run.ExecutorBindingDigest, request.Run.Status, request.Run.CancellationRequested, request.Run.RollbackStatus, request.Run.VerificationStatus, request.Run.VerificationDigest, request.Run.Changed, request.Run.StateRevision, request.Run.RecoveryEpoch, request.SubmitKeyDigest, request.RequestDigest, canonical, request.Run.CreatedAt, request.Run.UpdatedAt)
 		if err != nil {
+			return err
+		}
+		if err := persistServiceImportActor(ctx, transaction, request.Run); err != nil {
 			return err
 		}
 		for _, step := range request.Run.Steps {

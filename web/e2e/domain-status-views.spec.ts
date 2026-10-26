@@ -1,109 +1,147 @@
 import { expect, test, type Page } from "@playwright/test";
 import axe from "axe-core";
-import { fixtureAudit, fixtureState, installReadFixture, privateDomainBackingRecords, privateDomainCanaries } from "./api-fixture";
-
-const domains = [
-  { route: "/services", title: "Services", source: "services", capability: "service.read" },
-] as const;
+import { fixtureAudit, fixtureState, installReadFixture, privateDomainCanaries, serviceFixtureRecord, serviceFixtureState } from "./api-fixture";
 
 test.beforeEach(async ({ page }) => installReadFixture(page));
 
-async function expectNoSeriousAccessibilityViolations(page: Page) {
+async function inspect(page: Page) {
+  await page.getByRole("button", { name: "Inspect service-a", exact: true }).click();
+  await expect(page.getByText("Coolify reported status: running:healthy", { exact: true })).toBeVisible();
+}
+
+async function accessible(page: Page) {
   await page.evaluate(axe.source);
   const violations = await page.evaluate(async () => {
-    const runtime = (globalThis as unknown as { axe: { run: (root: Document) => Promise<{ violations: Array<{ id: string; impact: string | null; nodes: Array<{ target: unknown }> }> }> } }).axe;
-    const result = await runtime.run(document);
-    return result.violations.filter(item => item.impact === "serious" || item.impact === "critical").map(item => `${item.id}: ${item.nodes.map(node => JSON.stringify(node.target)).join(", ")}`);
+    const runtime = (globalThis as unknown as { axe: { run: (root: Document) => Promise<{ violations: Array<{ id: string; impact: string | null }> }> } }).axe;
+    return (await runtime.run(document)).violations.filter(item => item.impact === "serious" || item.impact === "critical").map(item => item.id);
   });
   expect(violations).toEqual([]);
 }
 
-for (const domain of domains) {
-  test(`${domain.title} requests only its source and makes no record claim`, async ({ page }, testInfo) => {
-    fixtureState.domainState = "healthy";
-    await page.goto(domain.route);
-    await expect(page.getByText(/status observation is current/i)).toBeVisible();
-    await expect(page.getByText(domain.capability, { exact: false })).toBeVisible();
-    expect(fixtureAudit.requests.some(url => url.includes(`/api/v1/sources?limit=1&source=${domain.source}`))).toBeTruthy();
-    await expect(page.getByRole("button", { name: /create|restore|configure|suspend|apply/i })).toHaveCount(0);
-    await expect(page.getByText(/records arrive in their owning later phase/i)).toBeVisible();
-    if (!process.env.VSK_PHASE3_PLAYWRIGHT_OUTPUT) {
-      await page.screenshot({ path: testInfo.outputPath(`${domain.source}-current.png`), fullPage: true });
-    }
-  });
+test("Services is accessible on mobile with keyboard, truthful observations and bounded pagination", async ({ page }, info) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  fixtureState.delay = 150;
+  await page.goto("/services");
+  await expect(page.locator('[data-read-state="loading"]')).toBeVisible();
+  fixtureState.delay = 0;
+  const inspectButton = page.getByRole("button", { name: "Inspect service-a", exact: true });
+  await inspectButton.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByText("Coolify reported status: running:healthy", { exact: true })).toBeVisible();
+  await expect(page.getByText("Configured image: fixture/app:v1", { exact: true })).toBeVisible();
+  for (const text of ["Actual running digest: unknown", "Application health: unknown", "Signature: unverified", "Provenance: unverified", "Scan: findings"]) await expect(page.getByText(text, { exact: true })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Registered services" })).toContainText("registered");
+  await expect(page.getByRole("list", { name: "Registered services" })).toContainText("Host admission: not-verified");
+  await expect(page.getByRole("link", { name: "Changes", exact: true }).last()).toHaveAttribute("href", "/changes");
+  await expect(page.getByRole("button", { name: /import|deploy|apply|approve/i })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await accessible(page);
+  await page.screenshot({ path: info.outputPath("services-current-narrow.png"), fullPage: true });
+  await page.getByRole("button", { name: "Next services page" }).click();
+  await expect(page.getByRole("button", { name: "Inspect service-b", exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Service detail" })).toHaveCount(0);
+  expect(fixtureAudit.requests.some(url => url.includes("after=service-a") && url.includes("limit=25"))).toBe(true);
+  await page.getByRole("button", { name: "Previous services page" }).click();
+  await expect(inspectButton).toBeVisible();
+});
 
-  test(`${domain.title} distinguishes every safe status and failure`, async ({ page }) => {
-    fixtureState.domainState = "healthy";
-    fixtureState.delay = 200;
-    await page.goto(domain.route);
-    await expect(page.locator('[data-read-state="loading"]')).toBeVisible();
-    fixtureState.delay = 0;
-    await expect(page.getByText(/status observation is current/i)).toBeVisible();
-    for (const [domainState, readState] of [["stale", "stale"], ["unknown", "unknown"], ["unavailable", "unavailable"], ["failed", "error"]] as const) {
-      fixtureState.domainState = domainState;
-      await page.reload();
-      await expect(page.locator(`[data-read-state="${readState}"]`)).toBeVisible();
-      await expect(page.locator(`[data-source-state="${domainState}"]`)).toBeVisible();
-    }
-    fixtureState.mode = "denied";
-    await page.reload();
-    await expect(page.locator('[data-read-state="denied"]')).toBeVisible();
-    await expect(page.locator("[data-source-state]")).toHaveCount(0);
-    fixtureState.mode = "malformed";
-    await page.reload();
-    await expect(page.locator('[data-read-state="error"]')).toBeVisible();
-    await expect(page.locator("[data-source-state]")).toHaveCount(0);
-  });
+test("Services distinguishes every safe status: empty, denied, unavailable and malformed", async ({ page }, info) => {
+  for (const [mode, state] of [["empty", "empty"], ["denied", "denied"], ["unavailable", "unavailable"], ["malformed", "error"]] as const) {
+    fixtureState.mode = mode;
+    await page.goto("/services");
+    await expect(page.locator(`[data-read-state="${state}"]`)).toBeVisible();
+    await expect(page.getByRole("list", { name: "Registered services" })).toHaveCount(0);
+    await page.screenshot({ path: info.outputPath(`services-${state}.png`), fullPage: true });
+  }
+  fixtureState.mode = "healthy";
+  await page.getByRole("button", { name: "Refresh Services", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Inspect service-a", exact: true })).toBeVisible();
+});
 
-  test(`${domain.title} labels retryable old status stale and stays accessible on mobile`, async ({ page }) => {
-    fixtureState.domainState = "healthy";
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.addInitScript(() => localStorage.setItem("theme", "light"));
-    await page.goto(domain.route);
-    await expect(page.getByRole("heading", { name: domain.title, exact: true })).toBeVisible();
-    await expect(page.locator("html")).toHaveClass(/light/);
-    await expectNoSeriousAccessibilityViolations(page);
-    const refresh = page.getByRole("button", { name: `Refresh ${domain.title}` });
-    await refresh.focus();
-    await expect(refresh).toBeFocused();
-    fixtureState.mode = "dependency";
-    await page.keyboard.press("Enter");
-    await expect(page.locator('[data-read-state="stale"]')).toBeVisible();
-    await expect(page.locator('[data-source-state="healthy"]')).toBeVisible();
-    await expect(page.getByRole("button", { name: `Refresh ${domain.title}` })).toBeFocused();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
-    await expectNoSeriousAccessibilityViolations(page);
-    await page.getByRole("button", { name: "Use dark theme" }).click();
-    await expect(page.locator("html")).toHaveClass(/dark/);
+test("provider unavailability stays explicit while registration remains visible", async ({ page }) => {
+  serviceFixtureState.unavailableProviders = true;
+  await page.goto("/services");
+  await page.getByRole("button", { name: "Inspect service-a", exact: true }).click();
+  await expect(page.getByText("Hosting observation: unavailable · provider-unavailable", { exact: true })).toBeVisible();
+  await expect(page.getByText("Artifact observation: unavailable · provider-unavailable", { exact: true })).toBeVisible();
+  await expect(page.getByText("Scan: unavailable", { exact: true })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Registered services" })).toContainText("registered");
+});
+
+test("retryable observation failure visibly labels retained data stale", async ({ page }) => {
+  await page.goto("/services");
+  await inspect(page);
+  fixtureState.mode = "dependency";
+  await page.getByRole("button", { name: "Refresh observations", exact: true }).click();
+  await expect(page.locator('[data-read-state="stale"]')).toBeVisible();
+  await expect(page.getByText("Coolify reported status: running:healthy", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Provider availability and current state have not been confirmed/)).toBeVisible();
+});
+
+test("observation denial removes every visible private service record", async ({ page }) => {
+  await page.goto("/services");
+  await inspect(page);
+  serviceFixtureState.deniedObservation = true;
+  await page.getByRole("button", { name: "Refresh observations", exact: true }).click();
+  await expect(page.getByText("Services access denied", { exact: true })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Registered services" })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Service detail" })).toHaveCount(0);
+  await expect(page.locator("main")).not.toContainText("fixture/app:v1");
+});
+
+for (const denial of ["scoped", "session"] as const) {
+  test(`${denial} revocation clears retained list, detail and observations including a late response`, async ({ page }) => {
+    await page.goto("/services");
+    await inspect(page);
+    // Start an older authorized observation and let denial on another read win.
+    serviceFixtureState.observationDelay = 500;
+    const pending = page.waitForRequest(request => request.url().endsWith("/services/service-a/observation"));
+    await page.getByRole("button", { name: "Refresh observations", exact: true }).click();
+    await pending;
+    if (denial === "session") {
+      await page.route("**/api/v1/services/service-a", route => route.fulfill({ status: 401, json: { schema: "vegastack-labs.dev/browser-run-result", schemaVersion: "1.0.0", toolVersion: "test", command: "api.v1.services.get", runId: null, status: "failed", changed: false, recoveryEpoch: 2, stateRevision: 8, snapshotDigest: null, releaseBuildId: "test", sourceRevision: null, planId: null, errors: [{ code: "SESSION_EXPIRED", target: "session", retryable: false }], data: {} } }));
+    } else fixtureState.mode = "denied";
+    await page.getByRole("button", { name: "Refresh registration", exact: true }).click();
+    await expect(page.getByText("Services access denied", { exact: true })).toBeVisible();
+    await page.waitForTimeout(650);
+    await expect(page.getByRole("list", { name: "Registered services" })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Service detail" })).toHaveCount(0);
+    for (const privateValue of ["service-a", "owner-a", "fixture/app:v1", "running:healthy"]) await expect(page.locator("main")).not.toContainText(privateValue);
   });
 }
 
-test("a valid but wrong source response is rejected", async ({ page }) => {
-  fixtureState.mode = "mismatched-source";
-  fixtureState.domainState = "healthy";
+test("private domain backing records never reach the browser", async ({ page }) => {
   await page.goto("/services");
-  await expect(page.locator('[data-read-state="error"]')).toBeVisible();
-  await expect(page.locator("[data-source-state]")).toHaveCount(0);
+  await inspect(page);
+  const storage = await page.evaluate(async () => ({ local: Object.entries(localStorage), session: Object.entries(sessionStorage), databases: (await indexedDB.databases()).map(database => database.name), caches: await caches.keys() }));
+  const exposed = [await page.locator("body").innerText(), fixtureAudit.requests.join("\n"), fixtureAudit.responses.join("\n"), JSON.stringify(storage)].join("\n");
+  for (const canary of privateDomainCanaries) expect(exposed).not.toContain(canary);
+  expect(storage.session).toEqual([]);
+  expect(storage.databases).toEqual([]);
+  expect(storage.caches).toEqual([]);
 });
 
-test("private domain backing records never reach the browser", async ({ page }) => {
-  const logs: string[] = [];
-  const rendered: string[] = [];
-  page.on("console", message => logs.push(message.text()));
-  fixtureState.domainState = "healthy";
-  expect(privateDomainBackingRecords).toHaveLength(4);
-  expect(privateDomainBackingRecords.every(record => record.scope === "another-project")).toBeTruthy();
-  for (const domain of domains) {
-    await page.goto(domain.route);
-    await expect(page.getByText(/status observation is current/i)).toBeVisible();
-    rendered.push(await page.locator("body").innerText());
+// Preserve the historical evidence selector while proving the current Services
+// record contract: a valid envelope for a different service is still rejected.
+test("a valid but wrong source response is rejected", async ({ page }) => {
+  const result = (command: string, data: unknown) => ({
+    schema: "vegastack-labs.dev/browser-run-result", schemaVersion: "1.0.0", toolVersion: "test", command, runId: null, status: "succeeded", changed: false, recoveryEpoch: 2, stateRevision: 8, snapshotDigest: null, releaseBuildId: "test", sourceRevision: null, planId: null, errors: [], data,
+  });
+  const wrongRecord = serviceFixtureRecord("service-b");
+  const wrongObservation = {
+    schema: "vegastack-labs.dev/service-observation", schemaVersion: "1.0.0", serviceId: "service-b", bindingDigest: wrongRecord.definition.bindingDigest, observedAt: "2026-10-26T04:01:00Z", hostingState: "observed", hostingReason: "observed", providerStatus: "wrong-service-status-canary", configuredImage: "wrong-service-image-canary", artifactState: "not-configured", artifactReason: "not-configured", artifactKind: "unknown", scanState: "unknown", signatureState: "unverified", provenanceState: "unverified", runningDigestState: "unknown", healthState: "unknown", hostAdmission: "not-verified", stateRevision: 8, recoveryEpoch: 2,
+  };
+  for (const observation of [false, true]) {
+    const url = `**/api/v1/services/service-a${observation ? "/observation" : ""}`;
+    await page.route(url, route => route.fulfill({ json: result(observation ? "api.v1.services.observation.get" : "api.v1.services.get", observation ? wrongObservation : wrongRecord) }));
+    await page.goto("/services");
+    await page.getByRole("button", { name: "Inspect service-a", exact: true }).click();
+    await expect(page.locator('[data-read-state="error"]').first()).toBeVisible();
+    await expect(page.getByRole("region", { name: "Service detail" })).toHaveCount(0);
+    await expect(page.getByRole("list", { name: "Registered services" })).toHaveCount(0);
+    await expect(page.locator("main")).not.toContainText("service-b");
+    await expect(page.locator("main")).not.toContainText("wrong-service-status-canary");
+    await expect(page.locator("main")).not.toContainText("wrong-service-image-canary");
+    await page.unroute(url);
   }
-  for (const domain of domains) expect(fixtureAudit.domainProjections).toContainEqual({ source: domain.source, candidates: 2, excluded: 1 });
-  const browserState = await page.evaluate(async () => ({ local: Object.entries(localStorage), session: Object.entries(sessionStorage), databases: (await indexedDB.databases()).map(database => database.name), caches: await caches.keys() }));
-  const exposed = [rendered.join("\n"), page.url(), JSON.stringify(browserState), JSON.stringify(await page.context().cookies()), logs.join("\n"), fixtureAudit.requests.join("\n"), fixtureAudit.responses.join("\n")].join("\n");
-  for (const canary of privateDomainCanaries) expect(exposed).not.toContain(canary);
-  expect(browserState.local.every(([key]) => key === "theme")).toBeTruthy();
-  expect(browserState.session).toEqual([]);
-  expect(browserState.databases).toEqual([]);
-  expect(browserState.caches).toEqual([]);
 });

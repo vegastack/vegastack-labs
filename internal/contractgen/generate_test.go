@@ -253,6 +253,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/cloudflare-access-profile.schema.json",
 		"schemas/v1/control-handoff-input.schema.json",
 		"schemas/v1/control-recovery-receive-input.schema.json",
+		"schemas/v1/coolify-service-binding.schema.json",
 		"schemas/v1/credential-import-request.schema.json",
 		"schemas/v1/credential-import-submission.schema.json",
 		"schemas/v1/credential-lifecycle-request.schema.json",
@@ -289,6 +290,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/gate-profile-draft-request.schema.json",
 		"schemas/v1/gate-profile-draft-submission.schema.json",
 		"schemas/v1/gate-view.schema.json",
+		"schemas/v1/harbor-service-binding.schema.json",
 		"schemas/v1/host-access-draft-request.schema.json",
 		"schemas/v1/host-access-probe-request.schema.json",
 		"schemas/v1/host-access-probe-step.schema.json",
@@ -468,6 +470,14 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/scheduled-runner-profile.schema.json",
 		"schemas/v1/server-profile.schema.json",
 		"schemas/v1/server-status-data.schema.json",
+		"schemas/v1/service-definition.schema.json",
+		"schemas/v1/service-import-draft-request.schema.json",
+		"schemas/v1/service-import-request.schema.json",
+		"schemas/v1/service-list.schema.json",
+		"schemas/v1/service-observation.schema.json",
+		"schemas/v1/service-provider-binding.schema.json",
+		"schemas/v1/service-read-query.schema.json",
+		"schemas/v1/service-record.schema.json",
 		"schemas/v1/signed-inventory-draft-export.schema.json",
 		"schemas/v1/suitability-facts.schema.json",
 		"schemas/v1/volume-observation.schema.json",
@@ -897,9 +907,10 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 			}
 		}
 	}
-	if available != 83 || planned != 13 {
-		t.Fatalf("command availability = (%d available, %d planned), want (83, 13)", available, planned)
+	if available != 87 || planned != 13 {
+		t.Fatalf("command availability = (%d available, %d planned), want (87, 13)", available, planned)
 	}
+	// #286 adds four exact service list/show/observe/import-draft commands.
 	// #269/#270 promote seven existing people/device CLI operations.
 	// #247 adds the approved grant-batch draft; #228 retains its exact qualification commands.
 	// #102's 17 available/38 planned baseline remains the arithmetic base:

@@ -5728,6 +5728,226 @@
     {
       "path": [
         "service",
+        "import",
+        "draft"
+      ],
+      "summary": "Draft a local service registration for exact-plan acknowledgement and apply.",
+      "availability": "available",
+      "ownerPhase": "8",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected operator profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one inert service-import draft request.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/service-import-draft-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/declaration-revision",
+      "examples": [
+        {
+          "summary": "Draft a local service registration for exact-plan acknowledgement and apply.",
+          "arguments": [
+            "service",
+            "import",
+            "draft",
+            "--config",
+            "fixture/client.json",
+            "--file",
+            "fixture/service-import.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "service",
+        "list"
+      ],
+      "summary": "List registered services within current read scope.",
+      "availability": "available",
+      "ownerPhase": "8",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--after",
+          "kind": "value",
+          "valueName": "id",
+          "required": false,
+          "repeatable": false,
+          "summary": "Continue after one service ID.",
+          "enum": null
+        },
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected operator profile.",
+          "enum": null
+        },
+        {
+          "name": "--limit",
+          "kind": "value",
+          "valueName": "count",
+          "required": false,
+          "repeatable": false,
+          "summary": "Return between 1 and 100 services (default 50).",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/service-list",
+      "examples": [
+        {
+          "summary": "List registered services within current read scope.",
+          "arguments": [
+            "service",
+            "list",
+            "--config",
+            "fixture/client.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "service",
+        "observe"
+      ],
+      "summary": "Read current provider observations for one registered service.",
+      "availability": "available",
+      "ownerPhase": "8",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected operator profile.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        },
+        {
+          "name": "--service-id",
+          "kind": "value",
+          "valueName": "id",
+          "required": true,
+          "repeatable": false,
+          "summary": "Select one exact registered service.",
+          "enum": null
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/service-observation",
+      "examples": [
+        {
+          "summary": "Read current provider observations for one registered service.",
+          "arguments": [
+            "service",
+            "observe",
+            "--config",
+            "fixture/client.json",
+            "--service-id",
+            "service-a",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "service",
         "plan"
       ],
       "summary": "Create an inert service change and request its plan.",
@@ -5744,6 +5964,76 @@
       "availability": "planned",
       "ownerPhase": "8",
       "risk": "unassigned"
+    },
+    {
+      "path": [
+        "service",
+        "show"
+      ],
+      "summary": "Read one registered service; host admission remains unverified.",
+      "availability": "available",
+      "ownerPhase": "8",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected operator profile.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        },
+        {
+          "name": "--service-id",
+          "kind": "value",
+          "valueName": "id",
+          "required": true,
+          "repeatable": false,
+          "summary": "Select one exact registered service.",
+          "enum": null
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/service-record",
+      "examples": [
+        {
+          "summary": "Read one registered service; host admission remains unverified.",
+          "arguments": [
+            "service",
+            "show",
+            "--config",
+            "fixture/client.json",
+            "--service-id",
+            "service-a",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
@@ -6799,6 +7089,11 @@
       "artifactPath": "schemas/v1/control-recovery-receive-input.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/coolify-service-binding",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/coolify-service-binding.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/credential-import-request",
       "version": "1.1.0",
       "artifactPath": "schemas/v1/credential-import-request.schema.json"
@@ -6981,6 +7276,11 @@
       "id": "vegastack-labs.dev/gate-view",
       "version": "1.1.0",
       "artifactPath": "schemas/v1/gate-view.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/harbor-service-binding",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/harbor-service-binding.schema.json"
     },
     {
       "id": "vegastack-labs.dev/host-access-draft-request",
@@ -7975,6 +8275,46 @@
       "id": "vegastack-labs.dev/server-status-data",
       "version": "1.1.0",
       "artifactPath": "schemas/v1/server-status-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/service-definition",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/service-definition.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/service-import-draft-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/service-import-draft-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/service-import-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/service-import-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/service-list",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/service-list.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/service-observation",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/service-observation.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/service-provider-binding",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/service-provider-binding.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/service-read-query",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/service-read-query.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/service-record",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/service-record.schema.json"
     },
     {
       "id": "vegastack-labs.dev/signed-inventory-draft-export",
