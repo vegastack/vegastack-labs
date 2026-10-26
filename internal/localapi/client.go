@@ -65,6 +65,10 @@ type TypedResponse[T any] struct {
 }
 
 type Client interface {
+	ObserveIngress(context.Context, serverconfig.Profile, generated.IngressDraftRequest) (TypedResponse[generated.IngressStatusData], error)
+	DraftIngress(context.Context, serverconfig.Profile, generated.IngressDraftRequest) (TypedResponse[generated.IngressDraftSubmission], error)
+	IngressStatus(context.Context, serverconfig.Profile, string) (TypedResponse[generated.IngressStatusData], error)
+	SubmitIngressRolloutEvidence(context.Context, serverconfig.Profile, generated.IngressRolloutEvidenceRequest) (TypedResponse[generated.IngressStatusData], error)
 	ObserveMesh(context.Context, serverconfig.Profile, generated.MeshDraftRequest) (TypedResponse[generated.MeshStatusData], error)
 	DraftMesh(context.Context, serverconfig.Profile, generated.MeshDraftRequest) (TypedResponse[generated.MeshDraftSubmission], error)
 	MeshStatus(context.Context, serverconfig.Profile, string) (TypedResponse[generated.MeshStatusData], error)

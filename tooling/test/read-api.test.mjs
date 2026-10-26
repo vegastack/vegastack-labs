@@ -317,3 +317,22 @@ test("approved #277 endpoints retain exact operator-only transport contracts", a
     }
   }
 });
+
+
+test("approved Mesh and ingress routes retain exact finite endpoint contracts", async (t) => {
+  const registry = JSON.parse(await readFile(path.join(process.cwd(), "schemas/v1/endpoint-registry.json"), "utf8"));
+  for (const original of registry.endpoints.filter(({id}) => /^api\.v1\.network\.(mesh|ingress)\./.test(id))) {
+    for (const change of ["remove", "audience", "method", "path", "schema", "extra"]) {
+      const copy = structuredClone(registry);
+      const endpoint = copy.endpoints.find(({id}) => id === original.id);
+      if (change === "remove") copy.endpoints = copy.endpoints.filter(({id}) => id !== original.id);
+      if (change === "audience") endpoint.audiences.push("server-adapter");
+      if (change === "method") endpoint.method = "DELETE";
+      if (change === "path") endpoint.path += "/unapproved";
+      if (change === "schema") endpoint.dataSchema = "vegastack-labs.dev/run-result";
+      if (change === "extra") copy.endpoints.push({...endpoint, id: original.id + ".unapproved"});
+      const root = await fixtureRepo(t, {"schemas/v1/endpoint-registry.json": `${JSON.stringify(copy)}\n`});
+      assert.ok((await verifyReadAPI(root)).codes.includes("READ_API_ENDPOINT_DRIFT"), `${original.id}: ${change}`);
+    }
+  }
+});

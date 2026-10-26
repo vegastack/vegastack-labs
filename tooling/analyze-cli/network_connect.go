@@ -21,16 +21,22 @@ func approvedNetworkConnectPackage(c checkedSourcePackage, module, relative stri
 	}
 	names := append([]string(nil), c.listed.GoFiles...)
 	slices.Sort(names)
-	seal, ok := networkConnectSourceSeals[relative+"|"+strings.Join(names, ",")]
-	if !ok {
-		return false
+	key := relative + "|" + strings.Join(names, ",")
+	for _, seals := range []map[string]hostActionSourceSeal{networkConnectSourceSeals, combinedNetworkSourceSeals} {
+		seal, ok := seals[key]
+		if !ok {
+			continue
+		}
+		imports := append([]string(nil), c.listed.Imports...)
+		slices.Sort(imports)
+		expected := append([]string(nil), seal.imports...)
+		for i, v := range expected {
+			expected[i] = strings.Replace(v, "github.com/vegastack/vegastack-labs/", module+"/", 1)
+		}
+		slices.Sort(expected)
+		if slices.Equal(imports, expected) && digestSourceFiles(c.listed.Dir, names) == seal.digest {
+			return true
+		}
 	}
-	imports := append([]string(nil), c.listed.Imports...)
-	slices.Sort(imports)
-	expected := append([]string(nil), seal.imports...)
-	for i, v := range expected {
-		expected[i] = strings.Replace(v, "github.com/vegastack/vegastack-labs/", module+"/", 1)
-	}
-	slices.Sort(expected)
-	return slices.Equal(imports, expected) && digestSourceFiles(c.listed.Dir, names) == seal.digest
+	return false
 }

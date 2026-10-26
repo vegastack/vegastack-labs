@@ -438,6 +438,7 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 	}
 
 	wantAvailable := map[string]bool{
+		"network ingress status": false, "network ingress observe": false, "network ingress draft": false, "network ingress rollout-evidence": false,
 		"network mesh status": false, "network mesh draft": false, "network mesh observe": false,
 		"node target prepare": false, "node action prepare": false, "node access prepare": false, "node observation inspect": false, "node replacement prepare": false, "node replacement inspect": false,
 		"qualification fixture-peer": false, "qualification inspect": false, "qualification native": false, "qualification step": false,

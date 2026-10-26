@@ -11,7 +11,16 @@ import (
 func TestNetworkConnectSourceSealsRejectDrift(t *testing.T) {
 	const module = "github.com/vegastack/vegastack-labs"
 	checked := 0
+	current := make(map[string]hostActionSourceSeal)
 	for key, seal := range networkConnectSourceSeals {
+		if strings.HasPrefix(key, "internal/networkconnect|") {
+			current[key] = seal
+		}
+	}
+	for key, seal := range combinedNetworkSourceSeals {
+		current[key] = seal
+	}
+	for key, seal := range current {
 		relative, joined, _ := strings.Cut(key, "|")
 		if relative != "internal/localapi" && relative != "internal/networkconnect" && relative != "internal/serverconfig" {
 			t.Fatalf("unexpected source seal %q", relative)
