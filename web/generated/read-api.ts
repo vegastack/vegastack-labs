@@ -7,11 +7,13 @@
 // api.v1.declarations.get
 // api.v1.declarations.plan-preparation.get
 // api.v1.declarations.revise
+// api.v1.devices.list
 // api.v1.events.stream
 // api.v1.gate-evidence.create
 // api.v1.gates.check
 // api.v1.gates.get
 // api.v1.gates.list
+// api.v1.grants.list
 // api.v1.health.get
 // api.v1.host-access.draft
 // api.v1.host-actions.draft
@@ -33,12 +35,14 @@
 // api.v1.inventory-draft-observations.list
 // api.v1.inventory-drafts.get
 // api.v1.inventory-drafts.list
+// api.v1.people.list
 // api.v1.plans.approval-request.create
 // api.v1.plans.approval-status.get
 // api.v1.plans.create
 // api.v1.plans.execute
 // api.v1.plans.get
 // api.v1.plans.run-resolution.get
+// api.v1.providers.list
 // api.v1.recovery-points.list
 // api.v1.restore-drafts.create
 // api.v1.restores.list
@@ -1594,6 +1598,87 @@ export interface OffsiteRunSpec {
   readonly "ruleLimit": number;
   readonly "retentionSeconds": number;
   readonly "sessionTtlSeconds": number;
+}
+
+export interface OperatorDevice {
+  readonly "schema": "vegastack-labs.dev/operator-device";
+  readonly "schemaVersion": "1.0.0";
+  readonly "deviceId": string;
+  readonly "principalId": string;
+  readonly "status": "pending" | "approved" | "revoked";
+  readonly "deviceRevision": number;
+}
+
+export interface OperatorDeviceList {
+  readonly "schema": "vegastack-labs.dev/operator-device-list";
+  readonly "schemaVersion": "1.0.0";
+  readonly "devices": ReadonlyArray<OperatorDevice>;
+  readonly "nextAfter": string;
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
+}
+
+export interface OperatorGrant {
+  readonly "schema": "vegastack-labs.dev/operator-grant";
+  readonly "schemaVersion": "1.0.0";
+  readonly "grantId": string;
+  readonly "principalId": string;
+  readonly "role": string;
+  readonly "action": string;
+  readonly "capability": string;
+  readonly "resourceKind": string;
+  readonly "resourceId": string;
+  readonly "branch": "" | "human" | "preauthorized";
+  readonly "status": "active" | "revoked";
+  readonly "grantRevision": number;
+}
+
+export interface OperatorGrantList {
+  readonly "schema": "vegastack-labs.dev/operator-grant-list";
+  readonly "schemaVersion": "1.0.0";
+  readonly "grants": ReadonlyArray<OperatorGrant>;
+  readonly "nextAfter": string;
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
+}
+
+export interface OperatorPeoplePage {
+  readonly "schema": "vegastack-labs.dev/operator-people-page";
+  readonly "schemaVersion": "1.0.0";
+  readonly "people": ReadonlyArray<OperatorPerson>;
+  readonly "nextAfter": string;
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
+}
+
+export interface OperatorPerson {
+  readonly "schema": "vegastack-labs.dev/operator-person";
+  readonly "schemaVersion": "1.0.0";
+  readonly "principalId": string;
+  readonly "status": "active" | "suspended" | "revoked";
+  readonly "grantRevision": number;
+}
+
+export interface OperatorProvider {
+  readonly "schema": "vegastack-labs.dev/operator-provider";
+  readonly "schemaVersion": "1.0.0";
+  readonly "capability": string;
+  readonly "configured": boolean;
+  readonly "connectivity": "unknown" | "unavailable";
+}
+
+export interface OperatorProviderList {
+  readonly "schema": "vegastack-labs.dev/operator-provider-list";
+  readonly "schemaVersion": "1.0.0";
+  readonly "providers": ReadonlyArray<OperatorProvider>;
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
+}
+
+export interface OperatorReadQuery {
+  readonly "principalId"?: string;
+  readonly "after"?: string;
+  readonly "limit"?: number;
 }
 
 export interface Plan {
@@ -11666,6 +11751,483 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/operator-device",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/operator-device"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "deviceId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "principalId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "status",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "pending",
+          "approved",
+          "revoked"
+        ]
+      },
+      {
+        "name": "deviceRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/operator-device-list",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/operator-device-list"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "devices",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/operator-device",
+        "maxItems": 100
+      },
+      {
+        "name": "nextAfter",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "maxLength": 128
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/operator-grant",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/operator-grant"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "grantId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "principalId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "role",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "action",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "capability",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "resourceKind",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "resourceId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "branch",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "",
+          "human",
+          "preauthorized"
+        ]
+      },
+      {
+        "name": "status",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "active",
+          "revoked"
+        ]
+      },
+      {
+        "name": "grantRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/operator-grant-list",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/operator-grant-list"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "grants",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/operator-grant",
+        "maxItems": 100
+      },
+      {
+        "name": "nextAfter",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "maxLength": 128
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/operator-people-page",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/operator-people-page"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "people",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/operator-person",
+        "maxItems": 100
+      },
+      {
+        "name": "nextAfter",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "maxLength": 128
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/operator-person",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/operator-person"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "principalId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "status",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "active",
+          "suspended",
+          "revoked"
+        ]
+      },
+      {
+        "name": "grantRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/operator-provider",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/operator-provider"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "capability",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "configured",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "connectivity",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "unknown",
+          "unavailable"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/operator-provider-list",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/operator-provider-list"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "providers",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/operator-provider",
+        "maxItems": 16
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/operator-read-query",
+    "fields": [
+      {
+        "name": "principalId",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "maxLength": 128
+      },
+      {
+        "name": "after",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "maxLength": 128
+      },
+      {
+        "name": "limit",
+        "kind": "integer",
+        "required": false,
+        "nullable": false,
+        "minimum": 1,
+        "maximum": 100
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/plan",
     "fields": [
       {
@@ -13693,6 +14255,42 @@ function decodeOffsiteRunSpec(value: unknown): OffsiteRunSpec {
   return decodeSchema("vegastack-labs.dev/offsite-run-spec", value) as unknown as OffsiteRunSpec;
 }
 
+function decodeOperatorDevice(value: unknown): OperatorDevice {
+  return decodeSchema("vegastack-labs.dev/operator-device", value) as unknown as OperatorDevice;
+}
+
+function decodeOperatorDeviceList(value: unknown): OperatorDeviceList {
+  return decodeSchema("vegastack-labs.dev/operator-device-list", value) as unknown as OperatorDeviceList;
+}
+
+function decodeOperatorGrant(value: unknown): OperatorGrant {
+  return decodeSchema("vegastack-labs.dev/operator-grant", value) as unknown as OperatorGrant;
+}
+
+function decodeOperatorGrantList(value: unknown): OperatorGrantList {
+  return decodeSchema("vegastack-labs.dev/operator-grant-list", value) as unknown as OperatorGrantList;
+}
+
+function decodeOperatorPeoplePage(value: unknown): OperatorPeoplePage {
+  return decodeSchema("vegastack-labs.dev/operator-people-page", value) as unknown as OperatorPeoplePage;
+}
+
+function decodeOperatorPerson(value: unknown): OperatorPerson {
+  return decodeSchema("vegastack-labs.dev/operator-person", value) as unknown as OperatorPerson;
+}
+
+function decodeOperatorProvider(value: unknown): OperatorProvider {
+  return decodeSchema("vegastack-labs.dev/operator-provider", value) as unknown as OperatorProvider;
+}
+
+function decodeOperatorProviderList(value: unknown): OperatorProviderList {
+  return decodeSchema("vegastack-labs.dev/operator-provider-list", value) as unknown as OperatorProviderList;
+}
+
+function decodeOperatorReadQuery(value: unknown): OperatorReadQuery {
+  return decodeSchema("vegastack-labs.dev/operator-read-query", value) as unknown as OperatorReadQuery;
+}
+
 function decodePlan(value: unknown): Plan {
   return decodeSchema("vegastack-labs.dev/plan", value) as unknown as Plan;
 }
@@ -14018,6 +14616,13 @@ async function* streamSSE<T>(fetchTransport: FetchTransport, url: string, option
   }
 }
 
+function operatorReadQuery(query: OperatorReadQuery): string {
+ const params = new URLSearchParams();
+ if (query.principalId !== undefined) params.set("principalId", query.principalId);
+ if (query.after !== undefined) params.set("after", query.after);
+ if (query.limit !== undefined) { if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new ReadClientError("schema-mismatch", "INPUT_INVALID", "limit"); params.set("limit", String(query.limit)); }
+ return params.size ? "?" + params.toString() : "";
+}
 export type ReadClient = {
   readonly listAuditCheckpoints: (query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<BrowserAuditCheckpointListData>>;
   readonly getAuditVerification: (options?: RequestOptions) => Promise<ReadResult<BrowserAuditVerificationData>>;
@@ -14025,9 +14630,11 @@ export type ReadClient = {
   readonly getDatabaseStatus: (options?: RequestOptions) => Promise<ReadResult<DatabaseStatusData>>;
   readonly getDeclaration: (path: { readonly declarationId: string; readonly revision: number }, options?: RequestOptions) => Promise<ReadResult<BrowserDeclarationRevision>>;
   readonly preparePlan: (path: { readonly declarationId: string; readonly revision: number }, options?: RequestOptions) => Promise<ReadResult<PlanPreparation>>;
+  readonly listDevices: (query?: OperatorReadQuery, options?: RequestOptions) => Promise<ReadResult<OperatorDeviceList>>;
   readonly streamEvents: (options?: StreamOptions) => AsyncIterable<ApiAuditEventData>;
   readonly getGate: (path: { readonly gateId: string }, query?: HostGateQuery, options?: RequestOptions) => Promise<ReadResult<GateView>>;
   readonly listGates: (query?: HostGateQuery, options?: RequestOptions) => Promise<ReadResult<GateListData>>;
+  readonly listGrants: (query?: OperatorReadQuery, options?: RequestOptions) => Promise<ReadResult<OperatorGrantList>>;
   readonly getHealth: (options?: RequestOptions) => Promise<ReadResult<ServerStatusData>>;
   readonly getHostObservation: (path: { readonly observationID: string }, options?: RequestOptions) => Promise<ReadResult<HostObservation>>;
   readonly getHostReplacement: (path: { readonly replacementId: string }, options?: RequestOptions) => Promise<ReadResult<HostReplacementState>>;
@@ -14043,9 +14650,11 @@ export type ReadClient = {
   readonly listInventoryDraftObservations: (path: { readonly draftId: string; readonly revision: number }, query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<ApiInventoryObservationListData>>;
   readonly getInventoryDraft: (path: { readonly draftId: string; readonly revision: number }, options?: RequestOptions) => Promise<ReadResult<ApiInventoryDraftData>>;
   readonly listInventoryDrafts: (query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<ApiInventoryDraftListData>>;
+  readonly listPeople: (query?: OperatorReadQuery, options?: RequestOptions) => Promise<ReadResult<OperatorPeoplePage>>;
   readonly getApprovalStatus: (path: { readonly planId: string }, options?: RequestOptions) => Promise<ReadResult<ApprovalStatus>>;
   readonly getPlan: (path: { readonly planId: string }, options?: RequestOptions) => Promise<ReadResult<PlanPresentation>>;
   readonly resolveRun: (path: { readonly planId: string; readonly idempotencyKey: string }, options?: RequestOptions) => Promise<ReadResult<RunPresentation>>;
+  readonly listProviders: (options?: RequestOptions) => Promise<ReadResult<OperatorProviderList>>;
   readonly listRecoveryPoints: (query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<BrowserRecoveryPointListData>>;
   readonly listRestoreStatuses: (query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<BrowserRestoreStatusListData>>;
   readonly getRun: (path: { readonly runId: string }, options?: RequestOptions) => Promise<ReadResult<RunPresentation>>;
@@ -14082,6 +14691,13 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
       const operation = "api.v1.declarations.plan-preparation.get";
       return performRead(fetchTransport, "/api/v1/declarations/" + encodePathString(path.declarationId, "declarationId") + "/revisions/" + encodePathInteger(path.revision, "revision") + "/plan-preparation", options, operation, decodePlanPreparation);
     },
+    async listDevices(query = {}, options = {}) {
+      const operation = "api.v1.devices.list";
+      const result = await performRead(fetchTransport, "/api/v1/devices" + operatorReadQuery(query), options, operation, decodeOperatorDeviceList);
+      const data = result.data;
+      requireHostBinding(data.devices.every((d, i) => d.principalId === query.principalId && d.deviceId > (query.after ?? "") && (i === 0 || data.devices[i-1].deviceId < d.deviceId)) && data.devices.length <= (query.limit ?? 100) && (!data.nextAfter || (data.devices.length > 0 && data.nextAfter === data.devices[data.devices.length-1].deviceId)) && data.stateRevision === result.stateRevision && data.recoveryEpoch === result.recoveryEpoch, operation);
+      return result;
+    },
     streamEvents(options = {}) {
       return streamSSE(fetchTransport, "/api/v1/events", options, "api.v1.events.stream", "audit-event", decodeApiAuditEventData, (data) => data.event.eventId);
     },
@@ -14092,6 +14708,13 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
     async listGates(query = {}, options = {}) {
       const operation = "api.v1.gates.list";
       return performRead(fetchTransport, "/api/v1/gates" + hostGateQuery(query), options, operation, decodeGateListData);
+    },
+    async listGrants(query = {}, options = {}) {
+      const operation = "api.v1.grants.list";
+      const result = await performRead(fetchTransport, "/api/v1/grants" + operatorReadQuery(query), options, operation, decodeOperatorGrantList);
+      const data = result.data;
+      requireHostBinding(data.grants.every((g, i) => g.principalId === query.principalId && g.grantId > (query.after ?? "") && (i === 0 || data.grants[i-1].grantId < g.grantId)) && data.grants.length <= (query.limit ?? 100) && (!data.nextAfter || (data.grants.length > 0 && data.nextAfter === data.grants[data.grants.length-1].grantId)) && data.stateRevision === result.stateRevision && data.recoveryEpoch === result.recoveryEpoch, operation);
+      return result;
     },
     async getHealth(options = {}) {
       const operation = "api.v1.health.get";
@@ -14165,6 +14788,13 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
       const operation = "api.v1.inventory-drafts.list";
       return performRead(fetchTransport, "/api/v1/inventory-drafts" + pageQuery(query), options, operation, decodeApiInventoryDraftListData);
     },
+    async listPeople(query = {}, options = {}) {
+      const operation = "api.v1.people.list";
+      const result = await performRead(fetchTransport, "/api/v1/people" + operatorReadQuery(query), options, operation, decodeOperatorPeoplePage);
+      const data = result.data;
+      requireHostBinding(data.people.every((p, i) => p.principalId > (query.after ?? "") && (i === 0 || data.people[i-1].principalId < p.principalId)) && data.people.length <= (query.limit ?? 100) && (!data.nextAfter || (data.people.length > 0 && data.nextAfter === data.people[data.people.length-1].principalId)) && data.stateRevision === result.stateRevision && data.recoveryEpoch === result.recoveryEpoch, operation);
+      return result;
+    },
     async getApprovalStatus(path, options = {}) {
       const operation = "api.v1.plans.approval-status.get";
       return performRead(fetchTransport, "/api/v1/plans/" + encodePathString(path.planId, "planId") + "/approval-status", options, operation, decodeApprovalStatus);
@@ -14176,6 +14806,13 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
     async resolveRun(path, options = {}) {
       const operation = "api.v1.plans.run-resolution.get";
       return performRead(fetchTransport, "/api/v1/plans/" + encodePathString(path.planId, "planId") + "/runs/" + encodePathString(path.idempotencyKey, "idempotencyKey") + "", options, operation, decodeRunPresentation);
+    },
+    async listProviders(options = {}) {
+      const operation = "api.v1.providers.list";
+      const result = await performRead(fetchTransport, "/api/v1/providers", options, operation, decodeOperatorProviderList);
+      const data = result.data;
+      requireHostBinding(data.providers.every(p => p.connectivity === (p.configured ? "unknown" : "unavailable")) && new Set(data.providers.map(p => p.capability)).size === data.providers.length && data.stateRevision === result.stateRevision && data.recoveryEpoch === result.recoveryEpoch, operation);
+      return result;
     },
     async listRecoveryPoints(query = {}, options = {}) {
       const operation = "api.v1.recovery-points.list";

@@ -691,6 +691,14 @@ async function* streamSSE<T>(fetchTransport: FetchTransport, url: string, option
 }
 
 `)
+	output.WriteString(`function operatorReadQuery(query: OperatorReadQuery): string {
+ const params = new URLSearchParams();
+ if (query.principalId !== undefined) params.set("principalId", query.principalId);
+ if (query.after !== undefined) params.set("after", query.after);
+ if (query.limit !== undefined) { if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new ReadClientError("schema-mismatch", "INPUT_INVALID", "limit"); params.set("limit", String(query.limit)); }
+ return params.size ? "?" + params.toString() : "";
+}
+`)
 	renderFiniteReadClient(&output, endpoints)
 	renderChangeClient(&output, endpoints)
 	renderPhase5Client(&output, endpoints)
@@ -864,6 +872,9 @@ func renderFiniteMethod(output *bytes.Buffer, endpoint metadata.EndpointDefiniti
 	}
 	if endpoint.QuerySchema != "" {
 		queryFunction := "pageQuery"
+		if endpoint.QuerySchema == "vegastack-labs.dev/operator-read-query" {
+			queryFunction = "operatorReadQuery"
+		}
 		if endpoint.QuerySchema == "vegastack-labs.dev/api-source-list-query" {
 			queryFunction = "sourceListQuery"
 		}
@@ -1069,6 +1080,14 @@ func discoveryPublicPlanField(schemaID, name string) bool {
 func renderHostBoundMethod(output *bytes.Buffer, e metadata.EndpointDefinition, path string) bool {
 	var check, prefix, epoch, revision string
 	switch e.ID {
+	case "api.v1.people.list":
+		check = "data.people.every((p, i) => p.principalId > (query.after ?? \"\") && (i === 0 || data.people[i-1].principalId < p.principalId)) && data.people.length <= (query.limit ?? 100) && (!data.nextAfter || (data.people.length > 0 && data.nextAfter === data.people[data.people.length-1].principalId))"
+	case "api.v1.devices.list":
+		check = "data.devices.every((d, i) => d.principalId === query.principalId && d.deviceId > (query.after ?? \"\") && (i === 0 || data.devices[i-1].deviceId < d.deviceId)) && data.devices.length <= (query.limit ?? 100) && (!data.nextAfter || (data.devices.length > 0 && data.nextAfter === data.devices[data.devices.length-1].deviceId))"
+	case "api.v1.grants.list":
+		check = "data.grants.every((g, i) => g.principalId === query.principalId && g.grantId > (query.after ?? \"\") && (i === 0 || data.grants[i-1].grantId < g.grantId)) && data.grants.length <= (query.limit ?? 100) && (!data.nextAfter || (data.grants.length > 0 && data.nextAfter === data.grants[data.grants.length-1].grantId))"
+	case "api.v1.providers.list":
+		check = "data.providers.every(p => p.connectivity === (p.configured ? \"unknown\" : \"unavailable\")) && new Set(data.providers.map(p => p.capability)).size === data.providers.length"
 	case "api.v1.hosts.list":
 		check = "data.hosts.every((host, index) => host.stateRevision <= data.stateRevision && host.recoveryEpoch <= data.recoveryEpoch && (index === 0 || data.hosts[index - 1].hostId < host.hostId))"
 	case "api.v1.hosts.get":

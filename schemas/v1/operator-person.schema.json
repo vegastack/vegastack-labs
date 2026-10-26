@@ -1,0 +1,45 @@
+{
+  "$id": "vegastack-labs.dev/operator-person",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "grantRevision": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "principalId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/operator-person"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "active",
+        "suspended",
+        "revoked"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "principalId",
+    "status",
+    "grantRevision"
+  ],
+  "title": "VegaStack Labs operator person",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

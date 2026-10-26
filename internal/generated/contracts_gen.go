@@ -284,6 +284,15 @@ const (
 	SchemaIDNativeVolumeSealWitness                = "vegastack-labs.dev/native-volume-seal-witness"
 	SchemaIDNativeWitnessRequest                   = "vegastack-labs.dev/native-witness-request"
 	SchemaIDOffsiteRunSpec                         = "vegastack-labs.dev/offsite-run-spec"
+	SchemaIDOperatorDevice                         = "vegastack-labs.dev/operator-device"
+	SchemaIDOperatorDeviceList                     = "vegastack-labs.dev/operator-device-list"
+	SchemaIDOperatorGrant                          = "vegastack-labs.dev/operator-grant"
+	SchemaIDOperatorGrantList                      = "vegastack-labs.dev/operator-grant-list"
+	SchemaIDOperatorPeoplePage                     = "vegastack-labs.dev/operator-people-page"
+	SchemaIDOperatorPerson                         = "vegastack-labs.dev/operator-person"
+	SchemaIDOperatorProvider                       = "vegastack-labs.dev/operator-provider"
+	SchemaIDOperatorProviderList                   = "vegastack-labs.dev/operator-provider-list"
+	SchemaIDOperatorReadQuery                      = "vegastack-labs.dev/operator-read-query"
 	SchemaIDOutboxRecordData                       = "vegastack-labs.dev/outbox-record-data"
 	SchemaIDPlan                                   = "vegastack-labs.dev/plan"
 	SchemaIDPlanBinding                            = "vegastack-labs.dev/plan-binding"
@@ -3996,6 +4005,87 @@ type OffsiteRunSpec struct {
 	SessionTTLSeconds          int64  `json:"sessionTtlSeconds"`
 }
 
+type OperatorDevice struct {
+	Schema         string `json:"schema"`
+	SchemaVersion  string `json:"schemaVersion"`
+	DeviceID       string `json:"deviceId"`
+	PrincipalID    string `json:"principalId"`
+	Status         string `json:"status"`
+	DeviceRevision int64  `json:"deviceRevision"`
+}
+
+type OperatorDeviceList struct {
+	Schema        string           `json:"schema"`
+	SchemaVersion string           `json:"schemaVersion"`
+	Devices       []OperatorDevice `json:"devices"`
+	NextAfter     string           `json:"nextAfter"`
+	StateRevision int64            `json:"stateRevision"`
+	RecoveryEpoch int64            `json:"recoveryEpoch"`
+}
+
+type OperatorGrant struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	GrantID       string `json:"grantId"`
+	PrincipalID   string `json:"principalId"`
+	Role          string `json:"role"`
+	Action        string `json:"action"`
+	Capability    string `json:"capability"`
+	ResourceKind  string `json:"resourceKind"`
+	ResourceID    string `json:"resourceId"`
+	Branch        string `json:"branch"`
+	Status        string `json:"status"`
+	GrantRevision int64  `json:"grantRevision"`
+}
+
+type OperatorGrantList struct {
+	Schema        string          `json:"schema"`
+	SchemaVersion string          `json:"schemaVersion"`
+	Grants        []OperatorGrant `json:"grants"`
+	NextAfter     string          `json:"nextAfter"`
+	StateRevision int64           `json:"stateRevision"`
+	RecoveryEpoch int64           `json:"recoveryEpoch"`
+}
+
+type OperatorPeoplePage struct {
+	Schema        string           `json:"schema"`
+	SchemaVersion string           `json:"schemaVersion"`
+	People        []OperatorPerson `json:"people"`
+	NextAfter     string           `json:"nextAfter"`
+	StateRevision int64            `json:"stateRevision"`
+	RecoveryEpoch int64            `json:"recoveryEpoch"`
+}
+
+type OperatorPerson struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	PrincipalID   string `json:"principalId"`
+	Status        string `json:"status"`
+	GrantRevision int64  `json:"grantRevision"`
+}
+
+type OperatorProvider struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	Capability    string `json:"capability"`
+	Configured    bool   `json:"configured"`
+	Connectivity  string `json:"connectivity"`
+}
+
+type OperatorProviderList struct {
+	Schema        string             `json:"schema"`
+	SchemaVersion string             `json:"schemaVersion"`
+	Providers     []OperatorProvider `json:"providers"`
+	StateRevision int64              `json:"stateRevision"`
+	RecoveryEpoch int64              `json:"recoveryEpoch"`
+}
+
+type OperatorReadQuery struct {
+	PrincipalID string `json:"principalId"`
+	After       string `json:"after"`
+	Limit       int64  `json:"limit"`
+}
+
 type OutboxRecordData struct {
 	OutboxID       int64   `json:"outboxId"`
 	EventID        int64   `json:"eventId"`
@@ -5124,6 +5214,7 @@ var Endpoints = []Endpoint{
 	{ID: "api.v1.declarations.get", Method: "GET", Path: "/api/v1/declarations/{declarationId}/revisions/{revision}", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/browser-declaration-revision", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.declarations.plan-preparation.get", Method: "GET", Path: "/api/v1/declarations/{declarationId}/revisions/{revision}/plan-preparation", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/plan-preparation", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.declarations.revise", Method: "POST", Path: "/api/v1/declarations/{declarationId}/revisions", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/declaration-revision-request", DataSchema: "vegastack-labs.dev/browser-declaration-revision", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.devices.list", Method: "GET", Path: "/api/v1/devices", Availability: "available", OwnerPhase: "7", QuerySchema: "vegastack-labs.dev/operator-read-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/operator-device-list", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.events.stream", Method: "GET", Path: "/api/v1/events", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-audit-event-data", Stream: "sse", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.execution-receipts.create", Method: "POST", Path: "/api/v1/execution-receipts", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/execution-receipt-request", DataSchema: "vegastack-labs.dev/execution-receipt", Stream: "finite", Audiences: []string{"executor"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.executor-leases.claim", Method: "POST", Path: "/api/v1/executor-leases/claim", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/executor-claim-request", DataSchema: "vegastack-labs.dev/executor-lease", Stream: "finite", Audiences: []string{"executor"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
@@ -5133,6 +5224,7 @@ var Endpoints = []Endpoint{
 	{ID: "api.v1.gates.check", Method: "POST", Path: "/api/v1/gates/{gateId}/check", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/gate-check-request", DataSchema: "vegastack-labs.dev/gate-evaluation", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.gates.get", Method: "GET", Path: "/api/v1/gates/{gateId}", Availability: "available", OwnerPhase: "5", QuerySchema: "vegastack-labs.dev/host-gate-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/gate-view", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.gates.list", Method: "GET", Path: "/api/v1/gates", Availability: "available", OwnerPhase: "5", QuerySchema: "vegastack-labs.dev/host-gate-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/gate-list-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.grants.list", Method: "GET", Path: "/api/v1/grants", Availability: "available", OwnerPhase: "7", QuerySchema: "vegastack-labs.dev/operator-read-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/operator-grant-list", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.health.get", Method: "GET", Path: "/api/v1/health", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/server-status-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.host-access.draft", Method: "POST", Path: "/api/v1/host-access/draft", Availability: "available", OwnerPhase: "6", QuerySchema: "", RequestSchema: "vegastack-labs.dev/host-access-draft-request", DataSchema: "vegastack-labs.dev/host-action-submission", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.host-actions.draft", Method: "POST", Path: "/api/v1/host-actions/draft", Availability: "available", OwnerPhase: "6", QuerySchema: "", RequestSchema: "vegastack-labs.dev/host-action-request", DataSchema: "vegastack-labs.dev/host-action-submission", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
@@ -5157,6 +5249,7 @@ var Endpoints = []Endpoint{
 	{ID: "api.v1.inventory-drafts.import", Method: "POST", Path: "/api/v1/inventory-drafts/import", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "vegastack-labs.dev/inventory-import-request", DataSchema: "vegastack-labs.dev/inventory-import-data", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.inventory-drafts.list", Method: "GET", Path: "/api/v1/inventory-drafts", Availability: "available", OwnerPhase: "2", QuerySchema: "vegastack-labs.dev/api-page-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-draft-list-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.inventory-exports.create", Method: "POST", Path: "/api/v1/inventory-exports", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "vegastack-labs.dev/inventory-export-request", DataSchema: "vegastack-labs.dev/inventory-export-data", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.people.list", Method: "GET", Path: "/api/v1/people", Availability: "available", OwnerPhase: "7", QuerySchema: "vegastack-labs.dev/operator-read-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/operator-people-page", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.plans.acknowledgements.create", Method: "POST", Path: "/api/v1/plans/{planId}/acknowledgements", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/acknowledgement-request", DataSchema: "vegastack-labs.dev/acknowledgement", Stream: "finite", Audiences: []string{"operator", "server-adapter"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.plans.acknowledgements.get", Method: "GET", Path: "/api/v1/plans/{planId}/acknowledgements", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/acknowledgement", Stream: "finite", Audiences: []string{"operator", "server-adapter"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.plans.approval-request.create", Method: "POST", Path: "/api/v1/plans/{planId}/approval-request", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/plan-reference-request", DataSchema: "vegastack-labs.dev/approval-status", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
@@ -5165,6 +5258,7 @@ var Endpoints = []Endpoint{
 	{ID: "api.v1.plans.execute", Method: "POST", Path: "/api/v1/plans/{planId}/execute", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/plan-reference-request", DataSchema: "vegastack-labs.dev/run-presentation", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.plans.get", Method: "GET", Path: "/api/v1/plans/{planId}", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/plan-presentation", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.plans.run-resolution.get", Method: "GET", Path: "/api/v1/plans/{planId}/runs/{idempotencyKey}", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/run-presentation", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.providers.list", Method: "GET", Path: "/api/v1/providers", Availability: "available", OwnerPhase: "7", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/operator-provider-list", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.qualification.collect", Method: "POST", Path: "/api/v1/qualification/collect", Availability: "available", OwnerPhase: "6", QuerySchema: "", RequestSchema: "vegastack-labs.dev/native-collect-request", DataSchema: "vegastack-labs.dev/native-collect-data", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.qualification.inspect", Method: "POST", Path: "/api/v1/qualification/inspect", Availability: "available", OwnerPhase: "6", QuerySchema: "", RequestSchema: "vegastack-labs.dev/qualification-inspect-request", DataSchema: "vegastack-labs.dev/qualification-inspect-data", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.qualification.producer", Method: "POST", Path: "/api/v1/qualification/native/producer", Availability: "available", OwnerPhase: "6", QuerySchema: "", RequestSchema: "vegastack-labs.dev/native-producer-lookup-request", DataSchema: "vegastack-labs.dev/native-producer-lookup-data", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "local", MaxRequestBytes: 8192},

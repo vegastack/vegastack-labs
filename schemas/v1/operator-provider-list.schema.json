@@ -1,0 +1,85 @@
+{
+  "$defs": {
+    "operator-provider": {
+      "additionalProperties": false,
+      "properties": {
+        "capability": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "configured": {
+          "type": "boolean"
+        },
+        "connectivity": {
+          "enum": [
+            "unknown",
+            "unavailable"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/operator-provider"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "capability",
+        "configured",
+        "connectivity"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/operator-provider-list",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "providers": {
+      "items": {
+        "$ref": "#/$defs/operator-provider"
+      },
+      "maxItems": 16,
+      "type": "array"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/operator-provider-list"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "stateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "providers",
+    "stateRevision",
+    "recoveryEpoch"
+  ],
+  "title": "VegaStack Labs operator provider list",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}
