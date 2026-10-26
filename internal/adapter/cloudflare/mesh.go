@@ -103,7 +103,7 @@ func (a *MeshAdapter) Verify(ctx context.Context, op adapter.Operation, effect a
 	done, ok := a.completed[effect.ResultDigest]
 	delete(a.completed, effect.ResultDigest)
 	a.mu.Unlock()
-	if !ok || mesh.Digest(done.operation) != mesh.Digest(op) || effect.Status != "succeeded" {
+	if !ok || done.operation.OperationID != op.OperationID || done.operation.OperationType != op.OperationType || done.operation.AdapterID != op.AdapterID || done.operation.ExecutorID != op.ExecutorID || done.operation.TargetID != op.TargetID || done.operation.InputDigest != op.InputDigest || done.operation.ArtifactDigest != op.ArtifactDigest || done.operation.Idempotent != op.Idempotent || effect.Status != "succeeded" {
 		return adapter.Verification{Digest: effect.ResultDigest}, mesh.Error(generated.ErrorCodeIntegrityFailure)
 	}
 	fail := func(e error) (adapter.Verification, error) {

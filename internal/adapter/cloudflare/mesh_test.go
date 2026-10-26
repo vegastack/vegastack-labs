@@ -90,7 +90,9 @@ func TestMeshBoundSDKRereadsAndPreservesRoutes(t *testing.T) {
 	a := &MeshAdapter{Authority: authority, Backend: sdk}
 	op := adapter.Operation{OperationID: "mesh-change", OperationType: "network.mesh.profile-routing-update", AdapterID: mesh.AdapterID, ExecutorID: "central", TargetID: q.ProfileID, InputDigest: mesh.Digest("bindings"), ArtifactDigest: mesh.Digest(q)}
 	b := adapter.ExactExecutionBinding{RunID: "run-a", StepID: "step-a"}
-	effect, e := a.ExecuteBoundWithCredentials(context.Background(), op, b, []*credentialref.Value{testValue(t, "fixture-observer"), testValue(t, "fixture-mutator")})
+	executionOp := op
+	executionOp.SecretReferences = []adapter.SecretReference{{ID: "read-ref", Consumer: mesh.AdapterID}, {ID: "write-ref", Consumer: mesh.AdapterID}}
+	effect, e := a.ExecuteBoundWithCredentials(context.Background(), executionOp, b, []*credentialref.Value{testValue(t, "fixture-observer"), testValue(t, "fixture-mutator")})
 	if e != nil || effect.Status != "succeeded" {
 		t.Fatalf("effect %+v %v", effect, e)
 	}

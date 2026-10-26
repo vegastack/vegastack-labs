@@ -13,6 +13,7 @@ import (
 	mesh "github.com/vegastack/vegastack-labs/internal/networkmesh"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 )
@@ -177,6 +178,7 @@ func (c *SDKClient) Observe(ctx context.Context, q generated.MeshChange, v *cred
 	default:
 		return out, mesh.Error(generated.ErrorCodeInputInvalid)
 	}
+	slices.SortFunc(out.Routes, func(a, b generated.MeshRoute) int { return strings.Compare(a.Address, b.Address) })
 	out.Digest = mesh.Digest(out)
 	return out, nil
 }

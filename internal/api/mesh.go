@@ -27,7 +27,7 @@ func RegisterMeshOperations(app *Application, c MeshOperations) error {
 	if app == nil || c.Repository == nil || c.Declarations == nil || c.Credentials == nil || c.Results != app.config.Results {
 		return apiFailure(generated.ErrorCodeInputInvalid, "mesh-config")
 	}
-	app.routes = append(app.routes, route{id: "api.v1.network.mesh.observe", method: http.MethodPost, pattern: "/api/v1/network/mesh/observe", deferredAuthorization: true, handler: app.meshObserve(c)}, route{id: "api.v1.network.mesh.draft", method: http.MethodPost, pattern: "/api/v1/network/mesh/draft", deferredAuthorization: true, handler: app.meshDraft(c)}, route{id: "api.v1.network.mesh.status", method: http.MethodGet, pattern: "/api/v1/network/mesh/{profileID}", capability: "network.mesh.read", kind: "mesh-profile", resourceParam: "profileID", handler: app.meshStatus(c)})
+	app.routes = append(app.routes, route{id: "api.v1.network.mesh.observe", method: http.MethodPost, pattern: "/api/v1/network/mesh/observe", deferredAuthorization: true, handler: app.meshObserve(c)}, route{id: "api.v1.network.mesh.draft", method: http.MethodPost, pattern: "/api/v1/network/mesh/draft", deferredAuthorization: true, handler: app.meshDraft(c)}, route{id: "api.v1.network.mesh.status", method: http.MethodGet, pattern: "/api/v1/network/mesh/{profileID}", deferredAuthorization: true, handler: app.meshStatus(c)})
 	if !routesAreGeneratedSubset(app.routes) {
 		app.routes = app.routes[:len(app.routes)-3]
 		return apiFailure(generated.ErrorCodeIntegrityFailure, "endpoint-registry")
@@ -88,6 +88,10 @@ func (app *Application) meshStatus(c MeshOperations) func(http.ResponseWriter, *
 		const op = "api.v1.network.mesh.status"
 		if r.URL.RawQuery != "" {
 			app.failure(w, op, apiFailure(generated.ErrorCodeInputInvalid, "mesh-query"))
+			return
+		}
+		if _, e := app.authorizeAction(r, authorization.ActionRead, authorization.Target{Capability: "network.mesh.read", ResourceKind: "mesh-profile", ResourceID: p["profileID"]}); e != nil {
+			app.failure(w, op, e)
 			return
 		}
 		data, e := c.Repository.Status(r.Context(), p["profileID"])

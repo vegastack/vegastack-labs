@@ -49,9 +49,13 @@ func meshOwnership(row discoveryRow, c generated.MeshChange, epoch int64) error 
 	var oldEpoch int64
 	err := row(`SELECT revision,scope_digest,recovery_epoch FROM mesh_ownership WHERE profile_id=? ORDER BY revision DESC LIMIT 1`, c.ProfileID).Scan(&rev, &scope, &oldEpoch)
 	if errors.Is(err, sql.ErrNoRows) && c.Action == "import" && c.ExpectedOwnershipRevision == 0 {
+		var n int
+		if row(`SELECT COUNT(*) FROM mesh_ownership WHERE resource_key=?`, mesh.ResourceKey(c)).Scan(&n) != nil || n != 0 {
+			return meshError(generated.ErrorCodeStateConflict)
+		}
 		return nil
 	}
-	if err != nil || oldEpoch != epoch || rev != c.ExpectedOwnershipRevision || scope != mesh.ScopeDigest(c) || c.Action == "import" {
+	if err != nil || oldEpoch != epoch || rev != c.ExpectedOwnershipRevision || scope != mesh.OwnershipDigest(c) || c.Action == "import" {
 		return meshError(generated.ErrorCodeStateConflict)
 	}
 	return nil
@@ -171,6 +175,17 @@ func (r *MeshRepository) Resolve(ctx context.Context, op adapter.Operation, b ad
 		}
 		return nil
 	})
+	if err == nil {
+		stored, e := NewPlanRepository(r.store).GetPlan(ctx, b.PlanID)
+		if e != nil {
+			return out, e
+		}
+		ordered, e := NewCredentialRepository(r.store).GetStepBindings(ctx, stored.Plan, op.OperationID)
+		if e != nil {
+			return out, e
+		}
+		out.Bindings = ordered
+	}
 	return
 }
 func (r *MeshRepository) Record(ctx context.Context, d mesh.Staged, b adapter.ExactExecutionBinding, s mesh.Snapshot, status string) error {
@@ -182,7 +197,26 @@ func (r *MeshRepository) Record(ctx context.Context, d mesh.Staged, b adapter.Ex
 	in := discoveryIntent(a, "mesh.effect-observed", "mesh-result-"+key[7:39], key, mesh.Digest(s))
 	_, e = r.store.executeAuditIntent(ctx, in, false, func(ctx context.Context, tx *sql.Tx) error {
 		if status == "observed" {
-			_, e := tx.ExecContext(ctx, `INSERT INTO mesh_ownership VALUES(?,?,?,?,?,?)`, d.Request.Change.ProfileID, d.Request.Change.ExpectedOwnershipRevision+1, mesh.ScopeDigest(d.Request.Change), d.ID, b.RunID, b.RecoveryEpoch)
+			row := func(q string, args ...any) *sql.Row { return tx.QueryRowContext(ctx, q, args...) }
+			actor := identity.Principal{ID: d.ActorID, Method: d.ActorMethod, DeviceID: d.ActorDevice}
+			if _, e := meshGrant(identity.WithVerifiedPrincipal(ctx, actor), row, d.Request.Change.ProfileID, "author"); e != nil {
+				return e
+			}
+			if e := meshOwner(row, d.Request.Change); e != nil {
+				return e
+			}
+			if e := meshOwnership(row, d.Request.Change, b.RecoveryEpoch); e != nil {
+				return e
+			}
+			var state, epoch int64
+			if row(`SELECT state_revision,recovery_epoch FROM system_meta WHERE id=1`).Scan(&state, &epoch) != nil || state != b.StateRevision || epoch != b.RecoveryEpoch {
+				return meshError(generated.ErrorCodePlanStale)
+			}
+			var exact int
+			if row(`SELECT COUNT(*) FROM plan_runs r JOIN plan_run_steps s ON s.run_id=r.run_id JOIN target_execution_leases l ON l.lease_id=s.active_lease_id JOIN acknowledgement_requests a ON a.acknowledgement_id=r.acknowledgement_id WHERE r.run_id=? AND r.plan_id=? AND r.plan_digest=? AND r.status='running' AND r.cancellation_requested=0 AND s.step_id=? AND s.artifact_digest=? AND s.effect_state='receipt-recorded' AND l.lease_id=? AND l.status='active' AND a.status='approved' AND a.consumed_at IS NOT NULL AND a.recovery_epoch=?`, b.RunID, b.PlanID, b.PlanDigest, b.StepID, d.Digest, b.LeaseID, b.RecoveryEpoch).Scan(&exact) != nil || exact != 1 {
+				return meshError(generated.ErrorCodeApprovalRequired)
+			}
+			_, e := tx.ExecContext(ctx, `INSERT INTO mesh_ownership VALUES(?,?,?,?,?,?,?)`, d.Request.Change.ProfileID, d.Request.Change.ExpectedOwnershipRevision+1, mesh.OwnershipDigest(d.Request.Change), mesh.ResourceKey(d.Request.Change), d.ID, b.RunID, b.RecoveryEpoch)
 			if e != nil {
 				return e
 			}

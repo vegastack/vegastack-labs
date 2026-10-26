@@ -41,6 +41,14 @@ func ScopeDigest(c generated.MeshChange) string {
 	slices.Sort(x)
 	return Digest([]any{c.AccountID, c.ResourceKind, c.ResourceID, c.Mode, x})
 }
+func OwnershipDigest(c generated.MeshChange) string {
+	x := slices.Clone(c.AffectedIdentityDigests)
+	slices.Sort(x)
+	return Digest([]any{c.AccountID, c.ResourceKind, c.ResourceID, x})
+}
+func ResourceKey(c generated.MeshChange) string {
+	return Digest([]string{c.AccountID, c.ResourceKind, c.ResourceID})
+}
 func Validate(c generated.MeshChange) error {
 	bad := func() error { return Error(generated.ErrorCodeInputInvalid) }
 	if c.Mode != "foundation" && c.Mode != "qualified" {

@@ -55,16 +55,27 @@ func (meshAcceptanceGate) VerifySecretStep(context.Context, generated.Plan, gene
 	return nil
 }
 
-type meshAcceptanceAuthority struct{ repository *store.MeshRepository }
+type meshAcceptanceAuthority struct {
+	repository *store.MeshRepository
+	t          *testing.T
+}
 
 func (a meshAcceptanceAuthority) Resolve(ctx context.Context, op adapter.Operation, b adapter.ExactExecutionBinding) (mesh.Staged, error) {
-	return a.repository.Resolve(ctx, op, b)
+	d, e := a.repository.Resolve(ctx, op, b)
+	if e != nil {
+		a.t.Logf("Mesh bound authority denied: %T %v", e, e)
+	}
+	return d, e
 }
 func (a meshAcceptanceAuthority) BorrowRead(context.Context, mesh.Staged) (*credentialref.Value, error) {
 	return credentialref.NewValue([]byte("fixture-observer"))
 }
 func (a meshAcceptanceAuthority) Record(ctx context.Context, d mesh.Staged, b adapter.ExactExecutionBinding, s mesh.Snapshot, status string) error {
-	return a.repository.Record(ctx, d, b, s, status)
+	e := a.repository.Record(ctx, d, b, s, status)
+	if e != nil {
+		a.t.Logf("Mesh observation record denied: %T %v", e, e)
+	}
+	return e
 }
 
 type meshRewriteTransport struct {
@@ -207,13 +218,13 @@ func TestMeshAcceptanceAPIImportApprovedApplyAndOwnedUpdate(t *testing.T) {
 		}
 	}
 	registry := adapter.NewRegistry()
-	if e = registry.Register(mesh.AdapterID, &cloud.MeshAdapter{Authority: meshAcceptanceAuthority{repo}, Backend: sdk}); e != nil {
+	if e = registry.Register(mesh.AdapterID, &cloud.MeshAdapter{Authority: meshAcceptanceAuthority{repository: repo, t: t}, Backend: sdk}); e != nil {
 		t.Fatal(e)
 	}
 	if e = registry.RegisterCredentialResolver(adapter.CredentialCapabilityScope{ResolverID: "fixture-mesh", ConsumerID: mesh.AdapterID, ProfileID: "synthetic-profile", CapabilityID: "credential.mesh.read", Enabled: true}, meshAcceptanceResolver{}); e != nil {
 		t.Fatal(e)
 	}
-	for stage := 0; stage < 2; stage++ {
+	for stage := 0; stage < 3; stage++ {
 		current, e := revisions.CurrentRevision(ctx)
 		if e != nil {
 			t.Fatal(e)
@@ -226,7 +237,11 @@ func TestMeshAcceptanceAPIImportApprovedApplyAndOwnedUpdate(t *testing.T) {
 		grant("declaration.author", "declaration", id, "author")
 		var submission generated.MeshDraftSubmission
 		decode(request("POST", "/api/v1/network/mesh/draft", q), &submission)
-		if writes != 0 {
+		expectedWrites := 0
+		if stage == 2 {
+			expectedWrites = 1
+		}
+		if writes != expectedWrites {
 			t.Fatal("draft mutated provider")
 		}
 		stored, e := store.NewDeclarationRepository(s).GetRevision(ctx, submission.DeclarationID, 1)
@@ -237,7 +252,7 @@ func TestMeshAcceptanceAPIImportApprovedApplyAndOwnedUpdate(t *testing.T) {
 		if e != nil {
 			t.Fatal(e)
 		}
-		planned, e := plans.Create(ctx, planengine.AuthorScope{PrincipalID: principal.ID, PrincipalMethod: principal.Method}, generated.PlanCreateRequest{Schema: generated.SchemaIDPlanCreateRequest, SchemaVersion: "1.0.0", DeclarationID: stored.DeclarationID, DeclarationRevision: 1, ExpectedStateRevision: submission.StateRevision, RecoveryEpoch: submission.RecoveryEpoch, ObservationFingerprint: fingerprint, IdempotencyKey: fmt.Sprintf("mesh-plan-%d", stage), Extensions: stored.Extensions})
+		planned, e := plans.Create(ctx, planengine.AuthorScope{PrincipalID: principal.ID, PrincipalMethod: principal.Method, AgentSessionID: "mesh-fixture-session"}, generated.PlanCreateRequest{Schema: generated.SchemaIDPlanCreateRequest, SchemaVersion: "1.0.0", DeclarationID: stored.DeclarationID, DeclarationRevision: 1, ExpectedStateRevision: submission.StateRevision, RecoveryEpoch: submission.RecoveryEpoch, ObservationFingerprint: fingerprint, IdempotencyKey: fmt.Sprintf("mesh-plan-%d", stage), Extensions: stored.Extensions})
 		if e != nil {
 			t.Fatal(e)
 		}
@@ -261,23 +276,44 @@ func TestMeshAcceptanceAPIImportApprovedApplyAndOwnedUpdate(t *testing.T) {
 		}
 		branch := "human"
 		decision := generated.AuthorizationDecision{Schema: generated.SchemaIDAuthorizationDecision, SchemaVersion: "1.0.0", DecisionID: fmt.Sprintf("mesh-decision-%d", stage), PrincipalID: principal.ID, Action: "execute", TargetID: c.ProfileID, Allowed: true, Branch: &branch, ReasonCode: authorization.ReasonAllowed, GrantRevision: 1, PlanDigest: p.PlanDigest, DecidedAt: time.Now().UTC().Format(time.RFC3339), Extensions: []generated.ContractExtension{}}
-		applied, e := engine.Submit(ctx, runengine.SubmitRequest{Reference: generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: p.PlanID, PlanDigest: p.PlanDigest, IdempotencyKey: fmt.Sprintf("mesh-run-%d", stage), Extensions: []generated.ContractExtension{}}, Authorization: decision, Acknowledgement: &approved, Attribution: audit.Attribution{AuthenticatedPrincipalID: principal.ID, AuthenticatedPrincipalMethod: principal.Method, ResponsibleHumanPrincipalID: &human.ID}})
+		submissionToRun := runengine.SubmitRequest{Reference: generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: p.PlanID, PlanDigest: p.PlanDigest, IdempotencyKey: fmt.Sprintf("mesh-run-%d", stage), Extensions: []generated.ContractExtension{}}, Authorization: decision, Acknowledgement: &approved, Attribution: audit.Attribution{AuthenticatedPrincipalID: principal.ID, AuthenticatedPrincipalMethod: principal.Method, ResponsibleHumanPrincipalID: &human.ID}}
+		if stage == 0 {
+			noAck := submissionToRun
+			noAck.Acknowledgement = nil
+			if _, e := engine.Submit(ctx, noAck); e == nil || writes != 0 {
+				t.Fatal("unacknowledged import executed")
+			}
+		}
+		if stage == 2 {
+			var beforeRevocation generated.MeshStatusData
+			decode(request("GET", "/api/v1/network/mesh/pilot", nil), &beforeRevocation)
+			if beforeRevocation.OwnershipRevision != 2 {
+				t.Fatal("unexpected ownership")
+			}
+			exec(`UPDATE operator_devices SET status='revoked',device_revision=2 WHERE device_id='device-a'`)
+		}
+		applied, e := engine.Submit(ctx, submissionToRun)
+		if stage == 2 {
+			if e == nil || applied.Status == "succeeded" || writes != 1 {
+				t.Fatalf("revoked device executed: %+v %v writes=%d", applied, e, writes)
+			}
+			break
+		}
+
 		if e != nil || applied.Status != "succeeded" {
 			t.Fatalf("Mesh apply stage %d: %+v %v", stage, applied, e)
 		}
 		c.Action = "profile-routing-update"
-		c.ExpectedOwnershipRevision = 1
+		c.ExpectedOwnershipRevision = int64(stage + 1)
 		c.Routes = []generated.MeshRoute{{Schema: generated.SchemaIDMeshRoute, SchemaVersion: "1.0.0", Address: "10.0.0.0/24"}, {Schema: generated.SchemaIDMeshRoute, SchemaVersion: "1.0.0", Address: "100.96.0.0/12"}}
 	}
 	if writes != 1 {
 		t.Fatalf("import/update provider writes %d", writes)
 	}
-	var status generated.MeshStatusData
-	decode(request("GET", "/api/v1/network/mesh/pilot", nil), &status)
-	if status.OwnershipRevision != 2 || status.Status != "observed" {
-		t.Fatalf("wrong ownership/status %+v", status)
+	var ownershipRows int
+	if e := db.QueryRow(`SELECT COUNT(*) FROM mesh_ownership WHERE profile_id='pilot'`).Scan(&ownershipRows); e != nil || ownershipRows != 2 {
+		t.Fatalf("unexpected ownership after denied apply %d %v", ownershipRows, e)
 	}
-	exec(`UPDATE operator_devices SET status='revoked',device_revision=2 WHERE device_id='device-a'`)
 	if w := request("GET", "/api/v1/network/mesh/pilot", nil); w.Code == 200 {
 		t.Fatal("revoked device retained Mesh read")
 	}
