@@ -58,6 +58,13 @@ Available commands:
     --file <path>          Read one exact typed backup-verify-request JSON file (4 KiB max).
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  connect                  Authenticate and close one pinned managed-node SSH connection; no shell or forwarding.
+    --config <path>        Read one protected client profile.
+    --node <id>            Select one exact registered managed host.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --path <path>          Select auto, LAN or Mesh without changing identity checks. Allowed: auto, lan, mesh.
+    --port <port>          Use the declared SSH port 22. Allowed: 22.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   credential activate      Create an inert credential lifecycle draft; execution requires a separate exact human-approved plan.
     --config <path>        Read one protected server profile.
     --file <path>          Read one material-free lifecycle-request JSON file (4 KiB max).
@@ -190,6 +197,11 @@ Available commands:
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
     --source-revision <revision> Record the source revision supplied by its owner.
+  network endpoint draft   Draft one managed-host connection endpoint; acknowledge its exact plan before apply.
+    --config <path>        Read one protected server profile.
+    --file <path>          Read one grant batch JSON file (32 KiB max).
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   node access prepare      Prepare an inert access policy and probe sequence.
     --config <path>        Read one protected server profile.
     --file <path>          Read one bounded typed request JSON file.
@@ -382,7 +394,6 @@ Available commands:
 
 Planned commands (unavailable):
   audit                    Inspect sanitized audit history.
-  connect                  Open a constrained connection to an authorized node endpoint.
   control-plane plan       Create an immutable control-plane change plan.
   control-plane recover    Create an inert control-plane recovery change.
   control-plane verify     Verify control-plane health and authority.

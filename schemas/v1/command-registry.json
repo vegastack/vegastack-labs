@@ -843,10 +843,97 @@
       "path": [
         "connect"
       ],
-      "summary": "Open a constrained connection to an authorized node endpoint.",
-      "availability": "planned",
+      "summary": "Authenticate and close one pinned managed-node SSH connection; no shell or forwarding.",
+      "availability": "available",
       "ownerPhase": "7",
-      "risk": "unassigned"
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected client profile.",
+          "enum": null
+        },
+        {
+          "name": "--node",
+          "kind": "value",
+          "valueName": "id",
+          "required": true,
+          "repeatable": false,
+          "summary": "Select one exact registered managed host.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--path",
+          "kind": "value",
+          "valueName": "path",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select auto, LAN or Mesh without changing identity checks.",
+          "enum": [
+            "auto",
+            "lan",
+            "mesh"
+          ]
+        },
+        {
+          "name": "--port",
+          "kind": "value",
+          "valueName": "port",
+          "required": false,
+          "repeatable": false,
+          "summary": "Use the declared SSH port 22.",
+          "enum": [
+            "22"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/network-connect-result",
+      "examples": [
+        {
+          "summary": "Authenticate and close one pinned managed-node SSH connection; no shell or forwarding.",
+          "arguments": [
+            "connect",
+            "--config",
+            "fixture/profile.json",
+            "--node",
+            "synthetic-host",
+            "--port",
+            "22",
+            "--path",
+            "auto",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
@@ -2715,6 +2802,79 @@
       "availability": "planned",
       "ownerPhase": "10",
       "risk": "unassigned"
+    },
+    {
+      "path": [
+        "network",
+        "endpoint",
+        "draft"
+      ],
+      "summary": "Draft one managed-host connection endpoint; acknowledge its exact plan before apply.",
+      "availability": "available",
+      "ownerPhase": "7",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one grant batch JSON file (32 KiB max).",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/network-endpoint-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/declaration-revision",
+      "examples": [
+        {
+          "summary": "Draft an explicit endpoint.",
+          "arguments": [
+            "network",
+            "endpoint",
+            "draft",
+            "--config",
+            "fixture/profile.json",
+            "--file",
+            "fixture/endpoint.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
@@ -6940,6 +7100,26 @@
       "id": "vegastack-labs.dev/native-witness-request",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/native-witness-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/network-connect-descriptor",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/network-connect-descriptor.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/network-connect-result",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/network-connect-result.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/network-endpoint",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/network-endpoint.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/network-endpoint-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/network-endpoint-request.schema.json"
     },
     {
       "id": "vegastack-labs.dev/offsite-run-spec",

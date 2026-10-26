@@ -199,7 +199,7 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 		operations[index] = generated.PlanOperation{Sequence: operation.Sequence, OperationID: operation.OperationID, OperationType: operation.OperationType, AdapterID: operation.AdapterID, ExecutorID: service.config.OperationExecutorID, TargetID: operation.TargetID, InputDigest: operation.InputDigest, ArtifactDigest: operation.ArtifactDigest, Idempotent: operation.Idempotent}
 	}
 	risk := service.config.Risk
-	if declaration.AuthorizationGrantBatch != nil {
+	if declaration.AuthorizationGrantBatch != nil || declaration.NetworkEndpoint != nil {
 		risk = string(authorization.RiskControlPlane)
 	}
 	sequence, sequenceErr := service.accessSequence(ctx, declaration, operations)
@@ -331,6 +331,7 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 	candidate := generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", DeclarationID: declaration.DeclarationID, Binding: generated.PlanBinding{RecoveryEpoch: current.RecoveryEpoch, PriorStateRevision: current.StateRevision, StateRevision: current.StateRevision + 1, DeclarationRevision: desired.Revision, ObservationFingerprint: fingerprint, TargetDigest: targets, ReasonDigest: reason, PolicyVersion: service.config.PolicyVersion, ToolVersion: service.config.ToolVersion, ContractVersion: service.config.ContractVersion}, Operations: operations, Status: "planned", Risk: risk, AuthorizationBranch: service.config.AuthorizationBranch, ExecutorMode: service.config.ExecutorMode, ExecutorID: service.config.ExecutorID, CreatedAt: created.Format(time.RFC3339), ExpiresAt: created.Add(time.Duration(generated.PlanValiditySeconds) * time.Second).Format(time.RFC3339), Extensions: extensions}
 	candidate.HostReplacement, candidate.HostAliasClaim = replacement, aliasClaim
 	candidate.AuthorizationGrantBatch = declaration.AuthorizationGrantBatch
+	candidate.NetworkEndpoint = declaration.NetworkEndpoint
 	if service.config.HostActionCredentials != nil && len(operations) == 1 && (operations[0].OperationType == "credential.activate" || operations[0].OperationType == "credential.rotate") {
 		lifecycle, err := service.config.HostActionCredentials.LookupLifecycleDraft(ctx, declaration.DeclarationID, declaration.Revision, operations[0].OperationID)
 		if err != nil {

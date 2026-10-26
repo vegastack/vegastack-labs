@@ -20,7 +20,7 @@ func (app *Application) reviseDeclaration(config DeclarationPlanConfig) func(htt
 	return func(writer http.ResponseWriter, request *http.Request, _ authorization.ReadScope, params map[string]string) {
 		const operation = "api.v1.declarations.revise"
 		var input generated.DeclarationRevisionRequest
-		if err := decodeOperationRequest(request, config.MaxBodyBytes, []string{"schema", "schemaVersion", "declarationId", "declarationType", "expectedRevision", "expectedStateRevision", "recoveryEpoch", "operations", "reasonDigest", "extensions"}, &input, "hostAliasClaim"); err != nil {
+		if err := decodeOperationRequest(request, config.MaxBodyBytes, []string{"schema", "schemaVersion", "declarationId", "declarationType", "expectedRevision", "expectedStateRevision", "recoveryEpoch", "operations", "reasonDigest", "extensions"}, &input, "hostAliasClaim", "networkEndpoint"); err != nil {
 			app.failure(writer, operation, err)
 			return
 		}

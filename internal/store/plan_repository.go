@@ -175,6 +175,11 @@ func (repository *PlanRepository) CommitDeclarationAndPlan(ctx context.Context, 
 				return actionError(generated.ErrorCodeAuthorizationDenied)
 			}
 		}
+		if in := request.DesiredDeclaration.NetworkEndpoint; in != nil {
+			if err := validateNetworkEndpointState(ctx, row, *in, repository.store.config.NetworkConnectExcludedHostIDs...); err != nil {
+				return err
+			}
+		}
 		if b := request.DesiredDeclaration.AuthorizationGrantBatch; b != nil {
 			if err := validateLifecycleActor(ctx, *b); err != nil {
 				return err

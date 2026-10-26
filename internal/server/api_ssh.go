@@ -159,6 +159,13 @@ func (handler apiSSHHandler) readRequest(ctx context.Context, input io.Reader) (
 }
 
 func apiSSHArgumentsAllowed(operationID, requestPath string, arguments []string) (string, bool) {
+	if operationID == "api.v1.hosts.connection-descriptor.get" {
+		if id, ok := apiSSHPathID(requestPath, "/api/v1/hosts/", "/connection-descriptor"); ok && apiSSHCommandAvailable([]string{"connect"}) && reflect.DeepEqual(arguments, []string{"connect", "--node", id, "--port", "22", "--path", "auto"}) {
+			return requestPath, true
+		}
+		return "", false
+	}
+
 	if operationID == "api.v1.credential-lifecycle-drafts.create" {
 		if requestPath != "/api/v1/credential-lifecycle-drafts" || len(arguments) != 2 || arguments[0] != "credential" {
 			return "", false

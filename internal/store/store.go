@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/vegastack/vegastack-labs/internal/principal"
 	"io"
 	"math"
 	"net/url"
@@ -163,6 +164,18 @@ func Open(ctx context.Context, config Config) (*Store, error) {
 }
 
 func normalizeConfig(config Config) (Config, error) {
+	if len(config.NetworkConnectExcludedHostIDs) > 256 {
+		return config, newStoreError("INPUT_INVALID", "network-exclusions", false, nil)
+	}
+	seen := map[string]bool{}
+	for _, id := range config.NetworkConnectExcludedHostIDs {
+		if !principal.ValidID(id) || seen[id] {
+			return config, newStoreError("INPUT_INVALID", "network-exclusions", false, nil)
+		}
+		seen[id] = true
+	}
+	config.NetworkConnectExcludedHostIDs = append([]string(nil), config.NetworkConnectExcludedHostIDs...)
+
 	if config.InitialSetup != nil && config.Mode != InitializeNew {
 		return Config{}, newStoreError("INPUT_INVALID", "initial-setup-mode", false, nil)
 	}

@@ -47,6 +47,7 @@ Contract schema: `1.29.0`
 | `api.v1.host-observations.get` | `GET` | `/api/v1/host-observations/{observationID}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/host-observation` |
 | `api.v1.host-replacements.create` | `POST` | `/api/v1/host-replacements` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/host-replacement-request` | `vegastack-labs.dev/host-replacement-submission` |
 | `api.v1.host-replacements.get` | `GET` | `/api/v1/host-replacements/{replacementId}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/host-replacement-state` |
+| `api.v1.hosts.connection-descriptor.get` | `GET` | `/api/v1/hosts/{hostID}/connection-descriptor` | `available` | `operator` | `finite` | `` | `vegastack-labs.dev/network-connect-descriptor` |
 | `api.v1.hosts.get` | `GET` | `/api/v1/hosts/{hostID}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/managed-host` |
 | `api.v1.hosts.list` | `GET` | `/api/v1/hosts` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/managed-host-list` |
 | `api.v1.inventory-diffs.create` | `POST` | `/api/v1/inventory-diffs` | `available` | `operator` | `finite` | `vegastack-labs.dev/inventory-diff-request` | `vegastack-labs.dev/inventory-diff-data` |
@@ -62,6 +63,7 @@ Contract schema: `1.29.0`
 | `api.v1.inventory-drafts.import` | `POST` | `/api/v1/inventory-drafts/import` | `available` | `operator` | `finite` | `vegastack-labs.dev/inventory-import-request` | `vegastack-labs.dev/inventory-import-data` |
 | `api.v1.inventory-drafts.list` | `GET` | `/api/v1/inventory-drafts` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/api-inventory-draft-list-data` |
 | `api.v1.inventory-exports.create` | `POST` | `/api/v1/inventory-exports` | `available` | `operator` | `finite` | `vegastack-labs.dev/inventory-export-request` | `vegastack-labs.dev/inventory-export-data` |
+| `api.v1.network.endpoint-drafts.create` | `POST` | `/api/v1/network/endpoint-drafts` | `available` | `operator` | `finite` | `vegastack-labs.dev/network-endpoint-request` | `vegastack-labs.dev/declaration-revision` |
 | `api.v1.plans.acknowledgements.create` | `POST` | `/api/v1/plans/{planId}/acknowledgements` | `available` | `operator, server-adapter` | `finite` | `vegastack-labs.dev/acknowledgement-request` | `vegastack-labs.dev/acknowledgement` |
 | `api.v1.plans.acknowledgements.get` | `GET` | `/api/v1/plans/{planId}/acknowledgements` | `available` | `operator, server-adapter` | `finite` | `` | `vegastack-labs.dev/acknowledgement` |
 | `api.v1.plans.approval-request.create` | `POST` | `/api/v1/plans/{planId}/approval-request` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/plan-reference-request` | `vegastack-labs.dev/approval-status` |

@@ -62,6 +62,11 @@ func (repository *DeclarationRepository) CreateRevision(ctx context.Context, req
 			}
 		}
 		row := func(q string, a ...any) *sql.Row { return transaction.QueryRowContext(ctx, q, a...) }
+		if in := request.Document.NetworkEndpoint; in != nil {
+			if err := validateNetworkEndpointState(ctx, row, *in, repository.store.config.NetworkConnectExcludedHostIDs...); err != nil {
+				return err
+			}
+		}
 		var owners []authorization.Target
 		// Credential bindings are sealed immediately after this inert declaration;
 		// their own writer rechecks the actual reference grant.
@@ -157,7 +162,7 @@ func decodeStoredDeclaration(raw []byte, reasonDigest string, document *generate
 }
 
 func validDeclarationContent(document generated.DeclarationRevision, reasonDigest string) bool {
-	return ValidateGrantBatchDeclaration(document) && validAliasClaimDeclarationShape(document, reasonDigest) && validOffsiteDeclarationShape(document) && document.ContentDigest == declarationContentDigest(document, reasonDigest)
+	return ValidateNetworkEndpointDeclaration(document) && ValidateGrantBatchDeclaration(document) && validAliasClaimDeclarationShape(document, reasonDigest) && validOffsiteDeclarationShape(document) && document.ContentDigest == declarationContentDigest(document, reasonDigest)
 }
 
 func validOffsiteDeclarationShape(document generated.DeclarationRevision) bool {
@@ -179,6 +184,7 @@ func validOffsiteDeclarationShape(document generated.DeclarationRevision) bool {
 
 func declarationContentDigest(document generated.DeclarationRevision, reasonDigest string) string {
 	semantic := struct {
+		NetworkEndpoint         *generated.NetworkEndpointRequest         `json:"networkEndpoint,omitempty"`
 		HostAliasClaim          *generated.HostAliasClaimRequest          `json:"hostAliasClaim,omitempty"`
 		AuthorizationGrantBatch *generated.AuthorizationGrantBatchRequest `json:"grantBatch,omitempty"`
 		DeclarationID           string                                    `json:"declarationId"`
@@ -186,7 +192,7 @@ func declarationContentDigest(document generated.DeclarationRevision, reasonDige
 		Operations              []generated.DeclarationOperation          `json:"operations"`
 		ReasonDigest            string                                    `json:"reasonDigest"`
 		Extensions              []generated.ContractExtension             `json:"extensions"`
-	}{document.HostAliasClaim, document.AuthorizationGrantBatch, document.DeclarationID, document.DeclarationType, document.Operations, reasonDigest, document.Extensions}
+	}{document.NetworkEndpoint, document.HostAliasClaim, document.AuthorizationGrantBatch, document.DeclarationID, document.DeclarationType, document.Operations, reasonDigest, document.Extensions}
 	encoded, err := json.Marshal(semantic)
 	if err != nil {
 		return ""
