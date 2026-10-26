@@ -32,6 +32,8 @@ func TestServiceBrowserMethodsRemainDistinct(t *testing.T) {
 		`"api.v1.services.list"`,
 		`"/api/v1/services" + serviceReadQuery(query)`,
 		`"api.v1.services.observation.get"`,
+		`if (data.definition.serviceId !== path.serviceID)`,
+		`if (data.serviceId !== path.serviceID)`,
 	} {
 		if !strings.Contains(source, expected) {
 			t.Errorf("service browser client missing %s", expected)

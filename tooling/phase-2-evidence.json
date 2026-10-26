@@ -608,7 +608,7 @@
           "github.com/vegastack/vegastack-labs/internal/adapter/harbor",
           "github.com/vegastack/vegastack-labs/internal/servicecatalog"
         ],
-        "mutationBoundaryDigest": "sha256:b74cdf5b4c04beedbc3b4a64e9812ff7c74bf3f80f80ec0527e3c595516c1542"
+        "mutationBoundaryDigest": "sha256:ddc9f90d4bde97540f88a4c524d79fcaf4ad76ea09ee9e8d8307a79a94dfec3b"
       }
     ]
   },

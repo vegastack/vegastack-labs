@@ -894,6 +894,14 @@ func renderFiniteMethod(output *bytes.Buffer, endpoint metadata.EndpointDefiniti
 		}
 		pathExpression += " + " + queryFunction + "(query)"
 	}
+	if endpoint.ID == "api.v1.services.get" || endpoint.ID == "api.v1.services.observation.get" {
+		identity := "data.serviceId"
+		if endpoint.ID == "api.v1.services.get" {
+			identity = "data.definition.serviceId"
+		}
+		fmt.Fprintf(output, "      return performRead(fetchTransport, %s, options, operation, value => {\n        const data = decode%s(value);\n        if (%s !== path.serviceID) return mismatch(operation, \"service response does not match the exact request\");\n        return data;\n      });\n    },\n", pathExpression, schemaGoName(endpoint.DataSchema), identity)
+		return
+	}
 	if renderHostBoundMethod(output, endpoint, pathExpression) {
 		output.WriteString("    },\n")
 		return

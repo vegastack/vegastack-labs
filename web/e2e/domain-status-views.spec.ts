@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import axe from "axe-core";
-import { fixtureAudit, fixtureState, installReadFixture, privateDomainCanaries, serviceFixtureState } from "./api-fixture";
+import { fixtureAudit, fixtureState, installReadFixture, privateDomainCanaries, serviceFixtureRecord, serviceFixtureState } from "./api-fixture";
 
 test.beforeEach(async ({ page }) => installReadFixture(page));
 
@@ -18,7 +18,7 @@ async function accessible(page: Page) {
   expect(violations).toEqual([]);
 }
 
-test("Services reads registered records and truthful observations with keyboard and bounded pagination", async ({ page }, info) => {
+test("Services is accessible on mobile with keyboard, truthful observations and bounded pagination", async ({ page }, info) => {
   await page.setViewportSize({ width: 390, height: 844 });
   fixtureState.delay = 150;
   await page.goto("/services");
@@ -45,7 +45,7 @@ test("Services reads registered records and truthful observations with keyboard 
   await expect(inspectButton).toBeVisible();
 });
 
-test("Services distinguishes empty, denied, unavailable and malformed states", async ({ page }, info) => {
+test("Services distinguishes every safe status: empty, denied, unavailable and malformed", async ({ page }, info) => {
   for (const [mode, state] of [["empty", "empty"], ["denied", "denied"], ["unavailable", "unavailable"], ["malformed", "error"]] as const) {
     fixtureState.mode = mode;
     await page.goto("/services");
@@ -110,7 +110,7 @@ for (const denial of ["scoped", "session"] as const) {
   });
 }
 
-test("out-of-scope service canaries never reach browser records or storage", async ({ page }) => {
+test("private domain backing records never reach the browser", async ({ page }) => {
   await page.goto("/services");
   await inspect(page);
   const storage = await page.evaluate(async () => ({ local: Object.entries(localStorage), session: Object.entries(sessionStorage), databases: (await indexedDB.databases()).map(database => database.name), caches: await caches.keys() }));
@@ -119,4 +119,29 @@ test("out-of-scope service canaries never reach browser records or storage", asy
   expect(storage.session).toEqual([]);
   expect(storage.databases).toEqual([]);
   expect(storage.caches).toEqual([]);
+});
+
+// Preserve the historical evidence selector while proving the current Services
+// record contract: a valid envelope for a different service is still rejected.
+test("a valid but wrong source response is rejected", async ({ page }) => {
+  const result = (command: string, data: unknown) => ({
+    schema: "vegastack-labs.dev/browser-run-result", schemaVersion: "1.0.0", toolVersion: "test", command, runId: null, status: "succeeded", changed: false, recoveryEpoch: 2, stateRevision: 8, snapshotDigest: null, releaseBuildId: "test", sourceRevision: null, planId: null, errors: [], data,
+  });
+  const wrongRecord = serviceFixtureRecord("service-b");
+  const wrongObservation = {
+    schema: "vegastack-labs.dev/service-observation", schemaVersion: "1.0.0", serviceId: "service-b", bindingDigest: wrongRecord.definition.bindingDigest, observedAt: "2026-10-26T04:01:00Z", hostingState: "observed", hostingReason: "observed", providerStatus: "wrong-service-status-canary", configuredImage: "wrong-service-image-canary", artifactState: "not-configured", artifactReason: "not-configured", artifactKind: "unknown", scanState: "unknown", signatureState: "unverified", provenanceState: "unverified", runningDigestState: "unknown", healthState: "unknown", hostAdmission: "not-verified", stateRevision: 8, recoveryEpoch: 2,
+  };
+  for (const observation of [false, true]) {
+    const url = `**/api/v1/services/service-a${observation ? "/observation" : ""}`;
+    await page.route(url, route => route.fulfill({ json: result(observation ? "api.v1.services.observation.get" : "api.v1.services.get", observation ? wrongObservation : wrongRecord) }));
+    await page.goto("/services");
+    await page.getByRole("button", { name: "Inspect service-a", exact: true }).click();
+    await expect(page.locator('[data-read-state="error"]').first()).toBeVisible();
+    await expect(page.getByRole("region", { name: "Service detail" })).toHaveCount(0);
+    await expect(page.getByRole("list", { name: "Registered services" })).toHaveCount(0);
+    await expect(page.locator("main")).not.toContainText("service-b");
+    await expect(page.locator("main")).not.toContainText("wrong-service-status-canary");
+    await expect(page.locator("main")).not.toContainText("wrong-service-image-canary");
+    await page.unroute(url);
+  }
 });

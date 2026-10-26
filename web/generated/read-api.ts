@@ -16033,7 +16033,11 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
     },
     async getService(path, options = {}) {
       const operation = "api.v1.services.get";
-      return performRead(fetchTransport, "/api/v1/services/" + encodePathString(path.serviceID, "serviceID") + "", options, operation, decodeServiceRecord);
+      return performRead(fetchTransport, "/api/v1/services/" + encodePathString(path.serviceID, "serviceID") + "", options, operation, value => {
+        const data = decodeServiceRecord(value);
+        if (data.definition.serviceId !== path.serviceID) return mismatch(operation, "service response does not match the exact request");
+        return data;
+      });
     },
     async listServices(query = {}, options = {}) {
       const operation = "api.v1.services.list";
@@ -16041,7 +16045,11 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
     },
     async getServiceObservation(path, options = {}) {
       const operation = "api.v1.services.observation.get";
-      return performRead(fetchTransport, "/api/v1/services/" + encodePathString(path.serviceID, "serviceID") + "/observation", options, operation, decodeServiceObservation);
+      return performRead(fetchTransport, "/api/v1/services/" + encodePathString(path.serviceID, "serviceID") + "/observation", options, operation, value => {
+        const data = decodeServiceObservation(value);
+        if (data.serviceId !== path.serviceID) return mismatch(operation, "service response does not match the exact request");
+        return data;
+      });
     },
     async listSources(query = {}, options = {}) {
       const operation = "api.v1.sources.list";
