@@ -1111,3 +1111,14 @@ The final source-boundary check exposed the shared volume-lineage change in the 
 - **Decisions:** Keep exact host-key verification and the existing authorization flow.
 
 — approved by (omkarmohanta09) · built by Codex · branch fix/234-pinned-ssh-host-key
+
+
+## 26-10-2026 — Operator access and network procedures ([#280](https://github.com/vegastack/vegastack-labs/issues/280))
+
+- **What:** Added one operator guide for people, device approval, browser identity, declared connection diagnostics, owned Mesh/ingress operations and manual network recovery.
+- **Why:** Operators need to distinguish a controller record from provider enrollment or host admission, and a partial provider change from verified completion.
+- **How it went:** Reconciled examples with the implementation branches and recorded the remaining acceptance evidence explicitly. The connection command authenticates and closes; it supplies no interactive SSH alias. Connector token rotation stays partial because current provider observations cannot prove its credential generation. Documentation does not manufacture either capability.
+- **Changed:** Operator procedure, existing router/switch guide links, architecture clarification and Phase 7 evidence map. Final software validation is recorded in the linked issue; live website access remains separately blocked in #264.
+- **Decisions:** Existing Phase 6 deferrals remain deferred. No live operations, new service or independent review round.
+
+— approved by (omkarmohanta09) · built by Codex · branch chore/7.9-operator-procedures
