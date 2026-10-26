@@ -321,7 +321,9 @@ test("approved #277 endpoints retain exact operator-only transport contracts", a
 
 test("approved Mesh and ingress routes retain exact finite endpoint contracts", async (t) => {
   const registry = JSON.parse(await readFile(path.join(process.cwd(), "schemas/v1/endpoint-registry.json"), "utf8"));
-  for (const original of registry.endpoints.filter(({id}) => /^api\.v1\.network\.(mesh|ingress)\./.test(id))) {
+  const approved = registry.endpoints.filter(({id}) => /^api\.v1\.network\.(mesh|ingress)\./.test(id));
+  assert.equal(approved.length, 7, "all approved Mesh and ingress endpoints must be present");
+  for (const original of approved) {
     for (const change of ["remove", "audience", "method", "path", "schema", "extra"]) {
       const copy = structuredClone(registry);
       const endpoint = copy.endpoints.find(({id}) => id === original.id);

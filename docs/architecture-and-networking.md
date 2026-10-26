@@ -174,6 +174,8 @@ Pilot success requires the declared flow matrix and the fixed `G-005` 30-day env
 
 ## Automatic LAN/remote names
 
+Implementation status for the first Phase 7 delivery: `vsk-labs connect --node <id> --port 22 --path auto` performs an authorized, pinned SSH authentication diagnostic and immediately closes. It does not provide an OpenSSH `ProxyCommand`, stream relay or generated SSH include. The alias example below describes the wider architecture intent and is not an executable current setup recipe. Use the [operator connection procedure](operator-access-and-network.md#prepare-a-managed-host-connection) for the supported workflow.
+
 The v1 scope is SSH and `vsk-labs` CLI aliases—not system-wide browser DNS. This avoids introducing a dedicated DNS service, and Cloudflare documents a port-53 conflict when a DNS server and Mesh node share a host.
 
 Canonical inventory names are `vsk-node-NN.labs.vegastack.com`; role aliases include `control-plane`, `builder-01`, `app-01`, and `hermes-01`. The private suffix is fixed as `labs.vegastack.com`.
