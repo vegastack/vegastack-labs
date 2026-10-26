@@ -66,6 +66,9 @@ Contract schema: `1.29.0`
 | `api.v1.inventory-drafts.list` | `GET` | `/api/v1/inventory-drafts` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/api-inventory-draft-list-data` |
 | `api.v1.inventory-exports.create` | `POST` | `/api/v1/inventory-exports` | `available` | `operator` | `finite` | `vegastack-labs.dev/inventory-export-request` | `vegastack-labs.dev/inventory-export-data` |
 | `api.v1.network.endpoint-drafts.create` | `POST` | `/api/v1/network/endpoint-drafts` | `available` | `operator` | `finite` | `vegastack-labs.dev/network-endpoint-request` | `vegastack-labs.dev/declaration-revision` |
+| `api.v1.network.mesh.draft` | `POST` | `/api/v1/network/mesh/draft` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/mesh-draft-request` | `vegastack-labs.dev/mesh-draft-submission` |
+| `api.v1.network.mesh.observe` | `POST` | `/api/v1/network/mesh/observe` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/mesh-draft-request` | `vegastack-labs.dev/mesh-status-data` |
+| `api.v1.network.mesh.status` | `GET` | `/api/v1/network/mesh/{profileID}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/mesh-status-data` |
 | `api.v1.people.list` | `GET` | `/api/v1/people` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/operator-people-page` |
 | `api.v1.plans.acknowledgements.create` | `POST` | `/api/v1/plans/{planId}/acknowledgements` | `available` | `operator, server-adapter` | `finite` | `vegastack-labs.dev/acknowledgement-request` | `vegastack-labs.dev/acknowledgement` |
 | `api.v1.plans.acknowledgements.get` | `GET` | `/api/v1/plans/{planId}/acknowledgements` | `available` | `operator, server-adapter` | `finite` | `` | `vegastack-labs.dev/acknowledgement` |

@@ -486,6 +486,7 @@ The compiled Apache-2.0 modules with upstream NOTICE files are `github.com/go-op
 | `github.com/blang/semver` | `v3.5.1+incompatible` | `MIT` | [source](https://github.com/blang/semver) |
 | `github.com/cenkalti/backoff/v5` | `v5.0.3` | `MIT` | [source](https://github.com/cenkalti/backoff) |
 | `github.com/cespare/xxhash/v2` | `v2.3.0` | `MIT` | [source](https://github.com/cespare/xxhash) |
+| `github.com/cloudflare/cloudflare-go/v7` | `v7.8.0` | `Apache-2.0` | [source](https://github.com/cloudflare/cloudflare-go) |
 | `github.com/coder/websocket` | `v1.8.14` | `ISC` | [source](https://github.com/coder/websocket) |
 | `github.com/cyberphone/json-canonicalization` | `v0.0.0-20241213102144-19d51d7fe467` | `Apache-2.0` | [source](https://github.com/cyberphone/json-canonicalization) |
 | `github.com/digitorus/pkcs7` | `v0.0.0-20230818184609-3a137a874352` | `MIT` | [source](https://github.com/digitorus/pkcs7) |
@@ -545,6 +546,10 @@ The compiled Apache-2.0 modules with upstream NOTICE files are `github.com/go-op
 | `github.com/tetratelabs/wabin` | `v0.0.0-20230304001439-f6f874872834` | `Apache-2.0` | [source](https://github.com/tetratelabs/wabin) |
 | `github.com/tetratelabs/wazero` | `v1.11.0` | `Apache-2.0` | [source](https://github.com/tetratelabs/wazero) |
 | `github.com/theupdateframework/go-tuf/v2` | `v2.4.2` | `Apache-2.0` | [source](https://github.com/theupdateframework/go-tuf) |
+| `github.com/tidwall/gjson` | `v1.14.4` | `MIT` | [source](https://github.com/tidwall/gjson) |
+| `github.com/tidwall/match` | `v1.1.1` | `MIT` | [source](https://github.com/tidwall/match) |
+| `github.com/tidwall/pretty` | `v1.2.1` | `MIT` | [source](https://github.com/tidwall/pretty) |
+| `github.com/tidwall/sjson` | `v1.2.5` | `MIT` | [source](https://github.com/tidwall/sjson) |
 | `github.com/transparency-dev/formats` | `v0.1.1` | `Apache-2.0` | [source](https://github.com/transparency-dev/formats) |
 | `github.com/transparency-dev/merkle` | `v0.0.2` | `Apache-2.0` | [source](https://github.com/transparency-dev/merkle) |
 | `github.com/youmark/pkcs8` | `v0.0.0-20240726163527-a2c0da244d78` | `MIT` | [source](https://github.com/youmark/pkcs8) |

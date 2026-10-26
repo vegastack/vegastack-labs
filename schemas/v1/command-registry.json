@@ -2878,6 +2878,218 @@
     },
     {
       "path": [
+        "network",
+        "mesh",
+        "draft"
+      ],
+      "summary": "Inspect or prepare an owned Mesh change; live gates remain required.",
+      "availability": "available",
+      "ownerPhase": "7",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected operator profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one inert Mesh request.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/mesh-draft-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/mesh-draft-submission",
+      "examples": [
+        {
+          "summary": "Inspect or prepare an owned Mesh change; live gates remain required.",
+          "arguments": [
+            "network",
+            "mesh",
+            "draft",
+            "--config",
+            "fixture/client.json",
+            "--file",
+            "fixture/mesh.json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "network",
+        "mesh",
+        "observe"
+      ],
+      "summary": "Inspect or prepare an owned Mesh change; live gates remain required.",
+      "availability": "available",
+      "ownerPhase": "7",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected operator profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one inert Mesh request.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/mesh-draft-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/mesh-status-data",
+      "examples": [
+        {
+          "summary": "Inspect or prepare an owned Mesh change; live gates remain required.",
+          "arguments": [
+            "network",
+            "mesh",
+            "observe",
+            "--config",
+            "fixture/client.json",
+            "--file",
+            "fixture/mesh.json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "network",
+        "mesh",
+        "status"
+      ],
+      "summary": "Inspect or prepare an owned Mesh change; live gates remain required.",
+      "availability": "available",
+      "ownerPhase": "7",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected operator profile.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--profile-id",
+          "kind": "value",
+          "valueName": "id",
+          "required": true,
+          "repeatable": false,
+          "summary": "Select an owned Mesh profile.",
+          "enum": null
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/mesh-status-data",
+      "examples": [
+        {
+          "summary": "Inspect or prepare an owned Mesh change; live gates remain required.",
+          "arguments": [
+            "network",
+            "mesh",
+            "status",
+            "--config",
+            "fixture/client.json",
+            "--profile-id",
+            "mesh-pilot"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
         "node",
         "access",
         "prepare"
@@ -6880,6 +7092,31 @@
       "id": "vegastack-labs.dev/managed-host-list",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/managed-host-list.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/mesh-change",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/mesh-change.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/mesh-draft-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/mesh-draft-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/mesh-draft-submission",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/mesh-draft-submission.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/mesh-route",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/mesh-route.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/mesh-status-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/mesh-status-data.schema.json"
     },
     {
       "id": "vegastack-labs.dev/native-action-negative-observation",

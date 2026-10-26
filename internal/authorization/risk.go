@@ -20,6 +20,7 @@ const (
 var errUnknownRisk = errors.New("unknown plan operation or risk")
 
 var operationRisk = map[string]RiskClass{
+	"network.mesh.import": RiskInfrastructure, "network.mesh.profile-routing-update": RiskInfrastructure, "network.mesh.gateway-rule-update": RiskInfrastructure, "network.mesh.registration-delete": RiskInfrastructure,
 	"gate.profile.bind":                  RiskDestructive,
 	"gate.evidence.apply":                RiskDestructive,
 	"gate.evidence.supersede":            RiskDestructive,

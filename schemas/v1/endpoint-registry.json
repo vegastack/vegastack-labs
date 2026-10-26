@@ -816,6 +816,47 @@
       ]
     },
     {
+      "id": "api.v1.network.mesh.draft",
+      "method": "POST",
+      "path": "/api/v1/network/mesh/draft",
+      "availability": "available",
+      "ownerPhase": "7",
+      "requestSchema": "vegastack-labs.dev/mesh-draft-request",
+      "dataSchema": "vegastack-labs.dev/mesh-draft-submission",
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.network.mesh.observe",
+      "method": "POST",
+      "path": "/api/v1/network/mesh/observe",
+      "availability": "available",
+      "ownerPhase": "7",
+      "requestSchema": "vegastack-labs.dev/mesh-draft-request",
+      "dataSchema": "vegastack-labs.dev/mesh-status-data",
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.network.mesh.status",
+      "method": "GET",
+      "path": "/api/v1/network/mesh/{profileID}",
+      "availability": "available",
+      "ownerPhase": "7",
+      "dataSchema": "vegastack-labs.dev/mesh-status-data",
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
+    },
+    {
       "id": "api.v1.people.list",
       "method": "GET",
       "path": "/api/v1/people",

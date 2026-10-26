@@ -19,6 +19,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"github.com/vegastack/vegastack-labs/internal/hostadoption"
 	"github.com/vegastack/vegastack-labs/internal/hostdiscovery"
+	"github.com/vegastack/vegastack-labs/internal/networkmesh"
 	"github.com/vegastack/vegastack-labs/internal/stateexport"
 	"github.com/vegastack/vegastack-labs/internal/store"
 )
@@ -57,6 +58,9 @@ type HostActionLifecycleReader interface {
 	LookupLifecycleDraft(context.Context, string, int64, string) (credentialref.LifecycleBinding, error)
 }
 type Config struct {
+	MeshChanges interface {
+		GetStaged(context.Context, string) (networkmesh.Staged, error)
+	}
 	HostReplacements      HostReplacementDraftReader
 	HostActionCredentials HostActionLifecycleReader
 	HostActions           HostActionDraftReader
@@ -199,6 +203,29 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 		operations[index] = generated.PlanOperation{Sequence: operation.Sequence, OperationID: operation.OperationID, OperationType: operation.OperationType, AdapterID: operation.AdapterID, ExecutorID: service.config.OperationExecutorID, TargetID: operation.TargetID, InputDigest: operation.InputDigest, ArtifactDigest: operation.ArtifactDigest, Idempotent: operation.Idempotent}
 	}
 	risk := service.config.Risk
+	for _, op := range operations {
+		if op.AdapterID != networkmesh.AdapterID && !strings.HasPrefix(op.OperationType, "network.mesh.") {
+			continue
+		}
+		if service.config.MeshChanges == nil || len(operations) != 1 || declaration.DeclarationType != "network.mesh" || op.AdapterID != networkmesh.AdapterID || op.Idempotent || len(op.ArtifactDigest) != 71 || service.config.AuthorizationBranch != "human" || service.config.ExecutorMode != "central" {
+			return store.PlanCommitResult{}, planError(generated.ErrorCodeAuthorizationDenied)
+		}
+		d, e := service.config.MeshChanges.GetStaged(ctx, "mesh-"+op.ArtifactDigest[7:39])
+		if e != nil || d.Digest != op.ArtifactDigest || op.OperationType != "network.mesh."+d.Request.Change.Action || op.TargetID != d.Request.Change.ProfileID || networkmesh.Validate(d.Request.Change) != nil {
+			return store.PlanCommitResult{}, planError(generated.ErrorCodeIntegrityFailure)
+		}
+		sealed := false
+		for _, x := range extensions {
+			if x.Name == networkmesh.Extension {
+				sealed = x.ValueDigest == d.Digest
+			}
+		}
+		if !sealed {
+			return store.PlanCommitResult{}, planError(generated.ErrorCodePlanStale)
+		}
+		risk = string(authorization.RiskInfrastructure)
+	}
+
 	if declaration.AuthorizationGrantBatch != nil || declaration.NetworkEndpoint != nil {
 		risk = string(authorization.RiskControlPlane)
 	}
@@ -545,7 +572,7 @@ func (service *Service) ValidateCurrent(ctx context.Context, candidate generated
 // the secret-resolution binding manifest and the lifecycle binding are declared
 // facts a plan cannot invent, omit, or replace.
 func credentialBindingExtensionsEqual(left, right []generated.ContractExtension) bool {
-	for _, name := range []string{"x-host-replacement", "x-host-alias-claim", "x-credential-bindings", "x-credential-lifecycle", "x-audit-checkpoint", "x-backup-policy", "x-backup-retention-lock-catalog", "x-backup-local-retirement", "x-offsite-generation"} {
+	for _, name := range []string{"x-host-replacement", "x-host-alias-claim", "x-cloudflare-mesh-change", "x-credential-bindings", "x-credential-lifecycle", "x-audit-checkpoint", "x-backup-policy", "x-backup-retention-lock-catalog", "x-backup-local-retirement", "x-offsite-generation"} {
 		var leftDigest, rightDigest string
 		for _, item := range left {
 			if item.Name == name {

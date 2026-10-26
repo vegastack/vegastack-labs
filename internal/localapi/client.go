@@ -65,6 +65,9 @@ type TypedResponse[T any] struct {
 }
 
 type Client interface {
+	ObserveMesh(context.Context, serverconfig.Profile, generated.MeshDraftRequest) (TypedResponse[generated.MeshStatusData], error)
+	DraftMesh(context.Context, serverconfig.Profile, generated.MeshDraftRequest) (TypedResponse[generated.MeshDraftSubmission], error)
+	MeshStatus(context.Context, serverconfig.Profile, string) (TypedResponse[generated.MeshStatusData], error)
 	DraftNetworkEndpoint(context.Context, serverconfig.Profile, generated.NetworkEndpointRequest) (TypedResponse[generated.DeclarationRevision], error)
 	ConnectionDescriptor(context.Context, serverconfig.Profile, string) (TypedResponse[generated.NetworkConnectDescriptor], error)
 	DraftAuthorizationGrants(context.Context, serverconfig.Profile, generated.AuthorizationGrantBatchRequest) (TypedResponse[generated.DeclarationRevision], error)

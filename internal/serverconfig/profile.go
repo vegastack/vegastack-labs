@@ -42,6 +42,7 @@ type Profile struct {
 	AcknowledgementAdapterConfigPath string
 	HostActionSignerPath             string
 	HostActionKeyID                  string
+	MeshScopeDigests                 []string
 	HostActionIdentityDigests        []string
 	LocalBackup                      *LocalBackup
 	OffsiteBackup                    *OffsiteBackup
@@ -200,6 +201,16 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 	if input.HostActionKeyID != "" && !offsiteProfileToken.MatchString(input.HostActionKeyID) {
 		return invalid()
 	}
+	seenMesh := map[string]bool{}
+	for _, d := range input.MeshScopeDigests {
+		if len(d) != 71 || !strings.HasPrefix(d, "sha256:") || seenMesh[d] {
+			return invalid()
+		}
+		if _, e := hex.DecodeString(d[7:]); e != nil || strings.ToLower(d) != d {
+			return invalid()
+		}
+		seenMesh[d] = true
+	}
 	seenActionIdentity := map[string]bool{}
 	for _, d := range input.HostActionIdentityDigests {
 		if seenActionIdentity[d] {
@@ -254,6 +265,7 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 		PrincipalBindings:                append([]principal.Binding(nil), bindings...),
 		RemoteRead:                       remoteRead,
 		AcknowledgementAdapterConfigPath: adapterConfigPath,
+		MeshScopeDigests:                 append([]string(nil), input.MeshScopeDigests...),
 		HostActionSignerPath:             input.HostActionSignerPath, HostActionKeyID: input.HostActionKeyID, HostActionIdentityDigests: append([]string(nil), input.HostActionIdentityDigests...),
 		LocalBackup:     localBackup,
 		OffsiteBackup:   offsiteBackup,
