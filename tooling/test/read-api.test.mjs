@@ -338,3 +338,16 @@ test("approved Mesh and ingress routes retain exact finite endpoint contracts", 
     }
   }
 });
+
+
+test("host adoption and connection descriptor contracts classify distinct exact routes", async (t) => {
+  assert.equal((await verifyReadAPI()).status, "pass");
+  const registry = JSON.parse(await readFile(path.join(process.cwd(), "schemas/v1/endpoint-registry.json"), "utf8"));
+  const descriptor = registry.endpoints.find(({id}) => id === "api.v1.hosts.connection-descriptor.get");
+  for (const id of ["api.v1.hosts.unapproved", "api.v1.hosts.connection-descriptor.unapproved"]) {
+    const copy = structuredClone(registry);
+    copy.endpoints.push({...descriptor, id});
+    const root = await fixtureRepo(t, {"schemas/v1/endpoint-registry.json": `${JSON.stringify(copy)}\n`});
+    assert.ok((await verifyReadAPI(root)).codes.includes("READ_API_ENDPOINT_DRIFT"), id);
+  }
+});

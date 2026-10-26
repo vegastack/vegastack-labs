@@ -82,7 +82,7 @@ func (a *IngressAdapter) ExecuteBoundWithCredentials(ctx context.Context, op ada
 			}
 			secret = values[replacement]
 		}
-		if e = a.Backend.MutateIngress(ctx, q, values[write], secret); e != nil {
+		if e = a.Backend.MutateIngress(ctx, q, values[read], values[write], secret); e != nil {
 			return partial("provider-effect-uncertain", false)
 		}
 		if q.Action == "token-rotate" {

@@ -816,6 +816,61 @@
       ]
     },
     {
+      "id": "api.v1.network.ingress.draft",
+      "method": "POST",
+      "path": "/api/v1/network/ingress/draft",
+      "availability": "available",
+      "ownerPhase": "7",
+      "requestSchema": "vegastack-labs.dev/ingress-draft-request",
+      "dataSchema": "vegastack-labs.dev/ingress-draft-submission",
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.network.ingress.observe",
+      "method": "POST",
+      "path": "/api/v1/network/ingress/observe",
+      "availability": "available",
+      "ownerPhase": "7",
+      "requestSchema": "vegastack-labs.dev/ingress-draft-request",
+      "dataSchema": "vegastack-labs.dev/ingress-status-data",
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.network.ingress.rollout-evidence",
+      "method": "POST",
+      "path": "/api/v1/network/ingress/rollout-evidence",
+      "availability": "available",
+      "ownerPhase": "7",
+      "requestSchema": "vegastack-labs.dev/ingress-rollout-evidence-request",
+      "dataSchema": "vegastack-labs.dev/ingress-status-data",
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.network.ingress.status",
+      "method": "GET",
+      "path": "/api/v1/network/ingress/{profileID}",
+      "availability": "available",
+      "ownerPhase": "7",
+      "dataSchema": "vegastack-labs.dev/ingress-status-data",
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
+    },
+    {
       "id": "api.v1.network.mesh.draft",
       "method": "POST",
       "path": "/api/v1/network/mesh/draft",

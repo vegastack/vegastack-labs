@@ -168,6 +168,14 @@
       "pattern": "^/[^\\x00]*$",
       "type": "string"
     },
+    "ingressScopeDigests": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 128,
+      "type": "array",
+      "uniqueItems": true
+    },
     "inventoryExportRoot": {
       "maxLength": 4096,
       "minLength": 2,

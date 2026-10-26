@@ -17,7 +17,7 @@ import (
 
 type IngressBackend interface {
 	ObserveIngress(context.Context, generated.IngressChange, *credentialref.Value) (ingress.Snapshot, error)
-	MutateIngress(context.Context, generated.IngressChange, *credentialref.Value, *credentialref.Value) error
+	MutateIngress(context.Context, generated.IngressChange, *credentialref.Value, *credentialref.Value, *credentialref.Value) error
 }
 
 func rawObject(s string) (map[string]json.RawMessage, error) {
@@ -248,8 +248,14 @@ func verifyIngressAccessAndDNS(ctx context.Context, q generated.IngressChange, o
 	}
 	return nil
 }
-func (c *SDKClient) MutateIngress(ctx context.Context, q generated.IngressChange, v, replacement *credentialref.Value) (err error) {
+func (c *SDKClient) MutateIngress(ctx context.Context, q generated.IngressChange, read, v, replacement *credentialref.Value) (err error) {
 	opts, e := c.options(v)
+	if e != nil {
+		return e
+	}
+	// Complete-before-state rereads use the independently bound observation
+	// credential. Mutation authority is never used as a substitute for read scope.
+	readOpts, e := c.options(read)
 	if e != nil {
 		return e
 	}
@@ -277,7 +283,7 @@ func (c *SDKClient) MutateIngress(ctx context.Context, q generated.IngressChange
 		}
 		_, err = zt.NewTunnelCloudflaredService(opts...).Edit(ctx, q.TunnelID, zt.TunnelCloudflaredEditParams{AccountID: cf.F(q.AccountID), TunnelSecret: cf.F(string(replacement.Bytes()))})
 	case "tunnel-config-update":
-		r, e := zt.NewTunnelCloudflaredConfigurationService(opts...).Get(ctx, q.TunnelID, zt.TunnelCloudflaredConfigurationGetParams{AccountID: cf.F(q.AccountID)})
+		r, e := zt.NewTunnelCloudflaredConfigurationService(readOpts...).Get(ctx, q.TunnelID, zt.TunnelCloudflaredConfigurationGetParams{AccountID: cf.F(q.AccountID)})
 		if e != nil {
 			return e
 		}
@@ -318,7 +324,7 @@ func (c *SDKClient) MutateIngress(ctx context.Context, q generated.IngressChange
 		rawSet(config, "ingress", rules)
 		_, err = zt.NewTunnelCloudflaredConfigurationService(opts...).Update(ctx, q.TunnelID, zt.TunnelCloudflaredConfigurationUpdateParams{AccountID: cf.F(q.AccountID)}, option.WithJSONSet("config", config))
 	case "access-policy-update":
-		p, e := zt.NewAccessApplicationPolicyService(opts...).Get(ctx, q.AccessAppID, q.AccessPolicyID, zt.AccessApplicationPolicyGetParams{AccountID: cf.F(q.AccountID)})
+		p, e := zt.NewAccessApplicationPolicyService(readOpts...).Get(ctx, q.AccessAppID, q.AccessPolicyID, zt.AccessApplicationPolicyGetParams{AccountID: cf.F(q.AccountID)})
 		if e != nil {
 			return e
 		}
@@ -352,7 +358,7 @@ func (c *SDKClient) MutateIngress(ctx context.Context, q generated.IngressChange
 		}
 		_, err = zt.NewAccessApplicationPolicyService(opts...).Update(ctx, q.AccessAppID, q.AccessPolicyID, zt.AccessApplicationPolicyUpdateParams{AccountID: cf.F(q.AccountID), Precedence: cf.F(q.Precedence)}, requestOpts...)
 	case "dns-record-update":
-		r, e := dns.NewRecordService(opts...).Get(ctx, q.DNSRecordID, dns.RecordGetParams{ZoneID: cf.F(q.ZoneID)})
+		r, e := dns.NewRecordService(readOpts...).Get(ctx, q.DNSRecordID, dns.RecordGetParams{ZoneID: cf.F(q.ZoneID)})
 		if e != nil {
 			return e
 		}

@@ -915,6 +915,10 @@ func browserPathParameters(path string) []string {
 
 func browserMethodName(endpoint metadata.EndpointDefinition) string {
 	switch endpoint.ID {
+	case "api.v1.network.mesh.status":
+		return "getNetworkMesh"
+	case "api.v1.network.ingress.status":
+		return "getNetworkIngress"
 	case "api.v1.hosts.list":
 		return "listHosts"
 	case "api.v1.host-replacements.create":

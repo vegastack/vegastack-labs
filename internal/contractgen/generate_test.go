@@ -882,8 +882,8 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 			}
 		}
 	}
-	if available != 74 || planned != 14 {
-		t.Fatalf("command availability = (%d available, %d planned), want (74, 14)", available, planned)
+	if available != 83 || planned != 13 {
+		t.Fatalf("command availability = (%d available, %d planned), want (83, 13)", available, planned)
 	}
 	// #269/#270 promote seven existing people/device CLI operations.
 	// #247 adds the approved grant-batch draft; #228 retains its exact qualification commands.

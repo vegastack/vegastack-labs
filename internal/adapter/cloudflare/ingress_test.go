@@ -28,11 +28,11 @@ func TestIngressDisconnectAlwaysNamesClientID(t *testing.T) {
 	defer s.Close()
 	c := &SDKClient{transport: s.Client().Transport, base: s.URL + "/"}
 	q := ingressTestChange()
-	if e := c.MutateIngress(context.Background(), q, testValue(t, "fixture-mutator"), nil); e != nil {
+	if e := c.MutateIngress(context.Background(), q, testValue(t, "fixture-observer"), testValue(t, "fixture-mutator"), nil); e != nil {
 		t.Fatal(e)
 	}
 	q.ConnectorID = ""
-	if e := c.MutateIngress(context.Background(), q, testValue(t, "fixture-mutator"), nil); e == nil || calls != 1 {
+	if e := c.MutateIngress(context.Background(), q, testValue(t, "fixture-observer"), testValue(t, "fixture-mutator"), nil); e == nil || calls != 1 {
 		t.Fatal("empty connector became all-connectors mutation")
 	}
 }
@@ -46,10 +46,16 @@ func TestIngressTunnelConfigPreservesUnownedFields(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if r.Method == "GET" {
+			if r.Header.Get("Authorization") != "Bearer fixture-observer" {
+				t.Error("pre-effect read did not use observation credential")
+			}
 			json.NewEncoder(w).Encode(map[string]any{"success": true, "result": map[string]any{"tunnel_id": q.TunnelID, "source": "cloudflare", "config": config}})
 			return
 		}
 		puts++
+		if r.Header.Get("Authorization") != "Bearer fixture-mutator" {
+			t.Error("effect did not use mutation credential")
+		}
 		var body struct {
 			Config map[string]any `json:"config"`
 		}
@@ -68,7 +74,7 @@ func TestIngressTunnelConfigPreservesUnownedFields(t *testing.T) {
 	}))
 	defer s.Close()
 	c := &SDKClient{transport: s.Client().Transport, base: s.URL + "/"}
-	if e := c.MutateIngress(context.Background(), q, testValue(t, "fixture-mutator"), nil); e != nil || puts != 1 {
+	if e := c.MutateIngress(context.Background(), q, testValue(t, "fixture-observer"), testValue(t, "fixture-mutator"), nil); e != nil || puts != 1 {
 		t.Fatalf("config update %v calls=%d", e, puts)
 	}
 }
@@ -91,7 +97,7 @@ func TestIngressTokenSecretNeverUsesTokenGetEndpoint(t *testing.T) {
 	q.Action = "token-rotate"
 	c := &SDKClient{transport: s.Client().Transport, base: s.URL + "/"}
 	replacement := testValue(t, base64.StdEncoding.EncodeToString([]byte(strings.Repeat("s", 32))))
-	if e := c.MutateIngress(context.Background(), q, testValue(t, "fixture-mutator"), replacement); e != nil || calls != 1 {
+	if e := c.MutateIngress(context.Background(), q, testValue(t, "fixture-observer"), testValue(t, "fixture-mutator"), replacement); e != nil || calls != 1 {
 		t.Fatalf("rotation request %v calls=%d", e, calls)
 	}
 }

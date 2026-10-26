@@ -2879,6 +2879,289 @@
     {
       "path": [
         "network",
+        "ingress",
+        "draft"
+      ],
+      "summary": "Inspect or prepare owned ingress; provider rotation alone is incomplete.",
+      "availability": "available",
+      "ownerPhase": "7",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected operator profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read an exact non-secret typed request.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/ingress-draft-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/ingress-draft-submission",
+      "examples": [
+        {
+          "summary": "Inspect or prepare owned ingress; provider rotation alone is incomplete.",
+          "arguments": [
+            "network",
+            "ingress",
+            "draft",
+            "--config",
+            "fixture/client.json",
+            "--file",
+            "fixture/ingress.json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "network",
+        "ingress",
+        "observe"
+      ],
+      "summary": "Inspect or prepare owned ingress; provider rotation alone is incomplete.",
+      "availability": "available",
+      "ownerPhase": "7",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected operator profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read an exact non-secret typed request.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/ingress-draft-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/ingress-status-data",
+      "examples": [
+        {
+          "summary": "Inspect or prepare owned ingress; provider rotation alone is incomplete.",
+          "arguments": [
+            "network",
+            "ingress",
+            "observe",
+            "--config",
+            "fixture/client.json",
+            "--file",
+            "fixture/ingress.json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "network",
+        "ingress",
+        "rollout-evidence"
+      ],
+      "summary": "Inspect or prepare owned ingress; provider rotation alone is incomplete.",
+      "availability": "available",
+      "ownerPhase": "7",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected operator profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read an exact non-secret typed request.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/ingress-rollout-evidence-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/ingress-status-data",
+      "examples": [
+        {
+          "summary": "Inspect or prepare owned ingress; provider rotation alone is incomplete.",
+          "arguments": [
+            "network",
+            "ingress",
+            "rollout-evidence",
+            "--config",
+            "fixture/client.json",
+            "--file",
+            "fixture/ingress.json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "network",
+        "ingress",
+        "status"
+      ],
+      "summary": "Inspect or prepare owned ingress; provider rotation alone is incomplete.",
+      "availability": "available",
+      "ownerPhase": "7",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected operator profile.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--profile-id",
+          "kind": "value",
+          "valueName": "id",
+          "required": true,
+          "repeatable": false,
+          "summary": "Select an owned ingress profile.",
+          "enum": null
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/ingress-status-data",
+      "examples": [
+        {
+          "summary": "Inspect or prepare owned ingress; provider rotation alone is incomplete.",
+          "arguments": [
+            "network",
+            "ingress",
+            "status",
+            "--config",
+            "fixture/client.json",
+            "--profile-id",
+            "ingress-pilot"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "network",
         "mesh",
         "draft"
       ],
@@ -6918,6 +7201,36 @@
       "id": "vegastack-labs.dev/host-volume-binding",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/host-volume-binding.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/ingress-change",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/ingress-change.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/ingress-connector-target",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/ingress-connector-target.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/ingress-draft-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/ingress-draft-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/ingress-draft-submission",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/ingress-draft-submission.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/ingress-rollout-evidence-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/ingress-rollout-evidence-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/ingress-status-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/ingress-status-data.schema.json"
     },
     {
       "id": "vegastack-labs.dev/inventory-diff-counts",

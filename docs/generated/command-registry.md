@@ -502,6 +502,58 @@ Owner phase: `7` · risk: `mutation` · availability: `available`
 
 - Draft an explicit endpoint.: `vsk-labs network endpoint draft --config fixture/profile.json --file fixture/endpoint.json --output json`
 
+### `vsk-labs network ingress draft`
+
+Inspect or prepare owned ingress; provider rotation alone is incomplete.
+
+Owner phase: `7` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--file <path>` — Read an exact non-secret typed request.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Inspect or prepare owned ingress; provider rotation alone is incomplete.: `vsk-labs network ingress draft --config fixture/client.json --file fixture/ingress.json`
+
+### `vsk-labs network ingress observe`
+
+Inspect or prepare owned ingress; provider rotation alone is incomplete.
+
+Owner phase: `7` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--file <path>` — Read an exact non-secret typed request.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Inspect or prepare owned ingress; provider rotation alone is incomplete.: `vsk-labs network ingress observe --config fixture/client.json --file fixture/ingress.json`
+
+### `vsk-labs network ingress rollout-evidence`
+
+Inspect or prepare owned ingress; provider rotation alone is incomplete.
+
+Owner phase: `7` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--file <path>` — Read an exact non-secret typed request.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Inspect or prepare owned ingress; provider rotation alone is incomplete.: `vsk-labs network ingress rollout-evidence --config fixture/client.json --file fixture/ingress.json`
+
+### `vsk-labs network ingress status`
+
+Inspect or prepare owned ingress; provider rotation alone is incomplete.
+
+Owner phase: `7` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--profile-id <id>` — Select an owned ingress profile.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Inspect or prepare owned ingress; provider rotation alone is incomplete.: `vsk-labs network ingress status --config fixture/client.json --profile-id ingress-pilot`
+
 ### `vsk-labs network mesh draft`
 
 Inspect or prepare an owned Mesh change; live gates remain required.

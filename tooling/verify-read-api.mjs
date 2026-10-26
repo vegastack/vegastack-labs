@@ -127,7 +127,8 @@ export async function verifyReadAPI(root = ROOT) {
       const operatorIDs = ids.filter((id) => REVIEWED_OPERATOR_ENDPOINTS.includes(id));
       const lifecycleIDs = ids.filter((id) => id.startsWith("api.v1.credential-lifecycle-"));
       const discoveryIDs = ids.filter((id) => id.startsWith("api.v1.host-discovery-") || id.startsWith("api.v1.host-observations."));
-      const adoptionIDs = ids.filter((id) => id.startsWith("api.v1.host-adoptions.") || id.startsWith("api.v1.hosts."));
+      // The operator-only descriptor has its own exact #277 contract below.
+      const adoptionIDs = ids.filter((id) => id.startsWith("api.v1.host-adoptions.") || (id.startsWith("api.v1.hosts.") && !id.startsWith("api.v1.hosts.connection-descriptor.")));
       const adoptionExact = JSON.stringify(adoptionIDs) === JSON.stringify(REVIEWED_ADOPTION_ENDPOINTS.map(({id}) => id)) && REVIEWED_ADOPTION_ENDPOINTS.every((expected) => {
         const actual = registry.endpoints.find(({id}) => id === expected.id);
         return actual && Object.keys(actual).length === Object.keys(expected).length && Object.entries(expected).every(([key, value]) => JSON.stringify(actual[key]) === JSON.stringify(value));
