@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostdiscovery"
+	"github.com/vegastack/vegastack-labs/internal/identity"
 )
 
 // PlatformDefinition is a protected logical platform subject, never a fabricated
@@ -34,10 +35,9 @@ func (r *ServiceRecoveryRepository) PlatformDefinition(ctx context.Context, poli
 	})
 	return
 }
-func (r *ServiceRecoveryRepository) platformAuthorize(ctx context.Context, row discoveryRow, d generated.ServiceDefinition, policyID string) error {
-	p, e := serviceActor(ctx)
-	if e != nil {
-		return e
+func (r *ServiceRecoveryRepository) platformAuthorize(p identity.Principal, row discoveryRow, d generated.ServiceDefinition, policyID string) error {
+	if !identity.ValidPrincipal(p) {
+		return actionError(generated.ErrorCodeAuthenticationRequired)
 	}
 	policy, e := r.policy(policyID)
 	if e != nil {

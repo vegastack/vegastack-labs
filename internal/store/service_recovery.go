@@ -63,7 +63,7 @@ func (r *ServiceRecoveryRepository) validate(p identity.Principal, row discovery
 		return actionError(generated.ErrorCodePlanStale)
 	}
 	if in.Binding.DataClass == "platform" {
-		if e = r.platformAuthorize(identity.WithVerifiedPrincipal(context.Background(), p), row, in.Definition, in.Binding.PolicyID); e != nil {
+		if e = r.platformAuthorize(p, row, in.Definition, in.Binding.PolicyID); e != nil {
 			return e
 		}
 	} else {

@@ -638,7 +638,7 @@
           "github.com/vegastack/vegastack-labs/internal/hostingplatform",
           "github.com/vegastack/vegastack-labs/internal/servicerecovery"
         ],
-        "mutationBoundaryDigest": "sha256:43e840c84ae4650079e3dff1d2a171453e1b31fa97b04a4fb1042b8bc46900de"
+        "mutationBoundaryDigest": "sha256:1b2ed54ceddc7674f7614ade6c48b5581507d7b9f991121bd3767c72250c1758"
       }
     ]
   },
