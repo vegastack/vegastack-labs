@@ -33,6 +33,7 @@
 // api.v1.inventory-draft-observations.list
 // api.v1.inventory-drafts.get
 // api.v1.inventory-drafts.list
+// api.v1.network.mesh.status
 // api.v1.plans.approval-request.create
 // api.v1.plans.approval-status.get
 // api.v1.plans.create
@@ -1455,6 +1456,19 @@ export interface ManagedHostList {
   readonly "schema": "vegastack-labs.dev/managed-host-list";
   readonly "schemaVersion": "1.0.0";
   readonly "hosts": ReadonlyArray<ManagedHost>;
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
+}
+
+export interface MeshStatusData {
+  readonly "schema": "vegastack-labs.dev/mesh-status-data";
+  readonly "schemaVersion": "1.0.0";
+  readonly "profileId": string;
+  readonly "status": "unknown" | "unavailable" | "observed" | "partial";
+  readonly "reason": string;
+  readonly "observationDigest": string;
+  readonly "observedAt"?: string;
+  readonly "ownershipRevision": number;
   readonly "stateRevision": number;
   readonly "recoveryEpoch": number;
 }
@@ -10753,6 +10767,91 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/mesh-status-data",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/mesh-status-data"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "profileId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "status",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "unknown",
+          "unavailable",
+          "observed",
+          "partial"
+        ]
+      },
+      {
+        "name": "reason",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "observationDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "observedAt",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      {
+        "name": "ownershipRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/native-controller-identity",
     "fields": [
       {
@@ -13653,6 +13752,10 @@ function decodeManagedHostList(value: unknown): ManagedHostList {
   return decodeSchema("vegastack-labs.dev/managed-host-list", value) as unknown as ManagedHostList;
 }
 
+function decodeMeshStatusData(value: unknown): MeshStatusData {
+  return decodeSchema("vegastack-labs.dev/mesh-status-data", value) as unknown as MeshStatusData;
+}
+
 function decodeNativeControllerIdentity(value: unknown): NativeControllerIdentity {
   return decodeSchema("vegastack-labs.dev/native-controller-identity", value) as unknown as NativeControllerIdentity;
 }
@@ -14043,6 +14146,7 @@ export type ReadClient = {
   readonly listInventoryDraftObservations: (path: { readonly draftId: string; readonly revision: number }, query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<ApiInventoryObservationListData>>;
   readonly getInventoryDraft: (path: { readonly draftId: string; readonly revision: number }, options?: RequestOptions) => Promise<ReadResult<ApiInventoryDraftData>>;
   readonly listInventoryDrafts: (query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<ApiInventoryDraftListData>>;
+  readonly getNetwork: (path: { readonly profileID: string }, options?: RequestOptions) => Promise<ReadResult<MeshStatusData>>;
   readonly getApprovalStatus: (path: { readonly planId: string }, options?: RequestOptions) => Promise<ReadResult<ApprovalStatus>>;
   readonly getPlan: (path: { readonly planId: string }, options?: RequestOptions) => Promise<ReadResult<PlanPresentation>>;
   readonly resolveRun: (path: { readonly planId: string; readonly idempotencyKey: string }, options?: RequestOptions) => Promise<ReadResult<RunPresentation>>;
@@ -14164,6 +14268,10 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
     async listInventoryDrafts(query = {}, options = {}) {
       const operation = "api.v1.inventory-drafts.list";
       return performRead(fetchTransport, "/api/v1/inventory-drafts" + pageQuery(query), options, operation, decodeApiInventoryDraftListData);
+    },
+    async getNetwork(path, options = {}) {
+      const operation = "api.v1.network.mesh.status";
+      return performRead(fetchTransport, "/api/v1/network/mesh/" + encodePathString(path.profileID, "profileID") + "", options, operation, decodeMeshStatusData);
     },
     async getApprovalStatus(path, options = {}) {
       const operation = "api.v1.plans.approval-status.get";

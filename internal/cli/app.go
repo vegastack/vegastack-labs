@@ -472,6 +472,8 @@ func (app *App) Run(ctx context.Context, args []string) int {
 		return app.runRolePrepare(ctx, mode, parsed)
 	case generated.CommandNameNodeReplacementPrepare, generated.CommandNameNodeReplacementInspect, generated.CommandNameNodeTargetPrepare, generated.CommandNameNodeActionPrepare, generated.CommandNameNodeAccessPrepare, generated.CommandNameNodeObservationInspect:
 		return app.runHostLifecycleCommand(ctx, mode, parsed)
+	case generated.CommandNameNetworkMeshObserve, generated.CommandNameNetworkMeshDraft, generated.CommandNameNetworkMeshStatus:
+		return app.runMeshCommand(ctx, mode, parsed)
 	case generated.CommandNameNodeDiscover, generated.CommandNameNodeAdd, generated.CommandNameNodeInspect:
 		return app.runHostCommand(ctx, mode, parsed)
 	case generated.CommandNameGateList, generated.CommandNameGateInspect, generated.CommandNameGateCheck, generated.CommandNameGateEvidence, generated.CommandNameGateProfileDraft:

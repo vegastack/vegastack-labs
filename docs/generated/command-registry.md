@@ -474,6 +474,45 @@ Owner phase: `2` · risk: `read-only` · availability: `available`
 
 - Validate and store one inventory candidate as an inert draft.: `vsk-labs inventory import --config fixture/server-profile.json --file fixture/inventory.json --format typed-json --source-revision source-1 --captured-at 2026-09-08T06:00:00Z --idempotency-key opaque-1 --output json`
 
+### `vsk-labs network mesh draft`
+
+Inspect or prepare an owned Mesh change; live gates remain required.
+
+Owner phase: `7` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--file <path>` — Read one inert Mesh request.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Inspect or prepare an owned Mesh change; live gates remain required.: `vsk-labs network mesh draft --config fixture/client.json --file fixture/mesh.json`
+
+### `vsk-labs network mesh observe`
+
+Inspect or prepare an owned Mesh change; live gates remain required.
+
+Owner phase: `7` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--file <path>` — Read one inert Mesh request.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Inspect or prepare an owned Mesh change; live gates remain required.: `vsk-labs network mesh observe --config fixture/client.json --file fixture/mesh.json`
+
+### `vsk-labs network mesh status`
+
+Inspect or prepare an owned Mesh change; live gates remain required.
+
+Owner phase: `7` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--profile-id <id>` — Select an owned Mesh profile.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Inspect or prepare an owned Mesh change; live gates remain required.: `vsk-labs network mesh status --config fixture/client.json --profile-id mesh-pilot`
+
 ### `vsk-labs node access prepare`
 
 Prepare an inert access policy and probe sequence.
