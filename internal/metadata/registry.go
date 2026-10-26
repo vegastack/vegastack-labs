@@ -247,7 +247,7 @@ func Current() Registry {
 	}
 
 	endpoints := []EndpointDefinition{authorizationGrantEndpoint()}
-	for _, family := range [][]EndpointDefinition{readEndpoints(), phase4Endpoints(), phase5Endpoints(), hostDiscoveryEndpoints(), hostAdoptionEndpoints(), hostActionEndpoints(), accessEndpoints(), hostReplacementEndpoints(), qualificationEndpoints()} {
+	for _, family := range [][]EndpointDefinition{operatorAccessEndpoints(), readEndpoints(), phase4Endpoints(), phase5Endpoints(), hostDiscoveryEndpoints(), hostAdoptionEndpoints(), hostActionEndpoints(), accessEndpoints(), hostReplacementEndpoints(), qualificationEndpoints()} {
 		endpoints = append(endpoints, family...)
 	}
 
@@ -986,6 +986,7 @@ func currentSchemas() []SchemaDefinition {
 	schemas = append(schemas, phase6HostSchemas()...)
 	schemas = append(schemas, hostDiscoverySchemas()...)
 	schemas = append(schemas, hostAdoptionSchemas()...)
+	schemas = append(schemas, operatorAccessSchemas()...)
 	schemas = append(schemas, hostActionSchemas()...)
 	schemas = append(schemas, accessSchemas()...)
 	schemas = append(schemas, accessProbeSchemas()...)

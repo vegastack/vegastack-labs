@@ -1,6 +1,6 @@
 # Phase 7 — People, devices, identity and network access
 
-Status: development started 23-10-2026. This is an implementation map, not live authority or completed acceptance. Phase 6 accepted deferrals remain deferred. Nodes04/05 are excluded from all operations, including reads and indirect effects.
+Status: development started 23-10-2026; remaining implementation batch authorized 26-10-2026. This is an implementation map, not live authority or completed acceptance. Phase 6 accepted deferrals remain deferred. Nodes04/05 are excluded from all operations, including reads and indirect effects.
 
 ## Small delivery order
 
@@ -13,6 +13,29 @@ Status: development started 23-10-2026. This is an implementation map, not live 
 | 7.3 Network implementation map | [#271](https://github.com/vegastack/vegastack-labs/issues/271) | Ground remaining LAN/Mesh/edge/identity slices before implementation | Research complete; findings and unresolved live inputs recorded below; no provider changes |
 
 These issues do not represent all Phase 7 acceptance as complete. The phase milestone stays open until the implemented scope and explicit remaining decisions are reconciled with the roadmap.
+
+## Remaining implementation batch — 26-10-2026
+
+The operator instructed “ok so go on and fully implement it” after the remaining delivery map. Ordinary software choices, coding and the existing authorized PR/merge path continue without another approval round. Independent review rounds remain omitted under the explicit simplicity instruction; focused tests and exact-head shipping proof remain. This grants no live provider, credential, controller update or fleet action. Cloudflare access is still pending, confirmed by the operator on 26-10-2026.
+
+| Delivery | Issue | Current software status |
+| --- | --- | --- |
+| Authorized People, device and grant reads; actual Console screens | [#276](https://github.com/vegastack/vegastack-labs/issues/276) | Implemented and verified in source; landing in progress |
+| Server-owned endpoint plans and pinned LAN/Mesh connection diagnostic | [#277](https://github.com/vegastack/vegastack-labs/issues/277) | Implementation in progress; no live host connections |
+| Owned Cloudflare Mesh changes through the existing executor | [#278](https://github.com/vegastack/vegastack-labs/issues/278) | Implementation in progress with synthetic HTTP fixtures |
+| Owned Access/Tunnel actions and truthful connector/rotation state | [#279](https://github.com/vegastack/vegastack-labs/issues/279) | Planned; depends on shared Mesh adapter foundation |
+| Operator/manual procedures and combined software evidence | [#280](https://github.com/vegastack/vegastack-labs/issues/280) | Depends on the above implemented contracts and evidence |
+| Actual website deployment | [#264](https://github.com/vegastack/vegastack-labs/issues/264) | Live provider permissions/inputs remain blocked |
+
+The six delivery packages may share a final documentation/acceptance issue; issue count is not a completion percentage. Existing native host/Mac/advanced recovery deferrals stay deferred. A source implementation, fixture or configured adapter never closes a live admission or provider gate.
+
+## Authorized operator read screens
+
+People/devices/grants use generated GET endpoints and current exact `authorization.policy.read` authority for each principal, checked with actor/device state in the same database read snapshot. Immutable-ID continuation bounds each collection to 100 rows. The safe projection excludes external identity bindings, sessions, secrets and private paths. Browser denial clears identity collection and detail caches.
+
+Providers uses the existing `platform.source.read` permission for `platform-source/providers`. It reports only finite configured capability flags; configured connectivity remains unknown without current provider observations, and absent capabilities are unavailable. The page makes no provider calls. User-facing records replace the old People/Providers capability placeholders while existing source-status endpoints remain compatible.
+
+Native Linux software evidence for these reads covers scoped paging/projection, current actor/device/grant denial, exact provider scope and the actual authorized API responses. Focused browser evidence covers current/narrow/keyboard, empty/error/refresh, denied-cache removal and configured/unknown versus absent/unavailable provider state. Source-only status here does not imply installation on the live pilot controller.
 
 ## Reuse and boundaries
 

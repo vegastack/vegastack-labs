@@ -29,6 +29,7 @@ Contract schema: `1.29.0`
 | `api.v1.declarations.get` | `GET` | `/api/v1/declarations/{declarationId}/revisions/{revision}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/browser-declaration-revision` |
 | `api.v1.declarations.plan-preparation.get` | `GET` | `/api/v1/declarations/{declarationId}/revisions/{revision}/plan-preparation` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/plan-preparation` |
 | `api.v1.declarations.revise` | `POST` | `/api/v1/declarations/{declarationId}/revisions` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/declaration-revision-request` | `vegastack-labs.dev/browser-declaration-revision` |
+| `api.v1.devices.list` | `GET` | `/api/v1/devices` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/operator-device-list` |
 | `api.v1.events.stream` | `GET` | `/api/v1/events` | `available` | `browser, operator` | `sse` | `` | `vegastack-labs.dev/api-audit-event-data` |
 | `api.v1.execution-receipts.create` | `POST` | `/api/v1/execution-receipts` | `available` | `executor` | `finite` | `vegastack-labs.dev/execution-receipt-request` | `vegastack-labs.dev/execution-receipt` |
 | `api.v1.executor-leases.claim` | `POST` | `/api/v1/executor-leases/claim` | `available` | `executor` | `finite` | `vegastack-labs.dev/executor-claim-request` | `vegastack-labs.dev/executor-lease` |
@@ -38,6 +39,7 @@ Contract schema: `1.29.0`
 | `api.v1.gates.check` | `POST` | `/api/v1/gates/{gateId}/check` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/gate-check-request` | `vegastack-labs.dev/gate-evaluation` |
 | `api.v1.gates.get` | `GET` | `/api/v1/gates/{gateId}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/gate-view` |
 | `api.v1.gates.list` | `GET` | `/api/v1/gates` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/gate-list-data` |
+| `api.v1.grants.list` | `GET` | `/api/v1/grants` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/operator-grant-list` |
 | `api.v1.health.get` | `GET` | `/api/v1/health` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/server-status-data` |
 | `api.v1.host-access.draft` | `POST` | `/api/v1/host-access/draft` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/host-access-draft-request` | `vegastack-labs.dev/host-action-submission` |
 | `api.v1.host-actions.draft` | `POST` | `/api/v1/host-actions/draft` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/host-action-request` | `vegastack-labs.dev/host-action-submission` |
@@ -62,6 +64,7 @@ Contract schema: `1.29.0`
 | `api.v1.inventory-drafts.import` | `POST` | `/api/v1/inventory-drafts/import` | `available` | `operator` | `finite` | `vegastack-labs.dev/inventory-import-request` | `vegastack-labs.dev/inventory-import-data` |
 | `api.v1.inventory-drafts.list` | `GET` | `/api/v1/inventory-drafts` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/api-inventory-draft-list-data` |
 | `api.v1.inventory-exports.create` | `POST` | `/api/v1/inventory-exports` | `available` | `operator` | `finite` | `vegastack-labs.dev/inventory-export-request` | `vegastack-labs.dev/inventory-export-data` |
+| `api.v1.people.list` | `GET` | `/api/v1/people` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/operator-people-page` |
 | `api.v1.plans.acknowledgements.create` | `POST` | `/api/v1/plans/{planId}/acknowledgements` | `available` | `operator, server-adapter` | `finite` | `vegastack-labs.dev/acknowledgement-request` | `vegastack-labs.dev/acknowledgement` |
 | `api.v1.plans.acknowledgements.get` | `GET` | `/api/v1/plans/{planId}/acknowledgements` | `available` | `operator, server-adapter` | `finite` | `` | `vegastack-labs.dev/acknowledgement` |
 | `api.v1.plans.approval-request.create` | `POST` | `/api/v1/plans/{planId}/approval-request` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/plan-reference-request` | `vegastack-labs.dev/approval-status` |
@@ -70,6 +73,7 @@ Contract schema: `1.29.0`
 | `api.v1.plans.execute` | `POST` | `/api/v1/plans/{planId}/execute` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/plan-reference-request` | `vegastack-labs.dev/run-presentation` |
 | `api.v1.plans.get` | `GET` | `/api/v1/plans/{planId}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/plan-presentation` |
 | `api.v1.plans.run-resolution.get` | `GET` | `/api/v1/plans/{planId}/runs/{idempotencyKey}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/run-presentation` |
+| `api.v1.providers.list` | `GET` | `/api/v1/providers` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/operator-provider-list` |
 | `api.v1.qualification.collect` | `POST` | `/api/v1/qualification/collect` | `available` | `operator` | `finite` | `vegastack-labs.dev/native-collect-request` | `vegastack-labs.dev/native-collect-data` |
 | `api.v1.qualification.inspect` | `POST` | `/api/v1/qualification/inspect` | `available` | `operator` | `finite` | `vegastack-labs.dev/qualification-inspect-request` | `vegastack-labs.dev/qualification-inspect-data` |
 | `api.v1.qualification.producer` | `POST` | `/api/v1/qualification/native/producer` | `available` | `operator` | `finite` | `vegastack-labs.dev/native-producer-lookup-request` | `vegastack-labs.dev/native-producer-lookup-data` |

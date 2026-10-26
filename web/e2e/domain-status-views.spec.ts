@@ -3,9 +3,7 @@ import axe from "axe-core";
 import { fixtureAudit, fixtureState, installReadFixture, privateDomainBackingRecords, privateDomainCanaries } from "./api-fixture";
 
 const domains = [
-  { route: "/people", title: "People", source: "people", capability: "identity.person.read" },
   { route: "/services", title: "Services", source: "services", capability: "service.read" },
-  { route: "/providers", title: "Providers", source: "providers", capability: "adapter.status.read" },
 ] as const;
 
 test.beforeEach(async ({ page }) => installReadFixture(page));
@@ -83,7 +81,7 @@ for (const domain of domains) {
 test("a valid but wrong source response is rejected", async ({ page }) => {
   fixtureState.mode = "mismatched-source";
   fixtureState.domainState = "healthy";
-  await page.goto("/people");
+  await page.goto("/services");
   await expect(page.locator('[data-read-state="error"]')).toBeVisible();
   await expect(page.locator("[data-source-state]")).toHaveCount(0);
 });

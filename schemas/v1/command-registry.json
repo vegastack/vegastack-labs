@@ -6946,6 +6946,50 @@
       "version": "1.0.0"
     },
     {
+      "id": "vegastack-labs.dev/operator-device",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/operator-device.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/operator-device-list",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/operator-device-list.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/operator-grant",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/operator-grant.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/operator-grant-list",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/operator-grant-list.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/operator-people-page",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/operator-people-page.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/operator-person",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/operator-person.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/operator-provider",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/operator-provider.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/operator-provider-list",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/operator-provider-list.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/operator-read-query",
+      "version": "1.0.0"
+    },
+    {
       "id": "vegastack-labs.dev/outbox-record-data",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/outbox-record-data.schema.json"

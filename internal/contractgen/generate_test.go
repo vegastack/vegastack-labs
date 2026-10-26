@@ -237,6 +237,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/browser-audit-verification-data.schema.json",
 		"schemas/v1/browser-backup-status-data.schema.json",
 		"schemas/v1/browser-declaration-revision.schema.json",
+		"schemas/v1/browser-identity-binding-change.schema.json",
 		"schemas/v1/browser-recovery-point-list-data.schema.json",
 		"schemas/v1/browser-recovery-point.schema.json",
 		"schemas/v1/browser-restore-draft-request.schema.json",
@@ -399,6 +400,14 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/native-volume-seal-witness.schema.json",
 		"schemas/v1/native-witness-request.schema.json",
 
+		"schemas/v1/operator-device-list.schema.json",
+		"schemas/v1/operator-device.schema.json",
+		"schemas/v1/operator-grant-list.schema.json",
+		"schemas/v1/operator-grant.schema.json",
+		"schemas/v1/operator-people-page.schema.json",
+		"schemas/v1/operator-person.schema.json",
+		"schemas/v1/operator-provider-list.schema.json",
+		"schemas/v1/operator-provider.schema.json",
 		"schemas/v1/outbox-record-data.schema.json",
 		"schemas/v1/plan-create-request.schema.json",
 		"schemas/v1/plan-preparation.schema.json",
@@ -873,9 +882,10 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 			}
 		}
 	}
-	if available != 67 || planned != 21 {
-		t.Fatalf("command availability = (%d available, %d planned), want (67, 21)", available, planned)
+	if available != 74 || planned != 14 {
+		t.Fatalf("command availability = (%d available, %d planned), want (74, 14)", available, planned)
 	}
+	// #269/#270 promote seven existing people/device CLI operations.
 	// #247 adds the approved grant-batch draft; #228 retains its exact qualification commands.
 	// #102's 17 available/38 planned baseline remains the arithmetic base:
 	// #104 promoted four exact gate commands and added one exact profile draft;

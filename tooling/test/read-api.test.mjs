@@ -276,3 +276,25 @@ test("the reviewed #228 qualification endpoints retain exact bounded metadata", 
     }
   }
 });
+
+test("the reviewed #276 operator reads require exact bounded GET contracts", async (t) => {
+  const registry = JSON.parse(await readFile(path.join(process.cwd(), "schemas/v1/endpoint-registry.json"), "utf8"));
+  assert.equal((await verifyReadAPI()).status, "pass");
+  for (const family of ["people", "devices", "grants", "providers"]) {
+    const id = `api.v1.${family}.list`;
+    for (const mutation of ["remove", "id", "method", "path", "availability", "ownerPhase", "querySchema", "requestSchema", "dataSchema", "stream", "audiences", "permission-field", "extra-field", "duplicate", "direct-mutation", "planned-extra", "historical-route"]) {
+      const copy = structuredClone(registry);
+      const endpoint = copy.endpoints.find(value => value.id === id);
+      if (mutation === "remove") copy.endpoints = copy.endpoints.filter(value => value.id !== id);
+      else if (mutation === "permission-field") endpoint.capability = "authorization.policy.write";
+      else if (mutation === "extra-field") endpoint.allowDirectExecution = true;
+      else if (mutation === "duplicate") copy.endpoints.push({...endpoint});
+      else if (mutation === "direct-mutation") copy.endpoints.push({...endpoint, id: `api.v1.${family}.revoke`, path: `/api/v1/${family}/revoke`, method: "POST"});
+      else if (mutation === "planned-extra") copy.endpoints.push({...endpoint, id: `api.v1.${family}.unreviewed`, availability: "planned"});
+      else if (mutation === "historical-route") copy.endpoints = copy.endpoints.filter(value => value.id !== "api.v1.summary.get");
+      else endpoint[mutation] = mutation === "audiences" ? ["operator", "browser", "agent"] : "unreviewed";
+      const root = await fixtureRepo(t, {"schemas/v1/endpoint-registry.json": JSON.stringify(copy)});
+      assert.ok((await verifyReadAPI(root)).codes.includes("READ_API_ENDPOINT_DRIFT"), `${id}/${mutation}`);
+    }
+  }
+});
