@@ -19,6 +19,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"github.com/vegastack/vegastack-labs/internal/hostadoption"
 	"github.com/vegastack/vegastack-labs/internal/hostdiscovery"
+	"github.com/vegastack/vegastack-labs/internal/networkingress"
 	"github.com/vegastack/vegastack-labs/internal/networkmesh"
 	"github.com/vegastack/vegastack-labs/internal/stateexport"
 	"github.com/vegastack/vegastack-labs/internal/store"
@@ -58,6 +59,9 @@ type HostActionLifecycleReader interface {
 	LookupLifecycleDraft(context.Context, string, int64, string) (credentialref.LifecycleBinding, error)
 }
 type Config struct {
+	IngressChanges interface {
+		GetStaged(context.Context, string) (networkingress.Staged, error)
+	}
 	MeshChanges interface {
 		GetStaged(context.Context, string) (networkmesh.Staged, error)
 	}
@@ -217,6 +221,28 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 		sealed := false
 		for _, x := range extensions {
 			if x.Name == networkmesh.Extension {
+				sealed = x.ValueDigest == d.Digest
+			}
+		}
+		if !sealed {
+			return store.PlanCommitResult{}, planError(generated.ErrorCodePlanStale)
+		}
+		risk = string(authorization.RiskInfrastructure)
+	}
+	for _, op := range operations {
+		if op.AdapterID != networkingress.AdapterID && !strings.HasPrefix(op.OperationType, "network.ingress.") {
+			continue
+		}
+		if service.config.IngressChanges == nil || len(operations) != 1 || declaration.DeclarationType != "network.ingress" || op.AdapterID != networkingress.AdapterID || op.Idempotent || len(op.ArtifactDigest) != 71 || service.config.AuthorizationBranch != "human" || service.config.ExecutorMode != "central" {
+			return store.PlanCommitResult{}, planError(generated.ErrorCodeAuthorizationDenied)
+		}
+		d, e := service.config.IngressChanges.GetStaged(ctx, "ingress-"+op.ArtifactDigest[7:39])
+		if e != nil || d.Digest != op.ArtifactDigest || op.OperationType != "network.ingress."+d.Request.Change.Action || op.TargetID != d.Request.Change.ProfileID || networkingress.Validate(d.Request.Change) != nil {
+			return store.PlanCommitResult{}, planError(generated.ErrorCodeIntegrityFailure)
+		}
+		sealed := false
+		for _, x := range extensions {
+			if x.Name == networkingress.Extension {
 				sealed = x.ValueDigest == d.Digest
 			}
 		}
@@ -572,7 +598,7 @@ func (service *Service) ValidateCurrent(ctx context.Context, candidate generated
 // the secret-resolution binding manifest and the lifecycle binding are declared
 // facts a plan cannot invent, omit, or replace.
 func credentialBindingExtensionsEqual(left, right []generated.ContractExtension) bool {
-	for _, name := range []string{"x-host-replacement", "x-host-alias-claim", "x-cloudflare-mesh-change", "x-credential-bindings", "x-credential-lifecycle", "x-audit-checkpoint", "x-backup-policy", "x-backup-retention-lock-catalog", "x-backup-local-retirement", "x-offsite-generation"} {
+	for _, name := range []string{"x-host-replacement", "x-host-alias-claim", "x-cloudflare-ingress-change", "x-cloudflare-mesh-change", "x-credential-bindings", "x-credential-lifecycle", "x-audit-checkpoint", "x-backup-policy", "x-backup-retention-lock-catalog", "x-backup-local-retirement", "x-offsite-generation"} {
 		var leftDigest, rightDigest string
 		for _, item := range left {
 			if item.Name == name {

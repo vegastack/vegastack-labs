@@ -226,6 +226,7 @@ func Current() Registry {
 	}
 	commands = append(commands, hostCommands()...)
 	commands = append(commands, meshCommands()...)
+	commands = append(commands, ingressCommands()...)
 	commands = append(commands, authorizationGrantCommand())
 	commands = append(commands, networkConnectCommands()...)
 	commands = append(commands, userLifecycleCommands()...)
@@ -249,7 +250,7 @@ func Current() Registry {
 	}
 
 	endpoints := append([]EndpointDefinition{authorizationGrantEndpoint()}, networkConnectEndpoints()...)
-	for _, family := range [][]EndpointDefinition{readEndpoints(), meshEndpoints(), phase4Endpoints(), phase5Endpoints(), hostDiscoveryEndpoints(), hostAdoptionEndpoints(), hostActionEndpoints(), accessEndpoints(), hostReplacementEndpoints(), qualificationEndpoints()} {
+	for _, family := range [][]EndpointDefinition{readEndpoints(), meshEndpoints(), ingressEndpoints(), phase4Endpoints(), phase5Endpoints(), hostDiscoveryEndpoints(), hostAdoptionEndpoints(), hostActionEndpoints(), accessEndpoints(), hostReplacementEndpoints(), qualificationEndpoints()} {
 		endpoints = append(endpoints, family...)
 	}
 
@@ -932,6 +933,7 @@ func currentSchemas() []SchemaDefinition {
 				{JSONName: "remoteRead", GoName: "RemoteRead", Kind: ValueObject, Required: true, Ref: remoteReadProfileSchemaID},
 				{JSONName: "hostActionSignerPath", GoName: "HostActionSignerPath", Kind: ValueString, Required: false, OmitEmpty: true, MinLength: intPointer(2), MaxLength: intPointer(4096), Pattern: `^/[^\x00]*$`},
 				{JSONName: "hostActionKeyId", GoName: "HostActionKeyID", Kind: ValueString, Required: false, OmitEmpty: true, Pattern: `^[a-z][a-z0-9._:-]{0,127}$`},
+				{JSONName: "ingressScopeDigests", GoName: "IngressScopeDigests", Kind: ValueArray, Required: false, OmitEmpty: true, ItemKind: ValueString, MaxItems: intPointer(128), UniqueItems: true},
 				{JSONName: "meshScopeDigests", GoName: "MeshScopeDigests", Kind: ValueArray, Required: false, OmitEmpty: true, ItemKind: ValueString, MaxItems: intPointer(128), UniqueItems: true},
 				{JSONName: "hostActionIdentityDigests", GoName: "HostActionIdentityDigests", Kind: ValueArray, Required: false, OmitEmpty: true, ItemKind: ValueString, MaxItems: intPointer(64), UniqueItems: true},
 				{JSONName: "acknowledgementAdapterConfigPath", GoName: "AcknowledgementAdapterConfigPath", Kind: ValueString, Required: false, MinLength: intPointer(2), MaxLength: intPointer(4096), Pattern: `^/[^\x00]*$`},
@@ -991,6 +993,7 @@ func currentSchemas() []SchemaDefinition {
 	schemas = append(schemas, phase6HostSchemas()...)
 	schemas = append(schemas, hostDiscoverySchemas()...)
 	schemas = append(schemas, meshSchemas()...)
+	schemas = append(schemas, ingressSchemas()...)
 	schemas = append(schemas, hostAdoptionSchemas()...)
 	schemas = append(schemas, hostActionSchemas()...)
 	schemas = append(schemas, accessSchemas()...)

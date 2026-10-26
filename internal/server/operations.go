@@ -241,7 +241,7 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	plans, err := planengine.NewService(planengine.Config{MeshChanges: store.NewMeshRepository(authority, profile.MeshScopeDigests), HostReplacements: store.NewHostReplacementRepository(authority), HostActions: store.NewHostActionRepository(authority), HostActionCredentials: store.NewCredentialRepository(authority), HostDiscoveryTargets: store.NewHostDiscoveryRepository(authority), HostAdoptions: store.NewHostAdoptionRepository(authority), Repository: planRepository, Observations: observations, Clock: time.Now, PolicyVersion: "1.0.0", ToolVersion: operations.build.ToolVersion, ContractVersion: "1.0.0", Risk: "destructive", AuthorizationBranch: "human", ExecutorMode: "central", OperationExecutorID: "executor-central"})
+	plans, err := planengine.NewService(planengine.Config{IngressChanges: store.NewIngressRepository(authority, profile.IngressScopeDigests), MeshChanges: store.NewMeshRepository(authority, profile.MeshScopeDigests), HostReplacements: store.NewHostReplacementRepository(authority), HostActions: store.NewHostActionRepository(authority), HostActionCredentials: store.NewCredentialRepository(authority), HostDiscoveryTargets: store.NewHostDiscoveryRepository(authority), HostAdoptions: store.NewHostAdoptionRepository(authority), Repository: planRepository, Observations: observations, Clock: time.Now, PolicyVersion: "1.0.0", ToolVersion: operations.build.ToolVersion, ContractVersion: "1.0.0", Risk: "destructive", AuthorizationBranch: "human", ExecutorMode: "central", OperationExecutorID: "executor-central"})
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err
@@ -461,6 +461,12 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 		return meshErr
 	}
 	secretGate = meshSecretGate{source: meshSource, fallback: secretGate}
+	ingressSource, ingressErr := registerIngress(ctx, application, authority, adapters, declarations, factory, profile, operations.build, operations.databasePath)
+	if ingressErr != nil {
+		_ = application.Shutdown(ctx)
+		return ingressErr
+	}
+	secretGate = ingressSecretGate{source: ingressSource, fallback: secretGate}
 	secretGate = hostActionGate{targets: store.NewHostActionRepository(authority), credentials: credentialRepository, allowed: profile.HostActionIdentityDigests, fallback: secretGate}
 	lifecycleGate := hostActionGate{targets: store.NewHostActionRepository(authority), credentials: credentialRepository, allowed: profile.HostActionIdentityDigests, fallback: runengine.UnavailableGateVerifier{}}
 	credentialStep := &runengine.CredentialStep{Bindings: credentialRepository, Resolvers: adapters, Profiles: gateRepository, Plans: plans, ScheduledPlans: scheduledAdmission, Clock: time.Now}
