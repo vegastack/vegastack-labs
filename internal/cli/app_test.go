@@ -84,6 +84,22 @@ func TestEveryGeneratedCommandHasTruthfulRuntimeBehavior(t *testing.T) {
 				files.content, _ = json.Marshal(syntheticScheduledPolicy())
 			}
 			code, stdout, stderr := runTestAppWithOptions(t, context.Background(), arguments, nil, WithInput(strings.NewReader("encrypted-fixture")), WithReleaseOperations(operations), WithServerOperations(serverOperations), WithControlOperations(controlOperations, files), WithCredentialControlOperations(credentialOperations))
+			// This generic control stub intentionally has no provider capabilities.
+			// Every exact provider command must fail before reading a request or
+			// suggesting that the missing control dependency is operational.
+			providerScope := ""
+			switch commandName(command.Path) {
+			case generated.CommandNameNetworkMeshDraft, generated.CommandNameNetworkMeshObserve, generated.CommandNameNetworkMeshStatus:
+				providerScope = "mesh-control"
+			case generated.CommandNameNetworkIngressDraft, generated.CommandNameNetworkIngressObserve, generated.CommandNameNetworkIngressStatus, generated.CommandNameNetworkIngressRolloutEvidence:
+				providerScope = "ingress-control"
+			}
+			if providerScope != "" {
+				if code != 6 || stdout != "" || stderr != "vsk-labs: PREREQUISITE_BLOCKED ("+providerScope+")\n" {
+					t.Fatalf("unconfigured provider command %v: code=%d stdout=%q stderr=%q", command.Path, code, stdout, stderr)
+				}
+				return
+			}
 			if strings.HasPrefix(commandName(command.Path), "qualification ") {
 				wantCode, wantError := 2, `"code":"INPUT_INVALID"`
 				if commandName(command.Path) == generated.CommandNameQualificationFixturePeer {

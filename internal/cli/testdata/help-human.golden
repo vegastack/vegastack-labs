@@ -202,6 +202,41 @@ Available commands:
     --file <path>          Read one grant batch JSON file (32 KiB max).
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  network ingress draft    Inspect or prepare owned ingress; provider rotation alone is incomplete.
+    --config <path>        Read one protected operator profile.
+    --file <path>          Read an exact non-secret typed request.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  network ingress observe  Inspect or prepare owned ingress; provider rotation alone is incomplete.
+    --config <path>        Read one protected operator profile.
+    --file <path>          Read an exact non-secret typed request.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  network ingress rollout-evidence Inspect or prepare owned ingress; provider rotation alone is incomplete.
+    --config <path>        Read one protected operator profile.
+    --file <path>          Read an exact non-secret typed request.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  network ingress status   Inspect or prepare owned ingress; provider rotation alone is incomplete.
+    --config <path>        Read one protected operator profile.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --profile-id <id>      Select an owned ingress profile.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  network mesh draft       Inspect or prepare an owned Mesh change; live gates remain required.
+    --config <path>        Read one protected operator profile.
+    --file <path>          Read one inert Mesh request.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  network mesh observe     Inspect or prepare an owned Mesh change; live gates remain required.
+    --config <path>        Read one protected operator profile.
+    --file <path>          Read one inert Mesh request.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  network mesh status      Inspect or prepare an owned Mesh change; live gates remain required.
+    --config <path>        Read one protected operator profile.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --profile-id <id>      Select an owned Mesh profile.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   node access prepare      Prepare an inert access policy and probe sequence.
     --config <path>        Read one protected server profile.
     --file <path>          Read one bounded typed request JSON file.
