@@ -1,0 +1,180 @@
+{
+  "$defs": {
+    "service-deployment-artifact-source": {
+      "additionalProperties": false,
+      "properties": {
+        "artifactId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "bundlePath": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "type": "string"
+        },
+        "digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "manifestPath": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "type": "string"
+        },
+        "policyPath": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "type": "string"
+        },
+        "repository": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/service-deployment-artifact-source"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "artifactId",
+        "repository",
+        "digest",
+        "manifestPath",
+        "bundlePath",
+        "policyPath"
+      ],
+      "type": "object"
+    },
+    "service-deployment-binding": {
+      "additionalProperties": false,
+      "properties": {
+        "bindingId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "configurationDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "dataPolicy": {
+          "enum": [
+            "stateless",
+            "compatible",
+            "unknown",
+            "irreversible"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/service-deployment-binding"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "serviceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "configurationDigest",
+        "serviceId",
+        "bindingId",
+        "dataPolicy"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/service-deployment-provider-binding",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "artifacts": {
+      "items": {
+        "$ref": "#/$defs/service-deployment-artifact-source"
+      },
+      "maxItems": 128,
+      "minItems": 1,
+      "type": "array"
+    },
+    "binding": {
+      "$ref": "#/$defs/service-deployment-binding"
+    },
+    "destinationUuid": {
+      "maxLength": 1024,
+      "minLength": 1,
+      "type": "string"
+    },
+    "exclusiveOwnership": {
+      "type": "boolean"
+    },
+    "mutationReferenceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "runtimeReferenceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/service-deployment-provider-binding"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "serverId": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "serverUuid": {
+      "maxLength": 1024,
+      "minLength": 1,
+      "type": "string"
+    },
+    "serviceBindingId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "binding",
+    "serviceBindingId",
+    "destinationUuid",
+    "serverUuid",
+    "serverId",
+    "mutationReferenceId",
+    "runtimeReferenceId",
+    "exclusiveOwnership",
+    "artifacts"
+  ],
+  "title": "VegaStack Labs service deployment provider binding",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

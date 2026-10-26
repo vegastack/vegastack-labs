@@ -370,6 +370,13 @@ const (
 	SchemaIDServerProfile                          = "vegastack-labs.dev/server-profile"
 	SchemaIDServerStatusData                       = "vegastack-labs.dev/server-status-data"
 	SchemaIDServiceDefinition                      = "vegastack-labs.dev/service-definition"
+	SchemaIDServiceDeploymentArtifact              = "vegastack-labs.dev/service-deployment-artifact"
+	SchemaIDServiceDeploymentArtifactSource        = "vegastack-labs.dev/service-deployment-artifact-source"
+	SchemaIDServiceDeploymentBinding               = "vegastack-labs.dev/service-deployment-binding"
+	SchemaIDServiceDeploymentDraftRequest          = "vegastack-labs.dev/service-deployment-draft-request"
+	SchemaIDServiceDeploymentProviderBinding       = "vegastack-labs.dev/service-deployment-provider-binding"
+	SchemaIDServiceDeploymentRecord                = "vegastack-labs.dev/service-deployment-record"
+	SchemaIDServiceDeploymentRequest               = "vegastack-labs.dev/service-deployment-request"
 	SchemaIDServiceImportDraftRequest              = "vegastack-labs.dev/service-import-draft-request"
 	SchemaIDServiceImportRequest                   = "vegastack-labs.dev/service-import-request"
 	SchemaIDServiceList                            = "vegastack-labs.dev/service-list"
@@ -507,12 +514,14 @@ const (
 	CommandNameServerRun                           = "server run"
 	FlagSetup                                      = "--setup"
 	CommandNameServerStatus                        = "server status"
+	CommandNameServiceDeploymentDraft              = "service deployment draft"
+	CommandNameServiceDeploymentShow               = "service deployment show"
+	FlagServiceID                                  = "--service-id"
 	CommandNameServiceImportDraft                  = "service import draft"
 	CommandNameServiceList                         = "service list"
 	FlagAfter                                      = "--after"
 	FlagLimit                                      = "--limit"
 	CommandNameServiceObserve                      = "service observe"
-	FlagServiceID                                  = "--service-id"
 	CommandNameServiceShow                         = "service show"
 	CommandNameStatus                              = "status"
 	CommandNameUserOffboard                        = "user offboard"
@@ -2104,6 +2113,7 @@ type DeclarationOperation struct {
 type DeclarationRevision struct {
 	Schema                  string                          `json:"schema"`
 	SchemaVersion           string                          `json:"schemaVersion"`
+	ServiceDeployment       *ServiceDeploymentRequest       `json:"serviceDeployment,omitempty"`
 	ServiceImport           *ServiceImportRequest           `json:"serviceImport,omitempty"`
 	NetworkEndpoint         *NetworkEndpointRequest         `json:"networkEndpoint,omitempty"`
 	AuthorizationGrantBatch *AuthorizationGrantBatchRequest `json:"grantBatch,omitempty"`
@@ -2125,6 +2135,7 @@ type DeclarationRevision struct {
 type DeclarationRevisionRequest struct {
 	Schema                  string                          `json:"schema"`
 	SchemaVersion           string                          `json:"schemaVersion"`
+	ServiceDeployment       *ServiceDeploymentRequest       `json:"serviceDeployment,omitempty"`
 	ServiceImport           *ServiceImportRequest           `json:"serviceImport,omitempty"`
 	NetworkEndpoint         *NetworkEndpointRequest         `json:"networkEndpoint,omitempty"`
 	AuthorizationGrantBatch *AuthorizationGrantBatchRequest `json:"grantBatch,omitempty"`
@@ -4389,6 +4400,7 @@ type OutboxRecordData struct {
 type Plan struct {
 	Schema                  string                              `json:"schema"`
 	SchemaVersion           string                              `json:"schemaVersion"`
+	ServiceDeployment       *ServiceDeploymentRequest           `json:"serviceDeployment,omitempty"`
 	ServiceImport           *ServiceImportRequest               `json:"serviceImport,omitempty"`
 	NetworkEndpoint         *NetworkEndpointRequest             `json:"networkEndpoint,omitempty"`
 	AuthorizationGrantBatch *AuthorizationGrantBatchRequest     `json:"grantBatch,omitempty"`
@@ -5134,51 +5146,52 @@ type ScheduledRunnerProfile struct {
 }
 
 type ServerProfile struct {
-	Schema                           string                   `json:"schema"`
-	SchemaVersion                    string                   `json:"schemaVersion"`
-	SocketPath                       string                   `json:"socketPath"`
-	SocketOwnerUID                   int64                    `json:"socketOwnerUid"`
-	SocketGroupGID                   *int64                   `json:"socketGroupGid"`
-	SocketMode                       string                   `json:"socketMode"`
-	ShutdownGraceSeconds             int64                    `json:"shutdownGraceSeconds"`
-	InventoryExportRoot              string                   `json:"inventoryExportRoot"`
-	ServiceBindings                  []ServiceProviderBinding `json:"serviceBindings,omitempty"`
-	NetworkConnectExcludedHostIDs    []string                 `json:"networkConnectExcludedHostIds,omitempty"`
-	NetworkConnectPrivateKeyPath     string                   `json:"networkConnectPrivateKeyPath,omitempty"`
-	PrincipalBindings                []LocalPrincipalBinding  `json:"principalBindings"`
-	RemoteRead                       RemoteReadProfile        `json:"remoteRead"`
-	HostActionSignerPath             string                   `json:"hostActionSignerPath,omitempty"`
-	HostActionKeyID                  string                   `json:"hostActionKeyId,omitempty"`
-	IngressScopeDigests              []string                 `json:"ingressScopeDigests,omitempty"`
-	MeshScopeDigests                 []string                 `json:"meshScopeDigests,omitempty"`
-	HostActionIdentityDigests        []string                 `json:"hostActionIdentityDigests,omitempty"`
-	AcknowledgementAdapterConfigPath string                   `json:"acknowledgementAdapterConfigPath"`
-	ScheduledRunner                  *ScheduledRunnerProfile  `json:"scheduledRunner"`
-	StandardBackupRoot               *string                  `json:"standardBackupRoot"`
-	CriticalBackupRoot               *string                  `json:"criticalBackupRoot"`
-	ResticBinaryPath                 *string                  `json:"resticBinaryPath"`
-	CustodyPolicyPath                *string                  `json:"custodyPolicyPath"`
-	OffsiteEndpoint                  *string                  `json:"offsiteEndpoint"`
-	OffsiteBucket                    *string                  `json:"offsiteBucket"`
-	OffsitePrefix                    *string                  `json:"offsitePrefix"`
-	OffsiteParentReferenceID         *string                  `json:"offsiteParentReferenceId"`
-	OffsiteObserverReferenceID       *string                  `json:"offsiteObserverReferenceId"`
-	OffsiteLockAdminReferenceID      *string                  `json:"offsiteLockAdminReferenceId"`
-	OffsiteLockAdminFingerprint      *string                  `json:"offsiteLockAdminFingerprint"`
-	OffsiteRetentionReferenceID      *string                  `json:"offsiteRetentionReferenceId"`
-	OffsiteRetentionFingerprint      *string                  `json:"offsiteRetentionFingerprint"`
-	OffsiteParentFingerprint         *string                  `json:"offsiteParentFingerprint"`
-	OffsiteRuleDigest                *string                  `json:"offsiteRuleDigest"`
-	OffsiteG008EvidenceDigest        *string                  `json:"offsiteG008EvidenceDigest"`
-	OffsiteAccountID                 *string                  `json:"offsiteAccountId"`
-	OffsiteQualificationDigest       *string                  `json:"offsiteQualificationDigest"`
-	OffsitePutCutoffDigest           *string                  `json:"offsitePutCutoffDigest"`
-	OffsiteMultipartCutoffDigest     *string                  `json:"offsiteMultipartCutoffDigest"`
-	OffsiteAvailableBytes            *int64                   `json:"offsiteAvailableBytes"`
-	OffsiteAvailablePUTs             *int64                   `json:"offsiteAvailablePuts"`
-	OffsiteAvailableLISTs            *int64                   `json:"offsiteAvailableLists"`
-	OffsiteRuleCount                 *int64                   `json:"offsiteRuleCount"`
-	OffsiteRetainedGenerations       *int64                   `json:"offsiteRetainedGenerations"`
+	Schema                           string                             `json:"schema"`
+	SchemaVersion                    string                             `json:"schemaVersion"`
+	SocketPath                       string                             `json:"socketPath"`
+	SocketOwnerUID                   int64                              `json:"socketOwnerUid"`
+	SocketGroupGID                   *int64                             `json:"socketGroupGid"`
+	SocketMode                       string                             `json:"socketMode"`
+	ShutdownGraceSeconds             int64                              `json:"shutdownGraceSeconds"`
+	InventoryExportRoot              string                             `json:"inventoryExportRoot"`
+	ServiceDeploymentBindings        []ServiceDeploymentProviderBinding `json:"serviceDeploymentBindings,omitempty"`
+	ServiceBindings                  []ServiceProviderBinding           `json:"serviceBindings,omitempty"`
+	NetworkConnectExcludedHostIDs    []string                           `json:"networkConnectExcludedHostIds,omitempty"`
+	NetworkConnectPrivateKeyPath     string                             `json:"networkConnectPrivateKeyPath,omitempty"`
+	PrincipalBindings                []LocalPrincipalBinding            `json:"principalBindings"`
+	RemoteRead                       RemoteReadProfile                  `json:"remoteRead"`
+	HostActionSignerPath             string                             `json:"hostActionSignerPath,omitempty"`
+	HostActionKeyID                  string                             `json:"hostActionKeyId,omitempty"`
+	IngressScopeDigests              []string                           `json:"ingressScopeDigests,omitempty"`
+	MeshScopeDigests                 []string                           `json:"meshScopeDigests,omitempty"`
+	HostActionIdentityDigests        []string                           `json:"hostActionIdentityDigests,omitempty"`
+	AcknowledgementAdapterConfigPath string                             `json:"acknowledgementAdapterConfigPath"`
+	ScheduledRunner                  *ScheduledRunnerProfile            `json:"scheduledRunner"`
+	StandardBackupRoot               *string                            `json:"standardBackupRoot"`
+	CriticalBackupRoot               *string                            `json:"criticalBackupRoot"`
+	ResticBinaryPath                 *string                            `json:"resticBinaryPath"`
+	CustodyPolicyPath                *string                            `json:"custodyPolicyPath"`
+	OffsiteEndpoint                  *string                            `json:"offsiteEndpoint"`
+	OffsiteBucket                    *string                            `json:"offsiteBucket"`
+	OffsitePrefix                    *string                            `json:"offsitePrefix"`
+	OffsiteParentReferenceID         *string                            `json:"offsiteParentReferenceId"`
+	OffsiteObserverReferenceID       *string                            `json:"offsiteObserverReferenceId"`
+	OffsiteLockAdminReferenceID      *string                            `json:"offsiteLockAdminReferenceId"`
+	OffsiteLockAdminFingerprint      *string                            `json:"offsiteLockAdminFingerprint"`
+	OffsiteRetentionReferenceID      *string                            `json:"offsiteRetentionReferenceId"`
+	OffsiteRetentionFingerprint      *string                            `json:"offsiteRetentionFingerprint"`
+	OffsiteParentFingerprint         *string                            `json:"offsiteParentFingerprint"`
+	OffsiteRuleDigest                *string                            `json:"offsiteRuleDigest"`
+	OffsiteG008EvidenceDigest        *string                            `json:"offsiteG008EvidenceDigest"`
+	OffsiteAccountID                 *string                            `json:"offsiteAccountId"`
+	OffsiteQualificationDigest       *string                            `json:"offsiteQualificationDigest"`
+	OffsitePutCutoffDigest           *string                            `json:"offsitePutCutoffDigest"`
+	OffsiteMultipartCutoffDigest     *string                            `json:"offsiteMultipartCutoffDigest"`
+	OffsiteAvailableBytes            *int64                             `json:"offsiteAvailableBytes"`
+	OffsiteAvailablePUTs             *int64                             `json:"offsiteAvailablePuts"`
+	OffsiteAvailableLISTs            *int64                             `json:"offsiteAvailableLists"`
+	OffsiteRuleCount                 *int64                             `json:"offsiteRuleCount"`
+	OffsiteRetainedGenerations       *int64                             `json:"offsiteRetainedGenerations"`
 }
 
 type ServerStatusData struct {
@@ -5202,6 +5215,96 @@ type ServiceDefinition struct {
 	HostIdentityDigest string `json:"hostIdentityDigest"`
 	BindingID          string `json:"bindingId"`
 	BindingDigest      string `json:"bindingDigest"`
+}
+
+type ServiceDeploymentArtifact struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	ArtifactID    string `json:"artifactId"`
+	Repository    string `json:"repository"`
+	Digest        string `json:"digest"`
+	ManifestSHA   string `json:"manifestSha"`
+	BundleSHA     string `json:"bundleSha"`
+	PolicySHA     string `json:"policySha"`
+}
+
+type ServiceDeploymentArtifactSource struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	ArtifactID    string `json:"artifactId"`
+	Repository    string `json:"repository"`
+	Digest        string `json:"digest"`
+	ManifestPath  string `json:"manifestPath"`
+	BundlePath    string `json:"bundlePath"`
+	PolicyPath    string `json:"policyPath"`
+}
+
+type ServiceDeploymentBinding struct {
+	Schema              string `json:"schema"`
+	SchemaVersion       string `json:"schemaVersion"`
+	ConfigurationDigest string `json:"configurationDigest"`
+	ServiceID           string `json:"serviceId"`
+	BindingID           string `json:"bindingId"`
+	DataPolicy          string `json:"dataPolicy"`
+}
+
+type ServiceDeploymentDraftRequest struct {
+	Schema                string `json:"schema"`
+	SchemaVersion         string `json:"schemaVersion"`
+	ServiceID             string `json:"serviceId"`
+	ArtifactID            string `json:"artifactId"`
+	Action                string `json:"action"`
+	ExpectedStateRevision int64  `json:"expectedStateRevision"`
+	RecoveryEpoch         int64  `json:"recoveryEpoch"`
+	IdempotencyKey        string `json:"idempotencyKey"`
+	ReasonDigest          string `json:"reasonDigest"`
+}
+
+type ServiceDeploymentProviderBinding struct {
+	Schema              string                            `json:"schema"`
+	SchemaVersion       string                            `json:"schemaVersion"`
+	Binding             ServiceDeploymentBinding          `json:"binding"`
+	ServiceBindingID    string                            `json:"serviceBindingId"`
+	DestinationUUID     string                            `json:"destinationUuid"`
+	ServerUUID          string                            `json:"serverUuid"`
+	ServerID            int64                             `json:"serverId"`
+	MutationReferenceID string                            `json:"mutationReferenceId"`
+	RuntimeReferenceID  string                            `json:"runtimeReferenceId"`
+	ExclusiveOwnership  bool                              `json:"exclusiveOwnership"`
+	Artifacts           []ServiceDeploymentArtifactSource `json:"artifacts"`
+}
+
+type ServiceDeploymentRecord struct {
+	Schema            string                   `json:"schema"`
+	SchemaVersion     string                   `json:"schemaVersion"`
+	ProviderReceiptID string                   `json:"providerReceiptId,omitempty"`
+	ProviderStage     string                   `json:"providerStage"`
+	Request           ServiceDeploymentRequest `json:"request"`
+	Revision          int64                    `json:"revision"`
+	Status            string                   `json:"status"`
+	ReceiptDigest     string                   `json:"receiptDigest"`
+	RuntimeDigest     string                   `json:"runtimeDigest"`
+	RunningDigest     string                   `json:"runningDigest"`
+	Running           bool                     `json:"running"`
+	Healthy           bool                     `json:"healthy"`
+	PlanID            string                   `json:"planId"`
+	RunID             string                   `json:"runId"`
+	CompletedAt       string                   `json:"completedAt"`
+}
+
+type ServiceDeploymentRequest struct {
+	Schema                     string                    `json:"schema"`
+	SchemaVersion              string                    `json:"schemaVersion"`
+	Definition                 ServiceDefinition         `json:"definition"`
+	Binding                    ServiceDeploymentBinding  `json:"binding"`
+	Artifact                   ServiceDeploymentArtifact `json:"artifact"`
+	ArtifactProofDigest        string                    `json:"artifactProofDigest"`
+	Action                     string                    `json:"action"`
+	ExpectedDeploymentRevision int64                     `json:"expectedDeploymentRevision"`
+	ExpectedStateRevision      int64                     `json:"expectedStateRevision"`
+	RecoveryEpoch              int64                     `json:"recoveryEpoch"`
+	IdempotencyKey             string                    `json:"idempotencyKey"`
+	ReasonDigest               string                    `json:"reasonDigest"`
 }
 
 type ServiceImportDraftRequest struct {
@@ -5575,6 +5678,8 @@ var Commands = []Command{
 	{Path: []string{"server", "run"}, Summary: "Run the persistent control service in the foreground.", Availability: "available", OwnerPhase: "2", Risk: "local-service", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}, {Name: "--setup", Kind: "value", ValueName: "path", Required: false, Repeatable: false, Summary: "Initialize an absent database only after exact Slack approval of this protected local setup record.", Enum: []string(nil)}}, ResultSchema: "vegastack-labs.dev/run-result", Examples: []Example{{Summary: "Run the local control service in the foreground.", Arguments: []string{"server", "run", "--config", "fixture/server-profile.json"}}}},
 	{Path: []string{"server", "status"}, Summary: "Query control-service health.", Availability: "available", OwnerPhase: "2", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/server-status-data", Examples: []Example{{Summary: "Query local control-service health as versioned JSON.", Arguments: []string{"server", "status", "--config", "fixture/server-profile.json", "--output", "json"}}}},
 	{Path: []string{"service", "deploy"}, Summary: "Create an inert service-deployment change.", Availability: "planned", OwnerPhase: "8", Risk: "unassigned"},
+	{Path: []string{"service", "deployment", "draft"}, Summary: "Draft an exact service deployment or rollback for human acknowledgement.", Availability: "available", OwnerPhase: "8", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected operator profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one inert deployment or rollback draft request.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/service-deployment-draft-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/declaration-revision", Examples: []Example{{Summary: "Draft an exact service deployment or rollback for human acknowledgement.", Arguments: []string{"service", "deployment", "draft", "--config", "fixture/client.json", "--file", "fixture/service-deployment.json", "--output", "json"}}}},
+	{Path: []string{"service", "deployment", "show"}, Summary: "Read the latest deployment result for one registered service.", Availability: "available", OwnerPhase: "8", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected operator profile.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}, {Name: "--service-id", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Select one exact registered service.", Enum: []string(nil)}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/service-deployment-record", Examples: []Example{{Summary: "Read the latest deployment result for one registered service.", Arguments: []string{"service", "deployment", "show", "--config", "fixture/client.json", "--service-id", "service-a", "--output", "json"}}}},
 	{Path: []string{"service", "import", "draft"}, Summary: "Draft a local service registration for exact-plan acknowledgement and apply.", Availability: "available", OwnerPhase: "8", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected operator profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one inert service-import draft request.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/service-import-draft-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/declaration-revision", Examples: []Example{{Summary: "Draft a local service registration for exact-plan acknowledgement and apply.", Arguments: []string{"service", "import", "draft", "--config", "fixture/client.json", "--file", "fixture/service-import.json", "--output", "json"}}}},
 	{Path: []string{"service", "list"}, Summary: "List registered services within current read scope.", Availability: "available", OwnerPhase: "8", Risk: "read-only", Flags: []Flag{{Name: "--after", Kind: "value", ValueName: "id", Required: false, Repeatable: false, Summary: "Continue after one service ID.", Enum: []string(nil)}, {Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected operator profile.", Enum: []string(nil)}, {Name: "--limit", Kind: "value", ValueName: "count", Required: false, Repeatable: false, Summary: "Return between 1 and 100 services (default 50).", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/service-list", Examples: []Example{{Summary: "List registered services within current read scope.", Arguments: []string{"service", "list", "--config", "fixture/client.json", "--output", "json"}}}},
 	{Path: []string{"service", "observe"}, Summary: "Read current provider observations for one registered service.", Availability: "available", OwnerPhase: "8", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected operator profile.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}, {Name: "--service-id", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Select one exact registered service.", Enum: []string(nil)}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/service-observation", Examples: []Example{{Summary: "Read current provider observations for one registered service.", Arguments: []string{"service", "observe", "--config", "fixture/client.json", "--service-id", "service-a", "--output", "json"}}}},
@@ -5686,6 +5791,8 @@ var Endpoints = []Endpoint{
 	{ID: "api.v1.scheduled-jobs.cancel", Method: "POST", Path: "/api/v1/scheduled-jobs/{jobId}/cancel", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/scheduled-job-cancel-request", DataSchema: "vegastack-labs.dev/scheduled-job", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "local", MaxRequestBytes: 0},
 	{ID: "api.v1.scheduled-jobs.list", Method: "GET", Path: "/api/v1/scheduled-jobs", Availability: "available", OwnerPhase: "5", QuerySchema: "vegastack-labs.dev/api-page-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/browser-scheduled-job-list-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.scheduled-occurrences.create", Method: "POST", Path: "/api/v1/scheduled-job-policies/{policyId}/occurrences", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/scheduled-job-request", DataSchema: "vegastack-labs.dev/scheduled-job", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "local", MaxRequestBytes: 0},
+	{ID: "api.v1.services.deployment-drafts.create", Method: "POST", Path: "/api/v1/services/deployment-drafts", Availability: "available", OwnerPhase: "8", QuerySchema: "", RequestSchema: "vegastack-labs.dev/service-deployment-draft-request", DataSchema: "vegastack-labs.dev/declaration-revision", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.services.deployment.get", Method: "GET", Path: "/api/v1/services/{serviceID}/deployment", Availability: "available", OwnerPhase: "8", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/service-deployment-record", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.services.get", Method: "GET", Path: "/api/v1/services/{serviceID}", Availability: "available", OwnerPhase: "8", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/service-record", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.services.import-drafts.create", Method: "POST", Path: "/api/v1/services/import-drafts", Availability: "available", OwnerPhase: "8", QuerySchema: "", RequestSchema: "vegastack-labs.dev/service-import-draft-request", DataSchema: "vegastack-labs.dev/declaration-revision", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.services.list", Method: "GET", Path: "/api/v1/services", Availability: "available", OwnerPhase: "8", QuerySchema: "vegastack-labs.dev/service-read-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/service-list", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},

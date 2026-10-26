@@ -54,6 +54,7 @@
 // api.v1.scheduled-job-policies.get
 // api.v1.scheduled-job-policies.list
 // api.v1.scheduled-jobs.list
+// api.v1.services.deployment.get
 // api.v1.services.get
 // api.v1.services.list
 // api.v1.services.observation.get
@@ -802,6 +803,7 @@ export interface DeclarationOperation {
 export interface DeclarationRevisionRequest {
   readonly "schema": "vegastack-labs.dev/declaration-revision-request";
   readonly "schemaVersion": "1.0.0";
+  readonly "serviceDeployment"?: ServiceDeploymentRequest | null;
   readonly "serviceImport"?: ServiceImportRequest | null;
   readonly "networkEndpoint"?: NetworkEndpointRequest | null;
   readonly "grantBatch"?: AuthorizationGrantBatchRequest | null;
@@ -1756,6 +1758,7 @@ export interface OperatorReadQuery {
 export interface Plan {
   readonly "schema": "vegastack-labs.dev/plan";
   readonly "schemaVersion": "1.0.0";
+  readonly "serviceDeployment"?: ServiceDeploymentRequest | null;
   readonly "serviceImport"?: ServiceImportRequest | null;
   readonly "networkEndpoint"?: NetworkEndpointRequest | null;
   readonly "grantBatch"?: AuthorizationGrantBatchRequest | null;
@@ -1960,6 +1963,59 @@ export interface ServiceDefinition {
   readonly "hostIdentityDigest": string;
   readonly "bindingId": string;
   readonly "bindingDigest": string;
+}
+
+export interface ServiceDeploymentArtifact {
+  readonly "schema": "vegastack-labs.dev/service-deployment-artifact";
+  readonly "schemaVersion": "1.0.0";
+  readonly "artifactId": string;
+  readonly "repository": string;
+  readonly "digest": string;
+  readonly "manifestSha": string;
+  readonly "bundleSha": string;
+  readonly "policySha": string;
+}
+
+export interface ServiceDeploymentBinding {
+  readonly "schema": "vegastack-labs.dev/service-deployment-binding";
+  readonly "schemaVersion": "1.0.0";
+  readonly "configurationDigest": string;
+  readonly "serviceId": string;
+  readonly "bindingId": string;
+  readonly "dataPolicy": "stateless" | "compatible" | "unknown" | "irreversible";
+}
+
+export interface ServiceDeploymentRecord {
+  readonly "schema": "vegastack-labs.dev/service-deployment-record";
+  readonly "schemaVersion": "1.0.0";
+  readonly "providerReceiptId"?: string;
+  readonly "providerStage": "validated" | "patch_attempted" | "configured" | "deploy_attempted" | "queued" | "unknown";
+  readonly "request": ServiceDeploymentRequest;
+  readonly "revision": number;
+  readonly "status": "succeeded" | "partial" | "failed";
+  readonly "receiptDigest": string;
+  readonly "runtimeDigest": string;
+  readonly "runningDigest": string;
+  readonly "running": boolean;
+  readonly "healthy": boolean;
+  readonly "planId": string;
+  readonly "runId": string;
+  readonly "completedAt": string;
+}
+
+export interface ServiceDeploymentRequest {
+  readonly "schema": "vegastack-labs.dev/service-deployment-request";
+  readonly "schemaVersion": "1.0.0";
+  readonly "definition": ServiceDefinition;
+  readonly "binding": ServiceDeploymentBinding;
+  readonly "artifact": ServiceDeploymentArtifact;
+  readonly "artifactProofDigest": string;
+  readonly "action": "deploy" | "rollback";
+  readonly "expectedDeploymentRevision": number;
+  readonly "expectedStateRevision": number;
+  readonly "recoveryEpoch": number;
+  readonly "idempotencyKey": string;
+  readonly "reasonDigest": string;
 }
 
 export interface ServiceImportRequest {
@@ -6726,6 +6782,14 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "enum": [
           "1.0.0"
         ]
+      },
+      {
+        "name": "serviceDeployment",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "omitEmpty": true,
+        "ref": "vegastack-labs.dev/service-deployment-request"
       },
       {
         "name": "serviceImport",
@@ -12858,6 +12922,14 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         ]
       },
       {
+        "name": "serviceDeployment",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "omitEmpty": true,
+        "ref": "vegastack-labs.dev/service-deployment-request"
+      },
+      {
         "name": "serviceImport",
         "kind": "object",
         "required": false,
@@ -14194,6 +14266,349 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/service-deployment-artifact",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/service-deployment-artifact"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "artifactId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "repository",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 1024
+      },
+      {
+        "name": "digest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "manifestSha",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "bundleSha",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "policySha",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/service-deployment-binding",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/service-deployment-binding"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "configurationDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "serviceId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "bindingId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "dataPolicy",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "stateless",
+          "compatible",
+          "unknown",
+          "irreversible"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/service-deployment-record",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/service-deployment-record"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "providerReceiptId",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "maxLength": 128
+      },
+      {
+        "name": "providerStage",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "validated",
+          "patch_attempted",
+          "configured",
+          "deploy_attempted",
+          "queued",
+          "unknown"
+        ]
+      },
+      {
+        "name": "request",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/service-deployment-request"
+      },
+      {
+        "name": "revision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "status",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "succeeded",
+          "partial",
+          "failed"
+        ]
+      },
+      {
+        "name": "receiptDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "runtimeDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "runningDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 1024
+      },
+      {
+        "name": "running",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "healthy",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "planId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "runId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "completedAt",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/service-deployment-request",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/service-deployment-request"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "definition",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/service-definition"
+      },
+      {
+        "name": "binding",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/service-deployment-binding"
+      },
+      {
+        "name": "artifact",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/service-deployment-artifact"
+      },
+      {
+        "name": "artifactProofDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "action",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "deploy",
+          "rollback"
+        ]
+      },
+      {
+        "name": "expectedDeploymentRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "expectedStateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "idempotencyKey",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "reasonDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/service-import-request",
     "fields": [
       {
@@ -15504,6 +15919,22 @@ function decodeServiceDefinition(value: unknown): ServiceDefinition {
   return decodeSchema("vegastack-labs.dev/service-definition", value) as unknown as ServiceDefinition;
 }
 
+function decodeServiceDeploymentArtifact(value: unknown): ServiceDeploymentArtifact {
+  return decodeSchema("vegastack-labs.dev/service-deployment-artifact", value) as unknown as ServiceDeploymentArtifact;
+}
+
+function decodeServiceDeploymentBinding(value: unknown): ServiceDeploymentBinding {
+  return decodeSchema("vegastack-labs.dev/service-deployment-binding", value) as unknown as ServiceDeploymentBinding;
+}
+
+function decodeServiceDeploymentRecord(value: unknown): ServiceDeploymentRecord {
+  return decodeSchema("vegastack-labs.dev/service-deployment-record", value) as unknown as ServiceDeploymentRecord;
+}
+
+function decodeServiceDeploymentRequest(value: unknown): ServiceDeploymentRequest {
+  return decodeSchema("vegastack-labs.dev/service-deployment-request", value) as unknown as ServiceDeploymentRequest;
+}
+
 function decodeServiceImportRequest(value: unknown): ServiceImportRequest {
   return decodeSchema("vegastack-labs.dev/service-import-request", value) as unknown as ServiceImportRequest;
 }
@@ -15843,6 +16274,7 @@ export type ReadClient = {
   readonly getScheduledJobPolicy: (path: { readonly policyId: string }, options?: RequestOptions) => Promise<ReadResult<BrowserScheduledJobPolicy>>;
   readonly listScheduledJobPolicies: (query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<BrowserScheduledJobPolicyListData>>;
   readonly listScheduledJobs: (query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<BrowserScheduledJobListData>>;
+  readonly getServiceDeployment: (path: { readonly serviceID: string }, options?: RequestOptions) => Promise<ReadResult<ServiceDeploymentRecord>>;
   readonly getService: (path: { readonly serviceID: string }, options?: RequestOptions) => Promise<ReadResult<ServiceRecord>>;
   readonly listServices: (query?: ServiceReadQuery, options?: RequestOptions) => Promise<ReadResult<ServiceList>>;
   readonly getServiceObservation: (path: { readonly serviceID: string }, options?: RequestOptions) => Promise<ReadResult<ServiceObservation>>;
@@ -16030,6 +16462,14 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
     async listScheduledJobs(query = {}, options = {}) {
       const operation = "api.v1.scheduled-jobs.list";
       return performRead(fetchTransport, "/api/v1/scheduled-jobs" + pageQuery(query), options, operation, decodeBrowserScheduledJobListData);
+    },
+    async getServiceDeployment(path, options = {}) {
+      const operation = "api.v1.services.deployment.get";
+      return performRead(fetchTransport, "/api/v1/services/" + encodePathString(path.serviceID, "serviceID") + "/deployment", options, operation, value => {
+        const data = decodeServiceDeploymentRecord(value);
+        if (data.request.definition.serviceId !== path.serviceID) return mismatch(operation, "service response does not match the exact request");
+        return data;
+      });
     },
     async getService(path, options = {}) {
       const operation = "api.v1.services.get";

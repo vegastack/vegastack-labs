@@ -164,6 +164,9 @@ func Open(ctx context.Context, config Config) (*Store, error) {
 }
 
 func normalizeConfig(config Config) (Config, error) {
+	if err := normalizeDeploymentPolicies(&config); err != nil {
+		return Config{}, err
+	}
 	if err := normalizeServicePolicies(&config); err != nil {
 		return config, err
 	}

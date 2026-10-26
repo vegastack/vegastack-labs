@@ -2000,6 +2000,178 @@
       ],
       "type": "object"
     },
+    "service-deployment-artifact": {
+      "additionalProperties": false,
+      "properties": {
+        "artifactId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "bundleSha": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "manifestSha": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "policySha": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "repository": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/service-deployment-artifact"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "artifactId",
+        "repository",
+        "digest",
+        "manifestSha",
+        "bundleSha",
+        "policySha"
+      ],
+      "type": "object"
+    },
+    "service-deployment-binding": {
+      "additionalProperties": false,
+      "properties": {
+        "bindingId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "configurationDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "dataPolicy": {
+          "enum": [
+            "stateless",
+            "compatible",
+            "unknown",
+            "irreversible"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/service-deployment-binding"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "serviceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "configurationDigest",
+        "serviceId",
+        "bindingId",
+        "dataPolicy"
+      ],
+      "type": "object"
+    },
+    "service-deployment-request": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "enum": [
+            "deploy",
+            "rollback"
+          ],
+          "type": "string"
+        },
+        "artifact": {
+          "$ref": "#/$defs/service-deployment-artifact"
+        },
+        "artifactProofDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "binding": {
+          "$ref": "#/$defs/service-deployment-binding"
+        },
+        "definition": {
+          "$ref": "#/$defs/service-definition"
+        },
+        "expectedDeploymentRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "expectedStateRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "idempotencyKey": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "reasonDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/service-deployment-request"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "definition",
+        "binding",
+        "artifact",
+        "artifactProofDigest",
+        "action",
+        "expectedDeploymentRevision",
+        "expectedStateRevision",
+        "recoveryEpoch",
+        "idempotencyKey",
+        "reasonDigest"
+      ],
+      "type": "object"
+    },
     "service-import-request": {
       "additionalProperties": false,
       "properties": {
@@ -2284,6 +2456,16 @@
         "1.0.0"
       ],
       "type": "string"
+    },
+    "serviceDeployment": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/service-deployment-request"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "serviceImport": {
       "anyOf": [

@@ -419,6 +419,15 @@ func apiSSHStatusForCode(code string) int {
 }
 
 func serviceSSHArgumentsAllowed(operationID, path string, args []string) (string, bool) {
+	if operationID == "api.v1.services.deployment-drafts.create" {
+		want := []string{"service", "deployment", "draft"}
+		return path, path == "/api/v1/services/deployment-drafts" && apiSSHCommandAvailable(want) && reflect.DeepEqual(args, want)
+	}
+	if operationID == "api.v1.services.deployment.get" {
+		id, ok := apiSSHPathID(path, "/api/v1/services/", "/deployment")
+		want := []string{"service", "deployment", "show", "--service-id", id}
+		return path, ok && apiSSHCommandAvailable([]string{"service", "deployment", "show"}) && reflect.DeepEqual(args, want)
+	}
 	switch operationID {
 	case "api.v1.services.import-drafts.create":
 		want := []string{"service", "import", "draft"}

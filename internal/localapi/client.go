@@ -65,6 +65,8 @@ type TypedResponse[T any] struct {
 }
 
 type Client interface {
+	GetServiceDeployment(context.Context, serverconfig.Profile, string) (TypedResponse[generated.ServiceDeploymentRecord], error)
+	DraftServiceDeployment(context.Context, serverconfig.Profile, generated.ServiceDeploymentDraftRequest) (TypedResponse[generated.DeclarationRevision], error)
 	ListServices(context.Context, serverconfig.Profile, string, int) (TypedResponse[generated.ServiceList], error)
 	GetService(context.Context, serverconfig.Profile, string) (TypedResponse[generated.ServiceRecord], error)
 	ObserveService(context.Context, serverconfig.Profile, string) (TypedResponse[generated.ServiceObservation], error)
@@ -345,6 +347,9 @@ func requestTyped[T any](client *client, ctx context.Context, profile serverconf
 }
 
 func remoteCommandArguments(spec requestSpec) []string {
+	if args := serviceDeploymentRemoteArguments(spec); args != nil {
+		return args
+	}
 	if strings.HasPrefix(spec.command, "api.v1.services.") {
 		return serviceRemoteArguments(spec)
 	}

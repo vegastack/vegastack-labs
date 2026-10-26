@@ -60,3 +60,14 @@ Nodes04/05 remain absolutely excluded, including reads and indirect effects. No 
 The first adapters require focused Go tests and vet against real local HTTPS peers, covering positive scope and denied wrong identities, malformed/duplicate/oversized JSON, TLS/redirect/timeout failures and secret-free results. Generated or runtime boundaries remain unchanged unless a later issue explicitly extends them. One final check runs against the exact clean, pushed integration commit before PR creation.
 
 Full Phase 8 acceptance additionally requires the operator workflow and the remaining rows above. Actual running-digest, stateful restore, provider permission and installation/qualification evidence cannot be replaced with an adapter mock. Live website deployment and existing deferred work remain separately tracked.
+
+
+## Batch 8.4 — immutable deployment and runtime evidence
+
+Operator (omkarmohanta09) directed "ok then start working on it man we gotta finish faster" on 26-10-2026 after the deployment/actual digest-health/compatible rollback slice was described. [Issue #288](https://github.com/vegastack/vegastack-labs/issues/288) records the scoped software brief, ordinary implementation plan, ownership and evidence. Standing development PR/merge authority and omission of unnecessary independent review rounds apply. No live authority is inferred.
+
+The implementation extends the existing executable/SQLite/plan/human-acknowledgement/run path for one existing standalone Docker-image application. It seals one protected target/configuration, authenticates actual OCI manifest bytes using the existing offline verifier, journals the attempt before provider mutation, and records success only after independent actual digest/running/health observation. Partial/unknown effects cannot be replayed through the same plan. Rollback is another explicitly approved plan for a previously verified artifact under stateless/data-compatible policy. The [operator procedure](../../operator-services.md) lists implemented commands and prerequisites; legacy planned service shortcuts remain planned.
+
+This closes neither Phase 8 nor its live deployment gates. Provider installation/qualification, registry project/robot/retention lifecycle, complete service settings/placement and stateful data/consistent recovery workflows plus combined Phase 8 acceptance remain separate delivery rows. Source builds/publishing and dynamic signed intake belong to their owning later scope; this slice uses protected local signed artifact inputs. Existing Phase6 deferrals remain deferred. Website #264 still awaits Cloudflare permissions.
+
+Evidence is bounded: local synthetic HTTPS/SSH peers and actual isolated Linux SQLite/API/plan/ack/run tests, not live credentials, hosts, provider installation, admission or data recovery. No protected host was contacted. Required focused checks and the exact-head shipping proof are recorded in the issue; no unrun or optional suite is claimed.

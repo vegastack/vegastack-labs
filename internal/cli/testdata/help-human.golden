@@ -399,6 +399,16 @@ Available commands:
     --config <path>        Read the protected server profile at this explicit path.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  service deployment draft Draft an exact service deployment or rollback for human acknowledgement.
+    --config <path>        Read one protected operator profile.
+    --file <path>          Read one inert deployment or rollback draft request.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  service deployment show  Read the latest deployment result for one registered service.
+    --config <path>        Read one protected operator profile.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+    --service-id <id>      Select one exact registered service.
   service import draft     Draft a local service registration for exact-plan acknowledgement and apply.
     --config <path>        Read one protected operator profile.
     --file <path>          Read one inert service-import draft request.

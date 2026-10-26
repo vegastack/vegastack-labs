@@ -16,7 +16,7 @@ func TestServiceBrowserMethodsRemainDistinct(t *testing.T) {
 	var output bytes.Buffer
 	renderFiniteReadClient(&output, endpoints)
 	source := output.String()
-	for _, method := range []string{"listServices", "getService", "getServiceObservation"} {
+	for _, method := range []string{"listServices", "getService", "getServiceObservation", "getServiceDeployment"} {
 		if strings.Count(source, "  readonly "+method+":") != 1 || strings.Count(source, "    async "+method+"(") != 1 {
 			t.Errorf("expected one interface declaration and implementation for %s", method)
 		}
@@ -34,6 +34,7 @@ func TestServiceBrowserMethodsRemainDistinct(t *testing.T) {
 		`"api.v1.services.observation.get"`,
 		`if (data.definition.serviceId !== path.serviceID)`,
 		`if (data.serviceId !== path.serviceID)`,
+		`if (data.request.definition.serviceId !== path.serviceID)`,
 	} {
 		if !strings.Contains(source, expected) {
 			t.Errorf("service browser client missing %s", expected)

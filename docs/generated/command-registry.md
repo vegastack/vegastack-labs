@@ -1020,6 +1020,32 @@ Owner phase: `2` · risk: `read-only` · availability: `available`
 
 - Query local control-service health as versioned JSON.: `vsk-labs server status --config fixture/server-profile.json --output json`
 
+### `vsk-labs service deployment draft`
+
+Draft an exact service deployment or rollback for human acknowledgement.
+
+Owner phase: `8` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--file <path>` — Read one inert deployment or rollback draft request.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Draft an exact service deployment or rollback for human acknowledgement.: `vsk-labs service deployment draft --config fixture/client.json --file fixture/service-deployment.json --output json`
+
+### `vsk-labs service deployment show`
+
+Read the latest deployment result for one registered service.
+
+Owner phase: `8` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+- `--service-id <id>` — Select one exact registered service.
+
+- Read the latest deployment result for one registered service.: `vsk-labs service deployment show --config fixture/client.json --service-id service-a --output json`
+
 ### `vsk-labs service import draft`
 
 Draft a local service registration for exact-plan acknowledgement and apply.

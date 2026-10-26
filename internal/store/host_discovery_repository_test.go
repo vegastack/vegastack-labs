@@ -309,6 +309,10 @@ func TestDiscoveryDuplicateOutsideReadScopeAndStaleness(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// A second collection captures the same physical identity afresh. Reusing
+	// the first attempt timestamp crosses the valid capture window whenever
+	// the two attempts straddle a wall-clock second.
+	collection.Facts[0].CapturedAt = s.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339)
 	second, err := repo.Complete(ctx, hostdiscovery.CompleteRequest{Attempt: secondAttempt, Collection: collection, Attribution: req.Attribution})
 	if err != nil {
 		t.Fatal(err)
