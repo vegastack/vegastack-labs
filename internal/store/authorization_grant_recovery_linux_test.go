@@ -71,7 +71,7 @@ func TestGrantRecoveryRequiresRestorableCurrentPrivatePreimage(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			path, digest, err := NewGrantBatchRepository(s).prepareGrantSnapshot(ctx, p, in)
+			path, digest, err := s.prepareMutationSnapshot(ctx, p, in)
 			if variant == "restorable" {
 				if err != nil || path != before || !restoreDigest(digest) {
 					t.Fatal(path, digest, err)
@@ -107,8 +107,8 @@ func TestGrantPreimageChangesAfterRestoreCannotBecomeTrustBaseline(t *testing.T)
 				t.Fatal(err)
 			}
 			p := generated.Plan{PlanDigest: testDigest, Binding: generated.PlanBinding{StateRevision: rev.StateRevision, RecoveryEpoch: rev.RecoveryEpoch}}
-			repo := NewGrantBatchRepository(s)
-			path, digest, err := repo.prepareGrantSnapshot(ctx, p, GrantBatchApply{RunID: "run-preimage-after-restore", PlanDigest: testDigest})
+			repo := s
+			path, digest, err := repo.prepareMutationSnapshot(ctx, p, GrantBatchApply{RunID: "run-preimage-after-restore", PlanDigest: testDigest})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -125,7 +125,7 @@ func TestGrantPreimageChangesAfterRestoreCannotBecomeTrustBaseline(t *testing.T)
 			} else if err = os.WriteFile(path, []byte("corruption after successful restore verification"), 0600); err != nil {
 				t.Fatal(err)
 			}
-			if err = repo.verifyGrantPreimage(ctx, path, digest); Code(err) != generated.ErrorCodeRecoveryRequired {
+			if err = repo.verifyMutationPreimage(ctx, path, digest); Code(err) != generated.ErrorCodeRecoveryRequired {
 				t.Fatal("changed preimage accepted as original capture", err)
 			}
 		})

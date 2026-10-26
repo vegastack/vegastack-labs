@@ -28,6 +28,8 @@ var offsiteBucketName = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]{1,62}$`)
 var scheduledRunnerPath = regexp.MustCompile(`^/[A-Za-z0-9._/-]+$`)
 
 type Profile struct {
+	NetworkConnectExcludedHostIDs    []string
+	NetworkConnectPrivateKeyPath     string
 	SocketPath                       string
 	ConstrainedSSH                   *ConstrainedSSH
 	InventoryExportRoot              string
@@ -40,6 +42,8 @@ type Profile struct {
 	AcknowledgementAdapterConfigPath string
 	HostActionSignerPath             string
 	HostActionKeyID                  string
+	IngressScopeDigests              []string
+	MeshScopeDigests                 []string
 	HostActionIdentityDigests        []string
 	LocalBackup                      *LocalBackup
 	OffsiteBackup                    *OffsiteBackup
@@ -137,6 +141,19 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 		return invalid()
 	}
 
+	if path := input.NetworkConnectPrivateKeyPath; path != "" && (!filepath.IsAbs(path) || filepath.Clean(path) != path || strings.ContainsRune(path, 0) || path == string(filepath.Separator)) {
+		return invalid()
+	}
+	if len(input.NetworkConnectExcludedHostIDs) > 256 {
+		return invalid()
+	}
+	seenExclusions := map[string]bool{}
+	for _, id := range input.NetworkConnectExcludedHostIDs {
+		if !principal.ValidID(id) || seenExclusions[id] {
+			return invalid()
+		}
+		seenExclusions[id] = true
+	}
 	var mode fs.FileMode
 	var group *uint32
 	switch input.SocketMode {
@@ -185,6 +202,16 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 	if input.HostActionKeyID != "" && !offsiteProfileToken.MatchString(input.HostActionKeyID) {
 		return invalid()
 	}
+	seenMesh := map[string]bool{}
+	for _, d := range append(append([]string{}, input.MeshScopeDigests...), input.IngressScopeDigests...) {
+		if len(d) != 71 || !strings.HasPrefix(d, "sha256:") || seenMesh[d] {
+			return invalid()
+		}
+		if _, e := hex.DecodeString(d[7:]); e != nil || strings.ToLower(d) != d {
+			return invalid()
+		}
+		seenMesh[d] = true
+	}
 	seenActionIdentity := map[string]bool{}
 	for _, d := range input.HostActionIdentityDigests {
 		if seenActionIdentity[d] {
@@ -228,6 +255,8 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 		scheduledRunner = &ScheduledRunner{UID: uid, PrincipalID: runner.PrincipalID, BinaryPath: runner.BinaryPath, ConfigPath: runner.ConfigPath}
 	}
 	return Profile{
+		NetworkConnectExcludedHostIDs:    append([]string(nil), input.NetworkConnectExcludedHostIDs...),
+		NetworkConnectPrivateKeyPath:     input.NetworkConnectPrivateKeyPath,
 		SocketPath:                       input.SocketPath,
 		InventoryExportRoot:              input.InventoryExportRoot,
 		SocketOwnerUID:                   expectedOwnerUID,
@@ -237,6 +266,8 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 		PrincipalBindings:                append([]principal.Binding(nil), bindings...),
 		RemoteRead:                       remoteRead,
 		AcknowledgementAdapterConfigPath: adapterConfigPath,
+		IngressScopeDigests:              append([]string(nil), input.IngressScopeDigests...),
+		MeshScopeDigests:                 append([]string(nil), input.MeshScopeDigests...),
 		HostActionSignerPath:             input.HostActionSignerPath, HostActionKeyID: input.HostActionKeyID, HostActionIdentityDigests: append([]string(nil), input.HostActionIdentityDigests...),
 		LocalBackup:     localBackup,
 		OffsiteBackup:   offsiteBackup,

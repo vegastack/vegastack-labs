@@ -19,6 +19,8 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"github.com/vegastack/vegastack-labs/internal/hostadoption"
 	"github.com/vegastack/vegastack-labs/internal/hostdiscovery"
+	"github.com/vegastack/vegastack-labs/internal/networkingress"
+	"github.com/vegastack/vegastack-labs/internal/networkmesh"
 	"github.com/vegastack/vegastack-labs/internal/stateexport"
 	"github.com/vegastack/vegastack-labs/internal/store"
 )
@@ -57,6 +59,12 @@ type HostActionLifecycleReader interface {
 	LookupLifecycleDraft(context.Context, string, int64, string) (credentialref.LifecycleBinding, error)
 }
 type Config struct {
+	IngressChanges interface {
+		GetStaged(context.Context, string) (networkingress.Staged, error)
+	}
+	MeshChanges interface {
+		GetStaged(context.Context, string) (networkmesh.Staged, error)
+	}
 	HostReplacements      HostReplacementDraftReader
 	HostActionCredentials HostActionLifecycleReader
 	HostActions           HostActionDraftReader
@@ -199,7 +207,52 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 		operations[index] = generated.PlanOperation{Sequence: operation.Sequence, OperationID: operation.OperationID, OperationType: operation.OperationType, AdapterID: operation.AdapterID, ExecutorID: service.config.OperationExecutorID, TargetID: operation.TargetID, InputDigest: operation.InputDigest, ArtifactDigest: operation.ArtifactDigest, Idempotent: operation.Idempotent}
 	}
 	risk := service.config.Risk
-	if declaration.AuthorizationGrantBatch != nil {
+	for _, op := range operations {
+		if op.AdapterID != networkmesh.AdapterID && !strings.HasPrefix(op.OperationType, "network.mesh.") {
+			continue
+		}
+		if service.config.MeshChanges == nil || len(operations) != 1 || declaration.DeclarationType != "network.mesh" || op.AdapterID != networkmesh.AdapterID || op.Idempotent || len(op.ArtifactDigest) != 71 || service.config.AuthorizationBranch != "human" || service.config.ExecutorMode != "central" {
+			return store.PlanCommitResult{}, planError(generated.ErrorCodeAuthorizationDenied)
+		}
+		d, e := service.config.MeshChanges.GetStaged(ctx, "mesh-"+op.ArtifactDigest[7:39])
+		if e != nil || d.Digest != op.ArtifactDigest || op.OperationType != "network.mesh."+d.Request.Change.Action || op.TargetID != d.Request.Change.ProfileID || networkmesh.Validate(d.Request.Change) != nil {
+			return store.PlanCommitResult{}, planError(generated.ErrorCodeIntegrityFailure)
+		}
+		sealed := false
+		for _, x := range extensions {
+			if x.Name == networkmesh.Extension {
+				sealed = x.ValueDigest == d.Digest
+			}
+		}
+		if !sealed {
+			return store.PlanCommitResult{}, planError(generated.ErrorCodePlanStale)
+		}
+		risk = string(authorization.RiskInfrastructure)
+	}
+	for _, op := range operations {
+		if op.AdapterID != networkingress.AdapterID && !strings.HasPrefix(op.OperationType, "network.ingress.") {
+			continue
+		}
+		if service.config.IngressChanges == nil || len(operations) != 1 || declaration.DeclarationType != "network.ingress" || op.AdapterID != networkingress.AdapterID || op.Idempotent || len(op.ArtifactDigest) != 71 || service.config.AuthorizationBranch != "human" || service.config.ExecutorMode != "central" {
+			return store.PlanCommitResult{}, planError(generated.ErrorCodeAuthorizationDenied)
+		}
+		d, e := service.config.IngressChanges.GetStaged(ctx, "ingress-"+op.ArtifactDigest[7:39])
+		if e != nil || d.Digest != op.ArtifactDigest || op.OperationType != "network.ingress."+d.Request.Change.Action || op.TargetID != d.Request.Change.ProfileID || networkingress.Validate(d.Request.Change) != nil {
+			return store.PlanCommitResult{}, planError(generated.ErrorCodeIntegrityFailure)
+		}
+		sealed := false
+		for _, x := range extensions {
+			if x.Name == networkingress.Extension {
+				sealed = x.ValueDigest == d.Digest
+			}
+		}
+		if !sealed {
+			return store.PlanCommitResult{}, planError(generated.ErrorCodePlanStale)
+		}
+		risk = string(authorization.RiskInfrastructure)
+	}
+
+	if declaration.AuthorizationGrantBatch != nil || declaration.NetworkEndpoint != nil {
 		risk = string(authorization.RiskControlPlane)
 	}
 	sequence, sequenceErr := service.accessSequence(ctx, declaration, operations)
@@ -331,6 +384,7 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 	candidate := generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", DeclarationID: declaration.DeclarationID, Binding: generated.PlanBinding{RecoveryEpoch: current.RecoveryEpoch, PriorStateRevision: current.StateRevision, StateRevision: current.StateRevision + 1, DeclarationRevision: desired.Revision, ObservationFingerprint: fingerprint, TargetDigest: targets, ReasonDigest: reason, PolicyVersion: service.config.PolicyVersion, ToolVersion: service.config.ToolVersion, ContractVersion: service.config.ContractVersion}, Operations: operations, Status: "planned", Risk: risk, AuthorizationBranch: service.config.AuthorizationBranch, ExecutorMode: service.config.ExecutorMode, ExecutorID: service.config.ExecutorID, CreatedAt: created.Format(time.RFC3339), ExpiresAt: created.Add(time.Duration(generated.PlanValiditySeconds) * time.Second).Format(time.RFC3339), Extensions: extensions}
 	candidate.HostReplacement, candidate.HostAliasClaim = replacement, aliasClaim
 	candidate.AuthorizationGrantBatch = declaration.AuthorizationGrantBatch
+	candidate.NetworkEndpoint = declaration.NetworkEndpoint
 	if service.config.HostActionCredentials != nil && len(operations) == 1 && (operations[0].OperationType == "credential.activate" || operations[0].OperationType == "credential.rotate") {
 		lifecycle, err := service.config.HostActionCredentials.LookupLifecycleDraft(ctx, declaration.DeclarationID, declaration.Revision, operations[0].OperationID)
 		if err != nil {
@@ -544,7 +598,7 @@ func (service *Service) ValidateCurrent(ctx context.Context, candidate generated
 // the secret-resolution binding manifest and the lifecycle binding are declared
 // facts a plan cannot invent, omit, or replace.
 func credentialBindingExtensionsEqual(left, right []generated.ContractExtension) bool {
-	for _, name := range []string{"x-host-replacement", "x-host-alias-claim", "x-credential-bindings", "x-credential-lifecycle", "x-audit-checkpoint", "x-backup-policy", "x-backup-retention-lock-catalog", "x-backup-local-retirement", "x-offsite-generation"} {
+	for _, name := range []string{"x-host-replacement", "x-host-alias-claim", "x-cloudflare-ingress-change", "x-cloudflare-mesh-change", "x-credential-bindings", "x-credential-lifecycle", "x-audit-checkpoint", "x-backup-policy", "x-backup-retention-lock-catalog", "x-backup-local-retirement", "x-offsite-generation"} {
 		var leftDigest, rightDigest string
 		for _, item := range left {
 			if item.Name == name {

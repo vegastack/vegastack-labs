@@ -225,13 +225,16 @@ func Current() Registry {
 		auditCheckpointsCommand(), auditVerifyCommand(),
 	}
 	commands = append(commands, hostCommands()...)
+	commands = append(commands, meshCommands()...)
+	commands = append(commands, ingressCommands()...)
 	commands = append(commands, authorizationGrantCommand())
+	commands = append(commands, networkConnectCommands()...)
 	commands = append(commands, userLifecycleCommands()...)
 	commands = append(commands, deviceLifecycleCommands()...)
 	commands = append(commands, linuxRoleCommands()...)
 	commands = append(commands, qualificationCommands()...)
 	for _, command := range plannedCommands {
-		if strings.HasPrefix(command.path, "device ") || strings.HasPrefix(command.path, "user ") || command.path == "node discover" || command.path == "node add" || command.path == "node inspect" || command.path == "status" || strings.HasPrefix(command.path, "database ") || strings.HasPrefix(command.path, "inventory ") || strings.HasPrefix(command.path, "gate ") || strings.HasPrefix(command.path, "backup ") || strings.HasPrefix(command.path, "restore ") || command.path == "credential import" || command.path == "audit checkpoints" || command.path == "audit verify" || isAvailablePhase4Command(command.path) {
+		if command.path == "connect" || strings.HasPrefix(command.path, "device ") || strings.HasPrefix(command.path, "user ") || command.path == "node discover" || command.path == "node add" || command.path == "node inspect" || command.path == "status" || strings.HasPrefix(command.path, "database ") || strings.HasPrefix(command.path, "inventory ") || strings.HasPrefix(command.path, "gate ") || strings.HasPrefix(command.path, "backup ") || strings.HasPrefix(command.path, "restore ") || command.path == "credential import" || command.path == "audit checkpoints" || command.path == "audit verify" || isAvailablePhase4Command(command.path) {
 			continue
 		}
 		requestSchema, dataSchema := phase5CommandSchemas(command.path)
@@ -246,8 +249,8 @@ func Current() Registry {
 		})
 	}
 
-	endpoints := []EndpointDefinition{authorizationGrantEndpoint()}
-	for _, family := range [][]EndpointDefinition{operatorAccessEndpoints(), readEndpoints(), phase4Endpoints(), phase5Endpoints(), hostDiscoveryEndpoints(), hostAdoptionEndpoints(), hostActionEndpoints(), accessEndpoints(), hostReplacementEndpoints(), qualificationEndpoints()} {
+	endpoints := append([]EndpointDefinition{authorizationGrantEndpoint()}, networkConnectEndpoints()...)
+	for _, family := range [][]EndpointDefinition{operatorAccessEndpoints(), readEndpoints(), meshEndpoints(), ingressEndpoints(), phase4Endpoints(), phase5Endpoints(), hostDiscoveryEndpoints(), hostAdoptionEndpoints(), hostActionEndpoints(), accessEndpoints(), hostReplacementEndpoints(), qualificationEndpoints()} {
 		endpoints = append(endpoints, family...)
 	}
 
@@ -924,10 +927,14 @@ func currentSchemas() []SchemaDefinition {
 				{JSONName: "socketMode", GoName: "SocketMode", Kind: ValueString, Required: true, Enum: []string{"0600", "0660"}},
 				{JSONName: "shutdownGraceSeconds", GoName: "ShutdownGraceSeconds", Kind: ValueInteger, Required: true, Minimum: int64Pointer(5), Maximum: int64Pointer(5)},
 				{JSONName: "inventoryExportRoot", GoName: "InventoryExportRoot", Kind: ValueString, Required: true, Pattern: `^/[^\x00]*$`, MinLength: intPointer(2), MaxLength: intPointer(4096)},
+				{JSONName: "networkConnectExcludedHostIds", GoName: "NetworkConnectExcludedHostIDs", Kind: ValueArray, OmitEmpty: true, ItemKind: ValueString, MaxItems: intPointer(256), UniqueItems: true},
+				{JSONName: "networkConnectPrivateKeyPath", GoName: "NetworkConnectPrivateKeyPath", Kind: ValueString, OmitEmpty: true, MaxLength: intPointer(4096)},
 				{JSONName: "principalBindings", GoName: "PrincipalBindings", Kind: ValueArray, Required: true, ItemRef: localPrincipalBindingSchemaID, MinItems: intPointer(1), MaxItems: intPointer(256), UniqueItems: true},
 				{JSONName: "remoteRead", GoName: "RemoteRead", Kind: ValueObject, Required: true, Ref: remoteReadProfileSchemaID},
 				{JSONName: "hostActionSignerPath", GoName: "HostActionSignerPath", Kind: ValueString, Required: false, OmitEmpty: true, MinLength: intPointer(2), MaxLength: intPointer(4096), Pattern: `^/[^\x00]*$`},
 				{JSONName: "hostActionKeyId", GoName: "HostActionKeyID", Kind: ValueString, Required: false, OmitEmpty: true, Pattern: `^[a-z][a-z0-9._:-]{0,127}$`},
+				{JSONName: "ingressScopeDigests", GoName: "IngressScopeDigests", Kind: ValueArray, Required: false, OmitEmpty: true, ItemKind: ValueString, MaxItems: intPointer(128), UniqueItems: true},
+				{JSONName: "meshScopeDigests", GoName: "MeshScopeDigests", Kind: ValueArray, Required: false, OmitEmpty: true, ItemKind: ValueString, MaxItems: intPointer(128), UniqueItems: true},
 				{JSONName: "hostActionIdentityDigests", GoName: "HostActionIdentityDigests", Kind: ValueArray, Required: false, OmitEmpty: true, ItemKind: ValueString, MaxItems: intPointer(64), UniqueItems: true},
 				{JSONName: "acknowledgementAdapterConfigPath", GoName: "AcknowledgementAdapterConfigPath", Kind: ValueString, Required: false, MinLength: intPointer(2), MaxLength: intPointer(4096), Pattern: `^/[^\x00]*$`},
 				{JSONName: "scheduledRunner", GoName: "ScheduledRunner", Kind: ValueObject, Required: false, Nullable: true, Ref: scheduledRunnerProfileSchemaID},
@@ -985,6 +992,8 @@ func currentSchemas() []SchemaDefinition {
 	schemas = append(schemas, phase5RequestSchemas()...)
 	schemas = append(schemas, phase6HostSchemas()...)
 	schemas = append(schemas, hostDiscoverySchemas()...)
+	schemas = append(schemas, meshSchemas()...)
+	schemas = append(schemas, ingressSchemas()...)
 	schemas = append(schemas, hostAdoptionSchemas()...)
 	schemas = append(schemas, operatorAccessSchemas()...)
 	schemas = append(schemas, hostActionSchemas()...)
@@ -994,6 +1003,7 @@ func currentSchemas() []SchemaDefinition {
 	schemas = append(schemas, linuxRoleSchemas()...)
 	schemas = append(schemas, hostReplacementSchemas()...)
 	schemas = append(schemas, authorizationGrantSchemas()...)
+	schemas = append(schemas, networkConnectSchemas()...)
 	schemas = append(schemas, qualificationSchemas()...)
 	schemas = append(schemas, nativeWitnessSchemas()...)
 	schemas = append(schemas, nativePreparationSchemas()...)

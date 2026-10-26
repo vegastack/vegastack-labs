@@ -235,6 +235,9 @@ func secureAPIEqual(left, right string) bool {
 // Render the server-owned plan, never caller-supplied approval prose.
 func approvalReviewText(plan generated.Plan, readable string) string {
 	var b strings.Builder
+	if e := plan.NetworkEndpoint; e != nil {
+		fmt.Fprintf(&b, "Endpoint %s for %s: LAN %s:%d; Mesh %s:%d; flow %s.\n\nChanges controller declarations only, no host/network configuration and no permission grant.\n\n", e.Action, e.Endpoint.HostID, e.Endpoint.LANAddress, e.Endpoint.LANPort, e.Endpoint.MeshAddress, e.Endpoint.MeshPort, e.Endpoint.Flow)
+	}
 	if batch := plan.AuthorizationGrantBatch; batch != nil {
 		if binding := batch.IdentityBinding; binding != nil {
 			fmt.Fprintf(&b, "Browser identity %s for %s\nMethod: %s\nIssuer: %s\nSubject: %s\nAudiences: %s\nThis changes only the exact local browser identity mapping and grants no permissions. Revocation ends sessions for this binding only.\n\n", binding.Action, batch.PrincipalID, binding.Method, binding.Issuer, binding.Subject, strings.Join(binding.Audiences, ", "))

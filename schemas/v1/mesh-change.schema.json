@@ -1,0 +1,201 @@
+{
+  "$defs": {
+    "mesh-route": {
+      "additionalProperties": false,
+      "properties": {
+        "address": {
+          "maxLength": 45,
+          "minLength": 1,
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/mesh-route"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "address"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/mesh-change",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "accountId": {
+      "maxLength": 32,
+      "minLength": 1,
+      "type": "string"
+    },
+    "action": {
+      "enum": [
+        "import",
+        "profile-routing-update",
+        "gateway-rule-update",
+        "registration-delete"
+      ],
+      "type": "string"
+    },
+    "affectedIdentityDigests": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 128,
+      "minItems": 1,
+      "type": "array"
+    },
+    "beforeDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "deviceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "expectedOwnershipRevision": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "meshCidr": {
+      "maxLength": 45,
+      "minLength": 1,
+      "type": "string"
+    },
+    "mode": {
+      "enum": [
+        "foundation",
+        "qualified"
+      ],
+      "type": "string"
+    },
+    "mutationReferenceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "observationReferenceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "ownerId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "physicalDeviceId": {
+      "maxLength": 64,
+      "minLength": 1,
+      "type": "string"
+    },
+    "precedence": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "profileId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "providerUserId": {
+      "maxLength": 64,
+      "minLength": 1,
+      "type": "string"
+    },
+    "resourceId": {
+      "maxLength": 64,
+      "minLength": 1,
+      "type": "string"
+    },
+    "resourceKind": {
+      "enum": [
+        "profile-include",
+        "profile-exclude",
+        "gateway-rule",
+        "registration"
+      ],
+      "type": "string"
+    },
+    "routes": {
+      "items": {
+        "$ref": "#/$defs/mesh-route"
+      },
+      "maxItems": 128,
+      "type": "array"
+    },
+    "ruleAction": {
+      "enum": [
+        "allow",
+        "block"
+      ],
+      "type": "string"
+    },
+    "ruleIdentity": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "type": "string"
+    },
+    "ruleName": {
+      "maxLength": 128,
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/mesh-change"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "traffic": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "mode",
+    "profileId",
+    "accountId",
+    "action",
+    "resourceKind",
+    "resourceId",
+    "ownerId",
+    "deviceId",
+    "physicalDeviceId",
+    "providerUserId",
+    "expectedOwnershipRevision",
+    "beforeDigest",
+    "routes",
+    "affectedIdentityDigests",
+    "meshCidr",
+    "ruleName",
+    "ruleAction",
+    "traffic",
+    "ruleIdentity",
+    "precedence",
+    "enabled",
+    "observationReferenceId",
+    "mutationReferenceId"
+  ],
+  "title": "VegaStack Labs mesh change",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

@@ -232,12 +232,16 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 		return err
 	}
 	effectiveAuthorization := store.NewEffectiveAuthorizationRepository(authority)
+	if err := api.RegisterNetworkEndpointOperations(application, api.NetworkEndpointOperations{Endpoints: store.NewNetworkEndpointRepository(authority), Declarations: declarations, Results: factory}); err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
 	observations, err := planengine.NewStateObservationReader(planRepository)
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	plans, err := planengine.NewService(planengine.Config{HostReplacements: store.NewHostReplacementRepository(authority), HostActions: store.NewHostActionRepository(authority), HostActionCredentials: store.NewCredentialRepository(authority), HostDiscoveryTargets: store.NewHostDiscoveryRepository(authority), HostAdoptions: store.NewHostAdoptionRepository(authority), Repository: planRepository, Observations: observations, Clock: time.Now, PolicyVersion: "1.0.0", ToolVersion: operations.build.ToolVersion, ContractVersion: "1.0.0", Risk: "destructive", AuthorizationBranch: "human", ExecutorMode: "central", OperationExecutorID: "executor-central"})
+	plans, err := planengine.NewService(planengine.Config{IngressChanges: store.NewIngressRepository(authority, profile.IngressScopeDigests), MeshChanges: store.NewMeshRepository(authority, profile.MeshScopeDigests), HostReplacements: store.NewHostReplacementRepository(authority), HostActions: store.NewHostActionRepository(authority), HostActionCredentials: store.NewCredentialRepository(authority), HostDiscoveryTargets: store.NewHostDiscoveryRepository(authority), HostAdoptions: store.NewHostAdoptionRepository(authority), Repository: planRepository, Observations: observations, Clock: time.Now, PolicyVersion: "1.0.0", ToolVersion: operations.build.ToolVersion, ContractVersion: "1.0.0", Risk: "destructive", AuthorizationBranch: "human", ExecutorMode: "central", OperationExecutorID: "executor-central"})
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err
@@ -399,7 +403,7 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 		return err
 	}
 	replacementComposition := hostReplacementComposition{authority: authority, repository: replacementRepository, gates: gateRepository, clock: time.Now}
-	coreRouter := runengine.CoreRouter{Authorization: &runengine.GrantBatchEffect{Repository: store.NewGrantBatchRepository(authority), Approvals: store.NewAcknowledgementRepository(authority)}, HostReplacement: &runengine.HostReplacementEffect{Operations: replacementComposition, Approvals: store.NewAcknowledgementRepository(authority)}, Adoption: &runengine.HostAdoptionEffect{Repository: store.NewHostAdoptionRepository(authority), Approvals: store.NewAcknowledgementRepository(authority)}, DiscoveryTarget: discoveryEffect, Gate: coreGate, Recovery: recoveryCore, Schedule: scheduleCore, ScheduleObserve: scheduleObserver}
+	coreRouter := runengine.CoreRouter{NetworkEndpoint: &runengine.NetworkEndpointEffect{Repository: store.NewNetworkEndpointRepository(authority), Approvals: store.NewAcknowledgementRepository(authority)}, Authorization: &runengine.GrantBatchEffect{Repository: store.NewGrantBatchRepository(authority), Approvals: store.NewAcknowledgementRepository(authority)}, HostReplacement: &runengine.HostReplacementEffect{Operations: replacementComposition, Approvals: store.NewAcknowledgementRepository(authority)}, Adoption: &runengine.HostAdoptionEffect{Repository: store.NewHostAdoptionRepository(authority), Approvals: store.NewAcknowledgementRepository(authority)}, DiscoveryTarget: discoveryEffect, Gate: coreGate, Recovery: recoveryCore, Schedule: scheduleCore, ScheduleObserve: scheduleObserver}
 	credentialRepository := store.NewCredentialRepository(authority)
 	if err := api.RegisterHostReplacementOperations(application, api.HostReplacementOperations{Replacements: replacementRepository, Declarations: declarations, Results: factory}); err != nil {
 		return err
@@ -457,6 +461,18 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 	if recoveryBackupAdapter != nil {
 		secretGate = scheduledBackupLiveGate{admission: scheduledAdmission, fallback: secretGate, clock: time.Now}
 	}
+	meshSource, meshErr := registerMesh(ctx, application, authority, adapters, declarations, factory, profile, operations.build, operations.databasePath)
+	if meshErr != nil {
+		_ = application.Shutdown(ctx)
+		return meshErr
+	}
+	secretGate = meshSecretGate{source: meshSource, fallback: secretGate}
+	ingressSource, ingressErr := registerIngress(ctx, application, authority, adapters, declarations, factory, profile, operations.build, operations.databasePath)
+	if ingressErr != nil {
+		_ = application.Shutdown(ctx)
+		return ingressErr
+	}
+	secretGate = ingressSecretGate{source: ingressSource, fallback: secretGate}
 	secretGate = hostActionGate{targets: store.NewHostActionRepository(authority), credentials: credentialRepository, allowed: profile.HostActionIdentityDigests, fallback: secretGate}
 	lifecycleGate := hostActionGate{targets: store.NewHostActionRepository(authority), credentials: credentialRepository, allowed: profile.HostActionIdentityDigests, fallback: runengine.UnavailableGateVerifier{}}
 	credentialStep := &runengine.CredentialStep{Bindings: credentialRepository, Resolvers: adapters, Profiles: gateRepository, Plans: plans, ScheduledPlans: scheduledAdmission, Clock: time.Now}
@@ -556,7 +572,7 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 	// are present rather than being substituted with fixture authority.
 	restoreRepository := store.NewRestoreRepository(authority)
 	candidateOpener := func(ctx context.Context, path string) (*store.Store, error) {
-		return operations.openStore(ctx, store.Config{DatabasePath: path, Mode: store.OpenExisting, ExpectedUID: profile.SocketOwnerUID, ToolVersion: operations.build.ToolVersion, BuildVersion: operations.build.ReleaseBuildID})
+		return operations.openStore(ctx, store.Config{NetworkConnectExcludedHostIDs: profile.NetworkConnectExcludedHostIDs, DatabasePath: path, Mode: store.OpenExisting, ExpectedUID: profile.SocketOwnerUID, ToolVersion: operations.build.ToolVersion, BuildVersion: operations.build.ReleaseBuildID})
 	}
 	health, err := authority.Health(ctx)
 	if err != nil {
@@ -639,7 +655,7 @@ func (operations *Operations) openAuthorityWithPromotion(ctx context.Context, pr
 		return nil, err
 	}
 	configFor := func(path string) store.Config {
-		return store.Config{DatabasePath: path, Mode: store.OpenExisting, Recovery: migrationRecoveryFor(path, profile.SocketOwnerUID), ExpectedUID: profile.SocketOwnerUID, ToolVersion: operations.build.ToolVersion, BuildVersion: operations.build.ReleaseBuildID}
+		return store.Config{NetworkConnectExcludedHostIDs: profile.NetworkConnectExcludedHostIDs, DatabasePath: path, Mode: store.OpenExisting, Recovery: migrationRecoveryFor(path, profile.SocketOwnerUID), ExpectedUID: profile.SocketOwnerUID, ToolVersion: operations.build.ToolVersion, BuildVersion: operations.build.ReleaseBuildID}
 	}
 	authority, err := operations.openStore(ctx, configFor(operations.databasePath))
 	if err != nil {

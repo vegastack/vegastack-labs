@@ -158,6 +158,21 @@ Owner phase: `5` · risk: `mutation` · availability: `available`
 
 - Execute one exact approved local-backup verification plan.: `vsk-labs backup verify --config fixture/server-profile.json --file fixture/backup-verify-request.json --output json`
 
+### `vsk-labs connect`
+
+Authenticate and close one pinned managed-node SSH connection; no shell or forwarding.
+
+Owner phase: `7` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read one protected client profile.
+- `--node <id>` — Select one exact registered managed host.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--path <path>` — Select auto, LAN or Mesh without changing identity checks. Allowed: `auto`, `lan`, `mesh`.
+- `--port <port>` — Use the declared SSH port 22. Allowed: `22`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Authenticate and close one pinned managed-node SSH connection; no shell or forwarding.: `vsk-labs connect --config fixture/profile.json --node synthetic-host --port 22 --path auto --output json`
+
 ### `vsk-labs credential activate`
 
 Create an inert credential lifecycle draft; execution requires a separate exact human-approved plan.
@@ -473,6 +488,110 @@ Owner phase: `2` · risk: `read-only` · availability: `available`
 - `--source-revision <revision>` — Record the source revision supplied by its owner.
 
 - Validate and store one inventory candidate as an inert draft.: `vsk-labs inventory import --config fixture/server-profile.json --file fixture/inventory.json --format typed-json --source-revision source-1 --captured-at 2026-09-08T06:00:00Z --idempotency-key opaque-1 --output json`
+
+### `vsk-labs network endpoint draft`
+
+Draft one managed-host connection endpoint; acknowledge its exact plan before apply.
+
+Owner phase: `7` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected server profile.
+- `--file <path>` — Read one grant batch JSON file (32 KiB max).
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Draft an explicit endpoint.: `vsk-labs network endpoint draft --config fixture/profile.json --file fixture/endpoint.json --output json`
+
+### `vsk-labs network ingress draft`
+
+Inspect or prepare owned ingress; provider rotation alone is incomplete.
+
+Owner phase: `7` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--file <path>` — Read an exact non-secret typed request.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Inspect or prepare owned ingress; provider rotation alone is incomplete.: `vsk-labs network ingress draft --config fixture/client.json --file fixture/ingress.json`
+
+### `vsk-labs network ingress observe`
+
+Inspect or prepare owned ingress; provider rotation alone is incomplete.
+
+Owner phase: `7` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--file <path>` — Read an exact non-secret typed request.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Inspect or prepare owned ingress; provider rotation alone is incomplete.: `vsk-labs network ingress observe --config fixture/client.json --file fixture/ingress.json`
+
+### `vsk-labs network ingress rollout-evidence`
+
+Inspect or prepare owned ingress; provider rotation alone is incomplete.
+
+Owner phase: `7` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--file <path>` — Read an exact non-secret typed request.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Inspect or prepare owned ingress; provider rotation alone is incomplete.: `vsk-labs network ingress rollout-evidence --config fixture/client.json --file fixture/ingress.json`
+
+### `vsk-labs network ingress status`
+
+Inspect or prepare owned ingress; provider rotation alone is incomplete.
+
+Owner phase: `7` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--profile-id <id>` — Select an owned ingress profile.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Inspect or prepare owned ingress; provider rotation alone is incomplete.: `vsk-labs network ingress status --config fixture/client.json --profile-id ingress-pilot`
+
+### `vsk-labs network mesh draft`
+
+Inspect or prepare an owned Mesh change; live gates remain required.
+
+Owner phase: `7` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--file <path>` — Read one inert Mesh request.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Inspect or prepare an owned Mesh change; live gates remain required.: `vsk-labs network mesh draft --config fixture/client.json --file fixture/mesh.json`
+
+### `vsk-labs network mesh observe`
+
+Inspect or prepare an owned Mesh change; live gates remain required.
+
+Owner phase: `7` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--file <path>` — Read one inert Mesh request.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Inspect or prepare an owned Mesh change; live gates remain required.: `vsk-labs network mesh observe --config fixture/client.json --file fixture/mesh.json`
+
+### `vsk-labs network mesh status`
+
+Inspect or prepare an owned Mesh change; live gates remain required.
+
+Owner phase: `7` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--profile-id <id>` — Select an owned Mesh profile.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Inspect or prepare an owned Mesh change; live gates remain required.: `vsk-labs network mesh status --config fixture/client.json --profile-id mesh-pilot`
 
 ### `vsk-labs node access prepare`
 
@@ -983,12 +1102,6 @@ Owner phase: `1` · risk: `read-only` · availability: `available`
 Inspect sanitized audit history.
 
 Owner phase: `5` · risk: `unassigned` · availability: `planned`
-
-### `vsk-labs connect`
-
-Open a constrained connection to an authorized node endpoint.
-
-Owner phase: `7` · risk: `unassigned` · availability: `planned`
 
 ### `vsk-labs control-plane plan`
 

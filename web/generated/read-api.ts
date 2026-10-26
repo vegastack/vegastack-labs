@@ -35,6 +35,8 @@
 // api.v1.inventory-draft-observations.list
 // api.v1.inventory-drafts.get
 // api.v1.inventory-drafts.list
+// api.v1.network.ingress.status
+// api.v1.network.mesh.status
 // api.v1.people.list
 // api.v1.plans.approval-request.create
 // api.v1.plans.approval-status.get
@@ -797,6 +799,7 @@ export interface DeclarationOperation {
 export interface DeclarationRevisionRequest {
   readonly "schema": "vegastack-labs.dev/declaration-revision-request";
   readonly "schemaVersion": "1.0.0";
+  readonly "networkEndpoint"?: NetworkEndpointRequest | null;
   readonly "grantBatch"?: AuthorizationGrantBatchRequest | null;
   readonly "hostAliasClaim"?: HostAliasClaimRequest | null;
   readonly "declarationId": string;
@@ -1363,6 +1366,22 @@ export interface HostVolumeBinding {
   readonly "recoveryEpoch": number;
 }
 
+export interface IngressStatusData {
+  readonly "schema": "vegastack-labs.dev/ingress-status-data";
+  readonly "schemaVersion": "1.0.0";
+  readonly "profileId": string;
+  readonly "status": "unknown" | "unavailable" | "observed" | "partial";
+  readonly "reason": string;
+  readonly "observationDigest": string;
+  readonly "observedAt"?: string;
+  readonly "ownershipRevision": number;
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
+  readonly "rotationStage": "not-requested" | "provider-rotated" | "connector-update-required" | "verification-pending" | "partial" | "uncertain";
+  readonly "connectivity": "unknown" | "unavailable";
+  readonly "originIsolation": "unknown" | "unavailable";
+}
+
 export interface InventoryDraftCounts {
   readonly "assets": number;
   readonly "nodes": number;
@@ -1459,6 +1478,19 @@ export interface ManagedHostList {
   readonly "schema": "vegastack-labs.dev/managed-host-list";
   readonly "schemaVersion": "1.0.0";
   readonly "hosts": ReadonlyArray<ManagedHost>;
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
+}
+
+export interface MeshStatusData {
+  readonly "schema": "vegastack-labs.dev/mesh-status-data";
+  readonly "schemaVersion": "1.0.0";
+  readonly "profileId": string;
+  readonly "status": "unknown" | "unavailable" | "observed" | "partial";
+  readonly "reason": string;
+  readonly "observationDigest": string;
+  readonly "observedAt"?: string;
+  readonly "ownershipRevision": number;
   readonly "stateRevision": number;
   readonly "recoveryEpoch": number;
 }
@@ -1580,6 +1612,42 @@ export interface NativeRestartPresentation {
   readonly "expectedInvocationDigest": string;
 }
 
+export interface NetworkEndpoint {
+  readonly "schema": "vegastack-labs.dev/network-endpoint";
+  readonly "schemaVersion": "1.0.0";
+  readonly "hostId": string;
+  readonly "hostIdentityDigest": string;
+  readonly "targetId": string;
+  readonly "targetRevision": number;
+  readonly "hostKey": string;
+  readonly "user": string;
+  readonly "lanAddress": string;
+  readonly "lanPort": number;
+  readonly "meshAddress": string;
+  readonly "meshPort": number;
+  readonly "markerAddress": string;
+  readonly "markerPort": number;
+  readonly "markerPath": string;
+  readonly "markerCertificateDigest": string;
+  readonly "markerValue": string;
+  readonly "flow": "operator-client-to-host-ssh";
+  readonly "revision": number;
+  readonly "recoveryEpoch": number;
+}
+
+export interface NetworkEndpointRequest {
+  readonly "schema": "vegastack-labs.dev/network-endpoint-request";
+  readonly "schemaVersion": "1.0.0";
+  readonly "endpoint": NetworkEndpoint;
+  readonly "action": "activate" | "revoke";
+  readonly "expectedEndpointRevision": number;
+  readonly "expectedDeclarationRevision": number;
+  readonly "expectedStateRevision": number;
+  readonly "recoveryEpoch": number;
+  readonly "idempotencyKey": string;
+  readonly "reasonDigest": string;
+}
+
 export interface OffsiteRunSpec {
   readonly "generationId": string;
   readonly "sourcePointId": string;
@@ -1684,6 +1752,7 @@ export interface OperatorReadQuery {
 export interface Plan {
   readonly "schema": "vegastack-labs.dev/plan";
   readonly "schemaVersion": "1.0.0";
+  readonly "networkEndpoint"?: NetworkEndpointRequest | null;
   readonly "grantBatch"?: AuthorizationGrantBatchRequest | null;
   readonly "planId": string;
   readonly "planDigest": string;
@@ -6579,6 +6648,14 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         ]
       },
       {
+        "name": "networkEndpoint",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "omitEmpty": true,
+        "ref": "vegastack-labs.dev/network-endpoint-request"
+      },
+      {
         "name": "grantBatch",
         "kind": "object",
         "required": false,
@@ -10177,6 +10254,125 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/ingress-status-data",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/ingress-status-data"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "profileId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "status",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "unknown",
+          "unavailable",
+          "observed",
+          "partial"
+        ]
+      },
+      {
+        "name": "reason",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "observationDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "observedAt",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      {
+        "name": "ownershipRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "rotationStage",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "not-requested",
+          "provider-rotated",
+          "connector-update-required",
+          "verification-pending",
+          "partial",
+          "uncertain"
+        ]
+      },
+      {
+        "name": "connectivity",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "unknown",
+          "unavailable"
+        ]
+      },
+      {
+        "name": "originIsolation",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "unknown",
+          "unavailable"
+        ]
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/inventory-draft-counts",
     "fields": [
       {
@@ -10820,6 +11016,91 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "nullable": false,
         "itemRef": "vegastack-labs.dev/managed-host",
         "maxItems": 1000
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/mesh-status-data",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/mesh-status-data"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "profileId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "status",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "unknown",
+          "unavailable",
+          "observed",
+          "partial"
+        ]
+      },
+      {
+        "name": "reason",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "observationDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "observedAt",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      {
+        "name": "ownershipRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
       },
       {
         "name": "stateRevision",
@@ -11623,6 +11904,246 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/network-endpoint",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/network-endpoint"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "hostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "hostIdentityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "targetId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "targetRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "hostKey",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 2048
+      },
+      {
+        "name": "user",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 32
+      },
+      {
+        "name": "lanAddress",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 64
+      },
+      {
+        "name": "lanPort",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "meshAddress",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 64
+      },
+      {
+        "name": "meshPort",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "markerAddress",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 64
+      },
+      {
+        "name": "markerPort",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "markerPath",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 256
+      },
+      {
+        "name": "markerCertificateDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "markerValue",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 128
+      },
+      {
+        "name": "flow",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "operator-client-to-host-ssh"
+        ]
+      },
+      {
+        "name": "revision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/network-endpoint-request",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/network-endpoint-request"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "endpoint",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/network-endpoint"
+      },
+      {
+        "name": "action",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "activate",
+          "revoke"
+        ]
+      },
+      {
+        "name": "expectedEndpointRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "expectedDeclarationRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "expectedStateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "idempotencyKey",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "reasonDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/offsite-run-spec",
     "fields": [
       {
@@ -12247,6 +12768,14 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "enum": [
           "1.0.0"
         ]
+      },
+      {
+        "name": "networkEndpoint",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "omitEmpty": true,
+        "ref": "vegastack-labs.dev/network-endpoint-request"
       },
       {
         "name": "grantBatch",
@@ -14187,6 +14716,10 @@ function decodeHostVolumeBinding(value: unknown): HostVolumeBinding {
   return decodeSchema("vegastack-labs.dev/host-volume-binding", value) as unknown as HostVolumeBinding;
 }
 
+function decodeIngressStatusData(value: unknown): IngressStatusData {
+  return decodeSchema("vegastack-labs.dev/ingress-status-data", value) as unknown as IngressStatusData;
+}
+
 function decodeInventoryDraftCounts(value: unknown): InventoryDraftCounts {
   return decodeSchema("vegastack-labs.dev/inventory-draft-counts", value) as unknown as InventoryDraftCounts;
 }
@@ -14213,6 +14746,10 @@ function decodeManagedHost(value: unknown): ManagedHost {
 
 function decodeManagedHostList(value: unknown): ManagedHostList {
   return decodeSchema("vegastack-labs.dev/managed-host-list", value) as unknown as ManagedHostList;
+}
+
+function decodeMeshStatusData(value: unknown): MeshStatusData {
+  return decodeSchema("vegastack-labs.dev/mesh-status-data", value) as unknown as MeshStatusData;
 }
 
 function decodeNativeControllerIdentity(value: unknown): NativeControllerIdentity {
@@ -14249,6 +14786,14 @@ function decodeNativeQualificationProducer(value: unknown): NativeQualificationP
 
 function decodeNativeRestartPresentation(value: unknown): NativeRestartPresentation {
   return decodeSchema("vegastack-labs.dev/native-restart-presentation", value) as unknown as NativeRestartPresentation;
+}
+
+function decodeNetworkEndpoint(value: unknown): NetworkEndpoint {
+  return decodeSchema("vegastack-labs.dev/network-endpoint", value) as unknown as NetworkEndpoint;
+}
+
+function decodeNetworkEndpointRequest(value: unknown): NetworkEndpointRequest {
+  return decodeSchema("vegastack-labs.dev/network-endpoint-request", value) as unknown as NetworkEndpointRequest;
 }
 
 function decodeOffsiteRunSpec(value: unknown): OffsiteRunSpec {
@@ -14650,6 +15195,8 @@ export type ReadClient = {
   readonly listInventoryDraftObservations: (path: { readonly draftId: string; readonly revision: number }, query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<ApiInventoryObservationListData>>;
   readonly getInventoryDraft: (path: { readonly draftId: string; readonly revision: number }, options?: RequestOptions) => Promise<ReadResult<ApiInventoryDraftData>>;
   readonly listInventoryDrafts: (query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<ApiInventoryDraftListData>>;
+  readonly getNetworkIngress: (path: { readonly profileID: string }, options?: RequestOptions) => Promise<ReadResult<IngressStatusData>>;
+  readonly getNetworkMesh: (path: { readonly profileID: string }, options?: RequestOptions) => Promise<ReadResult<MeshStatusData>>;
   readonly listPeople: (query?: OperatorReadQuery, options?: RequestOptions) => Promise<ReadResult<OperatorPeoplePage>>;
   readonly getApprovalStatus: (path: { readonly planId: string }, options?: RequestOptions) => Promise<ReadResult<ApprovalStatus>>;
   readonly getPlan: (path: { readonly planId: string }, options?: RequestOptions) => Promise<ReadResult<PlanPresentation>>;
@@ -14787,6 +15334,14 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
     async listInventoryDrafts(query = {}, options = {}) {
       const operation = "api.v1.inventory-drafts.list";
       return performRead(fetchTransport, "/api/v1/inventory-drafts" + pageQuery(query), options, operation, decodeApiInventoryDraftListData);
+    },
+    async getNetworkIngress(path, options = {}) {
+      const operation = "api.v1.network.ingress.status";
+      return performRead(fetchTransport, "/api/v1/network/ingress/" + encodePathString(path.profileID, "profileID") + "", options, operation, decodeIngressStatusData);
+    },
+    async getNetworkMesh(path, options = {}) {
+      const operation = "api.v1.network.mesh.status";
+      return performRead(fetchTransport, "/api/v1/network/mesh/" + encodePathString(path.profileID, "profileID") + "", options, operation, decodeMeshStatusData);
     },
     async listPeople(query = {}, options = {}) {
       const operation = "api.v1.people.list";

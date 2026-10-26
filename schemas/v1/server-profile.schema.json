@@ -168,10 +168,38 @@
       "pattern": "^/[^\\x00]*$",
       "type": "string"
     },
+    "ingressScopeDigests": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 128,
+      "type": "array",
+      "uniqueItems": true
+    },
     "inventoryExportRoot": {
       "maxLength": 4096,
       "minLength": 2,
       "pattern": "^/[^\\x00]*$",
+      "type": "string"
+    },
+    "meshScopeDigests": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 128,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "networkConnectExcludedHostIds": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 256,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "networkConnectPrivateKeyPath": {
+      "maxLength": 4096,
       "type": "string"
     },
     "offsiteAccountId": {

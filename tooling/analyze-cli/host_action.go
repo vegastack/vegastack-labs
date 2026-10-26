@@ -29,6 +29,9 @@ var hostActionSourceSeals = map[string]hostActionSourceSeal{
 }
 
 func reviewedHostActionPackage(c checkedSourcePackage, module, relative string) bool {
+	if relative == "internal/serverconfig" && approvedNetworkConnectPackage(c, module, relative) {
+		return true
+	}
 	if reviewedLinuxRolePackage(c, module, relative) {
 		return true
 	}

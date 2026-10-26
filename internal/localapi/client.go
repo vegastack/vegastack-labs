@@ -65,6 +65,15 @@ type TypedResponse[T any] struct {
 }
 
 type Client interface {
+	ObserveIngress(context.Context, serverconfig.Profile, generated.IngressDraftRequest) (TypedResponse[generated.IngressStatusData], error)
+	DraftIngress(context.Context, serverconfig.Profile, generated.IngressDraftRequest) (TypedResponse[generated.IngressDraftSubmission], error)
+	IngressStatus(context.Context, serverconfig.Profile, string) (TypedResponse[generated.IngressStatusData], error)
+	SubmitIngressRolloutEvidence(context.Context, serverconfig.Profile, generated.IngressRolloutEvidenceRequest) (TypedResponse[generated.IngressStatusData], error)
+	ObserveMesh(context.Context, serverconfig.Profile, generated.MeshDraftRequest) (TypedResponse[generated.MeshStatusData], error)
+	DraftMesh(context.Context, serverconfig.Profile, generated.MeshDraftRequest) (TypedResponse[generated.MeshDraftSubmission], error)
+	MeshStatus(context.Context, serverconfig.Profile, string) (TypedResponse[generated.MeshStatusData], error)
+	DraftNetworkEndpoint(context.Context, serverconfig.Profile, generated.NetworkEndpointRequest) (TypedResponse[generated.DeclarationRevision], error)
+	ConnectionDescriptor(context.Context, serverconfig.Profile, string) (TypedResponse[generated.NetworkConnectDescriptor], error)
 	DraftAuthorizationGrants(context.Context, serverconfig.Profile, generated.AuthorizationGrantBatchRequest) (TypedResponse[generated.DeclarationRevision], error)
 	RequestPlanApproval(context.Context, serverconfig.Profile, generated.PlanReferenceRequest) (TypedResponse[generated.ApprovalStatus], error)
 	GetPlanApproval(context.Context, serverconfig.Profile, string) (TypedResponse[generated.ApprovalStatus], error)
@@ -328,6 +337,13 @@ func requestTyped[T any](client *client, ctx context.Context, profile serverconf
 }
 
 func remoteCommandArguments(spec requestSpec) []string {
+	if spec.command == "api.v1.hosts.connection-descriptor.get" {
+		if id, ok := pathID(spec.path, "/api/v1/hosts/", "/connection-descriptor"); ok {
+			return []string{"connect", "--node", id, "--port", "22", "--path", "auto"}
+		}
+		return nil
+	}
+
 	if spec.command == "api.v1.hosts.get" {
 		if id, ok := pathID(spec.path, "/api/v1/hosts/", ""); ok {
 			return []string{"node", "inspect", "--host-id", id}

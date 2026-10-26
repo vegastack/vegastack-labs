@@ -62,6 +62,10 @@ Follow the existing [discovery/assignment procedure](architecture-and-networking
 
 The documented factory fallback in the matched ES216G installation guide is `192.168.0.1`; that is a recovery fact, not our chosen LAN or management address. Use it only under a verified, isolated local procedure when DHCP discovery fails and the delivered manual matches. Do not attach a device with a conflicting factory address to the active LAN. [Installation guide](https://static.tp-link.com/upload/manual/2024/202410/20241022/7106511600_ES220GMP%2CES228GMP%2CES216G%2CES224G%28UN%29_IG.pdf)
 
+## Operator procedure and current implementation
+
+Use the [operator access and network procedure](operator-access-and-network.md#manual-router-and-switch-work) for the manual target, approval, verification and recovery steps. Phase 7 adds controller/provider access workflows; it does not add an automatic ES216G or HX510 configuration adapter. The table below remains the device workflow contract, not a list of available device-write commands.
+
 ## Operations to implement
 
 The following are workflow requirements, not invented public command names or implemented adapters. `vsk-labs` owns declaration/plan/authorization, target limits and evidence; central Ansible owns supported host configuration. Where no tested device adapter exists, an authorized local admin performs the plan-declared UI step. A manual step stays pending until the relevant evidence is supplied and validated; clicking “done” is not proof of every postcondition.

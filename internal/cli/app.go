@@ -464,6 +464,10 @@ func (app *App) Run(ctx context.Context, args []string) int {
 			return app.failServer(mode, parsed.commandName(), err)
 		}
 		return app.handlePlanResponse(mode, response)
+	case generated.CommandNameNetworkEndpointDraft:
+		return app.runNetworkEndpoint(ctx, mode, parsed)
+	case generated.CommandNameConnect:
+		return app.runNetworkConnect(ctx, mode, parsed)
 	case generated.CommandNameDeviceRequest, generated.CommandNameDeviceApprove, generated.CommandNameDeviceRevoke, generated.CommandNameAuthorizationGrantsDraft, generated.CommandNameUserOnboard, generated.CommandNameUserSuspend, generated.CommandNameUserResume, generated.CommandNameUserOffboard:
 		return app.runGrantBatchDraft(ctx, mode, parsed)
 	case generated.CommandNameQualificationFixturePeer, generated.CommandNameQualificationInspect, generated.CommandNameQualificationNative, generated.CommandNameQualificationStep:
@@ -472,6 +476,10 @@ func (app *App) Run(ctx context.Context, args []string) int {
 		return app.runRolePrepare(ctx, mode, parsed)
 	case generated.CommandNameNodeReplacementPrepare, generated.CommandNameNodeReplacementInspect, generated.CommandNameNodeTargetPrepare, generated.CommandNameNodeActionPrepare, generated.CommandNameNodeAccessPrepare, generated.CommandNameNodeObservationInspect:
 		return app.runHostLifecycleCommand(ctx, mode, parsed)
+	case generated.CommandNameNetworkIngressObserve, generated.CommandNameNetworkIngressDraft, generated.CommandNameNetworkIngressStatus, generated.CommandNameNetworkIngressRolloutEvidence:
+		return app.runIngressCommand(ctx, mode, parsed)
+	case generated.CommandNameNetworkMeshObserve, generated.CommandNameNetworkMeshDraft, generated.CommandNameNetworkMeshStatus:
+		return app.runMeshCommand(ctx, mode, parsed)
 	case generated.CommandNameNodeDiscover, generated.CommandNameNodeAdd, generated.CommandNameNodeInspect:
 		return app.runHostCommand(ctx, mode, parsed)
 	case generated.CommandNameGateList, generated.CommandNameGateInspect, generated.CommandNameGateCheck, generated.CommandNameGateEvidence, generated.CommandNameGateProfileDraft:

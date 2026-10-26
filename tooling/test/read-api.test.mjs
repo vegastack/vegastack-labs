@@ -298,3 +298,56 @@ test("the reviewed #276 operator reads require exact bounded GET contracts", asy
     }
   }
 });
+
+
+test("approved #277 endpoints retain exact operator-only transport contracts", async (t) => {
+  const registry = JSON.parse(await readFile(path.join(process.cwd(), "schemas/v1/endpoint-registry.json"), "utf8"));
+  for (const id of ["api.v1.hosts.connection-descriptor.get", "api.v1.network.endpoint-drafts.create"]) {
+    for (const change of ["remove", "audience", "method", "path", "schema", "extra"]) {
+      const copy = structuredClone(registry);
+      const endpoint = copy.endpoints.find((entry) => entry.id === id);
+      if (change === "remove") copy.endpoints = copy.endpoints.filter((entry) => entry.id !== id);
+      if (change === "audience") endpoint.audiences.push("browser");
+      if (change === "method") endpoint.method = "DELETE";
+      if (change === "path") endpoint.path += "/execute";
+      if (change === "schema") endpoint.dataSchema = "vegastack-labs.dev/run-result";
+      if (change === "extra") copy.endpoints.push({...endpoint, id: "api.v1.network.unapproved"});
+      const root = await fixtureRepo(t, {"schemas/v1/endpoint-registry.json": `${JSON.stringify(copy)}\n`});
+      assert.ok((await verifyReadAPI(root)).codes.includes("READ_API_ENDPOINT_DRIFT"), `${id}: ${change}`);
+    }
+  }
+});
+
+
+test("approved Mesh and ingress routes retain exact finite endpoint contracts", async (t) => {
+  const registry = JSON.parse(await readFile(path.join(process.cwd(), "schemas/v1/endpoint-registry.json"), "utf8"));
+  const approved = registry.endpoints.filter(({id}) => /^api\.v1\.network\.(mesh|ingress)\./.test(id));
+  assert.equal(approved.length, 7, "all approved Mesh and ingress endpoints must be present");
+  for (const original of approved) {
+    for (const change of ["remove", "audience", "method", "path", "schema", "extra"]) {
+      const copy = structuredClone(registry);
+      const endpoint = copy.endpoints.find(({id}) => id === original.id);
+      if (change === "remove") copy.endpoints = copy.endpoints.filter(({id}) => id !== original.id);
+      if (change === "audience") endpoint.audiences.push("server-adapter");
+      if (change === "method") endpoint.method = "DELETE";
+      if (change === "path") endpoint.path += "/unapproved";
+      if (change === "schema") endpoint.dataSchema = "vegastack-labs.dev/run-result";
+      if (change === "extra") copy.endpoints.push({...endpoint, id: original.id + ".unapproved"});
+      const root = await fixtureRepo(t, {"schemas/v1/endpoint-registry.json": `${JSON.stringify(copy)}\n`});
+      assert.ok((await verifyReadAPI(root)).codes.includes("READ_API_ENDPOINT_DRIFT"), `${original.id}: ${change}`);
+    }
+  }
+});
+
+
+test("host adoption and connection descriptor contracts classify distinct exact routes", async (t) => {
+  assert.equal((await verifyReadAPI()).status, "pass");
+  const registry = JSON.parse(await readFile(path.join(process.cwd(), "schemas/v1/endpoint-registry.json"), "utf8"));
+  const descriptor = registry.endpoints.find(({id}) => id === "api.v1.hosts.connection-descriptor.get");
+  for (const id of ["api.v1.hosts.unapproved", "api.v1.hosts.connection-descriptor.unapproved"]) {
+    const copy = structuredClone(registry);
+    copy.endpoints.push({...descriptor, id});
+    const root = await fixtureRepo(t, {"schemas/v1/endpoint-registry.json": `${JSON.stringify(copy)}\n`});
+    assert.ok((await verifyReadAPI(root)).codes.includes("READ_API_ENDPOINT_DRIFT"), id);
+  }
+});

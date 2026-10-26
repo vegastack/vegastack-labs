@@ -36,7 +36,7 @@ func TestGrantBatchApprovedAPIFromInitialSetup(t *testing.T) {
 
 func testGrantBatchApprovedAPI(t *testing.T, variant string) {
 	failReadSync := variant == "atomic-read-sync-failure"
-	denyBeforeExecution := variant != "identity-binding" && variant != "user-lifecycle" && variant != "device-lifecycle" && variant != "fresh-host-workflow" && variant != "acknowledgement-replayed" && !failReadSync
+	denyBeforeExecution := variant != "identity-binding" && variant != "network-endpoint" && variant != "user-lifecycle" && variant != "device-lifecycle" && variant != "fresh-host-workflow" && variant != "acknowledgement-replayed" && !failReadSync
 	now := time.Now().UTC().Truncate(time.Second)
 	clock := func() time.Time { return now }
 	dir := t.TempDir()
@@ -46,13 +46,32 @@ func testGrantBatchApprovedAPI(t *testing.T, variant string) {
 	digest := hostaction.Digest("synthetic-grant-setup")
 	human := "human-a"
 	policyTarget := human
+	if variant == "network-endpoint" {
+		policyTarget = "host-a"
+	}
 	if variant == "user-lifecycle" || variant == "device-lifecycle" {
 		policyTarget = "human-b"
 	}
 	db := filepath.Join(dir, "control.db")
 	read := generated.LocalSetupReadGrant{Schema: generated.SchemaIDLocalSetupReadGrant, SchemaVersion: "1.0.0", Capability: "authorization.policy.read", ResourceKind: "authorization-policy", ResourceID: policyTarget}
+	if variant == "network-endpoint" {
+		read.Capability = "network.connect"
+		read.ResourceKind = "host"
+	}
 	effective := []generated.LocalSetupEffectiveGrant{}
 	for _, x := range []struct{ id, action, cap, kind, branch string }{{"policy-read", "read", "authorization.policy.read", "authorization-policy", "none"}, {"policy-write", "author", "authorization.policy.write", "authorization-policy", "none"}, {"policy-ack", "acknowledge", "plan.acknowledge", "plan-target", "human"}, {"policy-execute", "execute", "identity.change", "execution-target", "human"}} {
+		if variant == "network-endpoint" {
+			switch x.id {
+			case "policy-read":
+				x.cap = "network.connect"
+				x.kind = "host"
+			case "policy-write":
+				x.cap = "network.endpoint.write"
+				x.kind = "host"
+			case "policy-execute":
+				x.cap = "network.endpoint.change"
+			}
+		}
 		effective = append(effective, generated.LocalSetupEffectiveGrant{Schema: generated.SchemaIDLocalSetupEffectiveGrant, SchemaVersion: "1.0.0", GrantID: x.id, RoleID: "control-plane-admin", Action: x.action, Capability: x.cap, ResourceKind: x.kind, ResourceID: policyTarget, Branch: x.branch})
 	}
 	request := generated.LocalSetupReviewRequest{Schema: generated.SchemaIDLocalSetupReviewRequest, SchemaVersion: "1.0.0", SetupID: "grant-setup", HostIdentityDigest: digest, InitialHumanID: human, ServiceUID: int64(os.Geteuid()), InitialAdministratorUID: int64(os.Geteuid()), ProfileSHA256: digest, DatabasePath: db, ReleaseManifestPath: "/synthetic/manifest.json", ReleaseManifestDigest: digest, ReleasePolicyPath: "/synthetic/policy.json", ReleasePolicyDigest: digest, ExecutableAssetID: "linux-arm64", ReleaseBuildID: "test", ExpiresAt: now.Add(time.Hour).Format(time.RFC3339Nano), RequestNonceDigest: digest, InitialReadGrants: []generated.LocalSetupReadGrant{read}, InitialEffectiveGrants: effective}
@@ -67,7 +86,7 @@ func testGrantBatchApprovedAPI(t *testing.T, variant string) {
 		setup.EffectiveGrants = append(setup.EffectiveGrants, store.InitialEffectiveGrant{GrantID: g.GrantID, RoleID: g.RoleID, Action: g.Action, Capability: g.Capability, ResourceKind: g.ResourceKind, ResourceID: g.ResourceID, Branch: branch})
 	}
 	setup.Approval = store.InitialSetupApproval{HumanID: human, AuthorityID: "fixture-authority", Method: identity.CloudflareAccessMethod, ReviewDigest: setup.ReviewDigest, RequestDigest: digest, DecidedAt: now.Add(-time.Minute)}
-	authority, err := store.Open(context.Background(), store.Config{DatabasePath: db, Mode: store.InitializeNew, ExpectedUID: uint32(os.Geteuid()), ToolVersion: "test", BuildVersion: "test", Clock: clock, InitialSetup: &setup})
+	authority, err := store.Open(context.Background(), store.Config{DatabasePath: db, Mode: store.InitializeNew, ExpectedUID: uint32(os.Geteuid()), ToolVersion: "test", BuildVersion: "test", Clock: clock, NetworkConnectExcludedHostIDs: []string{"excluded-synthetic"}, InitialSetup: &setup})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,7 +113,7 @@ func testGrantBatchApprovedAPI(t *testing.T, variant string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	engine, err := runengine.NewEngine(runengine.Config{Repository: store.NewRunRepository(authority), Plans: plans, Admission: runengine.NewAdmissionGate(ack, clock), Adapters: adapter.NewRegistry(), Core: runengine.CoreRouter{Authorization: &runengine.GrantBatchEffect{Repository: grants, Approvals: ackRepo}}, Clock: clock})
+	engine, err := runengine.NewEngine(runengine.Config{Repository: store.NewRunRepository(authority), Plans: plans, Admission: runengine.NewAdmissionGate(ack, clock), Adapters: adapter.NewRegistry(), Core: runengine.CoreRouter{NetworkEndpoint: &runengine.NetworkEndpointEffect{Repository: store.NewNetworkEndpointRepository(authority), Approvals: ackRepo}, Authorization: &runengine.GrantBatchEffect{Repository: grants, Approvals: ackRepo}}, Clock: clock})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +124,7 @@ func testGrantBatchApprovedAPI(t *testing.T, variant string) {
 		t.Fatal(err)
 	}
 	auth := EffectiveAuthorizationConfig{Authorizer: evaluator, Recorder: store.NewEffectiveAuthorizationRepository(authority), WorkflowOwners: authority, Clock: clock}
-	for _, err := range []error{RegisterDeclarationPlanOperations(app, DeclarationPlanConfig{Declarations: declarations, Plans: plans, Results: factory, Authorization: auth}), RegisterAuthorizationGrantOperations(app, AuthorizationGrantOperations{Grants: grants, Declarations: declarations, Results: factory}), RegisterRunOperations(app, RunOperationConfig{Runs: engine, Plans: revisions, Acknowledgements: ack, Results: factory, Authorization: auth})} {
+	for _, err := range []error{RegisterNetworkEndpointOperations(app, NetworkEndpointOperations{Endpoints: store.NewNetworkEndpointRepository(authority), Declarations: declarations, Results: factory}), RegisterDeclarationPlanOperations(app, DeclarationPlanConfig{Declarations: declarations, Plans: plans, Results: factory, Authorization: auth}), RegisterAuthorizationGrantOperations(app, AuthorizationGrantOperations{Grants: grants, Declarations: declarations, Results: factory}), RegisterRunOperations(app, RunOperationConfig{Runs: engine, Plans: revisions, Acknowledgements: ack, Results: factory, Authorization: auth})} {
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -198,7 +217,7 @@ func testGrantBatchApprovedAPI(t *testing.T, variant string) {
 		if run.Run.Status != "succeeded" {
 			t.Fatalf("grant run failed %+v", run)
 		}
-		if variant == "acknowledgement-replayed" {
+		if variant == "acknowledgement-replayed" || variant == "network-endpoint" {
 			faultDB, err := sql.Open("sqlite3", "file:"+db+"?mode=ro")
 			if err != nil {
 				t.Fatal(err)
@@ -216,9 +235,11 @@ func testGrantBatchApprovedAPI(t *testing.T, variant string) {
 			if faultDB.QueryRow(`SELECT grant_revision FROM effective_authorization_principals WHERE principal_id=?`, human).Scan(&after) != nil || before != after {
 				t.Fatal("replay changed permissions", before, after)
 			}
-			return
+			if variant == "acknowledgement-replayed" {
+				return
+			}
 		}
-		if variant != "device-lifecycle" && doc.AuthorizationGrantBatch.IdentityBinding == nil {
+		if variant != "device-lifecycle" && doc.AuthorizationGrantBatch != nil && doc.AuthorizationGrantBatch.IdentityBinding == nil {
 			grantRevision++
 		}
 		declarationRevision = p.Plan.Binding.DeclarationRevision
@@ -227,6 +248,110 @@ func testGrantBatchApprovedAPI(t *testing.T, variant string) {
 		}
 	}
 
+	if variant == "network-endpoint" {
+		fixtureDB, e := sql.Open("sqlite3", db)
+		if e != nil {
+			t.Fatal(e)
+		}
+		defer fixtureDB.Close()
+		input := admissionAccessInput(t)
+		seed := admissionSQL{t, fixtureDB}
+		seed.host(input, policyTarget, digest)
+		seed.host(input, "excluded-synthetic", hostaction.Digest("excluded-identity"))
+		target := admissionTargetDraft(input, policyTarget).Target
+		endpoint := generated.NetworkEndpoint{Schema: generated.SchemaIDNetworkEndpoint, SchemaVersion: "1.0.0", HostID: policyTarget, HostIdentityDigest: digest, TargetID: target.TargetID, TargetRevision: 1, HostKey: target.HostKey, User: target.User, LANAddress: "10.70.0.2", LANPort: 22, MeshAddress: "100.96.0.2", MeshPort: 22, MarkerAddress: "10.70.0.1", MarkerPort: 443, MarkerPath: "/site", MarkerCertificateDigest: digest, MarkerValue: "site-synthetic", Flow: "operator-client-to-host-ssh", Revision: 1}
+		repository := store.NewNetworkEndpointRepository(authority)
+		if _, e = repository.Descriptor(ctx, policyTarget); e == nil {
+			t.Fatal("absent endpoint returned")
+		}
+		for index, action := range []string{"activate", "revoke"} {
+			rev, e := revisions.CurrentRevision(ctx)
+			if e != nil {
+				t.Fatal(e)
+			}
+			endpoint.Revision = int64(index + 1)
+			request := generated.NetworkEndpointRequest{Schema: generated.SchemaIDNetworkEndpointRequest, SchemaVersion: "1.0.0", Endpoint: endpoint, Action: action, ExpectedEndpointRevision: int64(index), ExpectedDeclarationRevision: declarationRevision, ExpectedStateRevision: rev.StateRevision, RecoveryEpoch: rev.RecoveryEpoch, IdempotencyKey: "network-" + action, ReasonDigest: digest}
+
+			if index == 0 {
+				blocked := request
+				blocked.Endpoint.MarkerAddress = admissionTargetDraft(input, "excluded-synthetic").Target.Address
+				if _, e = repository.Stage(ctx, blocked); store.Code(e) != generated.ErrorCodeAuthorizationDenied {
+					t.Fatal("profile exclusion did not follow discovery address", e)
+				}
+			}
+			var doc generated.DeclarationRevision
+			post("/api/v1/network/endpoint-drafts", request, &doc)
+			if index == 0 {
+				if _, e = repository.Descriptor(ctx, policyTarget); e == nil {
+					t.Fatal("draft activated endpoint")
+				}
+			}
+			applyDraft(doc, "network-"+action)
+			w := serve(http.MethodGet, "/api/v1/hosts/"+policyTarget+"/connection-descriptor", nil)
+			if index == 0 && w.Code != 200 || index == 1 && w.Code < 400 {
+				t.Fatal(action, w.Code, w.Body.String())
+			}
+			if w := serve(http.MethodPost, "/api/v1/network/endpoint-drafts", request); w.Code < 400 {
+				t.Fatal("stale endpoint replay accepted")
+			}
+			if index == 0 {
+
+				seed.exec(`UPDATE effective_authorization_principals SET status='suspended' WHERE principal_id='human-a'`)
+				if w := serve(http.MethodGet, "/api/v1/hosts/"+policyTarget+"/connection-descriptor", nil); w.Code < 400 {
+					t.Fatal("suspended owner descriptor")
+				}
+				seed.exec(`UPDATE effective_authorization_principals SET status='active' WHERE principal_id='human-a'`)
+				seed.exec(`INSERT INTO effective_authorization_principals VALUES('network-reader','human','active',1,'now','now')`)
+				seed.exec(`INSERT INTO read_principals VALUES('network-reader','active',1,'now','now')`)
+				seed.exec(`INSERT INTO effective_authorization_grants VALUES('network-reader-grant','network-reader','reader','read','network.connect','host','host-a',NULL,1,'active','now','now')`)
+				readerCtx := identity.WithVerifiedPrincipal(context.Background(), identity.Principal{ID: "network-reader", Method: identity.LocalOSPeerMethod})
+				if _, e = repository.Descriptor(readerCtx, policyTarget); e != nil {
+					t.Fatal(e)
+				}
+				seed.exec(`UPDATE effective_authorization_grants SET status='revoked' WHERE grant_id='network-reader-grant'`)
+				if _, e = repository.Descriptor(readerCtx, policyTarget); e == nil {
+					t.Fatal("revoked read grant descriptor")
+				}
+				seed.exec(`INSERT INTO operator_devices VALUES('network-device','human-a','approved',1,'now','now')`)
+				deviceCtx := identity.WithVerifiedPrincipal(context.Background(), identity.Principal{ID: "human-a", Method: identity.LocalOSPeerMethod, DeviceID: "network-device"})
+				if _, e = repository.Descriptor(deviceCtx, policyTarget); e != nil {
+					t.Fatal(e)
+				}
+				seed.exec(`UPDATE operator_devices SET status='revoked',device_revision=2 WHERE device_id='network-device'`)
+				if _, e = repository.Descriptor(deviceCtx, policyTarget); e == nil {
+					t.Fatal("revoked device descriptor")
+				}
+
+			}
+		}
+
+		rev, e := revisions.CurrentRevision(ctx)
+		if e != nil {
+			t.Fatal(e)
+		}
+		endpoint.Revision = 3
+		retry := generated.NetworkEndpointRequest{Schema: generated.SchemaIDNetworkEndpointRequest, SchemaVersion: "1.0.0", Endpoint: endpoint, Action: "activate", ExpectedEndpointRevision: 2, ExpectedDeclarationRevision: declarationRevision, ExpectedStateRevision: rev.StateRevision, RecoveryEpoch: rev.RecoveryEpoch, IdempotencyKey: "network-after-revoke", ReasonDigest: digest}
+		if _, e = repository.Stage(ctx, retry); e != nil {
+			t.Fatal("current endpoint preparation failed before exclusion", e)
+		}
+		// The excluded alias follows its current identity even when the stored
+		// owner name differs from the registered host's current name.
+		eventDigest := hostaction.Digest("excluded-alias")
+		seed.exec(`INSERT INTO host_alias_history(alias_id,owner_revision,owner_host_id,owner_identity_digest,ownership_generation,event_digest,event_bytes) VALUES('excluded-synthetic',1,'former-name',?,1,?,?)`, digest, eventDigest, []byte(`{}`))
+		seed.exec(`INSERT INTO host_alias_owners VALUES('excluded-synthetic','former-name',?,1,1,?,NULL)`, digest, eventDigest)
+		if _, e = repository.Stage(ctx, retry); store.Code(e) != generated.ErrorCodeAuthorizationDenied {
+			t.Fatal("profile exclusion did not follow alias identity", e)
+		}
+		var events int
+		if fixtureDB.QueryRow(`SELECT COUNT(*) FROM audit_events WHERE event_type='network.endpoint-applied' AND principal_id='human-a' AND target_id='host-a' AND before_fingerprint IS NOT NULL`).Scan(&events) != nil || events != 2 {
+			t.Fatal("missing attributed preimage audit", events)
+		}
+		preimages, e := filepath.Glob(filepath.Join(dir, "authorization-before-*.db"))
+		if e != nil || len(preimages) != 2 {
+			t.Fatal("verified database preimages missing", preimages, e)
+		}
+		return
+	}
 	if variant == "device-lifecycle" {
 		rev, _ := revisions.CurrentRevision(ctx)
 		onboard := generated.AuthorizationGrantBatchRequest{Schema: generated.SchemaIDAuthorizationGrantBatchRequest, SchemaVersion: "1.0.0", PrincipalID: policyTarget, LifecycleAction: "onboard", ExpectedGrantRevision: 0, ExpectedDeclarationRevision: declarationRevision, ExpectedStateRevision: rev.StateRevision, RecoveryEpoch: rev.RecoveryEpoch, IdempotencyKey: "device-owner", ReasonDigest: digest, Changes: []generated.AuthorizationGrantChange{}}

@@ -62,6 +62,9 @@ func TestEveryGeneratedCommandHasTruthfulRuntimeBehavior(t *testing.T) {
 			if commandName(command.Path) == generated.CommandNameAuthorizationGrantsDraft {
 				files.content = []byte(`{"schema":"vegastack-labs.dev/authorization-grant-batch-request","schemaVersion":"1.0.0","principalId":"human-a","expectedGrantRevision":1,"expectedDeclarationRevision":0,"expectedStateRevision":0,"recoveryEpoch":0,"idempotencyKey":"grant-example","reasonDigest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","changes":[{"schema":"vegastack-labs.dev/authorization-grant-change","schemaVersion":"1.0.0","grantId":"host-read","change":"add","roleId":"reader","action":"read","capability":"host.read","resourceKind":"host","resourceId":"host-a","branch":""}]}`)
 			}
+			if commandName(command.Path) == generated.CommandNameNetworkEndpointDraft {
+				files.content = networkRequestJSON(t)
+			}
 			if command.Path[0] == "device" {
 				revision := 1
 				if command.Path[1] == "request" {
@@ -81,6 +84,22 @@ func TestEveryGeneratedCommandHasTruthfulRuntimeBehavior(t *testing.T) {
 				files.content, _ = json.Marshal(syntheticScheduledPolicy())
 			}
 			code, stdout, stderr := runTestAppWithOptions(t, context.Background(), arguments, nil, WithInput(strings.NewReader("encrypted-fixture")), WithReleaseOperations(operations), WithServerOperations(serverOperations), WithControlOperations(controlOperations, files), WithCredentialControlOperations(credentialOperations))
+			// This generic control stub intentionally has no provider capabilities.
+			// Every exact provider command must fail before reading a request or
+			// suggesting that the missing control dependency is operational.
+			providerScope := ""
+			switch commandName(command.Path) {
+			case generated.CommandNameNetworkMeshDraft, generated.CommandNameNetworkMeshObserve, generated.CommandNameNetworkMeshStatus:
+				providerScope = "mesh-control"
+			case generated.CommandNameNetworkIngressDraft, generated.CommandNameNetworkIngressObserve, generated.CommandNameNetworkIngressStatus, generated.CommandNameNetworkIngressRolloutEvidence:
+				providerScope = "ingress-control"
+			}
+			if providerScope != "" {
+				if code != 6 || stdout != "" || stderr != "vsk-labs: PREREQUISITE_BLOCKED ("+providerScope+")\n" {
+					t.Fatalf("unconfigured provider command %v: code=%d stdout=%q stderr=%q", command.Path, code, stdout, stderr)
+				}
+				return
+			}
 			if strings.HasPrefix(commandName(command.Path), "qualification ") {
 				wantCode, wantError := 2, `"code":"INPUT_INVALID"`
 				if commandName(command.Path) == generated.CommandNameQualificationFixturePeer {

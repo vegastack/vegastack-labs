@@ -333,6 +333,12 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/host-role-scope.schema.json",
 		"schemas/v1/host-role.schema.json",
 		"schemas/v1/host-volume-binding.schema.json",
+		"schemas/v1/ingress-change.schema.json",
+		"schemas/v1/ingress-connector-target.schema.json",
+		"schemas/v1/ingress-draft-request.schema.json",
+		"schemas/v1/ingress-draft-submission.schema.json",
+		"schemas/v1/ingress-rollout-evidence-request.schema.json",
+		"schemas/v1/ingress-status-data.schema.json",
 		"schemas/v1/inventory-diff-data.schema.json",
 		"schemas/v1/inventory-diff-request.schema.json",
 		"schemas/v1/inventory-draft-export-pointer.schema.json",
@@ -355,6 +361,11 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/local-setup-review-request.schema.json",
 		"schemas/v1/managed-host-list.schema.json",
 		"schemas/v1/managed-host.schema.json",
+		"schemas/v1/mesh-change.schema.json",
+		"schemas/v1/mesh-draft-request.schema.json",
+		"schemas/v1/mesh-draft-submission.schema.json",
+		"schemas/v1/mesh-route.schema.json",
+		"schemas/v1/mesh-status-data.schema.json",
 		"schemas/v1/native-action-negative-observation.schema.json",
 		"schemas/v1/native-action-protocol-witness.schema.json",
 		"schemas/v1/native-action-receipt-witness.schema.json",
@@ -400,6 +411,10 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/native-volume-seal-witness.schema.json",
 		"schemas/v1/native-witness-request.schema.json",
 
+		"schemas/v1/network-connect-descriptor.schema.json",
+		"schemas/v1/network-connect-result.schema.json",
+		"schemas/v1/network-endpoint-request.schema.json",
+		"schemas/v1/network-endpoint.schema.json",
 		"schemas/v1/operator-device-list.schema.json",
 		"schemas/v1/operator-device.schema.json",
 		"schemas/v1/operator-grant-list.schema.json",
@@ -882,8 +897,8 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 			}
 		}
 	}
-	if available != 74 || planned != 14 {
-		t.Fatalf("command availability = (%d available, %d planned), want (74, 14)", available, planned)
+	if available != 83 || planned != 13 {
+		t.Fatalf("command availability = (%d available, %d planned), want (83, 13)", available, planned)
 	}
 	// #269/#270 promote seven existing people/device CLI operations.
 	// #247 adds the approved grant-batch draft; #228 retains its exact qualification commands.

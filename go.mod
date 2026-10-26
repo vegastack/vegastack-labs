@@ -4,8 +4,10 @@ go 1.27.0
 
 require (
 	github.com/1password/onepassword-sdk-go v0.4.1
+	github.com/cloudflare/cloudflare-go/v7 v7.8.0
 	github.com/coder/websocket v1.8.14
 	github.com/go-jose/go-jose/v4 v4.1.4
+	github.com/godbus/dbus/v5 v5.1.0
 	github.com/google/certificate-transparency-go v1.3.3
 	github.com/ncruces/go-sqlite3 v0.35.4
 	github.com/secure-systems-lab/go-securesystemslib v0.11.0
@@ -13,6 +15,7 @@ require (
 	github.com/sigstore/sigstore v1.10.8
 	github.com/sigstore/sigstore-go v1.3.0
 	golang.org/x/crypto v0.55.0
+	golang.org/x/mod v0.38.0
 	golang.org/x/sys v0.47.0
 	google.golang.org/protobuf v1.36.11
 )
@@ -54,7 +57,6 @@ require (
 	github.com/go-openapi/validate v0.26.1 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
-	github.com/godbus/dbus/v5 v5.1.0
 	github.com/google/go-containerregistry v0.21.7 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0 // indirect
@@ -80,6 +82,10 @@ require (
 	github.com/tetratelabs/wazero v1.11.0 // indirect
 	github.com/theupdateframework/go-tuf v0.7.0 // indirect
 	github.com/theupdateframework/go-tuf/v2 v2.4.2 // indirect
+	github.com/tidwall/gjson v1.14.4 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.1 // indirect
+	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/titanous/rocacheck v0.0.0-20171023193734-afe73141d399 // indirect
 	github.com/transparency-dev/formats v0.1.1 // indirect
 	github.com/transparency-dev/merkle v0.0.2 // indirect
@@ -90,7 +96,6 @@ require (
 	go.opentelemetry.io/otel/trace v1.44.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.9.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	golang.org/x/mod v0.38.0 // indirect
 	golang.org/x/net v0.57.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/term v0.45.0 // indirect

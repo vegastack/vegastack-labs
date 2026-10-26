@@ -51,7 +51,7 @@ func (r *GrantBatchRepository) Apply(ctx context.Context, in GrantBatchApply) (s
 		if err := validateGrantBatchChanges(row, *batch); err != nil {
 			return err
 		}
-		if e := r.verifyGrantPreimage(ctx, preimage, before); e != nil {
+		if e := r.store.verifyMutationPreimage(ctx, preimage, before); e != nil {
 			return e
 		}
 		if batch.IdentityBinding != nil {
@@ -146,12 +146,12 @@ func (r *GrantBatchRepository) prepareGrantRecovery(ctx context.Context, p gener
 	}); err != nil {
 		return "", "", err
 	}
-	return r.prepareGrantSnapshot(ctx, p, in)
+	return r.store.prepareMutationSnapshot(ctx, p, in)
 }
 
-func (r *GrantBatchRepository) prepareGrantSnapshot(ctx context.Context, p generated.Plan, in GrantBatchApply) (string, string, error) {
+func (s *Store) prepareMutationSnapshot(ctx context.Context, p generated.Plan, in GrantBatchApply) (string, string, error) {
 	deny := func() (string, string, error) { return "", "", actionError(generated.ErrorCodeRecoveryRequired) }
-	source, err := NewOnlineSnapshotSource(r.store)
+	source, err := NewOnlineSnapshotSource(s)
 	if err != nil {
 		return deny()
 	}
@@ -161,8 +161,8 @@ func (r *GrantBatchRepository) prepareGrantSnapshot(ctx context.Context, p gener
 	}
 	port := source.(MigrationSource)
 	name := string(digestParts("authorization-before", in.RunID, in.PlanDigest))[7:39]
-	preimage := filepath.Join(filepath.Dir(r.store.config.DatabasePath), "authorization-before-"+name+".db")
-	probe := filepath.Join(filepath.Dir(r.store.config.DatabasePath), "authorization-restore-check-"+name+".db")
+	preimage := filepath.Join(filepath.Dir(s.config.DatabasePath), "authorization-before-"+name+".db")
+	probe := filepath.Join(filepath.Dir(s.config.DatabasePath), "authorization-restore-check-"+name+".db")
 	// Never adopt an occupied artifact, even if its schema/revisions look valid.
 	if _, err = os.Lstat(preimage); !errors.Is(err, os.ErrNotExist) {
 		return deny()
@@ -184,7 +184,7 @@ func (r *GrantBatchRepository) prepareGrantSnapshot(ctx context.Context, p gener
 	if inspection, e := port.InspectSnapshot(ctx, probe, expected); e != nil || inspection.IntegrityStatus != IntegrityVerified {
 		return deny()
 	}
-	if r.verifyGrantPreimage(ctx, preimage, before) != nil {
+	if s.verifyMutationPreimage(ctx, preimage, before) != nil {
 		return deny()
 	}
 	// Remove only this exact verified temporary restore probe; retain the preimage.
@@ -194,8 +194,8 @@ func (r *GrantBatchRepository) prepareGrantSnapshot(ctx context.Context, p gener
 	return preimage, before, nil
 }
 
-func (r *GrantBatchRepository) verifyGrantPreimage(ctx context.Context, path, expected string) error {
-	if _, err := r.store.filesystem.InspectDatabase(ctx, path, r.store.config.ExpectedUID); err != nil {
+func (s *Store) verifyMutationPreimage(ctx context.Context, path, expected string) error {
+	if _, err := s.filesystem.InspectDatabase(ctx, path, s.config.ExpectedUID); err != nil {
 		return actionError(generated.ErrorCodeRecoveryRequired)
 	}
 	actual, _, err := hashSnapshotFile(path)

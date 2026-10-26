@@ -843,10 +843,97 @@
       "path": [
         "connect"
       ],
-      "summary": "Open a constrained connection to an authorized node endpoint.",
-      "availability": "planned",
+      "summary": "Authenticate and close one pinned managed-node SSH connection; no shell or forwarding.",
+      "availability": "available",
       "ownerPhase": "7",
-      "risk": "unassigned"
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected client profile.",
+          "enum": null
+        },
+        {
+          "name": "--node",
+          "kind": "value",
+          "valueName": "id",
+          "required": true,
+          "repeatable": false,
+          "summary": "Select one exact registered managed host.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--path",
+          "kind": "value",
+          "valueName": "path",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select auto, LAN or Mesh without changing identity checks.",
+          "enum": [
+            "auto",
+            "lan",
+            "mesh"
+          ]
+        },
+        {
+          "name": "--port",
+          "kind": "value",
+          "valueName": "port",
+          "required": false,
+          "repeatable": false,
+          "summary": "Use the declared SSH port 22.",
+          "enum": [
+            "22"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/network-connect-result",
+      "examples": [
+        {
+          "summary": "Authenticate and close one pinned managed-node SSH connection; no shell or forwarding.",
+          "arguments": [
+            "connect",
+            "--config",
+            "fixture/profile.json",
+            "--node",
+            "synthetic-host",
+            "--port",
+            "22",
+            "--path",
+            "auto",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
@@ -2715,6 +2802,574 @@
       "availability": "planned",
       "ownerPhase": "10",
       "risk": "unassigned"
+    },
+    {
+      "path": [
+        "network",
+        "endpoint",
+        "draft"
+      ],
+      "summary": "Draft one managed-host connection endpoint; acknowledge its exact plan before apply.",
+      "availability": "available",
+      "ownerPhase": "7",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one grant batch JSON file (32 KiB max).",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/network-endpoint-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/declaration-revision",
+      "examples": [
+        {
+          "summary": "Draft an explicit endpoint.",
+          "arguments": [
+            "network",
+            "endpoint",
+            "draft",
+            "--config",
+            "fixture/profile.json",
+            "--file",
+            "fixture/endpoint.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "network",
+        "ingress",
+        "draft"
+      ],
+      "summary": "Inspect or prepare owned ingress; provider rotation alone is incomplete.",
+      "availability": "available",
+      "ownerPhase": "7",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected operator profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read an exact non-secret typed request.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/ingress-draft-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/ingress-draft-submission",
+      "examples": [
+        {
+          "summary": "Inspect or prepare owned ingress; provider rotation alone is incomplete.",
+          "arguments": [
+            "network",
+            "ingress",
+            "draft",
+            "--config",
+            "fixture/client.json",
+            "--file",
+            "fixture/ingress.json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "network",
+        "ingress",
+        "observe"
+      ],
+      "summary": "Inspect or prepare owned ingress; provider rotation alone is incomplete.",
+      "availability": "available",
+      "ownerPhase": "7",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected operator profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read an exact non-secret typed request.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/ingress-draft-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/ingress-status-data",
+      "examples": [
+        {
+          "summary": "Inspect or prepare owned ingress; provider rotation alone is incomplete.",
+          "arguments": [
+            "network",
+            "ingress",
+            "observe",
+            "--config",
+            "fixture/client.json",
+            "--file",
+            "fixture/ingress.json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "network",
+        "ingress",
+        "rollout-evidence"
+      ],
+      "summary": "Inspect or prepare owned ingress; provider rotation alone is incomplete.",
+      "availability": "available",
+      "ownerPhase": "7",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected operator profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read an exact non-secret typed request.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/ingress-rollout-evidence-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/ingress-status-data",
+      "examples": [
+        {
+          "summary": "Inspect or prepare owned ingress; provider rotation alone is incomplete.",
+          "arguments": [
+            "network",
+            "ingress",
+            "rollout-evidence",
+            "--config",
+            "fixture/client.json",
+            "--file",
+            "fixture/ingress.json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "network",
+        "ingress",
+        "status"
+      ],
+      "summary": "Inspect or prepare owned ingress; provider rotation alone is incomplete.",
+      "availability": "available",
+      "ownerPhase": "7",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected operator profile.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--profile-id",
+          "kind": "value",
+          "valueName": "id",
+          "required": true,
+          "repeatable": false,
+          "summary": "Select an owned ingress profile.",
+          "enum": null
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/ingress-status-data",
+      "examples": [
+        {
+          "summary": "Inspect or prepare owned ingress; provider rotation alone is incomplete.",
+          "arguments": [
+            "network",
+            "ingress",
+            "status",
+            "--config",
+            "fixture/client.json",
+            "--profile-id",
+            "ingress-pilot"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "network",
+        "mesh",
+        "draft"
+      ],
+      "summary": "Inspect or prepare an owned Mesh change; live gates remain required.",
+      "availability": "available",
+      "ownerPhase": "7",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected operator profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one inert Mesh request.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/mesh-draft-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/mesh-draft-submission",
+      "examples": [
+        {
+          "summary": "Inspect or prepare an owned Mesh change; live gates remain required.",
+          "arguments": [
+            "network",
+            "mesh",
+            "draft",
+            "--config",
+            "fixture/client.json",
+            "--file",
+            "fixture/mesh.json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "network",
+        "mesh",
+        "observe"
+      ],
+      "summary": "Inspect or prepare an owned Mesh change; live gates remain required.",
+      "availability": "available",
+      "ownerPhase": "7",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected operator profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one inert Mesh request.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/mesh-draft-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/mesh-status-data",
+      "examples": [
+        {
+          "summary": "Inspect or prepare an owned Mesh change; live gates remain required.",
+          "arguments": [
+            "network",
+            "mesh",
+            "observe",
+            "--config",
+            "fixture/client.json",
+            "--file",
+            "fixture/mesh.json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "network",
+        "mesh",
+        "status"
+      ],
+      "summary": "Inspect or prepare an owned Mesh change; live gates remain required.",
+      "availability": "available",
+      "ownerPhase": "7",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected operator profile.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--profile-id",
+          "kind": "value",
+          "valueName": "id",
+          "required": true,
+          "repeatable": false,
+          "summary": "Select an owned Mesh profile.",
+          "enum": null
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/mesh-status-data",
+      "examples": [
+        {
+          "summary": "Inspect or prepare an owned Mesh change; live gates remain required.",
+          "arguments": [
+            "network",
+            "mesh",
+            "status",
+            "--config",
+            "fixture/client.json",
+            "--profile-id",
+            "mesh-pilot"
+          ]
+        }
+      ]
     },
     {
       "path": [
@@ -6548,6 +7203,36 @@
       "artifactPath": "schemas/v1/host-volume-binding.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/ingress-change",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/ingress-change.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/ingress-connector-target",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/ingress-connector-target.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/ingress-draft-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/ingress-draft-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/ingress-draft-submission",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/ingress-draft-submission.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/ingress-rollout-evidence-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/ingress-rollout-evidence-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/ingress-status-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/ingress-status-data.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/inventory-diff-counts",
       "version": "1.0.0"
     },
@@ -6720,6 +7405,31 @@
       "id": "vegastack-labs.dev/managed-host-list",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/managed-host-list.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/mesh-change",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/mesh-change.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/mesh-draft-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/mesh-draft-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/mesh-draft-submission",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/mesh-draft-submission.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/mesh-route",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/mesh-route.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/mesh-status-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/mesh-status-data.schema.json"
     },
     {
       "id": "vegastack-labs.dev/native-action-negative-observation",
@@ -6940,6 +7650,26 @@
       "id": "vegastack-labs.dev/native-witness-request",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/native-witness-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/network-connect-descriptor",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/network-connect-descriptor.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/network-connect-result",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/network-connect-result.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/network-endpoint",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/network-endpoint.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/network-endpoint-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/network-endpoint-request.schema.json"
     },
     {
       "id": "vegastack-labs.dev/offsite-run-spec",

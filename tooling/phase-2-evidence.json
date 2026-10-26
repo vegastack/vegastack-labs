@@ -553,6 +553,46 @@
         "commands": [],
         "imports": [],
         "mutationBoundaryDigest": "sha256:95cd691f599a6d839dc3a68645294c20ed4b48645625626ef308432ace5f10de"
+      },
+      {
+        "id": "phase7-issue277-v1",
+        "issue": 277,
+        "commands": [
+          "connect",
+          "network endpoint draft"
+        ],
+        "imports": [
+          "github.com/vegastack/vegastack-labs/internal/networkconnect"
+        ],
+        "mutationBoundaryDigest": "sha256:140272afdbda86785f52ce2f1353d78fb48ba5b9898076be87a0dc630cdec627"
+      },
+      {
+        "id": "phase7-issue278-v1",
+        "issue": 278,
+        "commands": [
+          "network mesh draft",
+          "network mesh observe",
+          "network mesh status"
+        ],
+        "imports": [
+          "github.com/vegastack/vegastack-labs/internal/adapter/cloudflare",
+          "github.com/vegastack/vegastack-labs/internal/networkmesh"
+        ],
+        "mutationBoundaryDigest": "sha256:631d840d77eff7cfe7565592ebecc3c972fd5069c6e12a676f9efd08cd25f3d3"
+      },
+      {
+        "id": "phase7-issue279-v1",
+        "issue": 279,
+        "commands": [
+          "network ingress draft",
+          "network ingress observe",
+          "network ingress rollout-evidence",
+          "network ingress status"
+        ],
+        "imports": [
+          "github.com/vegastack/vegastack-labs/internal/networkingress"
+        ],
+        "mutationBoundaryDigest": "sha256:1a4eb5a90c4fde021491cec2799ccd8a05e4e992ce70d33c6b3b109851a7ec20"
       }
     ]
   },

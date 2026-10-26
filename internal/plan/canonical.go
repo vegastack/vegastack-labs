@@ -46,6 +46,10 @@ func readablePlan(plan generated.Plan) string {
 		raw, _, _ := stateexport.CanonicalJSON(plan.HostReplacement)
 		fmt.Fprintf(&body, "Host replacement exact intent: %s\nFreeze prevents new authority on the former host. Commit moves only the named aliases after current denial and qualification; no disk reset, workload move or automatic rollback.\n", raw)
 	}
+	if plan.NetworkEndpoint != nil {
+		raw, _, _ := stateexport.CanonicalJSON(plan.NetworkEndpoint)
+		fmt.Fprintf(&body, "Exact endpoint intent: %s\nDatabase-only endpoint declaration; no host or network configuration changes.\n", raw)
+	}
 	if plan.AuthorizationGrantBatch != nil {
 		raw, _, _ := stateexport.CanonicalJSON(plan.AuthorizationGrantBatch)
 		fmt.Fprintf(&body, "Exact local authorization and user lifecycle intent: %s\nEffective only after this plan receives human acknowledgement and executes.\n", raw)

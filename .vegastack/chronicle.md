@@ -2,6 +2,35 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 26-10-2026 — Owned ingress changes now show honest rotation progress ([#279](https://github.com/vegastack/vegastack-labs/issues/279))
+
+- **What:** Operators can observe and import existing ingress resources, then approve scoped Tunnel, Access, DNS, single-connector and token changes through the existing plan engine. Manual rollout observations remain partial when credential generation cannot be independently proven.
+- **Why:** Configuration ownership and a successful token PATCH alone could not establish protected routing or completed connector rollout.
+- **How it went:** The final Linux API/plan/acknowledgement/credential-bound fixture passed all five provider-action cases in 5.38 seconds. Its initial failure exposed pre-effect reads using the mutation credential; those reads now use the separately bound observation credential. Expected revoked-device denials stayed intact. Integrated generation and shipping proof remain pending.
+- **Changed:** Owned ingress commands and sanitized observations · preserved unrelated route configuration · explicit connector cleanup · separately bound replacement secret · retained partial rollout evidence. No live provider or host operation occurred; connectivity, origin isolation and G-012 qualification remain unproven.
+- **Decisions:** Reuse the Mesh SDK foundation and existing executor. No host runner or caller-authored receipt can declare rotation complete.
+
+— approved by (omkarmohanta09) · built by Codex with GPT-6.1 Sol medium implementation agent · branch feat/7.8-ingress-workflows
+
+## 26-10-2026 — Owned Mesh changes use the existing approval path ([#278](https://github.com/vegastack/vegastack-labs/issues/278))
+
+- **What:** Operators can observe before importing ownership, then prepare approved Mesh profile, Gateway rule and exact registration changes through the existing API and executor. Current server records determine device and owner authority.
+- **Why:** A provider client and local device approval were insufficient to perform an owned, acknowledged network change.
+- **How it went:** The final-source Linux import/owned-change fixture passed in 1.00 seconds with the expected revoked-device denial. The same initial log also records separate ingress failures; its overall failure is not represented as a combined pass. Final integrated generation and shipping proof remain pending.
+- **Changed:** Mesh observe/draft/status commands · explicit SQLite ownership · bound read/mutation credentials · current gate and recovery checks · independent provider reread. Synthetic evidence does not qualify live Mesh, admit a host or lift the protected-host exclusion.
+- **Decisions:** Reuse the executable, SQLite and exact-plan engine with the pinned Cloudflare SDK. Foundation preparation remains distinct from qualified Mesh admission; no live authority was added.
+
+— approved by (omkarmohanta09) · built by Codex with GPT-6.1 Sol medium implementation agent · branch feat/7.7-mesh-workflows
+
+## 26-10-2026 — Operators can diagnose one approved node connection ([#277](https://github.com/vegastack/vegastack-labs/issues/277))
+
+- **What:** Operators can declare a node's explicit LAN and Mesh endpoints through the existing approval flow, then authenticate one pinned SSH connection and close it. Automatic selection checks a pinned TLS site marker; forced paths keep the same identity and permission checks.
+- **Why:** Inventory addresses and a recorded device were insufficient to choose a safe route or prove that current authority still allowed a connection.
+- **How it went:** Local TLS/SSH fixtures prove that no shell or forwarding opens. The native approval/API test caught a fixture attempting to revive a terminally revoked grant; the fixture now uses a separate reader and leaves the guard intact. Deployment-specific exclusions moved into the protected server profile so portable core has no Labs machine names.
+- **Changed:** Approved endpoint declarations and revocation · exact connect grants · fresh before/after authority checks · protected explicit key input · profile exclusions following identity, alias and address history. Unix key reading works; Windows fails closed pending protected ACL verification. Real Mesh and fleet access remain separate.
+- **Decisions:** Reuse the existing executable, SQLite, acknowledgement engine and verified preimage path. No new service, shell surface, provider change or independent review round.
+
+— approved by (omkarmohanta09) · built by Codex with GPT-6.1 Sol medium implementation agent · branch feat/7.6-network-connect
 ## 26-10-2026 — People and device records replace the Console placeholders ([#276](https://github.com/vegastack/vegastack-labs/issues/276))
 
 - **What:** Operators can inspect actual authorized platform users, their devices and grants. Providers distinguishes configured capabilities from unknown connectivity instead of implying that configuration proves a working connection.
@@ -1121,3 +1150,14 @@ The final source-boundary check exposed the shared volume-lineage change in the 
 - **Decisions:** Keep exact host-key verification and the existing authorization flow.
 
 — approved by (omkarmohanta09) · built by Codex · branch fix/234-pinned-ssh-host-key
+
+
+## 26-10-2026 — Operator access and network procedures ([#280](https://github.com/vegastack/vegastack-labs/issues/280))
+
+- **What:** Added one operator guide for people, device approval, browser identity, declared connection diagnostics, owned Mesh/ingress operations and manual network recovery.
+- **Why:** Operators need to distinguish a controller record from provider enrollment or host admission, and a partial provider change from verified completion.
+- **How it went:** Reconciled examples with the implementation branches and recorded the remaining acceptance evidence explicitly. The connection command authenticates and closes; it supplies no interactive SSH alias. Connector token rotation stays partial because current provider observations cannot prove its credential generation. Documentation does not manufacture either capability.
+- **Changed:** Operator procedure, existing router/switch guide links, architecture clarification and Phase 7 evidence map. Final software validation is recorded in the linked issue; live website access remains separately blocked in #264.
+- **Decisions:** Existing Phase 6 deferrals remain deferred. No live operations, new service or independent review round.
+
+— approved by (omkarmohanta09) · built by Codex · branch chore/7.9-operator-procedures
