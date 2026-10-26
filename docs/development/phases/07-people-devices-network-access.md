@@ -90,7 +90,7 @@ The operator approved the remaining software issues below. This checkpoint recor
 
 | Requirement | Owner | Current delivery / evidence boundary |
 | --- | --- | --- |
-| Authorized People, Devices and Grants reads; truthful Providers view | [#276](https://github.com/vegastack/vegastack-labs/issues/276) | Implemented on its branch; native read/denial and browser evidence recorded. Final affected shipping proof pending. Configuration presence does not prove live provider health. |
+| Authorized People, Devices and Grants reads; truthful Providers view | [#276](https://github.com/vegastack/vegastack-labs/issues/276) | Merged in [PR #281](https://github.com/vegastack/vegastack-labs/pull/281); native read/denial, browser evidence and exact-head affected shipping proof passed. Configuration presence does not prove live provider health. |
 | Declared LAN/Mesh endpoint and bounded pinned SSH diagnostic | [#277](https://github.com/vegastack/vegastack-labs/issues/277) | Implemented on its branch; final integration proof pending. No interactive shell, OpenSSH ProxyCommand or generated SSH alias transport is provided. |
 | Owned Mesh observation, import and acknowledged reconciliation | [#278](https://github.com/vegastack/vegastack-labs/issues/278) | Source checkpoint exists; final-source native acceptance and shipping proof remain. Earlier fixture success is not live Mesh qualification. |
 | Owned Tunnel, Access and DNS changes; truthful connector rotation | [#279](https://github.com/vegastack/vegastack-labs/issues/279) | Implementation in progress. Complete current connector-generation verification is required before claiming rotation complete. |
