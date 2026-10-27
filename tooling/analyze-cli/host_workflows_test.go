@@ -35,9 +35,24 @@ func TestNetworkConnectSourceSealsRejectDrift(t *testing.T) {
 		current[key] = seal
 	}
 
+	// #313 current bytes supersede only their package's older fixture variants;
+	// immutable historical source maps are left untouched.
+	for key := range current {
+		relative := strings.SplitN(key, "|", 2)[0]
+		for currentKey := range ciJobSourceSeals {
+			if strings.HasPrefix(currentKey, relative+"|") {
+				delete(current, key)
+				break
+			}
+		}
+	}
+	for key, seal := range ciJobSourceSeals {
+		current[key] = seal
+	}
+
 	for key, seal := range current {
 		relative, joined, _ := strings.Cut(key, "|")
-		if relative != "internal/ci" && relative != "internal/localapi" && relative != "internal/networkconnect" && relative != "internal/serverconfig" && relative != "internal/servicecatalog" && relative != "internal/hostinglifecycle" && relative != "internal/servicerecovery" && relative != "cmd/vsk-labs" && relative != "internal/hostingplatform" && relative != "internal/adapter/harbor" {
+		if !isCurrentCIJobFixturePackage(relative) && relative != "internal/ci" && relative != "internal/localapi" && relative != "internal/networkconnect" && relative != "internal/serverconfig" && relative != "internal/servicecatalog" && relative != "internal/hostinglifecycle" && relative != "internal/servicerecovery" && relative != "cmd/vsk-labs" && relative != "internal/hostingplatform" && relative != "internal/adapter/harbor" {
 			t.Fatalf("unexpected source seal %q", relative)
 		}
 		names := strings.Split(joined, ",")
@@ -84,7 +99,7 @@ func TestNetworkConnectSourceSealsRejectDrift(t *testing.T) {
 		}
 		checked++
 	}
-	if checked != 15 {
-		t.Fatal("all fifteen platform and domain source variants must be sealed")
+	if checked != 24 {
+		t.Fatal("all 24 current platform and domain source variants must be sealed")
 	}
 }

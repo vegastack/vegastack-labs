@@ -31,6 +31,9 @@ func actionFailure() error {
 	return failure.New(generated.ErrorCodeAuthorizationDenied, "host-action", false)
 }
 func NewHostActionAuthority(repository *store.HostActionRepository, signer ActionSigner, now func() time.Time) (*HostActionAuthority, error) {
+	return newHostActionAuthority(repository, signer, now)
+}
+func newHostActionAuthority(repository hostActionExecutionSource, signer ActionSigner, now func() time.Time) (*HostActionAuthority, error) {
 	if repository == nil || signer == nil || now == nil || len(signer.PublicKey()) != ed25519.PublicKeySize || signer.KeyID() == "" {
 		return nil, actionFailure()
 	}
@@ -56,6 +59,15 @@ func bundleFromExecution(x store.HostActionExecution, issued, expires time.Time)
 }
 func actionDeadline(x store.HostActionExecution, now time.Time) (time.Time, error) {
 	deadline := now.Add(5 * time.Minute)
+	if x.Plan.CIJob != nil {
+		var spec struct {
+			Deadline time.Time `json:"deadline"`
+		}
+		if json.Unmarshal([]byte(x.Draft.Request.ActionInput), &spec) != nil || !now.Before(spec.Deadline) {
+			return time.Time{}, actionFailure()
+		}
+		deadline = spec.Deadline
+	}
 	if x.VerificationEvidence != nil {
 		at, e := time.Parse(time.RFC3339, x.VerificationEvidence.ExpiresAt)
 		if e != nil || !now.Before(at) {

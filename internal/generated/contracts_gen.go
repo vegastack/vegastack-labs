@@ -6,7 +6,7 @@ import "encoding/json"
 
 const (
 	SchemaMajor                                    = 1
-	RegistrySchemaVersion                          = "1.30.0"
+	RegistrySchemaVersion                          = "1.31.0"
 	AvailabilityAvailable                          = "available"
 	AvailabilityPlanned                            = "planned"
 	FlagKindValue                                  = "value"
@@ -122,6 +122,9 @@ const (
 	SchemaIDCiEnrollmentList                       = "vegastack-labs.dev/ci-enrollment-list"
 	SchemaIDCiEnrollmentRecord                     = "vegastack-labs.dev/ci-enrollment-record"
 	SchemaIDCiEnrollmentRequest                    = "vegastack-labs.dev/ci-enrollment-request"
+	SchemaIDCiJobDraftRequest                      = "vegastack-labs.dev/ci-job-draft-request"
+	SchemaIDCiJobExecutionBinding                  = "vegastack-labs.dev/ci-job-execution-binding"
+	SchemaIDCiJobRequest                           = "vegastack-labs.dev/ci-job-request"
 	SchemaIDCloudflareAccessProfile                = "vegastack-labs.dev/cloudflare-access-profile"
 	SchemaIDContractExtension                      = "vegastack-labs.dev/contract-extension"
 	SchemaIDControlHandoffInput                    = "vegastack-labs.dev/control-handoff-input"
@@ -439,6 +442,7 @@ const (
 	FlagLimit                                      = "--limit"
 	CommandNameCiEnrollmentShow                    = "ci enrollment show"
 	FlagEnrollmentID                               = "--enrollment-id"
+	CommandNameCiJobDraft                          = "ci job draft"
 	CommandNameConnect                             = "connect"
 	FlagNode                                       = "--node"
 	FlagPath                                       = "--path"
@@ -1895,6 +1899,58 @@ type CiEnrollmentRequest struct {
 	ReasonDigest                string                 `json:"reasonDigest"`
 }
 
+type CiJobDraftRequest struct {
+	Schema                string `json:"schema"`
+	SchemaVersion         string `json:"schemaVersion"`
+	EnrollmentID          string `json:"enrollmentId"`
+	ExecutionBindingID    string `json:"executionBindingId"`
+	RunID                 string `json:"runId"`
+	Attempt               int64  `json:"attempt"`
+	ExpectedStateRevision int64  `json:"expectedStateRevision"`
+	RecoveryEpoch         int64  `json:"recoveryEpoch"`
+	IdempotencyKey        string `json:"idempotencyKey"`
+	ReasonDigest          string `json:"reasonDigest"`
+}
+
+type CiJobExecutionBinding struct {
+	Schema                      string `json:"schema"`
+	SchemaVersion               string `json:"schemaVersion"`
+	BindingID                   string `json:"bindingId"`
+	HostID                      string `json:"hostId"`
+	HostIdentityDigest          string `json:"hostIdentityDigest"`
+	TargetRevision              int64  `json:"targetRevision"`
+	TargetDigest                string `json:"targetDigest"`
+	AutomationPrincipalID       string `json:"automationPrincipalId"`
+	CallerUID                   int64  `json:"callerUid"`
+	SSHReferenceID              string `json:"sshReferenceId"`
+	SSHMaterialVersion          string `json:"sshMaterialVersion"`
+	RegistrationReferenceID     string `json:"registrationReferenceId"`
+	RegistrationMaterialVersion string `json:"registrationMaterialVersion"`
+	ObserverReferenceID         string `json:"observerReferenceId"`
+	ObserverMaterialVersion     string `json:"observerMaterialVersion"`
+	RuntimeProfileID            string `json:"runtimeProfileId"`
+	RuntimeDigest               string `json:"runtimeDigest"`
+	RunnerGroupName             string `json:"runnerGroupName"`
+	MaximumSeconds              int64  `json:"maximumSeconds"`
+}
+
+type CiJobRequest struct {
+	Schema                 string                 `json:"schema"`
+	SchemaVersion          string                 `json:"schemaVersion"`
+	Definition             CiEnrollmentDefinition `json:"definition"`
+	ExecutionBindingID     string                 `json:"executionBindingId"`
+	ExecutionBindingDigest string                 `json:"executionBindingDigest"`
+	HostID                 string                 `json:"hostId"`
+	HostIdentityDigest     string                 `json:"hostIdentityDigest"`
+	HostAdmissionDigest    string                 `json:"hostAdmissionDigest"`
+	RunID                  string                 `json:"runId"`
+	Attempt                int64                  `json:"attempt"`
+	ExpectedStateRevision  int64                  `json:"expectedStateRevision"`
+	RecoveryEpoch          int64                  `json:"recoveryEpoch"`
+	IdempotencyKey         string                 `json:"idempotencyKey"`
+	ReasonDigest           string                 `json:"reasonDigest"`
+}
+
 type CloudflareAccessProfile struct {
 	Schema                string `json:"schema"`
 	SchemaVersion         string `json:"schemaVersion"`
@@ -2220,6 +2276,7 @@ type DeclarationRevision struct {
 	HostingLifecycle        *HostingLifecycleRequest        `json:"hostingLifecycle,omitempty"`
 	ServiceRecovery         *ServiceRecoveryRequest         `json:"serviceRecovery,omitempty"`
 	ServiceDeployment       *ServiceDeploymentRequest       `json:"serviceDeployment,omitempty"`
+	CIJob                   *CiJobRequest                   `json:"ciJob,omitempty"`
 	CIEnrollment            *CiEnrollmentRequest            `json:"ciEnrollment,omitempty"`
 	ServiceImport           *ServiceImportRequest           `json:"serviceImport,omitempty"`
 	NetworkEndpoint         *NetworkEndpointRequest         `json:"networkEndpoint,omitempty"`
@@ -2245,6 +2302,7 @@ type DeclarationRevisionRequest struct {
 	HostingLifecycle        *HostingLifecycleRequest        `json:"hostingLifecycle,omitempty"`
 	ServiceRecovery         *ServiceRecoveryRequest         `json:"serviceRecovery,omitempty"`
 	ServiceDeployment       *ServiceDeploymentRequest       `json:"serviceDeployment,omitempty"`
+	CIJob                   *CiJobRequest                   `json:"ciJob,omitempty"`
 	CIEnrollment            *CiEnrollmentRequest            `json:"ciEnrollment,omitempty"`
 	ServiceImport           *ServiceImportRequest           `json:"serviceImport,omitempty"`
 	NetworkEndpoint         *NetworkEndpointRequest         `json:"networkEndpoint,omitempty"`
@@ -4571,6 +4629,7 @@ type Plan struct {
 	HostingLifecycle        *HostingLifecycleRequest            `json:"hostingLifecycle,omitempty"`
 	ServiceRecovery         *ServiceRecoveryRequest             `json:"serviceRecovery,omitempty"`
 	ServiceDeployment       *ServiceDeploymentRequest           `json:"serviceDeployment,omitempty"`
+	CIJob                   *CiJobRequest                       `json:"ciJob,omitempty"`
 	CIEnrollment            *CiEnrollmentRequest                `json:"ciEnrollment,omitempty"`
 	ServiceImport           *ServiceImportRequest               `json:"serviceImport,omitempty"`
 	NetworkEndpoint         *NetworkEndpointRequest             `json:"networkEndpoint,omitempty"`
@@ -5328,6 +5387,7 @@ type ServerProfile struct {
 	ServiceDeploymentBindings        []ServiceDeploymentProviderBinding `json:"serviceDeploymentBindings,omitempty"`
 	HostingLifecycleProfiles         []HostingLifecycleProfile          `json:"hostingLifecycleProfiles,omitempty"`
 	ServiceRecoveryProfiles          []ServiceRecoveryProfile           `json:"serviceRecoveryProfiles,omitempty"`
+	CIJobBindings                    []CiJobExecutionBinding            `json:"ciJobBindings,omitempty"`
 	CIEnrollmentBindings             []CiEnrollmentBinding              `json:"ciEnrollmentBindings,omitempty"`
 	ServiceBindings                  []ServiceProviderBinding           `json:"serviceBindings,omitempty"`
 	NetworkConnectExcludedHostIDs    []string                           `json:"networkConnectExcludedHostIds,omitempty"`
@@ -5959,6 +6019,7 @@ var Commands = []Command{
 	{Path: []string{"ci", "enrollment", "draft"}, Summary: "Draft an inert exact CI enrollment for human-acknowledged apply.", Availability: "available", OwnerPhase: "9", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected operator profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read an opaque enrollment draft request.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/ci-enrollment-draft-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/declaration-revision", Examples: []Example{{Summary: "Draft an inert exact CI enrollment for human-acknowledged apply.", Arguments: []string{"ci", "enrollment", "draft", "--config", "fixture/client.json", "--file", "fixture/ci-enrollment.json", "--output", "json"}}}},
 	{Path: []string{"ci", "enrollment", "list"}, Summary: "List CI registrations in current scope; job admission remains unqualified.", Availability: "available", OwnerPhase: "9", Risk: "read-only", Flags: []Flag{{Name: "--after", Kind: "value", ValueName: "id", Required: false, Repeatable: false, Summary: "Continue after one enrollment ID.", Enum: []string(nil)}, {Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected operator profile.", Enum: []string(nil)}, {Name: "--limit", Kind: "value", ValueName: "count", Required: false, Repeatable: false, Summary: "Return 1 through 100 records (default 50).", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/ci-enrollment-list", Examples: []Example{{Summary: "List CI registrations in current scope; job admission remains unqualified.", Arguments: []string{"ci", "enrollment", "list", "--config", "fixture/client.json", "--output", "json"}}}},
 	{Path: []string{"ci", "enrollment", "show"}, Summary: "List CI registrations in current scope; job admission remains unqualified.", Availability: "available", OwnerPhase: "9", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected operator profile.", Enum: []string(nil)}, {Name: "--enrollment-id", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Select one exact CI enrollment.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/ci-enrollment-record", Examples: []Example{{Summary: "List CI registrations in current scope; job admission remains unqualified.", Arguments: []string{"ci", "enrollment", "show", "--config", "fixture/client.json", "--enrollment-id", "enrollment-a", "--output", "json"}}}},
+	{Path: []string{"ci", "job", "draft"}, Summary: "Draft one inert exact CI job for human plan acknowledgement.", Availability: "available", OwnerPhase: "9", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected operator profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one exact CI job draft request.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/ci-job-draft-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/declaration-revision", Examples: []Example{{Summary: "Draft one inert exact CI job for human plan acknowledgement.", Arguments: []string{"ci", "job", "draft", "--config", "fixture/client.json", "--file", "fixture/ci-job.json", "--output", "json"}}}},
 	{Path: []string{"connect"}, Summary: "Authenticate and close one pinned managed-node SSH connection; no shell or forwarding.", Availability: "available", OwnerPhase: "7", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected client profile.", Enum: []string(nil)}, {Name: "--node", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Select one exact registered managed host.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--path", Kind: "value", ValueName: "path", Required: false, Repeatable: false, Summary: "Select auto, LAN or Mesh without changing identity checks.", Enum: []string{"auto", "lan", "mesh"}}, {Name: "--port", Kind: "value", ValueName: "port", Required: false, Repeatable: false, Summary: "Use the declared SSH port 22.", Enum: []string{"22"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/network-connect-result", Examples: []Example{{Summary: "Authenticate and close one pinned managed-node SSH connection; no shell or forwarding.", Arguments: []string{"connect", "--config", "fixture/profile.json", "--node", "synthetic-host", "--port", "22", "--path", "auto", "--output", "json"}}}},
 	{Path: []string{"control-plane", "plan"}, Summary: "Create an immutable control-plane change plan.", Availability: "planned", OwnerPhase: "6", Risk: "unassigned"},
 	{Path: []string{"control-plane", "recover"}, Summary: "Create an inert control-plane recovery change.", Availability: "planned", OwnerPhase: "6", Risk: "unassigned"},
@@ -6071,6 +6132,7 @@ var Endpoints = []Endpoint{
 	{ID: "api.v1.ci.enrollments.drafts.create", Method: "POST", Path: "/api/v1/ci/enrollments/drafts", Availability: "available", OwnerPhase: "9", QuerySchema: "", RequestSchema: "vegastack-labs.dev/ci-enrollment-draft-request", DataSchema: "vegastack-labs.dev/declaration-revision", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.ci.enrollments.get", Method: "GET", Path: "/api/v1/ci/enrollments/{enrollmentID}", Availability: "available", OwnerPhase: "9", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/ci-enrollment-record", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.ci.enrollments.list", Method: "GET", Path: "/api/v1/ci/enrollments", Availability: "available", OwnerPhase: "9", QuerySchema: "vegastack-labs.dev/service-read-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/ci-enrollment-list", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.ci.jobs.drafts.create", Method: "POST", Path: "/api/v1/ci/jobs/drafts", Availability: "available", OwnerPhase: "9", QuerySchema: "", RequestSchema: "vegastack-labs.dev/ci-job-draft-request", DataSchema: "vegastack-labs.dev/declaration-revision", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.credential-lifecycle-drafts.create", Method: "POST", Path: "/api/v1/credential-lifecycle-drafts", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/credential-lifecycle-request", DataSchema: "vegastack-labs.dev/credential-lifecycle-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.credential-references.get", Method: "GET", Path: "/api/v1/credential-references/{referenceId}", Availability: "planned", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/credential-reference", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.credential-references.import-stream", Method: "POST", Path: "/api/v1/credential-references/{referenceId}/import-stream", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/credential-import-request", DataSchema: "vegastack-labs.dev/credential-import-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "binary", TransportScope: "local", MaxRequestBytes: 4096},

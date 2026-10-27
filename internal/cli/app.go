@@ -472,6 +472,8 @@ func (app *App) Run(ctx context.Context, args []string) int {
 		return app.runServiceRecovery(ctx, mode, parsed)
 	case generated.CommandNameServiceDeploymentDraft, generated.CommandNameServiceDeploymentShow:
 		return app.runServiceDeployment(ctx, mode, parsed)
+	case generated.CommandNameCiJobDraft:
+		return app.runCIJob(ctx, mode, parsed)
 	case generated.CommandNameCiEnrollmentList, generated.CommandNameCiEnrollmentShow, generated.CommandNameCiEnrollmentDraft:
 		return app.runCIEnrollment(ctx, mode, parsed)
 	case generated.CommandNameServiceList, generated.CommandNameServiceShow, generated.CommandNameServiceObserve, generated.CommandNameServiceImportDraft:
@@ -605,6 +607,7 @@ var serverErrorTargets = map[string]struct{}{
 	"local-setup":          {},
 	"host-replacement":     {}, "replacement-id": {},
 	"application-health": {}, "application-shutdown": {}, "application-start": {},
+	"ci-job-control": {}, "ci-job-request": {}, "ci-job": {},
 	"ci-enrollment-control": {}, "ci-enrollment-request": {}, "ci-enrollment-query": {}, "ci-enrollment-id": {}, "ci-enrollment": {},
 	"service-control": {}, "service-request": {}, "service-query": {}, "service-id": {}, "context": {}, "control-operations": {}, "control-service": {}, "control-service-drain": {}, "control-service-lock": {}, "control-service-request": {},
 	"control-service-response": {}, "control-socket": {}, "control-socket-parent": {},

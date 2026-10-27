@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/endpoint-registry",
-  "schemaVersion": "1.30.0",
+  "schemaVersion": "1.31.0",
   "endpoints": [
     {
       "id": "api.v1.audit-checkpoints.create",
@@ -197,6 +197,19 @@
       "stream": "finite",
       "audiences": [
         "browser",
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.ci.jobs.drafts.create",
+      "method": "POST",
+      "path": "/api/v1/ci/jobs/drafts",
+      "availability": "available",
+      "ownerPhase": "9",
+      "requestSchema": "vegastack-labs.dev/ci-job-draft-request",
+      "dataSchema": "vegastack-labs.dev/declaration-revision",
+      "stream": "finite",
+      "audiences": [
         "operator"
       ]
     },

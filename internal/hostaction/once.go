@@ -119,15 +119,23 @@ func RunOnce(ctx context.Context, input io.Reader, output io.Writer, policy Poli
 	if err != nil || ctx.Err() != nil || VerifyAuthorization(raw, challenge, bundle, policy, now()) != nil {
 		return blocked()
 	}
-	// Only the finite recovery receiver carries binary bytes after fresh
-	// authorization. Every other action still requires immediate EOF.
+	// Only the finite recovery receiver and the typed CI exchange continue
+	// after fresh authorization. Ordinary actions still require immediate EOF.
 	recoveryPayload := bundle.ActionID == RecoveryReceiveAction
+	ciJob := bundle.ActionID == CIJobAction
+	if ciJob {
+		if _, ok := handler.(CIHandler); !ok {
+			return blocked()
+		}
+	}
 	if recoveryPayload {
 		if _, ok := handler.(RecoveryPayloadHandler); !ok {
 			return blocked()
 		}
-	} else if _, err = reader.ReadByte(); err != io.EOF || ctx.Err() != nil {
-		return blocked()
+	} else if !ciJob {
+		if _, err = reader.ReadByte(); err != io.EOF || ctx.Err() != nil {
+			return blocked()
+		}
 	}
 	if VerifyAuthorization(raw, challenge, bundle, policy, now()) != nil {
 		return blocked()
@@ -176,6 +184,12 @@ func RunOnce(ctx context.Context, input io.Reader, output io.Writer, policy Poli
 				return blocked()
 			}
 		}
+	} else if ciJob {
+		closer, ok := input.(io.Closer)
+		if !ok {
+			return blocked()
+		}
+		result, err = handler.(CIHandler).ExecuteCI(ctx, bundle, ciReadCloser{Reader: reader, Closer: closer}, output)
 	} else {
 		result, err = handler.Execute(ctx, bundle)
 	}

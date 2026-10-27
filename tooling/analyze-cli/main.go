@@ -398,17 +398,25 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 	// a portable CLI import or any drift still receives the ordinary checks.
 	sealedNativeMode := false
 	sealedMainMode := false
+	sealedCIMainMode, sealedCIRuntimeMode := false, false
 	for _, candidate := range inModule {
 		current := checkedSourcePackage{listed: candidate}
 		sealedNativeMode = sealedNativeMode || reviewedPhase228Package(current, modulePath, "internal/qualification")
 		sealedMainMode = sealedMainMode || reviewedPhase228Package(current, modulePath, "cmd/vsk-labs")
+		sealedCIMainMode = sealedCIMainMode || approvedNetworkConnectPackage(current, modulePath, "cmd/vsk-labs")
+		sealedCIRuntimeMode = sealedCIRuntimeMode || approvedNetworkConnectPackage(current, modulePath, "internal/cijobrunner")
 	}
 	for _, candidate := range inModule {
 		if candidate.ImportPath != mainImport {
 			continue
 		}
 		for _, imported := range candidate.Imports {
-			if imported == qualificationImport && sealedNativeMode && sealedMainMode {
+			// Only the exact finite CI executable and complete runtime source/import pair
+			// may prune this main edge. A portable-client import still receives checks.
+			if imported == modulePath+"/internal/cijobrunner" && sealedCIMainMode && sealedCIRuntimeMode {
+				continue
+			}
+			if imported == qualificationImport && sealedNativeMode && (sealedMainMode || sealedCIMainMode) {
 				continue
 			}
 			// The server and the exact reviewed backup-custody package are private
@@ -460,21 +468,25 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 		sealedNativeCredential := reviewedNativeCredentialPackage(parsed, nativeCredentialImport, modulePath)
 		sealedHostAction := reviewedHostActionPackage(parsed, modulePath, "internal/hostaction")
 		sealedHostAction = sealedHostAction || reviewedPhase228Package(parsed, modulePath, "internal/hostaction")
+		sealedHostAction = sealedHostAction || approvedNetworkConnectPackage(parsed, modulePath, "internal/hostaction")
 		sealedHostActionMain := reviewedHostActionPackage(parsed, modulePath, "cmd/vsk-labs")
 		sealedHostActionMain = sealedHostActionMain || reviewedPhase228Package(parsed, modulePath, "cmd/vsk-labs")
+		sealedCI := approvedNetworkConnectPackage(parsed, modulePath, "internal/cijobrunner") || approvedNetworkConnectPackage(parsed, modulePath, "internal/runnerbootstrap")
+		sealedCIMain := approvedNetworkConnectPackage(parsed, modulePath, "cmd/vsk-labs")
+		sealedHostActionMain = sealedHostActionMain || sealedCIMain
 		sealedDebianAccess := reviewedLinuxRolePackage(parsed, modulePath, "internal/linuxrole") || reviewedDebianAccessPackage(parsed, modulePath, "internal/debianaccess") || reviewedDebianBaselinePackage(parsed, modulePath, "internal/debianaccess") || reviewedDebianBaselinePackage(parsed, modulePath, "internal/debianbaseline")
 		sealedHostingPlatform := reviewedPhase228Package(parsed, modulePath, "internal/hostingplatform")
 		sealedDebianAccess = sealedDebianAccess || reviewedPhase228Package(parsed, modulePath, "internal/linuxrole") || reviewedPhase228Package(parsed, modulePath, "internal/debianaccess") || reviewedPhase228Package(parsed, modulePath, "internal/debianbaseline")
 		sealedAccessAdapter := reviewedLinuxRolePackage(parsed, modulePath, "internal/adapter/hostaction") || reviewedDebianAccessPackage(parsed, modulePath, "internal/adapter/hostaction") || reviewedDebianBaselinePackage(parsed, modulePath, "internal/adapter/hostaction")
-		sealedAccessAdapter = sealedAccessAdapter || reviewedPhase228Package(parsed, modulePath, "internal/adapter/hostaction")
+		sealedAccessAdapter = sealedAccessAdapter || reviewedPhase228Package(parsed, modulePath, "internal/adapter/hostaction") || approvedNetworkConnectPackage(parsed, modulePath, "internal/adapter/hostaction")
 		sealedQualification := reviewedPhase228Package(parsed, modulePath, "internal/qualification")
 		sealedRecoveryCustodian := candidate.ImportPath == recoveryImport && reviewedRecoveryCustodianPackage(parsed)
-		isControlCapabilityPackage := isControlPackage && !(localClosure[candidate.ImportPath] && !result.LocalClientBoundary) && !sealedNativeCredential && !sealedRecoveryCustodian && !sealedHostAction && !sealedDebianAccess && !sealedHostingPlatform
+		isControlCapabilityPackage := isControlPackage && !(localClosure[candidate.ImportPath] && !result.LocalClientBoundary) && !sealedNativeCredential && !sealedRecoveryCustodian && !sealedHostAction && !sealedDebianAccess && !sealedHostingPlatform && !sealedCI && !sealedCIMain
 		// The custodian command imports recovery's fixed protected pin/receipt
 		// source. Only this exact reviewed source closure may carry those paths.
-		inspectControlPaths := isControlPackage && candidate.ImportPath != generatedImport && candidate.ImportPath != serverConfigImport && !sealedNativeCredential && !sealedRecoveryCustodian && !sealedHostAction && !sealedHostActionMain && !sealedDebianAccess && !sealedHostingPlatform
+		inspectControlPaths := isControlPackage && candidate.ImportPath != generatedImport && candidate.ImportPath != serverConfigImport && !sealedNativeCredential && !sealedRecoveryCustodian && !sealedHostAction && !sealedHostActionMain && !sealedDebianAccess && !sealedHostingPlatform && !sealedCI && !sealedCIMain
 		for _, imported := range candidate.Imports {
-			if imported == "os/exec" && !isReleasePackage && !(candidate.ImportPath == sshTransportImport && reviewedSSHTransportPackage(parsed, localTransportImport)) && !reviewedNativeCredentialPackage(parsed, nativeCredentialImport, modulePath) && !reviewedBackupProcessPackage(parsed, backupImport) && !reviewedPhase228ReceiveProcess(parsed, serverImport) && !sealedDebianAccess && !sealedAccessAdapter && !sealedQualification && !sealedHostingPlatform {
+			if imported == "os/exec" && !isReleasePackage && !(candidate.ImportPath == sshTransportImport && reviewedSSHTransportPackage(parsed, localTransportImport)) && !reviewedNativeCredentialPackage(parsed, nativeCredentialImport, modulePath) && !reviewedBackupProcessPackage(parsed, backupImport) && !reviewedPhase228ReceiveProcess(parsed, serverImport) && !sealedDebianAccess && !sealedAccessAdapter && !sealedQualification && !sealedHostingPlatform && !sealedCI && !sealedCIMain {
 				result.ShellDispatch = true
 			}
 			switch imported {
@@ -538,7 +550,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 			}
 		}
 		if !sealedNativeCredential {
-			registryGeneratedOrReviewed := reviewedPhase228Package(parsed, modulePath, "internal/adapter/harbor") || sealedHostingPlatform || sealedHostAction || sealedHostActionMain || sealedDebianAccess || sealedAccessAdapter || sealedQualification || candidate.ImportPath == apiImport || candidate.ImportPath == localAPIImport || (candidate.ImportPath == recoveryImport && reviewedRecoveryCustodianPackage(parsed)) ||
+			registryGeneratedOrReviewed := sealedCI || reviewedPhase228Package(parsed, modulePath, "internal/adapter/harbor") || sealedHostingPlatform || sealedHostAction || sealedHostActionMain || sealedDebianAccess || sealedAccessAdapter || sealedQualification || candidate.ImportPath == apiImport || candidate.ImportPath == localAPIImport || (candidate.ImportPath == recoveryImport && reviewedRecoveryCustodianPackage(parsed)) ||
 				(candidate.ImportPath == modulePath+"/internal/adapter/hostdiscovery" && reviewedHostDiscoveryCollectorPackage(parsed))
 			inspectPackage(parsed, generatedImport, stateExportImport, isReleasePackage, registryGeneratedOrReviewed, inspectControlPaths, &result)
 		}
@@ -634,6 +646,9 @@ const reviewedMainNativeLinuxDigest = "aabc6268605a8c4418b632d36247aa88071e4b024
 const reviewedMainNativeOtherDigest = "9637bd3d4b8bcffb7f66d6e053263af9b97194432feebc4c513f280a9e910e78"
 
 func reviewedMainComposition(candidate checkedSourcePackage, modulePath, cliImport, clientFileImport, releaseImport, serverImport string) bool {
+	if approvedNetworkConnectPackage(candidate, modulePath, "cmd/vsk-labs") {
+		return true
+	}
 	if reviewedPhase228Package(candidate, modulePath, "cmd/vsk-labs") {
 		return true
 	}
@@ -897,7 +912,7 @@ func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, loca
 		return approvedNetworkConnectPackage(candidate, modulePath, "internal/networkconnect")
 	}
 	if candidate.listed.ImportPath == modulePath+"/internal/hostaction" {
-		return reviewedPhase228Package(candidate, modulePath, "internal/hostaction")
+		return reviewedPhase228Package(candidate, modulePath, "internal/hostaction") || approvedNetworkConnectPackage(candidate, modulePath, "internal/hostaction")
 	}
 	approvedExternal := func(imported string) bool {
 		return imported == "golang.org/x/sys/unix" || imported == "github.com/go-jose/go-jose/v4" || imported == "github.com/go-jose/go-jose/v4/jwt"
@@ -1939,7 +1954,7 @@ func inspectPackage(candidate checkedSourcePackage, generatedImport, stateExport
 					result.StateExportTrust = true
 				}
 			case *ast.CompositeLit:
-				if candidate.listed.ImportPath != generatedImport && !isAPIPackage && isDispatchCollection(candidate.info.TypeOf(typed), context) && !reviewedRecoveryGrantPredicates(candidate, file, typed, generatedImport) {
+				if candidate.listed.ImportPath != generatedImport && !isAPIPackage && isDispatchCollection(candidate.info.TypeOf(typed), context) && !reviewedRecoveryGrantPredicates(candidate, file, typed, generatedImport) && !reviewedCIJobGrantPredicates(candidate, file, typed, generatedImport) {
 					result.HandwrittenRegistry = true
 				}
 				if stateExportConfigProvidesTrust(typed, candidate.info, stateExportImport) {

@@ -89,6 +89,7 @@ func (service *Service) Revise(ctx context.Context, author AuthorScope, request 
 		alias = &cloned
 	}
 	semantic := struct {
+		CIJob                   *generated.CiJobRequest                   `json:"ciJob,omitempty"`
 		CIEnrollment            *generated.CiEnrollmentRequest            `json:"ciEnrollment,omitempty"`
 		HostingLifecycle        *generated.HostingLifecycleRequest        `json:"hostingLifecycle,omitempty"`
 		ServiceRecovery         *generated.ServiceRecoveryRequest         `json:"serviceRecovery,omitempty"`
@@ -102,13 +103,13 @@ func (service *Service) Revise(ctx context.Context, author AuthorScope, request 
 		Operations              []generated.DeclarationOperation          `json:"operations"`
 		ReasonDigest            string                                    `json:"reasonDigest"`
 		Extensions              []generated.ContractExtension             `json:"extensions"`
-	}{request.CIEnrollment, request.HostingLifecycle, request.ServiceRecovery, request.ServiceDeployment, request.ServiceImport, request.NetworkEndpoint, alias, request.AuthorizationGrantBatch, request.DeclarationID, request.DeclarationType, operations, request.ReasonDigest, extensions}
+	}{request.CIJob, request.CIEnrollment, request.HostingLifecycle, request.ServiceRecovery, request.ServiceDeployment, request.ServiceImport, request.NetworkEndpoint, alias, request.AuthorizationGrantBatch, request.DeclarationID, request.DeclarationType, operations, request.ReasonDigest, extensions}
 	_, contentSum, err := stateexport.CanonicalJSON(semantic)
 	if err != nil {
 		return Result{}, inputError()
 	}
-	document := generated.DeclarationRevision{CIEnrollment: request.CIEnrollment, HostingLifecycle: request.HostingLifecycle, ServiceRecovery: request.ServiceRecovery, ServiceDeployment: request.ServiceDeployment, ServiceImport: request.ServiceImport, NetworkEndpoint: request.NetworkEndpoint, AuthorizationGrantBatch: request.AuthorizationGrantBatch, HostAliasClaim: alias, Schema: generated.SchemaIDDeclarationRevision, SchemaVersion: "1.0.0", DeclarationID: request.DeclarationID, DeclarationType: request.DeclarationType, Revision: request.ExpectedRevision, StateRevision: request.ExpectedStateRevision + 1, RecoveryEpoch: request.RecoveryEpoch, ContentDigest: digest(contentSum), Status: "draft", Operations: operations, CreatedAt: service.clock().UTC().Truncate(time.Second).Format(time.RFC3339), CreatedBy: author.PrincipalID, AgentSessionID: author.AgentSessionID, Extensions: extensions}
-	if !store.ValidateCIEnrollmentDeclaration(document) || !store.ValidateHostingLifecycleDeclaration(document) || !store.ValidateServiceRecoveryDeclaration(document) || !store.ValidateServiceDeploymentDeclaration(document) || !store.ValidateServiceImportDeclaration(document) || !store.ValidateNetworkEndpointDeclaration(document) || !store.ValidateGrantBatchDeclaration(document) {
+	document := generated.DeclarationRevision{CIJob: request.CIJob, CIEnrollment: request.CIEnrollment, HostingLifecycle: request.HostingLifecycle, ServiceRecovery: request.ServiceRecovery, ServiceDeployment: request.ServiceDeployment, ServiceImport: request.ServiceImport, NetworkEndpoint: request.NetworkEndpoint, AuthorizationGrantBatch: request.AuthorizationGrantBatch, HostAliasClaim: alias, Schema: generated.SchemaIDDeclarationRevision, SchemaVersion: "1.0.0", DeclarationID: request.DeclarationID, DeclarationType: request.DeclarationType, Revision: request.ExpectedRevision, StateRevision: request.ExpectedStateRevision + 1, RecoveryEpoch: request.RecoveryEpoch, ContentDigest: digest(contentSum), Status: "draft", Operations: operations, CreatedAt: service.clock().UTC().Truncate(time.Second).Format(time.RFC3339), CreatedBy: author.PrincipalID, AgentSessionID: author.AgentSessionID, Extensions: extensions}
+	if !store.ValidateCIJobDeclaration(document) || !store.ValidateCIEnrollmentDeclaration(document) || !store.ValidateHostingLifecycleDeclaration(document) || !store.ValidateServiceRecoveryDeclaration(document) || !store.ValidateServiceDeploymentDeclaration(document) || !store.ValidateServiceImportDeclaration(document) || !store.ValidateNetworkEndpointDeclaration(document) || !store.ValidateGrantBatchDeclaration(document) {
 		return Result{}, inputError()
 	}
 	normalizedRequest := request

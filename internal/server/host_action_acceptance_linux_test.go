@@ -488,6 +488,9 @@ func (h hostActionAcceptanceHandler) Verify(_ context.Context, _ generated.HostA
 	return nil
 }
 func hostActionAcceptancePeer(t *testing.T, key ssh.Signer, signer ActionSigner, writes *atomic.Int32, directory string) int {
+	return hostActionAcceptancePeerDispatcher(t, key, signer, writes, directory, hostActionAcceptanceHandler{path: filepath.Join(directory, "action-result"), writes: writes})
+}
+func hostActionAcceptancePeerDispatcher(t *testing.T, key ssh.Signer, signer ActionSigner, writes *atomic.Int32, directory string, dispatcher hostaction.Dispatcher) int {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -541,9 +544,10 @@ func hostActionAcceptancePeer(t *testing.T, key ssh.Signer, signer ActionSigner,
 				}
 				_ = req.Reply(true, nil)
 				policy := hostaction.Policy{HostID: "synthetic-host", HostIdentityDigest: hostadoption.IdentityDigest("product-serial", "synthetic-serial"), CallerUID: 1001, KeyID: signer.KeyID(), PublicKey: signer.PublicKey()}
-				err = hostaction.RunOnce(context.Background(), ch, ch, policy, receipts, hostActionAcceptanceHandler{path: filepath.Join(directory, "action-result"), writes: writes}, time.Now, rand.Reader)
+				err = hostaction.RunOnce(context.Background(), ch, ch, policy, receipts, dispatcher, time.Now, rand.Reader)
 				code := uint32(0)
 				if err != nil {
+					t.Logf("synthetic SSH RunOnce: %v", err)
 					code = 1
 				}
 				_, _ = ch.SendRequest("exit-status", false, ssh.Marshal(struct{ Status uint32 }{code}))

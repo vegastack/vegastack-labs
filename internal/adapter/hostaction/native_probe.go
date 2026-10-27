@@ -10,14 +10,14 @@ import (
 
 func (a *Adapter) exchange(ctx context.Context, target Target, envelope generated.HostActionEnvelope, digest string, value *credentialref.Value) (generated.HostActionResult, bool, error) {
 	if a.nativeProbe == nil {
-		return a.exchangeOne(ctx, target, envelope, digest, value, nil, nil, nil, "")
+		return a.exchangeOne(ctx, target, envelope, digest, value, nil, nil, nil, "", nil)
 	}
 	scenario, err := a.nativeProbe(ctx, envelope.Bundle)
 	if err != nil {
 		return generated.HostActionResult{}, false, err
 	}
 	if scenario == "" {
-		return a.exchangeOne(ctx, target, envelope, digest, value, nil, nil, nil, "")
+		return a.exchangeOne(ctx, target, envelope, digest, value, nil, nil, nil, "", nil)
 	}
 	return a.exchangeNativeProbe(ctx, target, envelope, digest, value, scenario)
 }
@@ -44,7 +44,7 @@ func (a *Adapter) exchangeNativeProbe(ctx context.Context, target Target, envelo
 	for i := 0; i < count; i++ {
 		go func() {
 			var out outcome
-			out.result, out.observed, out.err = a.exchangeOne(ctx, target, envelope, digest, value, ready, release, &out.refusal, "")
+			out.result, out.observed, out.err = a.exchangeOne(ctx, target, envelope, digest, value, ready, release, &out.refusal, "", nil)
 			finished <- out
 		}()
 	}
@@ -85,19 +85,19 @@ func (a *Adapter) exchangeNativeProbe(ctx context.Context, target Target, envelo
 	if measured.CompletedResults != 1 || len(measured.ConcurrentDenials) != count-1 {
 		return generated.HostActionResult{}, true, denied()
 	}
-	_, observed, err := a.exchangeOne(ctx, target, envelope, digest, value, nil, nil, &measured.ReplayDenial, "")
+	_, observed, err := a.exchangeOne(ctx, target, envelope, digest, value, nil, nil, &measured.ReplayDenial, "", nil)
 	if err != nil || observed || measured.ReplayDenial.Phase != "execution-claim" {
 		return generated.HostActionResult{}, true, denied()
 	}
 	for _, variant := range []string{"malformed-envelope", "wrong-host", "wrong-plan", "wrong-epoch", "invalid-signature"} {
 		attempt := generated.NativeActionNegativeObservation{Schema: generated.SchemaIDNativeActionNegativeObservation, SchemaVersion: "1.0.0", Variant: variant}
-		_, observed, e := a.exchangeOne(ctx, target, envelope, digest, value, nil, nil, &attempt.Denial, variant)
+		_, observed, e := a.exchangeOne(ctx, target, envelope, digest, value, nil, nil, &attempt.Denial, variant, nil)
 		if e != nil || observed || attempt.Denial.Phase != "envelope" {
 			return generated.HostActionResult{}, true, denied()
 		}
 		measured.NegativeAttempts = append(measured.NegativeAttempts, attempt)
 	}
-	_, observed, err = a.exchangeOne(ctx, target, envelope, digest, value, nil, nil, &measured.ReplayAfterDenial, "")
+	_, observed, err = a.exchangeOne(ctx, target, envelope, digest, value, nil, nil, &measured.ReplayAfterDenial, "", nil)
 	if err != nil || observed || measured.ReplayDenial.ClaimDigest == "" || measured.ReplayDenial.ResultDigest != protocol.Digest(winner) || measured.ReplayAfterDenial.ClaimDigest != measured.ReplayDenial.ClaimDigest || measured.ReplayAfterDenial.ResultDigest != measured.ReplayDenial.ResultDigest {
 		return generated.HostActionResult{}, true, denied()
 	}

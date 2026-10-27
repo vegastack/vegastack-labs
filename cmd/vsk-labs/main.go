@@ -23,6 +23,9 @@ var (
 )
 
 func main() {
+	if handled, code := runCIJobMode(context.Background(), os.Args[1:]); handled {
+		os.Exit(code)
+	}
 	if handled, code := runAccessRollback(context.Background(), os.Args[1:]); handled {
 		os.Exit(code)
 	}

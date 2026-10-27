@@ -74,6 +74,11 @@ Available commands:
     --enrollment-id <id>   Select one exact CI enrollment.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  ci job draft             Draft one inert exact CI job for human plan acknowledgement.
+    --config <path>        Read one protected operator profile.
+    --file <path>          Read one exact CI job draft request.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   connect                  Authenticate and close one pinned managed-node SSH connection; no shell or forwarding.
     --config <path>        Read one protected client profile.
     --node <id>            Select one exact registered managed host.

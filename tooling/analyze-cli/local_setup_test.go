@@ -74,7 +74,7 @@ func TestReviewedSetupProfileRejectsChangedAndAddedSource(t *testing.T) {
 	for _, platform := range []string{"linux", "unsupported"} {
 		t.Run(platform, func(t *testing.T) {
 			directory := t.TempDir()
-			names := []string{"ci_enrollment.go", "profile.go", "profile_" + platform + ".go", "restic.go", "service_bindings.go", "service_deployments.go", "service_recovery.go"}
+			names := []string{"ci_enrollment.go", "ci_job.go", "profile.go", "profile_" + platform + ".go", "restic.go", "service_bindings.go", "service_deployments.go", "service_recovery.go"}
 			for _, name := range names {
 				raw, err := os.ReadFile(filepath.Join("..", "..", "internal", "serverconfig", name))
 				if err != nil {

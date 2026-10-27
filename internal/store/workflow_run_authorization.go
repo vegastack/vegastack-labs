@@ -17,7 +17,7 @@ func verifyWorkflowRunAuthorization(ctx context.Context, row discoveryRow, run g
 	if row(`SELECT canonical_bytes,readable_plan FROM immutable_plans WHERE plan_id=? AND plan_digest=?`, run.PlanID, run.PlanDigest).Scan(&canonical, &readable) != nil || !decodeStoredPlan(canonical, readable, &p) {
 		return actionError(generated.ErrorCodePlanStale)
 	}
-	if p.CIEnrollment == nil && p.HostingLifecycle == nil && p.ServiceRecovery == nil && p.ServiceDeployment == nil && p.ServiceImport == nil && p.NetworkEndpoint == nil && p.AuthorizationGrantBatch == nil && p.HostDiscoveryTarget == nil && p.HostAdoption == nil && p.HostAction == nil && p.HostAccessSequence == nil && p.HostReplacement == nil && p.HostAliasClaim == nil {
+	if p.CIJob == nil && p.CIEnrollment == nil && p.HostingLifecycle == nil && p.ServiceRecovery == nil && p.ServiceDeployment == nil && p.ServiceImport == nil && p.NetworkEndpoint == nil && p.AuthorizationGrantBatch == nil && p.HostDiscoveryTarget == nil && p.HostAdoption == nil && p.HostAction == nil && p.HostAccessSequence == nil && p.HostReplacement == nil && p.HostAliasClaim == nil {
 		return nil
 	}
 	principal, ok := identity.PrincipalFromContext(ctx)
@@ -46,6 +46,9 @@ func verifyWorkflowRunAuthorization(ctx context.Context, row discoveryRow, run g
 	}
 	if in := p.ServiceDeployment; in != nil {
 		return NewDeploymentRepository(serviceRepo.store).validate(principal, row, *in)
+	}
+	if in := p.CIJob; in != nil {
+		return NewCIJobRepository(serviceRepo.store).validate(principal, row, *in)
 	}
 	if in := p.CIEnrollment; in != nil {
 		return NewCIEnrollmentRepository(serviceRepo.store).validate(principal, row, *in)

@@ -252,7 +252,7 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 		risk = string(authorization.RiskInfrastructure)
 	}
 
-	if declaration.CIEnrollment != nil || declaration.ServiceImport != nil || declaration.AuthorizationGrantBatch != nil || declaration.NetworkEndpoint != nil {
+	if declaration.CIJob != nil || declaration.CIEnrollment != nil || declaration.ServiceImport != nil || declaration.AuthorizationGrantBatch != nil || declaration.NetworkEndpoint != nil {
 		risk = string(authorization.RiskControlPlane)
 	}
 	if declaration.HostingLifecycle != nil || declaration.ServiceRecovery != nil {
@@ -264,7 +264,7 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 			return store.PlanCommitResult{}, planError(generated.ErrorCodeAuthorizationDenied)
 		}
 	}
-	if declaration.CIEnrollment != nil && (service.config.AuthorizationBranch != "human" || service.config.ExecutorMode != "central") {
+	if (declaration.CIJob != nil || declaration.CIEnrollment != nil) && (service.config.AuthorizationBranch != "human" || service.config.ExecutorMode != "central") {
 		return store.PlanCommitResult{}, planError(generated.ErrorCodeAuthorizationDenied)
 	}
 	if declaration.ServiceDeployment != nil {
@@ -284,6 +284,10 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 	for _, op := range operations {
 		if sequence != nil {
 			break
+		}
+		if declaration.CIJob != nil && op.OperationType == "ci.job.execute" && op.AdapterID == hostaction.AdapterID {
+			risk = string(authorization.RiskInfrastructure)
+			continue
 		}
 		if op.AdapterID != hostaction.AdapterID && op.OperationType != hostaction.OperationType {
 			continue
@@ -405,6 +409,7 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 	candidate.HostingLifecycle = declaration.HostingLifecycle
 	candidate.ServiceRecovery = declaration.ServiceRecovery
 	candidate.ServiceDeployment = declaration.ServiceDeployment
+	candidate.CIJob = declaration.CIJob
 	candidate.CIEnrollment = declaration.CIEnrollment
 	candidate.ServiceImport = declaration.ServiceImport
 	candidate.NetworkEndpoint = declaration.NetworkEndpoint

@@ -184,6 +184,15 @@ func (repository *PlanRepository) CommitDeclarationAndPlan(ctx context.Context, 
 				return err
 			}
 		}
+		if in := request.DesiredDeclaration.CIJob; in != nil {
+			actor, err := serviceActor(ctx)
+			if err != nil {
+				return err
+			}
+			if err := NewCIJobRepository(repository.store).validate(actor, row, *in); err != nil {
+				return err
+			}
+		}
 		if in := request.DesiredDeclaration.CIEnrollment; in != nil {
 			actor, err := serviceActor(ctx)
 			if err != nil {

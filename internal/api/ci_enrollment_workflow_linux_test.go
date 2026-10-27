@@ -282,6 +282,18 @@ func testCIEnrollmentApprovedAPI(t *testing.T, fault string) {
 		}
 	}
 	ctx = operatorCtx
+	// The new controller's private loader consumes the actually acknowledged,
+	// applied enrollment; this does not create CI execution authority.
+	current, _ = revisions.CurrentRevision(ctx)
+	privatePolicy, e := store.NewCIJobRepository(authority).Policy(ctx, adapter.ExactExecutionBinding{StateRevision: current.StateRevision, RecoveryEpoch: current.RecoveryEpoch}, generated.CiJobRequest{Definition: policy.Definition})
+	if e != nil || privatePolicy.Policy.Repository != binding.Repository || privatePolicy.Policy.OwnerID != binding.RepositoryOwnerID || privatePolicy.Definition.OwnerID != human {
+		t.Fatal("applied private policy loader", privatePolicy, e)
+	}
+	privatePolicy.Policy.Labels[0] = "mutated"
+	again, e := store.NewCIJobRepository(authority).Policy(ctx, adapter.ExactExecutionBinding{StateRevision: current.StateRevision, RecoveryEpoch: current.RecoveryEpoch}, generated.CiJobRequest{Definition: policy.Definition})
+	if e != nil || again.Policy.Labels[0] == "mutated" {
+		t.Fatal("private policy alias", e)
+	}
 	// The applied policy snapshot survives restart and remains private.
 	var private []byte
 	if err := fixtureDB.QueryRow(`SELECT binding_bytes FROM ci_enrollments WHERE enrollment_id=?`, policyTarget).Scan(&private); err != nil || !bytes.Contains(private, []byte("private-owner/private-repo")) {

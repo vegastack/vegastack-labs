@@ -90,6 +90,12 @@ func TestEveryGeneratedCommandHasTruthfulRuntimeBehavior(t *testing.T) {
 
 			// The generic control stub lacks this optional typed capability. Dedicated
 			// CI enrollment tests exercise successful forwarding with its configured control.
+			if commandName(command.Path) == generated.CommandNameCiJobDraft {
+				if code != 6 || stderr != "" || !strings.Contains(stdout, `"code":"PREREQUISITE_BLOCKED"`) || !strings.Contains(stdout, "ci-job-control") {
+					t.Fatal(code, stdout, stderr)
+				}
+				return
+			}
 			if name := commandName(command.Path); name == generated.CommandNameCiEnrollmentDraft || name == generated.CommandNameCiEnrollmentList || name == generated.CommandNameCiEnrollmentShow {
 				if code != 6 || stderr != "" || !strings.Contains(stdout, `"code":"PREREQUISITE_BLOCKED"`) || !strings.Contains(stdout, "ci-enrollment-control") {
 					t.Fatalf("unconfigured CI enrollment command: code=%d stdout=%q stderr=%q", code, stdout, stderr)

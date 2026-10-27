@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/command-registry",
-  "schemaVersion": "1.30.0",
+  "schemaVersion": "1.31.0",
   "commands": [
     {
       "path": [
@@ -1057,6 +1057,79 @@
             "fixture/client.json",
             "--enrollment-id",
             "enrollment-a",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "ci",
+        "job",
+        "draft"
+      ],
+      "summary": "Draft one inert exact CI job for human plan acknowledgement.",
+      "availability": "available",
+      "ownerPhase": "9",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected operator profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one exact CI job draft request.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/ci-job-draft-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/declaration-revision",
+      "examples": [
+        {
+          "summary": "Draft one inert exact CI job for human plan acknowledgement.",
+          "arguments": [
+            "ci",
+            "job",
+            "draft",
+            "--config",
+            "fixture/client.json",
+            "--file",
+            "fixture/ci-job.json",
             "--output",
             "json"
           ]
@@ -7829,6 +7902,21 @@
       "id": "vegastack-labs.dev/ci-enrollment-request",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/ci-enrollment-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/ci-job-draft-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/ci-job-draft-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/ci-job-execution-binding",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/ci-job-execution-binding.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/ci-job-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/ci-job-request.schema.json"
     },
     {
       "id": "vegastack-labs.dev/cloudflare-access-profile",

@@ -50,6 +50,7 @@ func TestRemoteReadAdmissionMatchesGeneratedReadAndSessionEndpoints(t *testing.T
 
 func TestConstrainedSSHAdmissionIsGeneratedOperatorAPIWithoutAlternateAuthorities(t *testing.T) {
 	allowedWrites := map[string]bool{
+		"api.v1.ci.jobs.drafts.create":                true,
 		"api.v1.ci.enrollments.drafts.create":         true,
 		"api.v1.hosting.lifecycle-drafts.create":      true,
 		"api.v1.services.recovery-drafts.create":      true,

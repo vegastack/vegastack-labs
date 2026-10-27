@@ -7,6 +7,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"github.com/vegastack/vegastack-labs/internal/run"
+	"github.com/vegastack/vegastack-labs/internal/store"
 	"slices"
 )
 
@@ -21,6 +22,7 @@ type hostActionLifecycleSource interface {
 // This routes only exact host-action use and its native credential activation.
 // Existing unrelated prerequisite checks retain their original fallback.
 type hostActionGate struct {
+	jobs        *store.CIJobRepository
 	targets     hostActionConsoleSource
 	credentials hostActionLifecycleSource
 	allowed     []string
@@ -28,6 +30,12 @@ type hostActionGate struct {
 }
 
 func (g hostActionGate) VerifySecretStep(ctx context.Context, p generated.Plan, op generated.PlanOperation) error {
+	if op.AdapterID == hostaction.AdapterID && op.OperationType == store.CIJobOperation {
+		if g.jobs == nil || p.CIJob == nil || p.AuthorizationBranch != "human" || p.ExecutorMode != "central" || len(p.Operations) != 1 || p.Operations[0] != op || !slices.Contains(g.allowed, p.CIJob.HostIdentityDigest) {
+			return actionFailure()
+		}
+		return g.jobs.ValidatePlan(ctx, p)
+	}
 	action := op.AdapterID == hostaction.AdapterID && (op.OperationType == hostaction.OperationType || op.OperationType == debianaccess.LocalProbeOperation)
 	lifecycle := p.HostActionConsole != nil && (op.OperationType == string(credentialref.ActionActivate) || op.OperationType == string(credentialref.ActionRotate))
 	if !action && !lifecycle {

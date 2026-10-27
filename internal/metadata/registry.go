@@ -230,6 +230,7 @@ func Current() Registry {
 	commands = append(commands, authorizationGrantCommand())
 	commands = append(commands, networkConnectCommands()...)
 	commands = append(commands, ciEnrollmentCommands()...)
+	commands = append(commands, ciJobCommands()...)
 	commands = append(commands, serviceCatalogCommands()...)
 	commands = append(commands, serviceDeploymentCommands()...)
 	commands = append(commands, serviceConfigurationCommands()...)
@@ -257,6 +258,7 @@ func Current() Registry {
 
 	endpoints := append([]EndpointDefinition{authorizationGrantEndpoint()}, networkConnectEndpoints()...)
 	endpoints = append(endpoints, ciEnrollmentEndpoints()...)
+	endpoints = append(endpoints, ciJobEndpoints()...)
 	endpoints = append(endpoints, serviceCatalogEndpoints()...)
 	endpoints = append(endpoints, serviceDeploymentEndpoints()...)
 	endpoints = append(endpoints, serviceConfigurationEndpoints()...)
@@ -267,7 +269,7 @@ func Current() Registry {
 	}
 
 	return Registry{
-		SchemaVersion:   "1.30.0",
+		SchemaVersion:   "1.31.0",
 		Commands:        commands,
 		Endpoints:       endpoints,
 		GateDefinitions: CurrentGateDefinitions(),
@@ -942,6 +944,7 @@ func currentSchemas() []SchemaDefinition {
 				{JSONName: "serviceDeploymentBindings", GoName: "ServiceDeploymentBindings", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/service-deployment-provider-binding", MaxItems: intPointer(128)},
 				{JSONName: "hostingLifecycleProfiles", GoName: "HostingLifecycleProfiles", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/hosting-lifecycle-profile", MaxItems: intPointer(128)},
 				{JSONName: "serviceRecoveryProfiles", GoName: "ServiceRecoveryProfiles", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/service-recovery-profile", MaxItems: intPointer(128)},
+				{JSONName: "ciJobBindings", GoName: "CIJobBindings", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/ci-job-execution-binding", MaxItems: intPointer(128)},
 				{JSONName: "ciEnrollmentBindings", GoName: "CIEnrollmentBindings", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/ci-enrollment-binding", MaxItems: intPointer(128)},
 				{JSONName: "serviceBindings", GoName: "ServiceBindings", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/service-provider-binding", MaxItems: intPointer(128)},
 				{JSONName: "networkConnectExcludedHostIds", GoName: "NetworkConnectExcludedHostIDs", Kind: ValueArray, OmitEmpty: true, ItemKind: ValueString, MaxItems: intPointer(256), UniqueItems: true},
@@ -1022,6 +1025,7 @@ func currentSchemas() []SchemaDefinition {
 	schemas = append(schemas, authorizationGrantSchemas()...)
 	schemas = append(schemas, networkConnectSchemas()...)
 	schemas = append(schemas, ciEnrollmentSchemas()...)
+	schemas = append(schemas, ciJobSchemas()...)
 	schemas = append(schemas, serviceCatalogSchemas()...)
 	schemas = append(schemas, serviceDeploymentSchemas()...)
 	schemas = append(schemas, serviceConfigurationSchemas()...)

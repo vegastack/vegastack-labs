@@ -17,6 +17,9 @@ var serviceCatalogSourceSeals = map[string]hostActionSourceSeal{
 
 // Only this exact wave may use the pure query parser and intent validator.
 func approvedServiceCatalogPackage(c checkedSourcePackage, module, relative string) bool {
+	if approvedNetworkConnectPackage(c, module, relative) {
+		return true
+	}
 	if c.listed.ImportPath != module+"/"+relative || len(c.listed.CgoFiles) != 0 {
 		return false
 	}
