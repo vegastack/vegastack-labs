@@ -58,6 +58,22 @@ Available commands:
     --file <path>          Read one exact typed backup-verify-request JSON file (4 KiB max).
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  ci enrollment draft      Draft an inert exact CI enrollment for human-acknowledged apply.
+    --config <path>        Read one protected operator profile.
+    --file <path>          Read an opaque enrollment draft request.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  ci enrollment list       List CI registrations in current scope; job admission remains unqualified.
+    --after <id>           Continue after one enrollment ID.
+    --config <path>        Read one protected operator profile.
+    --limit <count>        Return 1 through 100 records (default 50).
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  ci enrollment show       List CI registrations in current scope; job admission remains unqualified.
+    --config <path>        Read one protected operator profile.
+    --enrollment-id <id>   Select one exact CI enrollment.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   connect                  Authenticate and close one pinned managed-node SSH connection; no shell or forwarding.
     --config <path>        Read one protected client profile.
     --node <id>            Select one exact registered managed host.

@@ -63,6 +63,7 @@ var operationRisk = map[string]RiskClass{
 	"backup.retire.offsite":              RiskDestructive,
 	"network.change":                     RiskControlPlane,
 	"service.deploy":                     RiskProductionLike,
+	"ci.enrollment.register":             RiskControlPlane,
 	"service.import":                     RiskControlPlane,
 	"network.endpoint.change":            RiskControlPlane,
 	"identity.change":                    RiskControlPlane,

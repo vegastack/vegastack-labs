@@ -3,6 +3,8 @@
 // api.v1.audit-checkpoints.list
 // api.v1.audit-history.verification
 // api.v1.backups.status
+// api.v1.ci.enrollments.get
+// api.v1.ci.enrollments.list
 // api.v1.database-status.get
 // api.v1.declarations.get
 // api.v1.declarations.plan-preparation.get
@@ -692,6 +694,47 @@ export interface BrowserScheduledJobPolicyListData {
   readonly "recoveryEpoch": number;
 }
 
+export interface CiEnrollmentDefinition {
+  readonly "schema": "vegastack-labs.dev/ci-enrollment-definition";
+  readonly "schemaVersion": "1.0.0";
+  readonly "enrollmentId": string;
+  readonly "ownerId": string;
+  readonly "bindingId": string;
+  readonly "bindingDigest": string;
+}
+
+export interface CiEnrollmentList {
+  readonly "schema": "vegastack-labs.dev/ci-enrollment-list";
+  readonly "schemaVersion": "1.0.0";
+  readonly "enrollments": ReadonlyArray<CiEnrollmentRecord>;
+  readonly "nextAfter"?: string;
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
+}
+
+export interface CiEnrollmentRecord {
+  readonly "schema": "vegastack-labs.dev/ci-enrollment-record";
+  readonly "schemaVersion": "1.0.0";
+  readonly "definition": CiEnrollmentDefinition;
+  readonly "revision": number;
+  readonly "registrationStatus": "registered";
+  readonly "admissionStatus": "not-qualified";
+  readonly "registeredAt": string;
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
+}
+
+export interface CiEnrollmentRequest {
+  readonly "schema": "vegastack-labs.dev/ci-enrollment-request";
+  readonly "schemaVersion": "1.0.0";
+  readonly "definition": CiEnrollmentDefinition;
+  readonly "expectedDeclarationRevision": number;
+  readonly "expectedStateRevision": number;
+  readonly "recoveryEpoch": number;
+  readonly "idempotencyKey": string;
+  readonly "reasonDigest": string;
+}
+
 export interface ContractExtension {
   readonly "name": string;
   readonly "valueDigest": string;
@@ -809,6 +852,7 @@ export interface DeclarationRevisionRequest {
   readonly "hostingLifecycle"?: HostingLifecycleRequest | null;
   readonly "serviceRecovery"?: ServiceRecoveryRequest | null;
   readonly "serviceDeployment"?: ServiceDeploymentRequest | null;
+  readonly "ciEnrollment"?: CiEnrollmentRequest | null;
   readonly "serviceImport"?: ServiceImportRequest | null;
   readonly "networkEndpoint"?: NetworkEndpointRequest | null;
   readonly "grantBatch"?: AuthorizationGrantBatchRequest | null;
@@ -1802,6 +1846,7 @@ export interface Plan {
   readonly "hostingLifecycle"?: HostingLifecycleRequest | null;
   readonly "serviceRecovery"?: ServiceRecoveryRequest | null;
   readonly "serviceDeployment"?: ServiceDeploymentRequest | null;
+  readonly "ciEnrollment"?: CiEnrollmentRequest | null;
   readonly "serviceImport"?: ServiceImportRequest | null;
   readonly "networkEndpoint"?: NetworkEndpointRequest | null;
   readonly "grantBatch"?: AuthorizationGrantBatchRequest | null;
@@ -6193,6 +6238,252 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/ci-enrollment-definition",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/ci-enrollment-definition"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "enrollmentId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "ownerId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "bindingId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "bindingDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/ci-enrollment-list",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/ci-enrollment-list"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "enrollments",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/ci-enrollment-record",
+        "maxItems": 100
+      },
+      {
+        "name": "nextAfter",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "minLength": 1,
+        "maxLength": 128
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/ci-enrollment-record",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/ci-enrollment-record"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "definition",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/ci-enrollment-definition"
+      },
+      {
+        "name": "revision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "registrationStatus",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "registered"
+        ]
+      },
+      {
+        "name": "admissionStatus",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "not-qualified"
+        ]
+      },
+      {
+        "name": "registeredAt",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/ci-enrollment-request",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/ci-enrollment-request"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "definition",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/ci-enrollment-definition"
+      },
+      {
+        "name": "expectedDeclarationRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "expectedStateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "idempotencyKey",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "reasonDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/contract-extension",
     "fields": [
       {
@@ -6964,6 +7255,14 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "nullable": true,
         "omitEmpty": true,
         "ref": "vegastack-labs.dev/service-deployment-request"
+      },
+      {
+        "name": "ciEnrollment",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "omitEmpty": true,
+        "ref": "vegastack-labs.dev/ci-enrollment-request"
       },
       {
         "name": "serviceImport",
@@ -13354,6 +13653,14 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "ref": "vegastack-labs.dev/service-deployment-request"
       },
       {
+        "name": "ciEnrollment",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "omitEmpty": true,
+        "ref": "vegastack-labs.dev/ci-enrollment-request"
+      },
+      {
         "name": "serviceImport",
         "kind": "object",
         "required": false,
@@ -16741,6 +17048,22 @@ function decodeBrowserScheduledJobPolicyListData(value: unknown): BrowserSchedul
   return decodeSchema("vegastack-labs.dev/browser-scheduled-job-policy-list-data", value) as unknown as BrowserScheduledJobPolicyListData;
 }
 
+function decodeCiEnrollmentDefinition(value: unknown): CiEnrollmentDefinition {
+  return decodeSchema("vegastack-labs.dev/ci-enrollment-definition", value) as unknown as CiEnrollmentDefinition;
+}
+
+function decodeCiEnrollmentList(value: unknown): CiEnrollmentList {
+  return decodeSchema("vegastack-labs.dev/ci-enrollment-list", value) as unknown as CiEnrollmentList;
+}
+
+function decodeCiEnrollmentRecord(value: unknown): CiEnrollmentRecord {
+  return decodeSchema("vegastack-labs.dev/ci-enrollment-record", value) as unknown as CiEnrollmentRecord;
+}
+
+function decodeCiEnrollmentRequest(value: unknown): CiEnrollmentRequest {
+  return decodeSchema("vegastack-labs.dev/ci-enrollment-request", value) as unknown as CiEnrollmentRequest;
+}
+
 function decodeContractExtension(value: unknown): ContractExtension {
   return decodeSchema("vegastack-labs.dev/contract-extension", value) as unknown as ContractExtension;
 }
@@ -17488,6 +17811,8 @@ export type ReadClient = {
   readonly listAuditCheckpoints: (query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<BrowserAuditCheckpointListData>>;
   readonly getAuditVerification: (options?: RequestOptions) => Promise<ReadResult<BrowserAuditVerificationData>>;
   readonly getBackupStatus: (options?: RequestOptions) => Promise<ReadResult<BrowserBackupStatusData>>;
+  readonly getCi: (path: { readonly enrollmentID: string }, options?: RequestOptions) => Promise<ReadResult<CiEnrollmentRecord>>;
+  readonly listCi: (query?: ServiceReadQuery, options?: RequestOptions) => Promise<ReadResult<CiEnrollmentList>>;
   readonly getDatabaseStatus: (options?: RequestOptions) => Promise<ReadResult<DatabaseStatusData>>;
   readonly getDeclaration: (path: { readonly declarationId: string; readonly revision: number }, options?: RequestOptions) => Promise<ReadResult<BrowserDeclarationRevision>>;
   readonly preparePlan: (path: { readonly declarationId: string; readonly revision: number }, options?: RequestOptions) => Promise<ReadResult<PlanPreparation>>;
@@ -17548,6 +17873,14 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
     async getBackupStatus(options = {}) {
       const operation = "api.v1.backups.status";
       return performRead(fetchTransport, "/api/v1/backups/status", options, operation, decodeBrowserBackupStatusData);
+    },
+    async getCi(path, options = {}) {
+      const operation = "api.v1.ci.enrollments.get";
+      return performRead(fetchTransport, "/api/v1/ci/enrollments/" + encodePathString(path.enrollmentID, "enrollmentID") + "", options, operation, decodeCiEnrollmentRecord);
+    },
+    async listCi(query = {}, options = {}) {
+      const operation = "api.v1.ci.enrollments.list";
+      return performRead(fetchTransport, "/api/v1/ci/enrollments" + serviceReadQuery(query), options, operation, decodeCiEnrollmentList);
     },
     async getDatabaseStatus(options = {}) {
       const operation = "api.v1.database-status.get";

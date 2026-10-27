@@ -133,7 +133,7 @@ func ValidateHostingLifecycleDeclaration(d generated.DeclarationRevision) bool {
 		return true
 	}
 	in := d.HostingLifecycle
-	if in == nil || d.ServiceRecovery != nil || d.ServiceDeployment != nil || d.ServiceImport != nil || d.NetworkEndpoint != nil || d.AuthorizationGrantBatch != nil || d.HostAliasClaim != nil || hostinglifecycle.ValidateRequest(*in) != nil || d.DeclarationType != "hosting.lifecycle" || d.DeclarationID != hostingLifecycleDeclarationID(*in) || len(d.Operations) != 1 || len(d.Extensions) != 0 || d.RecoveryEpoch != in.RecoveryEpoch {
+	if in == nil || d.CIEnrollment != nil || d.ServiceRecovery != nil || d.ServiceDeployment != nil || d.ServiceImport != nil || d.NetworkEndpoint != nil || d.AuthorizationGrantBatch != nil || d.HostAliasClaim != nil || hostinglifecycle.ValidateRequest(*in) != nil || d.DeclarationType != "hosting.lifecycle" || d.DeclarationID != hostingLifecycleDeclarationID(*in) || len(d.Operations) != 1 || len(d.Extensions) != 0 || d.RecoveryEpoch != in.RecoveryEpoch {
 		return false
 	}
 	if d.Status == "draft" && (d.StateRevision != in.ExpectedStateRevision+1 || d.Revision != 1) {

@@ -213,3 +213,16 @@ func assertCode(t *testing.T, err error, code string) {
 		t.Fatal("error leaked raw input")
 	}
 }
+
+func TestPolicyBindingDoesNotRequireTransientRunner(t *testing.T) {
+	e, _, _ := fixture()
+	b := e.Binding
+	p := PolicyBinding{RepositoryID: b.RepositoryID, OwnerID: b.OwnerID, Repository: b.Repository, WorkflowID: b.WorkflowID, WorkflowPath: b.WorkflowPath, WorkflowDigest: b.WorkflowDigest, Revision: b.Revision, Ref: b.Ref, Event: b.Event, JobName: b.JobName, RunnerGroupID: b.RunnerGroupID, Labels: b.Labels}
+	if err := ValidatePolicyBinding(p); err != nil {
+		t.Fatal(err)
+	}
+	e.Binding.RunnerID = ""
+	if ValidateEnrollment(e) == nil {
+		t.Fatal("assigned runner is still required")
+	}
+}

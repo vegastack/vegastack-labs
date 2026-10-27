@@ -29,6 +29,21 @@ type Binding struct {
 	Labels                                                      []string
 }
 
+type PolicyBinding struct {
+	RepositoryID, OwnerID, Repository, WorkflowID, WorkflowPath string
+	WorkflowDigest, Revision, Ref, Event, JobName               string
+	RunnerGroupID                                               string
+	Labels                                                      []string
+}
+
+func ValidatePolicyBinding(p PolicyBinding) error {
+	b := Binding{RepositoryID: p.RepositoryID, OwnerID: p.OwnerID, Repository: p.Repository, WorkflowID: p.WorkflowID, WorkflowPath: p.WorkflowPath, WorkflowDigest: p.WorkflowDigest, Revision: p.Revision, Ref: p.Ref, Event: p.Event, JobName: p.JobName, RunnerGroupID: p.RunnerGroupID, Labels: p.Labels}
+	if !validPolicyBinding(b) {
+		return failure.New(generated.ErrorCodeInputInvalid, "ci-enrollment", false)
+	}
+	return nil
+}
+
 type Enrollment struct {
 	ID      string
 	Binding Binding
@@ -83,8 +98,10 @@ func Match(e Enrollment, o Observation, now time.Time) (MatchResult, error) {
 	return MatchResult{Status: "enrollment-match", EnrollmentID: e.ID, RunID: o.RunID, JobID: o.JobID, Attempt: o.Attempt, ObservedAt: o.ObservedAt}, nil
 }
 
-func validBinding(b Binding) bool {
-	if !validID(b.RepositoryID) || !validID(b.OwnerID) || !validID(b.WorkflowID) || !validID(b.RunnerID) || !validID(b.RunnerGroupID) ||
+func validBinding(b Binding) bool { return validID(b.RunnerID) && validPolicyBinding(b) }
+
+func validPolicyBinding(b Binding) bool {
+	if !validID(b.RepositoryID) || !validID(b.OwnerID) || !validID(b.WorkflowID) || !validID(b.RunnerGroupID) ||
 		!validRepository(b.Repository) || !validWorkflowPath(b.WorkflowPath) || !digest.MatchString(b.WorkflowDigest) || !revision.MatchString(b.Revision) ||
 		!validRef(b.Ref) || (b.Event != "push" && b.Event != "workflow_dispatch") || !printable(b.JobName, 256) || strings.TrimSpace(b.JobName) == "" ||
 		len(b.Labels) == 0 || len(b.Labels) > 64 {

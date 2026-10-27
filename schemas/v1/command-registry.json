@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/command-registry",
-  "schemaVersion": "1.29.0",
+  "schemaVersion": "1.30.0",
   "commands": [
     {
       "path": [
@@ -833,6 +833,230 @@
             "fixture/server-profile.json",
             "--file",
             "fixture/backup-verify-request.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "ci",
+        "enrollment",
+        "draft"
+      ],
+      "summary": "Draft an inert exact CI enrollment for human-acknowledged apply.",
+      "availability": "available",
+      "ownerPhase": "9",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected operator profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read an opaque enrollment draft request.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/ci-enrollment-draft-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/declaration-revision",
+      "examples": [
+        {
+          "summary": "Draft an inert exact CI enrollment for human-acknowledged apply.",
+          "arguments": [
+            "ci",
+            "enrollment",
+            "draft",
+            "--config",
+            "fixture/client.json",
+            "--file",
+            "fixture/ci-enrollment.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "ci",
+        "enrollment",
+        "list"
+      ],
+      "summary": "List CI registrations in current scope; job admission remains unqualified.",
+      "availability": "available",
+      "ownerPhase": "9",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--after",
+          "kind": "value",
+          "valueName": "id",
+          "required": false,
+          "repeatable": false,
+          "summary": "Continue after one enrollment ID.",
+          "enum": null
+        },
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected operator profile.",
+          "enum": null
+        },
+        {
+          "name": "--limit",
+          "kind": "value",
+          "valueName": "count",
+          "required": false,
+          "repeatable": false,
+          "summary": "Return 1 through 100 records (default 50).",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/ci-enrollment-list",
+      "examples": [
+        {
+          "summary": "List CI registrations in current scope; job admission remains unqualified.",
+          "arguments": [
+            "ci",
+            "enrollment",
+            "list",
+            "--config",
+            "fixture/client.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "ci",
+        "enrollment",
+        "show"
+      ],
+      "summary": "List CI registrations in current scope; job admission remains unqualified.",
+      "availability": "available",
+      "ownerPhase": "9",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected operator profile.",
+          "enum": null
+        },
+        {
+          "name": "--enrollment-id",
+          "kind": "value",
+          "valueName": "id",
+          "required": true,
+          "repeatable": false,
+          "summary": "Select one exact CI enrollment.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/ci-enrollment-record",
+      "examples": [
+        {
+          "summary": "List CI registrations in current scope; job admission remains unqualified.",
+          "arguments": [
+            "ci",
+            "enrollment",
+            "show",
+            "--config",
+            "fixture/client.json",
+            "--enrollment-id",
+            "enrollment-a",
             "--output",
             "json"
           ]
@@ -7575,6 +7799,36 @@
       "id": "vegastack-labs.dev/browser-scheduled-job-policy-list-data",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/browser-scheduled-job-policy-list-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/ci-enrollment-binding",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/ci-enrollment-binding.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/ci-enrollment-definition",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/ci-enrollment-definition.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/ci-enrollment-draft-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/ci-enrollment-draft-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/ci-enrollment-list",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/ci-enrollment-list.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/ci-enrollment-record",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/ci-enrollment-record.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/ci-enrollment-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/ci-enrollment-request.schema.json"
     },
     {
       "id": "vegastack-labs.dev/cloudflare-access-profile",

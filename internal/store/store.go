@@ -173,7 +173,8 @@ func normalizeConfig(config Config) (Config, error) {
 	if err := normalizeDeploymentPolicies(&config); err != nil {
 		return Config{}, err
 	}
-	if err := normalizeServicePolicies(&config); err != nil {
+	if err:=normalizeCIEnrollmentPolicies(&config);err!=nil{return config,err}
+ if err := normalizeServicePolicies(&config); err != nil {
 		return config, err
 	}
 	if len(config.NetworkConnectExcludedHostIDs) > 256 {
