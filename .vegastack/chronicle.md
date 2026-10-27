@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 27-10-2026 — Resolve the numeric job assigned to an owned CI runner ([#310](https://github.com/vegastack/vegastack-labs/issues/310))
+
+- **What:** Added a GET-only GitHub adapter read that derives the one actual assigned job from a protected numeric runner identity, complete attempt membership and current selected-group/repository policy. Existing source/workflow observation is reused; returned results remain observations, not execution permission.
+- **Why:** A temporary runner's name or shared label cannot identify which job GitHub actually assigned. The controller needs this missing numeric correlation before it can consume an exact admission and release user steps.
+- **How it went:** One GPT-6.1 Sol medium implementation owner extended the existing bounded adapter while the coordinator recorded the Docker decision and native prerequisite evidence. Focused HTTPS fixtures cover ownership, membership races, current callback revocation and provider failures. The required final affected proof covers the integrated head; no independent review round or live GitHub job was added.
+- **Changed:** Current-authority checks before adapter reads · complete bounded runner-group membership · unique numeric assignment and reused exact observation · explicit real-controller/stock-runner limits.
+- **Decisions:** [D-133](../docs/decisions-and-sources.md#d-133) records the operator's rootless Docker selection. Research [#309](https://github.com/vegastack/vegastack-labs/issues/309) separately passed 11 actual local Docker lifecycle cases; those fixtures do not qualify a physical host or complete Phase9. The future temporary real-CI workflow will use this same repository and be removed after verification, per the operator.
+
+— approved by (omkarmohanta09) · built by Codex with one GPT-6.1 Sol medium implementation owner · branch feat/9.10-ci-assignment
+
 ## 27-10-2026 — CI source policies can be enrolled through the existing approval flow ([#304](https://github.com/vegastack/vegastack-labs/issues/304))
 
 - **What:** Added scoped CI enrollment draft, list and show commands backed by the server API and SQLite. An exact approved plan registers a protected source policy; private repository/workflow details remain outside public output. Registration explicitly reports that job admission is not qualified.
