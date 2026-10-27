@@ -166,7 +166,7 @@ func analyze(root string) (analysis, error) {
 					result.TCPListener = true
 				}
 			case strings.HasSuffix(importPath, "/internal/identity") && selector.Sel.Name == "WithVerifiedPrincipal":
-				if !isServer && !reviewedLinuxRoleActorFile(relative, content) && !reviewedNetworkActorFile(relative, content) {
+				if !isServer && !reviewedLinuxRoleActorFile(relative, content) && !reviewedNetworkActorFile(relative, content) && !reviewedCIActorFile(relative, content) {
 					result.ContextSetterOutside = true
 				}
 			case selector.Sel.Name == "Get" || selector.Sel.Name == "Values":

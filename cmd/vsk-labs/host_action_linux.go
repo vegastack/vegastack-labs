@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"github.com/vegastack/vegastack-labs/internal/cijobrunner"
 	"github.com/vegastack/vegastack-labs/internal/debianaccess"
 	"github.com/vegastack/vegastack-labs/internal/debianbaseline"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
@@ -77,6 +78,13 @@ func runHostActionOnce(ctx context.Context, args []string) (bool, int) {
 type nativeHostDispatcher struct{ access, baseline, role, recovery hostaction.Dispatcher }
 
 func (d nativeHostDispatcher) Lookup(id, version string) (hostaction.Handler, bool) {
+	if id == hostaction.CIJobAction {
+		executable, e := os.Executable()
+		if e != nil {
+			return nil, false
+		}
+		return cijobrunner.NewNativeDispatcher(executable).Lookup(id, version)
+	}
 	if version == "1.0.0" && hostingplatform.IsAction(id) {
 		h, e := hostingplatform.NewHandler(id, hostingplatform.NewNativeRuntime())
 		return h, e == nil

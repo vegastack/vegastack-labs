@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/vegastack/vegastack-labs/internal/principal"
+	"github.com/vegastack/vegastack-labs/internal/serverconfig"
 	"io"
 	"math"
 	"net/url"
@@ -173,6 +174,11 @@ func normalizeConfig(config Config) (Config, error) {
 	if err := normalizeDeploymentPolicies(&config); err != nil {
 		return Config{}, err
 	}
+	ciJobs, err := serverconfig.FreezeCIJobBindings(config.CIJobBindings)
+	if err != nil {
+		return Config{}, err
+	}
+	config.CIJobBindings = ciJobs
 	if err := normalizeCIEnrollmentPolicies(&config); err != nil {
 		return config, err
 	}

@@ -30,6 +30,7 @@ var scheduledRunnerPath = regexp.MustCompile(`^/[A-Za-z0-9._/-]+$`)
 type Profile struct {
 	HostingLifecycleProfiles         []generated.HostingLifecycleProfile
 	ServiceRecoveryProfiles          []generated.ServiceRecoveryProfile
+	CIJobBindings                    []generated.CiJobExecutionBinding
 	CIEnrollmentBindings             []generated.CiEnrollmentBinding
 	ServiceBindings                  []generated.ServiceProviderBinding
 	ServiceDeploymentBindings        []generated.ServiceDeploymentProviderBinding
@@ -259,6 +260,10 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 		}
 		scheduledRunner = &ScheduledRunner{UID: uid, PrincipalID: runner.PrincipalID, BinaryPath: runner.BinaryPath, ConfigPath: runner.ConfigPath}
 	}
+	ciJobs, err := FreezeCIJobBindings(input.CIJobBindings)
+	if err != nil {
+		return invalid()
+	}
 	ciBindings, err := FreezeCIEnrollmentBindings(input.CIEnrollmentBindings)
 	if err != nil {
 		return invalid()
@@ -286,6 +291,7 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 	}
 	return Profile{
 		HostingLifecycleProfiles: hostingProfiles, ServiceRecoveryProfiles: recoveryProfiles,
+		CIJobBindings:                    ciJobs,
 		CIEnrollmentBindings:             ciBindings,
 		ServiceBindings:                  serviceBindings,
 		ServiceDeploymentBindings:        deploymentBindings,

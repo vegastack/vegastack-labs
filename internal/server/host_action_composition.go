@@ -13,8 +13,10 @@ import (
 // identities. Empty, unknown and excluded identities have no transport path.
 // Populating this list is an installation action, never an API declaration.
 type hostActionTargets struct {
-	repository *store.HostActionRepository
-	allowed    []string
+	repository interface {
+		ExecutionForBundle(context.Context, generated.HostActionBundle) (store.HostActionExecution, error)
+	}
+	allowed []string
 }
 
 func (s hostActionTargets) Resolve(ctx context.Context, b generated.HostActionBundle) (transport.Target, error) {

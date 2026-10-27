@@ -20,7 +20,7 @@ import (
 
 const command = "/usr/bin/sudo -n -- /usr/local/bin/vsk-labs host-action-once"
 
-func (a *Adapter) exchangeOne(ctx context.Context, target Target, envelope generated.HostActionEnvelope, digest string, value *credentialref.Value, ready chan<- struct{}, release <-chan struct{}, refusal *generated.HostActionDenial, negative string) (generated.HostActionResult, bool, error) {
+func (a *Adapter) exchangeOne(ctx context.Context, target Target, envelope generated.HostActionEnvelope, digest string, value *credentialref.Value, ready chan<- struct{}, release <-chan struct{}, refusal *generated.HostActionDenial, negative string, ci CIControl) (generated.HostActionResult, bool, error) {
 	fail := func(observed bool) (generated.HostActionResult, bool, error) {
 		return generated.HostActionResult{}, observed, denied()
 	}
@@ -178,12 +178,16 @@ func (a *Adapter) exchangeOne(ctx context.Context, target Target, envelope gener
 	if protocol.WriteFrame(input, authorization, protocol.MaximumFrame) != nil {
 		return fail(true)
 	}
-	if envelope.Bundle.ActionID == protocol.RecoveryReceiveAction {
+	if envelope.Bundle.ActionID == protocol.CIJobAction {
+		if ci == nil || ci.Exchange(ctx, envelope.Bundle, reader, input) != nil {
+			return fail(true)
+		}
+	} else if envelope.Bundle.ActionID == protocol.RecoveryReceiveAction {
 		if err = a.writeRecoveryPayload(ctx, input, envelope.Bundle); err != nil {
 			return fail(true)
 		}
 	}
-	if input.Close() != nil {
+	if closeErr := input.Close(); closeErr != nil && !(envelope.Bundle.ActionID == protocol.CIJobAction && closeErr == io.EOF) {
 		return fail(true)
 	}
 	raw, err = protocol.ReadFrame(reader, protocol.MaximumResultFrame)

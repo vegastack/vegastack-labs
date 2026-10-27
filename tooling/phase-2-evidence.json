@@ -652,6 +652,20 @@
           "github.com/vegastack/vegastack-labs/internal/ci"
         ],
         "mutationBoundaryDigest": "sha256:9198c60cb999bb115ff447302956995b32f38328f542178dd7573b59a7a4b05a"
+      },
+      {
+        "id": "phase9-issue313-v1",
+        "issue": 313,
+        "commands": [
+          "ci job draft"
+        ],
+        "imports": [
+          "github.com/vegastack/vegastack-labs/internal/adapter/githubci",
+          "github.com/vegastack/vegastack-labs/internal/cijobguard",
+          "github.com/vegastack/vegastack-labs/internal/cijobrunner",
+          "github.com/vegastack/vegastack-labs/internal/runnerbootstrap"
+        ],
+        "mutationBoundaryDigest": "sha256:15da20482845da8acc14e265c5928f11189483471cdda1ea53b7921b6585d8b9"
       }
     ]
   },

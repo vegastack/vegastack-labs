@@ -735,6 +735,23 @@ export interface CiEnrollmentRequest {
   readonly "reasonDigest": string;
 }
 
+export interface CiJobRequest {
+  readonly "schema": "vegastack-labs.dev/ci-job-request";
+  readonly "schemaVersion": "1.0.0";
+  readonly "definition": CiEnrollmentDefinition;
+  readonly "executionBindingId": string;
+  readonly "executionBindingDigest": string;
+  readonly "hostId": string;
+  readonly "hostIdentityDigest": string;
+  readonly "hostAdmissionDigest": string;
+  readonly "runId": string;
+  readonly "attempt": number;
+  readonly "expectedStateRevision": number;
+  readonly "recoveryEpoch": number;
+  readonly "idempotencyKey": string;
+  readonly "reasonDigest": string;
+}
+
 export interface ContractExtension {
   readonly "name": string;
   readonly "valueDigest": string;
@@ -852,6 +869,7 @@ export interface DeclarationRevisionRequest {
   readonly "hostingLifecycle"?: HostingLifecycleRequest | null;
   readonly "serviceRecovery"?: ServiceRecoveryRequest | null;
   readonly "serviceDeployment"?: ServiceDeploymentRequest | null;
+  readonly "ciJob"?: CiJobRequest | null;
   readonly "ciEnrollment"?: CiEnrollmentRequest | null;
   readonly "serviceImport"?: ServiceImportRequest | null;
   readonly "networkEndpoint"?: NetworkEndpointRequest | null;
@@ -1846,6 +1864,7 @@ export interface Plan {
   readonly "hostingLifecycle"?: HostingLifecycleRequest | null;
   readonly "serviceRecovery"?: ServiceRecoveryRequest | null;
   readonly "serviceDeployment"?: ServiceDeploymentRequest | null;
+  readonly "ciJob"?: CiJobRequest | null;
   readonly "ciEnrollment"?: CiEnrollmentRequest | null;
   readonly "serviceImport"?: ServiceImportRequest | null;
   readonly "networkEndpoint"?: NetworkEndpointRequest | null;
@@ -6484,6 +6503,114 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/ci-job-request",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/ci-job-request"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "definition",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/ci-enrollment-definition"
+      },
+      {
+        "name": "executionBindingId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "executionBindingDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "hostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "hostIdentityDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "hostAdmissionDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "runId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 1,
+        "maxLength": 20
+      },
+      {
+        "name": "attempt",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "expectedStateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "idempotencyKey",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "reasonDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/contract-extension",
     "fields": [
       {
@@ -7255,6 +7382,14 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "nullable": true,
         "omitEmpty": true,
         "ref": "vegastack-labs.dev/service-deployment-request"
+      },
+      {
+        "name": "ciJob",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "omitEmpty": true,
+        "ref": "vegastack-labs.dev/ci-job-request"
       },
       {
         "name": "ciEnrollment",
@@ -13653,6 +13788,14 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "ref": "vegastack-labs.dev/service-deployment-request"
       },
       {
+        "name": "ciJob",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "omitEmpty": true,
+        "ref": "vegastack-labs.dev/ci-job-request"
+      },
+      {
         "name": "ciEnrollment",
         "kind": "object",
         "required": false,
@@ -17062,6 +17205,10 @@ function decodeCiEnrollmentRecord(value: unknown): CiEnrollmentRecord {
 
 function decodeCiEnrollmentRequest(value: unknown): CiEnrollmentRequest {
   return decodeSchema("vegastack-labs.dev/ci-enrollment-request", value) as unknown as CiEnrollmentRequest;
+}
+
+function decodeCiJobRequest(value: unknown): CiJobRequest {
+  return decodeSchema("vegastack-labs.dev/ci-job-request", value) as unknown as CiJobRequest;
 }
 
 function decodeContractExtension(value: unknown): ContractExtension {

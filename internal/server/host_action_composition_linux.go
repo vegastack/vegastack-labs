@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/adapter"
+	"github.com/vegastack/vegastack-labs/internal/adapter/githubci"
 	transport "github.com/vegastack/vegastack-labs/internal/adapter/hostaction"
 	"github.com/vegastack/vegastack-labs/internal/adapter/nativecredential"
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
@@ -29,13 +30,22 @@ func composeHostActions(ctx context.Context, p serverconfig.Profile, databasePat
 	if err != nil {
 		return noop, err
 	}
-	authority, err := NewHostActionAuthority(repository, signer, time.Now)
+	jobs := newCIJobRepository(s, gates)
+	source := ciJobExecutionSource{hosts: repository, jobs: jobs}
+	authority, err := newHostActionAuthority(source, signer, time.Now)
 	if err != nil {
 		return noop, err
 	}
 	composition := hostAccessComposition{store: s, hosts: repository, gates: gates, allowed: slices.Clone(p.HostActionIdentityDigests)}
-	impl, err := transport.NewWithAccess(hostActionTargets{repository: repository, allowed: slices.Clone(p.HostActionIdentityDigests)}, &HostActionBundleIssuer{Repository: repository, Signer: signer, Clock: time.Now}, authority, composition, debianaccess.NewLocalProbe(debianaccess.LocalProbeRuntime{Sources: debianaccess.NewNativeSourceResolver()}), composition, qualification.NativeTransportProbe)
+	impl, err := transport.NewWithAccess(hostActionTargets{repository: source, allowed: slices.Clone(p.HostActionIdentityDigests)}, &HostActionBundleIssuer{Repository: source, Signer: signer, Clock: time.Now}, authority, composition, debianaccess.NewLocalProbe(debianaccess.LocalProbeRuntime{Sources: debianaccess.NewNativeSourceResolver()}), composition, qualification.NativeTransportProbe)
 	if err != nil {
+		return noop, err
+	}
+	provider, err := githubci.NewClient("https://api.github.com", nil)
+	if err != nil {
+		return noop, err
+	}
+	if err = impl.ConfigureCI(ciJobControlFactory{jobs: jobs, provider: provider}); err != nil {
 		return noop, err
 	}
 	if err = composeRecoveryTransfer(impl, s, databasePath, p.SocketOwnerUID, gates); err != nil {

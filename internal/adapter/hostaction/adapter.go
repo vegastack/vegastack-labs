@@ -39,6 +39,7 @@ type Authority interface {
 type NativeProbeSelector func(context.Context, generated.HostActionBundle) (string, error)
 
 type Adapter struct {
+	ci                CIControlFactory
 	nativeProbe       NativeProbeSelector
 	recoveryPayload   RecoveryPayloadSource
 	recoveryFinalizer RecoveryReceiveFinalizer
@@ -102,6 +103,9 @@ func validTarget(t Target, b generated.HostActionBundle) bool {
 	return t.HostID == b.HostID && t.HostIdentityDigest == b.HostIdentityDigest && t.AutomationPrincipalID == b.AutomationPrincipalID && int64(t.CallerUID) == b.CallerUID && t.CallerUID > 0 && t.Revision > 0 && net.ParseIP(t.Address) != nil && t.Port > 0 && t.User != "" && t.User != "root" && !strings.ContainsAny(t.User, " \t\r\n\x00") && len(t.User) <= 64
 }
 func (a *Adapter) ExecuteBoundWithCredentials(ctx context.Context, op adapter.Operation, binding adapter.ExactExecutionBinding, values []*credentialref.Value) (adapter.Effect, error) {
+	if a != nil && ctx != nil && ctx.Err() == nil && adapter.ValidateOperation(op) == nil && op.AdapterID == "host-action" && op.OperationType == protocol.CIJobAction {
+		return a.executeCI(ctx, op, binding, values)
+	}
 	if a == nil || a.targets == nil || a.bundles == nil || a.authority == nil || ctx == nil || ctx.Err() != nil || adapter.ValidateOperation(op) != nil || op.AdapterID != "host-action" || (op.OperationType != "host.action.execute" && op.OperationType != "host.access.probe.local") || len(op.SecretReferences) != 1 || len(values) != 1 || values[0] == nil || len(values[0].Bytes()) == 0 {
 		return adapter.Effect{}, denied()
 	}

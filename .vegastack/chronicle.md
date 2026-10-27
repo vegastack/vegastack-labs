@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 27-10-2026 — Connect the finite Docker CI runtime to controller plans ([#312](https://github.com/vegastack/vegastack-labs/issues/312), [#313](https://github.com/vegastack/vegastack-labs/issues/313))
+
+- **What:** Implemented one rootless Docker stock-runner lifecycle and its existing controller draft/plan/acknowledgement/lease integration. The fixed hook holds user steps until a current numeric assignment and one-use admission; the same executable supplies the finite bootstrap, hook and non-root worker modes.
+- **Why:** Source enrollment and provider transports alone could neither launch a contained job nor release it under the controller's exact authority.
+- **How it went:** Two GPT-6.1 Sol medium implementation owners worked in parallel. Actual Linux tests exposed and corrected volume ownership, uncertain registration-stage reporting, cgroup-removal receipts and the controller’s durable actor/audit/SSH framing integration. Production offline failure and UID-drop bridge tests pass, alongside actual hook release/abort and kernel group-OOM evidence. Required boundary fixtures and final affected proof remain part of shipping; no extra independent review round is added.
+- **Changed:** Protected runtime digest/configuration · private registration terminal · immutable runner/tool volumes · fixed lifecycle events · exact numeric admission · generated draft API/client · explicit online and live-provider activation gates.
+- **Decisions:** Existing [D-133](../docs/decisions-and-sources.md#d-133) remains controlling. Online network verification and operational organization access are missing; no real GitHub job, physical-host qualification or Phase9 completion is claimed. Earlier deferrals remain deferred.
+
+— approved by (omkarmohanta09) · built by Codex with GPT-6.1 Sol medium implementation owners · branch feat/9.11-ci-docker-runner
+
 ## 27-10-2026 — Resolve the numeric job assigned to an owned CI runner ([#310](https://github.com/vegastack/vegastack-labs/issues/310))
 
 - **What:** Added a GET-only GitHub adapter read that derives the one actual assigned job from a protected numeric runner identity, complete attempt membership and current selected-group/repository policy. Existing source/workflow observation is reused; returned results remain observations, not execution permission.

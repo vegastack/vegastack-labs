@@ -10,7 +10,7 @@ import (
 
 func TestCIEnrollmentClientSourceSealsRejectChangedSourceAndSiblings(t *testing.T) {
 	const module = "github.com/vegastack/vegastack-labs"
-	for key, seal := range ciEnrollmentSourceSeals {
+	for key, seal := range currentCIEnrollmentFixtureSeals() {
 		t.Run(key, func(t *testing.T) {
 			parts := strings.SplitN(key, "|", 2)
 			relative, names := parts[0], strings.Split(parts[1], ",")

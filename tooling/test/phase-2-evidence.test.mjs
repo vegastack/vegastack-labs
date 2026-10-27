@@ -18,7 +18,7 @@ test("the original Phase 2 baseline stays immutable while later waves have exact
   assert.equal(manifest.contract.postPhase2MutationBoundaryDigest, "sha256:ec30a4cc9d4a6e5a3fc9817a55a5b0a1697adcae57b950325edd563637d308a8");
   assert.equal(manifest.contract.productionDependencyDigest, "sha256:a9e8788558fa5c3347b5b8464d8d5e4a67dcc9357e5ae07478b606a806f78133");
   assert.equal(manifest.contract.mutationAvailable, false);
-  assert.equal(manifest.contract.reviewedWaves?.length, 60);
+  assert.equal(manifest.contract.reviewedWaves?.length, 61);
   assert.deepEqual(manifest.contract.reviewedWaves.find(wave => wave.issue === 269), {"id":"phase7-issue269-v1","issue":269,"commands":["user offboard","user onboard","user resume","user suspend"],"imports":[],"mutationBoundaryDigest":"sha256:5e96ac023243311b523932fede76f010dacb3d42b020d140e9c4b694468bd4c8"});
   assert.deepEqual(manifest.contract.reviewedWaves.find(wave => wave.issue === 270), {"id":"phase7-issue270-v1","issue":270,"commands":["device approve","device request","device revoke"],"imports":[],"mutationBoundaryDigest":"sha256:0169a3072c212b8288df2c957bd5843e42637296dd1a02a802251b340ebecf0d"});
   assert.deepEqual(manifest.contract.reviewedWaves.find(wave => wave.issue === 272), {"id":"phase7-issue272-v1","issue":272,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:8e4068713b60b3568f07b68683a22741a68137c7e185360cee580e11e21e0da0"});
@@ -42,6 +42,11 @@ test("the original Phase 2 baseline stays immutable while later waves have exact
     const {mutationBoundaryDigest, ...wave} = manifest.contract.reviewedWaves.find(wave => wave.issue === 288);
     assert.deepEqual(wave, {id:"phase8-issue288-v1",issue:288,commands:["service deployment draft","service deployment show"],imports:["github.com/vegastack/vegastack-labs/internal/adapter/serviceruntime"]});
     assert.match(mutationBoundaryDigest, /^sha256:[a-f0-9]{64}$/);
+  }
+  {
+    const {mutationBoundaryDigest,...wave}=manifest.contract.reviewedWaves.find(wave=>wave.issue===313);
+    assert.deepEqual(wave,{id:"phase9-issue313-v1",issue:313,commands:["ci job draft"],imports:["github.com/vegastack/vegastack-labs/internal/adapter/githubci","github.com/vegastack/vegastack-labs/internal/cijobguard","github.com/vegastack/vegastack-labs/internal/cijobrunner","github.com/vegastack/vegastack-labs/internal/runnerbootstrap"]});
+    assert.match(mutationBoundaryDigest,/^sha256:[a-f0-9]{64}$/);
   }
   const priorWaves = manifest.contract.reviewedWaves.slice(0, 49);
   assert.deepEqual(priorWaves.at(-1), {"id":"physical-registration-issue263-v3","issue":263,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:d0141caaadcaeba99305a1da295f4dcdc58c22f03727d7a328b95a600cd6b8b4"});
@@ -651,4 +656,16 @@ test("the current closure rejects altered bindings and source drift", async () =
   const changed = structuredClone(facts);
   changed.postPhase2MutationBoundaryDigest = `sha256:${"0".repeat(64)}`;
   assert.ok(validateEvidence(manifest, changed).codes.includes("PHASE2_MUTATION_AVAILABLE"));
+});
+
+
+test("the #313 CI job wave rejects command, import, closure and historical drift",async()=>{
+  const manifest=await loadManifest();const facts=await collectIntegratedFacts(ROOT);
+  assert.equal(validateEvidence(manifest,facts).status,"pass");
+  for(const mutate of [
+    m=>m.contract.reviewedWaves.find(w=>w.issue===313).commands.push("ci job shell"),
+    m=>m.contract.reviewedWaves.find(w=>w.issue===313).imports.push("github.com/vegastack/vegastack-labs/internal/unreviewed"),
+    m=>m.contract.reviewedWaves.find(w=>w.issue===313).mutationBoundaryDigest=`sha256:${"f".repeat(64)}`,
+    m=>m.contract.reviewedWaves.find(w=>w.issue===304).mutationBoundaryDigest=`sha256:${"f".repeat(64)}`,
+  ]){const changed=structuredClone(manifest);mutate(changed);assert.equal(validateEvidence(changed,facts).status,"fail")}
 });

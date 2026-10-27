@@ -463,6 +463,10 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 		return err
 	}
 	replacementComposition := hostReplacementComposition{authority: authority, repository: replacementRepository, gates: gateRepository, clock: time.Now}
+	ciJobs := newCIJobRepository(authority, gateRepository)
+	if err := api.RegisterCIJobOperations(application, api.CIJobOperations{Jobs: ciJobs, Declarations: declarations, Credentials: store.NewCredentialRepository(authority), Results: factory, Prepare: ciJobs.Prepare}); err != nil {
+		return err
+	}
 	ciRepo := store.NewCIEnrollmentRepository(authority)
 	if err := api.RegisterCIEnrollmentOperations(application, api.CIEnrollmentOperations{Enrollments: ciRepo, Declarations: declarations, Results: factory, Prepare: ciRepo.Prepare}); err != nil {
 		return err
@@ -537,7 +541,7 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 		return ingressErr
 	}
 	secretGate = ingressSecretGate{source: ingressSource, fallback: secretGate}
-	secretGate = hostActionGate{targets: store.NewHostActionRepository(authority), credentials: credentialRepository, allowed: profile.HostActionIdentityDigests, fallback: secretGate}
+	secretGate = hostActionGate{jobs: ciJobs, targets: store.NewHostActionRepository(authority), credentials: credentialRepository, allowed: profile.HostActionIdentityDigests, fallback: secretGate}
 	lifecycleGate := hostActionGate{targets: store.NewHostActionRepository(authority), credentials: credentialRepository, allowed: profile.HostActionIdentityDigests, fallback: runengine.UnavailableGateVerifier{}}
 	credentialStep := &runengine.CredentialStep{Bindings: credentialRepository, Resolvers: adapters, Profiles: gateRepository, Plans: plans, ScheduledPlans: scheduledAdmission, Clock: time.Now}
 	credentialCore, err := runengine.NewCoreCredentialEffect(credentialRepository, store.NewAcknowledgementRepository(authority), lifecycleGate, composeNativeCredentialLifecycleVerifier(ctx, operations.databasePath, profile.SocketOwnerUID), runengine.UnavailableCredentialRecoveryVerifier{}, time.Now)
@@ -656,7 +660,7 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 		if err != nil {
 			return nil, err
 		}
-		return operations.openStore(ctx, store.Config{CIEnrollmentPolicies: ciPolicies, HostingLifecycleProfiles: hostingPolicies, ServiceRecoveryPolicies: recoveryPolicies, ServiceDeploymentPolicies: deploymentPolicy, ServiceImportPolicies: policies, NetworkConnectExcludedHostIDs: profile.NetworkConnectExcludedHostIDs, DatabasePath: path, Mode: store.OpenExisting, ExpectedUID: profile.SocketOwnerUID, ToolVersion: operations.build.ToolVersion, BuildVersion: operations.build.ReleaseBuildID})
+		return operations.openStore(ctx, store.Config{CIJobBindings: profile.CIJobBindings, CIEnrollmentPolicies: ciPolicies, HostingLifecycleProfiles: hostingPolicies, ServiceRecoveryPolicies: recoveryPolicies, ServiceDeploymentPolicies: deploymentPolicy, ServiceImportPolicies: policies, NetworkConnectExcludedHostIDs: profile.NetworkConnectExcludedHostIDs, DatabasePath: path, Mode: store.OpenExisting, ExpectedUID: profile.SocketOwnerUID, ToolVersion: operations.build.ToolVersion, BuildVersion: operations.build.ReleaseBuildID})
 	}
 	health, err := authority.Health(ctx)
 	if err != nil {
@@ -759,7 +763,7 @@ func (operations *Operations) openAuthorityWithPromotion(ctx context.Context, pr
 		return nil, err
 	}
 	configFor := func(path string) store.Config {
-		return store.Config{CIEnrollmentPolicies: ciPolicies, HostingLifecycleProfiles: hostingPolicies, ServiceRecoveryPolicies: recoveryPolicies, ServiceDeploymentPolicies: deploymentPolicy, ServiceImportPolicies: policies, NetworkConnectExcludedHostIDs: profile.NetworkConnectExcludedHostIDs, DatabasePath: path, Mode: store.OpenExisting, Recovery: migrationRecoveryFor(path, profile.SocketOwnerUID), ExpectedUID: profile.SocketOwnerUID, ToolVersion: operations.build.ToolVersion, BuildVersion: operations.build.ReleaseBuildID}
+		return store.Config{CIJobBindings: profile.CIJobBindings, CIEnrollmentPolicies: ciPolicies, HostingLifecycleProfiles: hostingPolicies, ServiceRecoveryPolicies: recoveryPolicies, ServiceDeploymentPolicies: deploymentPolicy, ServiceImportPolicies: policies, NetworkConnectExcludedHostIDs: profile.NetworkConnectExcludedHostIDs, DatabasePath: path, Mode: store.OpenExisting, Recovery: migrationRecoveryFor(path, profile.SocketOwnerUID), ExpectedUID: profile.SocketOwnerUID, ToolVersion: operations.build.ToolVersion, BuildVersion: operations.build.ReleaseBuildID}
 	}
 	authority, err := operations.openStore(ctx, configFor(operations.databasePath))
 	if err != nil {

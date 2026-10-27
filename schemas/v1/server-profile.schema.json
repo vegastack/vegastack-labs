@@ -118,6 +118,114 @@
       ],
       "type": "object"
     },
+    "ci-job-execution-binding": {
+      "additionalProperties": false,
+      "properties": {
+        "automationPrincipalId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "bindingId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "callerUid": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "hostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "hostIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "maximumSeconds": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "observerMaterialVersion": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "observerReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "registrationMaterialVersion": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "registrationReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "runnerGroupName": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "runtimeDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "runtimeProfileId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/ci-job-execution-binding"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "sshMaterialVersion": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "sshReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "targetDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "targetRevision": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "bindingId",
+        "hostId",
+        "hostIdentityDigest",
+        "targetRevision",
+        "targetDigest",
+        "automationPrincipalId",
+        "callerUid",
+        "sshReferenceId",
+        "sshMaterialVersion",
+        "registrationReferenceId",
+        "registrationMaterialVersion",
+        "observerReferenceId",
+        "observerMaterialVersion",
+        "runtimeProfileId",
+        "runtimeDigest",
+        "runnerGroupName",
+        "maximumSeconds"
+      ],
+      "type": "object"
+    },
     "coolify-service-binding": {
       "additionalProperties": false,
       "properties": {
@@ -1207,6 +1315,13 @@
     "ciEnrollmentBindings": {
       "items": {
         "$ref": "#/$defs/ci-enrollment-binding"
+      },
+      "maxItems": 128,
+      "type": "array"
+    },
+    "ciJobBindings": {
+      "items": {
+        "$ref": "#/$defs/ci-job-execution-binding"
       },
       "maxItems": 128,
       "type": "array"
