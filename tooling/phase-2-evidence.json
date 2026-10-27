@@ -651,7 +651,7 @@
         "imports": [
           "github.com/vegastack/vegastack-labs/internal/ci"
         ],
-        "mutationBoundaryDigest": "sha256:9446023ccf7625b576001ac3d463d86128a82ef67cb272973d0c86ca353a6496"
+        "mutationBoundaryDigest": "sha256:623a41ac9f0d37f4371f748de8f88b35e04ba4bda4bb89e537c8bc9bc3d7a265"
       }
     ]
   },
