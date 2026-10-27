@@ -20,9 +20,24 @@ func TestNetworkConnectSourceSealsRejectDrift(t *testing.T) {
 	for key, seal := range phase8FinishSourceSeals {
 		current[key] = seal
 	}
+	// #304 current fixtures use the new exact client/profile/pure-policy variants.
+	// Historical wave maps continue to describe their original bytes.
+	for key := range current {
+		relative := strings.SplitN(key, "|", 2)[0]
+		for currentKey := range ciEnrollmentSourceSeals {
+			if strings.HasPrefix(currentKey, relative+"|") {
+				delete(current, key)
+				break
+			}
+		}
+	}
+	for key, seal := range ciEnrollmentSourceSeals {
+		current[key] = seal
+	}
+
 	for key, seal := range current {
 		relative, joined, _ := strings.Cut(key, "|")
-		if relative != "internal/localapi" && relative != "internal/networkconnect" && relative != "internal/serverconfig" && relative != "internal/servicecatalog" && relative != "internal/hostinglifecycle" && relative != "internal/servicerecovery" && relative != "cmd/vsk-labs" && relative != "internal/hostingplatform" && relative != "internal/adapter/harbor" {
+		if relative != "internal/ci" && relative != "internal/localapi" && relative != "internal/networkconnect" && relative != "internal/serverconfig" && relative != "internal/servicecatalog" && relative != "internal/hostinglifecycle" && relative != "internal/servicerecovery" && relative != "cmd/vsk-labs" && relative != "internal/hostingplatform" && relative != "internal/adapter/harbor" {
 			t.Fatalf("unexpected source seal %q", relative)
 		}
 		names := strings.Split(joined, ",")
@@ -69,7 +84,7 @@ func TestNetworkConnectSourceSealsRejectDrift(t *testing.T) {
 		}
 		checked++
 	}
-	if checked != 14 {
-		t.Fatal("all fourteen platform and domain source variants must be sealed")
+	if checked != 15 {
+		t.Fatal("all fifteen platform and domain source variants must be sealed")
 	}
 }

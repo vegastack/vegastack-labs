@@ -856,6 +856,7 @@ func reviewedLocalClientDependencies(closure map[string]bool, modulePath, localA
 		sshTransportImport:                        true,
 		modulePath + "/internal/networkconnect":   true,
 		modulePath + "/internal/servicecatalog":   true,
+		modulePath + "/internal/ci":               true,
 		modulePath + "/internal/hostinglifecycle": true,
 		modulePath + "/internal/servicerecovery":  true,
 		modulePath + "/internal/apissh":           true,
@@ -879,6 +880,9 @@ func reviewedLocalClientDependencies(closure map[string]bool, modulePath, localA
 }
 
 func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, localAPIImport, localTransportImport, sshTransportImport string) bool {
+	if candidate.listed.ImportPath == modulePath+"/internal/ci" {
+		return approvedNetworkConnectPackage(candidate, modulePath, "internal/ci")
+	}
 	if candidate.listed.ImportPath == modulePath+"/internal/hostinglifecycle" {
 		return approvedServiceCatalogPackage(candidate, modulePath, "internal/hostinglifecycle")
 	}
