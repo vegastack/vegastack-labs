@@ -202,7 +202,7 @@ func ValidateServiceDeploymentDeclaration(d generated.DeclarationRevision) bool 
 		return true
 	}
 	in := d.ServiceDeployment
-	if in == nil || servicecatalog.ValidateDeploymentRequest(*in) != nil || d.ServiceImport != nil || d.NetworkEndpoint != nil || d.AuthorizationGrantBatch != nil || d.HostAliasClaim != nil || d.DeclarationType != "service.deployment" || d.DeclarationID != deploymentDeclarationID(*in) || len(d.Operations) != 1 || len(d.Extensions) != 0 || d.RecoveryEpoch != in.RecoveryEpoch {
+	if in == nil || d.CIEnrollment != nil || servicecatalog.ValidateDeploymentRequest(*in) != nil || d.ServiceImport != nil || d.NetworkEndpoint != nil || d.AuthorizationGrantBatch != nil || d.HostAliasClaim != nil || d.DeclarationType != "service.deployment" || d.DeclarationID != deploymentDeclarationID(*in) || len(d.Operations) != 1 || len(d.Extensions) != 0 || d.RecoveryEpoch != in.RecoveryEpoch {
 		return false
 	}
 	if d.Status == "draft" && (d.StateRevision != in.ExpectedStateRevision+1 || d.Revision != 1) {

@@ -63,6 +63,21 @@ func TestHostActionSourceSealRejectsChangedAddedOrImportedAuthority(t *testing.T
 		currentSeals[key] = seal
 	}
 
+	// #304 current fixtures use the new exact client/profile/pure-policy variants.
+	// Historical wave maps continue to describe their original bytes.
+	for key := range currentSeals {
+		relative := strings.SplitN(key, "|", 2)[0]
+		for currentKey := range ciEnrollmentSourceSeals {
+			if strings.HasPrefix(currentKey, relative+"|") {
+				delete(currentSeals, key)
+				break
+			}
+		}
+	}
+	for key, seal := range ciEnrollmentSourceSeals {
+		currentSeals[key] = seal
+	}
+
 	for key, seal := range currentSeals {
 		t.Run(key, func(t *testing.T) {
 			parts := strings.SplitN(key, "|", 2)

@@ -252,7 +252,7 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 		risk = string(authorization.RiskInfrastructure)
 	}
 
-	if declaration.ServiceImport != nil || declaration.AuthorizationGrantBatch != nil || declaration.NetworkEndpoint != nil {
+	if declaration.CIEnrollment != nil || declaration.ServiceImport != nil || declaration.AuthorizationGrantBatch != nil || declaration.NetworkEndpoint != nil {
 		risk = string(authorization.RiskControlPlane)
 	}
 	if declaration.HostingLifecycle != nil || declaration.ServiceRecovery != nil {
@@ -263,6 +263,9 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 		if service.config.AuthorizationBranch != "human" || service.config.ExecutorMode != "central" {
 			return store.PlanCommitResult{}, planError(generated.ErrorCodeAuthorizationDenied)
 		}
+	}
+	if declaration.CIEnrollment != nil && (service.config.AuthorizationBranch != "human" || service.config.ExecutorMode != "central") {
+		return store.PlanCommitResult{}, planError(generated.ErrorCodeAuthorizationDenied)
 	}
 	if declaration.ServiceDeployment != nil {
 		risk = string(authorization.RiskProductionLike)
@@ -402,6 +405,7 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 	candidate.HostingLifecycle = declaration.HostingLifecycle
 	candidate.ServiceRecovery = declaration.ServiceRecovery
 	candidate.ServiceDeployment = declaration.ServiceDeployment
+	candidate.CIEnrollment = declaration.CIEnrollment
 	candidate.ServiceImport = declaration.ServiceImport
 	candidate.NetworkEndpoint = declaration.NetworkEndpoint
 	if service.config.HostActionCredentials != nil && len(operations) == 1 && (operations[0].OperationType == "credential.activate" || operations[0].OperationType == "credential.rotate") {

@@ -1,5 +1,123 @@
 {
   "$defs": {
+    "ci-enrollment-binding": {
+      "additionalProperties": false,
+      "properties": {
+        "adapterId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "bindingId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "enrollmentId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "event": {
+          "enum": [
+            "push",
+            "workflow_dispatch"
+          ],
+          "type": "string"
+        },
+        "jobName": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "labels": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "type": "array"
+        },
+        "ownerId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "ref": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "repository": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "repositoryId": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "repositoryOwnerId": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "revision": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "runnerGroupId": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/ci-enrollment-binding"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "workflowDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "workflowId": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "workflowPath": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "enrollmentId",
+        "ownerId",
+        "bindingId",
+        "adapterId",
+        "repositoryId",
+        "repositoryOwnerId",
+        "repository",
+        "workflowId",
+        "workflowPath",
+        "workflowDigest",
+        "revision",
+        "ref",
+        "event",
+        "jobName",
+        "runnerGroupId",
+        "labels"
+      ],
+      "type": "object"
+    },
     "coolify-service-binding": {
       "additionalProperties": false,
       "properties": {
@@ -1085,6 +1203,13 @@
       "minLength": 2,
       "pattern": "^/[^\\x00]*$",
       "type": "string"
+    },
+    "ciEnrollmentBindings": {
+      "items": {
+        "$ref": "#/$defs/ci-enrollment-binding"
+      },
+      "maxItems": 128,
+      "type": "array"
     },
     "criticalBackupRoot": {
       "maxLength": 4096,

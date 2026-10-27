@@ -1,0 +1,153 @@
+{
+  "$defs": {
+    "ci-enrollment-definition": {
+      "additionalProperties": false,
+      "properties": {
+        "bindingDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "bindingId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "enrollmentId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "ownerId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/ci-enrollment-definition"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "enrollmentId",
+        "ownerId",
+        "bindingId",
+        "bindingDigest"
+      ],
+      "type": "object"
+    },
+    "ci-enrollment-record": {
+      "additionalProperties": false,
+      "properties": {
+        "admissionStatus": {
+          "enum": [
+            "not-qualified"
+          ],
+          "type": "string"
+        },
+        "definition": {
+          "$ref": "#/$defs/ci-enrollment-definition"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "registeredAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "registrationStatus": {
+          "enum": [
+            "registered"
+          ],
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/ci-enrollment-record"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "stateRevision": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "definition",
+        "revision",
+        "registrationStatus",
+        "admissionStatus",
+        "registeredAt",
+        "stateRevision",
+        "recoveryEpoch"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/ci-enrollment-list",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "enrollments": {
+      "items": {
+        "$ref": "#/$defs/ci-enrollment-record"
+      },
+      "maxItems": 100,
+      "type": "array"
+    },
+    "nextAfter": {
+      "maxLength": 128,
+      "minLength": 1,
+      "type": "string"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/ci-enrollment-list"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "stateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "enrollments",
+    "stateRevision",
+    "recoveryEpoch"
+  ],
+  "title": "VegaStack Labs ci enrollment list",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

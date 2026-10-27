@@ -159,6 +159,11 @@ func workflowDeclarationTargets(row discoveryRow, d generated.DeclarationRevisio
 			return deny()
 		}
 		add("service.deploy.prepare", "service.read", "service", d.ServiceDeployment.Definition.ServiceID)
+	case "ci.enrollment.register":
+		if d.CIEnrollment == nil || !ValidateCIEnrollmentDeclaration(d) {
+			return nil, actionError(generated.ErrorCodeAuthorizationDenied)
+		}
+		add("ci.enrollment.prepare", "ci.enrollment.read", "ci-enrollment", d.CIEnrollment.Definition.EnrollmentID)
 	case "service.import":
 		if d.ServiceImport == nil || !ValidateServiceImportDeclaration(d) {
 			return deny()

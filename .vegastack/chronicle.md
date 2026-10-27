@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 27-10-2026 — CI source policies can be enrolled through the existing approval flow ([#304](https://github.com/vegastack/vegastack-labs/issues/304))
+
+- **What:** Added scoped CI enrollment draft, list and show commands backed by the server API and SQLite. An exact approved plan registers a protected source policy; private repository/workflow details remain outside public output. Registration explicitly reports that job admission is not qualified.
+- **Why:** Internal source comparisons and runner transports could not establish durable operator-approved enrollment. This reuses the existing plan and acknowledgement engine before any job can be launched.
+- **How it went:** A GPT-6.1 Sol medium owner built the controller slice in parallel with artifact evidence work. Actual Linux SQLite/API tests exercised nine success and current-authority/failure branches. The first attempt used tmpfs and correctly failed the durability prerequisite; the corrected fixture used protected guest disk storage. No extra review round or live node/provider change was added.
+- **Changed:** Stable policy without a premature runner ID · private snapshot and public binding digest · exact local approved registration · current grant/device/lease/epoch checks · scoped CLI/API reads and matching human procedure.
+- **Decisions:** None. Existing server, SQLite, typed metadata and human approval remain authoritative. Registration is separate from job execution, host qualification and deployment.
+
+— approved by (omkarmohanta09) · built by Codex with a GPT-6.1 Sol medium implementation agent · branch feat/9.7-ci-enrollment
+
 ## 27-10-2026 — Image publication checks signed source and package evidence ([#306](https://github.com/vegastack/vegastack-labs/issues/306))
 
 - **What:** Added an internal path that verifies signed SLSA source/build claims and an SPDX package inventory for an exact image before publishing it through the existing registry adapter. Validly signed evidence with a wrong source or image package checksum cannot reach the registry. This verifies supplied build evidence; actual image and evidence generation remain separate.

@@ -463,7 +463,11 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 		return err
 	}
 	replacementComposition := hostReplacementComposition{authority: authority, repository: replacementRepository, gates: gateRepository, clock: time.Now}
-	coreRouter := runengine.CoreRouter{HostingLifecycle: &runengine.HostingLifecycleEffect{Repository: hostingSource.repo, Approvals: store.NewAcknowledgementRepository(authority), Apply: hostingSource.Apply}, ServiceRecovery: &runengine.ServiceRecoveryEffect{Repository: recoverySource.repo, Approvals: store.NewAcknowledgementRepository(authority), Recover: recoverySource.Recover}, ServiceDeployment: &runengine.ServiceDeploymentEffect{Repository: deploymentSource.repo, Approvals: store.NewAcknowledgementRepository(authority), Deploy: deploymentSource.Deploy}, ServiceImport: &runengine.ServiceImportEffect{Repository: serviceSource.repo, Approvals: store.NewAcknowledgementRepository(authority), VerifyImport: serviceSource.VerifyImport}, NetworkEndpoint: &runengine.NetworkEndpointEffect{Repository: store.NewNetworkEndpointRepository(authority), Approvals: store.NewAcknowledgementRepository(authority)}, Authorization: &runengine.GrantBatchEffect{Repository: store.NewGrantBatchRepository(authority), Approvals: store.NewAcknowledgementRepository(authority)}, HostReplacement: &runengine.HostReplacementEffect{Operations: replacementComposition, Approvals: store.NewAcknowledgementRepository(authority)}, Adoption: &runengine.HostAdoptionEffect{Repository: store.NewHostAdoptionRepository(authority), Approvals: store.NewAcknowledgementRepository(authority)}, DiscoveryTarget: discoveryEffect, Gate: coreGate, Recovery: recoveryCore, Schedule: scheduleCore, ScheduleObserve: scheduleObserver}
+	ciRepo := store.NewCIEnrollmentRepository(authority)
+	if err := api.RegisterCIEnrollmentOperations(application, api.CIEnrollmentOperations{Enrollments: ciRepo, Declarations: declarations, Results: factory, Prepare: ciRepo.Prepare}); err != nil {
+		return err
+	}
+	coreRouter := runengine.CoreRouter{CIEnrollment: &runengine.CIEnrollmentEffect{Repository: ciRepo, Approvals: store.NewAcknowledgementRepository(authority)}, HostingLifecycle: &runengine.HostingLifecycleEffect{Repository: hostingSource.repo, Approvals: store.NewAcknowledgementRepository(authority), Apply: hostingSource.Apply}, ServiceRecovery: &runengine.ServiceRecoveryEffect{Repository: recoverySource.repo, Approvals: store.NewAcknowledgementRepository(authority), Recover: recoverySource.Recover}, ServiceDeployment: &runengine.ServiceDeploymentEffect{Repository: deploymentSource.repo, Approvals: store.NewAcknowledgementRepository(authority), Deploy: deploymentSource.Deploy}, ServiceImport: &runengine.ServiceImportEffect{Repository: serviceSource.repo, Approvals: store.NewAcknowledgementRepository(authority), VerifyImport: serviceSource.VerifyImport}, NetworkEndpoint: &runengine.NetworkEndpointEffect{Repository: store.NewNetworkEndpointRepository(authority), Approvals: store.NewAcknowledgementRepository(authority)}, Authorization: &runengine.GrantBatchEffect{Repository: store.NewGrantBatchRepository(authority), Approvals: store.NewAcknowledgementRepository(authority)}, HostReplacement: &runengine.HostReplacementEffect{Operations: replacementComposition, Approvals: store.NewAcknowledgementRepository(authority)}, Adoption: &runengine.HostAdoptionEffect{Repository: store.NewHostAdoptionRepository(authority), Approvals: store.NewAcknowledgementRepository(authority)}, DiscoveryTarget: discoveryEffect, Gate: coreGate, Recovery: recoveryCore, Schedule: scheduleCore, ScheduleObserve: scheduleObserver}
 	credentialRepository := store.NewCredentialRepository(authority)
 	if err := api.RegisterHostReplacementOperations(application, api.HostReplacementOperations{Replacements: replacementRepository, Declarations: declarations, Results: factory}); err != nil {
 		return err
@@ -632,6 +636,10 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 	// are present rather than being substituted with fixture authority.
 	restoreRepository := store.NewRestoreRepository(authority)
 	candidateOpener := func(ctx context.Context, path string) (*store.Store, error) {
+		ciPolicies, err := ciEnrollmentPolicies(profile.CIEnrollmentBindings)
+		if err != nil {
+			return nil, err
+		}
 		policies, err := servicePolicies(profile.ServiceBindings)
 		if err != nil {
 			return nil, err
@@ -648,7 +656,7 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 		if err != nil {
 			return nil, err
 		}
-		return operations.openStore(ctx, store.Config{HostingLifecycleProfiles: hostingPolicies, ServiceRecoveryPolicies: recoveryPolicies, ServiceDeploymentPolicies: deploymentPolicy, ServiceImportPolicies: policies, NetworkConnectExcludedHostIDs: profile.NetworkConnectExcludedHostIDs, DatabasePath: path, Mode: store.OpenExisting, ExpectedUID: profile.SocketOwnerUID, ToolVersion: operations.build.ToolVersion, BuildVersion: operations.build.ReleaseBuildID})
+		return operations.openStore(ctx, store.Config{CIEnrollmentPolicies: ciPolicies, HostingLifecycleProfiles: hostingPolicies, ServiceRecoveryPolicies: recoveryPolicies, ServiceDeploymentPolicies: deploymentPolicy, ServiceImportPolicies: policies, NetworkConnectExcludedHostIDs: profile.NetworkConnectExcludedHostIDs, DatabasePath: path, Mode: store.OpenExisting, ExpectedUID: profile.SocketOwnerUID, ToolVersion: operations.build.ToolVersion, BuildVersion: operations.build.ReleaseBuildID})
 	}
 	health, err := authority.Health(ctx)
 	if err != nil {
@@ -730,6 +738,10 @@ func (operations *Operations) openAuthorityWithPromotion(ctx context.Context, pr
 	if err := rejectLegacyControlDatabase(operations.databasePath); err != nil {
 		return nil, err
 	}
+	ciPolicies, err := ciEnrollmentPolicies(profile.CIEnrollmentBindings)
+	if err != nil {
+		return nil, err
+	}
 	policies, err := servicePolicies(profile.ServiceBindings)
 	if err != nil {
 		return nil, err
@@ -747,7 +759,7 @@ func (operations *Operations) openAuthorityWithPromotion(ctx context.Context, pr
 		return nil, err
 	}
 	configFor := func(path string) store.Config {
-		return store.Config{HostingLifecycleProfiles: hostingPolicies, ServiceRecoveryPolicies: recoveryPolicies, ServiceDeploymentPolicies: deploymentPolicy, ServiceImportPolicies: policies, NetworkConnectExcludedHostIDs: profile.NetworkConnectExcludedHostIDs, DatabasePath: path, Mode: store.OpenExisting, Recovery: migrationRecoveryFor(path, profile.SocketOwnerUID), ExpectedUID: profile.SocketOwnerUID, ToolVersion: operations.build.ToolVersion, BuildVersion: operations.build.ReleaseBuildID}
+		return store.Config{CIEnrollmentPolicies: ciPolicies, HostingLifecycleProfiles: hostingPolicies, ServiceRecoveryPolicies: recoveryPolicies, ServiceDeploymentPolicies: deploymentPolicy, ServiceImportPolicies: policies, NetworkConnectExcludedHostIDs: profile.NetworkConnectExcludedHostIDs, DatabasePath: path, Mode: store.OpenExisting, Recovery: migrationRecoveryFor(path, profile.SocketOwnerUID), ExpectedUID: profile.SocketOwnerUID, ToolVersion: operations.build.ToolVersion, BuildVersion: operations.build.ReleaseBuildID}
 	}
 	authority, err := operations.openStore(ctx, configFor(operations.databasePath))
 	if err != nil {

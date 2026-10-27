@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/endpoint-registry",
-  "schemaVersion": "1.29.0",
+  "schemaVersion": "1.30.0",
   "endpoints": [
     {
       "id": "api.v1.audit-checkpoints.create",
@@ -154,6 +154,46 @@
       "availability": "available",
       "ownerPhase": "5",
       "dataSchema": "vegastack-labs.dev/browser-backup-status-data",
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.ci.enrollments.drafts.create",
+      "method": "POST",
+      "path": "/api/v1/ci/enrollments/drafts",
+      "availability": "available",
+      "ownerPhase": "9",
+      "requestSchema": "vegastack-labs.dev/ci-enrollment-draft-request",
+      "dataSchema": "vegastack-labs.dev/declaration-revision",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.ci.enrollments.get",
+      "method": "GET",
+      "path": "/api/v1/ci/enrollments/{enrollmentID}",
+      "availability": "available",
+      "ownerPhase": "9",
+      "dataSchema": "vegastack-labs.dev/ci-enrollment-record",
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.ci.enrollments.list",
+      "method": "GET",
+      "path": "/api/v1/ci/enrollments",
+      "availability": "available",
+      "ownerPhase": "9",
+      "querySchema": "vegastack-labs.dev/service-read-query",
+      "dataSchema": "vegastack-labs.dev/ci-enrollment-list",
       "stream": "finite",
       "audiences": [
         "browser",

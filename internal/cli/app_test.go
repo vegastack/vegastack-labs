@@ -87,6 +87,15 @@ func TestEveryGeneratedCommandHasTruthfulRuntimeBehavior(t *testing.T) {
 				files.content, _ = json.Marshal(syntheticScheduledPolicy())
 			}
 			code, stdout, stderr := runTestAppWithOptions(t, context.Background(), arguments, nil, WithInput(strings.NewReader("encrypted-fixture")), WithReleaseOperations(operations), WithServerOperations(serverOperations), WithControlOperations(controlOperations, files), WithCredentialControlOperations(credentialOperations))
+
+			// The generic control stub lacks this optional typed capability. Dedicated
+			// CI enrollment tests exercise successful forwarding with its configured control.
+			if name := commandName(command.Path); name == generated.CommandNameCiEnrollmentDraft || name == generated.CommandNameCiEnrollmentList || name == generated.CommandNameCiEnrollmentShow {
+				if code != 6 || stderr != "" || !strings.Contains(stdout, `"code":"PREREQUISITE_BLOCKED"`) || !strings.Contains(stdout, "ci-enrollment-control") {
+					t.Fatalf("unconfigured CI enrollment command: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+				}
+				return
+			}
 			// The generic control stub intentionally lacks deployment capability;
 			// exact deployment commands must fail before reading a draft.
 			if commandName(command.Path) == generated.CommandNameServiceDeploymentDraft || commandName(command.Path) == generated.CommandNameServiceDeploymentShow {

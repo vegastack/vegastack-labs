@@ -639,6 +639,19 @@
           "github.com/vegastack/vegastack-labs/internal/servicerecovery"
         ],
         "mutationBoundaryDigest": "sha256:4ed4cdb34094b57bc65771a675fab1017b6c5293326e1e581837c1a3d6127b81"
+      },
+      {
+        "id": "phase9-issue304-v1",
+        "issue": 304,
+        "commands": [
+          "ci enrollment draft",
+          "ci enrollment list",
+          "ci enrollment show"
+        ],
+        "imports": [
+          "github.com/vegastack/vegastack-labs/internal/ci"
+        ],
+        "mutationBoundaryDigest": "sha256:9198c60cb999bb115ff447302956995b32f38328f542178dd7573b59a7a4b05a"
       }
     ]
   },

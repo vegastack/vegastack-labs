@@ -145,9 +145,12 @@ func checkpointDigest(data []byte) audit.Fingerprint {
 	return audit.Fingerprint("sha256:" + hex.EncodeToString(sum[:]))
 }
 
-type CoreRouter struct{ Gate, Checkpoint, Recovery, Schedule, ScheduleObserve, DiscoveryTarget, Adoption, HostReplacement, Authorization, NetworkEndpoint, ServiceImport, ServiceDeployment, HostingLifecycle, ServiceRecovery CoreEffect }
+type CoreRouter struct{ CIEnrollment, Gate, Checkpoint, Recovery, Schedule, ScheduleObserve, DiscoveryTarget, Adoption, HostReplacement, Authorization, NetworkEndpoint, ServiceImport, ServiceDeployment, HostingLifecycle, ServiceRecovery CoreEffect }
 
 func (router CoreRouter) Execute(ctx context.Context, binding ExactStepBinding) (adapter.Effect, error) {
+	if binding.Step.AdapterID == "core.ci-enrollment" && router.CIEnrollment != nil {
+		return router.CIEnrollment.Execute(ctx, binding)
+	}
 	if binding.Step.AdapterID == "hosting-lifecycle" && router.HostingLifecycle != nil {
 		return router.HostingLifecycle.Execute(ctx, binding)
 	}
@@ -194,6 +197,9 @@ func (router CoreRouter) Execute(ctx context.Context, binding ExactStepBinding) 
 }
 
 func (router CoreRouter) Verify(ctx context.Context, binding ExactStepBinding, result adapter.Effect) (adapter.Verification, error) {
+	if binding.Step.AdapterID == "core.ci-enrollment" && router.CIEnrollment != nil {
+		return router.CIEnrollment.Verify(ctx, binding, result)
+	}
 	if binding.Step.AdapterID == "hosting-lifecycle" && router.HostingLifecycle != nil {
 		return router.HostingLifecycle.Verify(ctx, binding, result)
 	}
