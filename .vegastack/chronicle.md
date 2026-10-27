@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 27-10-2026 — CI source and assigned-job identities can be compared explicitly ([#296](https://github.com/vegastack/vegastack-labs/issues/296))
+
+- **What:** Added an internal enrollment comparison and read-only GitHub observer for the exact repository, workflow file, revision, run attempt and assigned job/runner. A matching observation is inert; it cannot start a job, retrieve a deployment credential or authorize a change. These packages are the first Phase9 foundation and do not add a public CI command yet.
+- **Why:** The existing deployment engine needs trustworthy source/job observations before a managed CI path can use its leases.
+- **How it went:** Two GPT-6.1 Sol medium implementation owners built the small packages with focused local comparison/HTTPS tests. The initial GitHub issue was mistakenly created using another account's connector; work stopped, the issue was recreated under the operator's account with its records preserved, and the operator authorized resumption. No independent reviewer round was added.
+- **Changed:** Exact enrollment binding and freshness denial · bounded read-only GitHub run/job/workflow observation · explicit remaining Phase9 delivery map.
+- **Decisions:** None. The existing one-executable, server-owned authority, working-first mandate and earlier deferrals remain controlling. GitHub writes for this project use the verified operator account.
+
+— approved by (omkarmohanta09) · built by Codex with GPT-6.1 Sol medium implementation agents · branch feat/9.1-ci-admission
+
 ## 26-10-2026 — Services can be configured, placed and recovered through one approval flow ([#293](https://github.com/vegastack/vegastack-labs/issues/293))
 
 - **What:** Added the remaining Phase8 software paths for service settings and explicit capacity-aware placement, owned Coolify/Harbor resources, and consistent encrypted stack recovery. The existing executable, Console, database and exact approval/apply flow remain the operator entry points. Provider installation uses the existing finite host-action path; no new daemon or signing system was added.
