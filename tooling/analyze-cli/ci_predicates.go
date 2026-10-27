@@ -15,6 +15,9 @@ import (
 // These two records query current persisted human/actor grants. They dispatch
 // no operation. Permit only this exact literal in the sealed CI execution file.
 func reviewedCIJobGrantPredicates(candidate checkedSourcePackage, file *ast.File, literal *ast.CompositeLit, generatedImport string) bool {
+	if reviewedCIJobPreparationPredicates(candidate, file, literal, generatedImport) {
+		return true
+	}
 	if candidate.listed.ImportPath != strings.TrimSuffix(generatedImport, "/internal/generated")+"/internal/store" {
 		return false
 	}
@@ -104,4 +107,79 @@ func ciPredicateString(expr ast.Expr) string {
 		return ""
 	}
 	return value
+}
+
+// The preparation checks are exactly three current grant queries, not command
+// dispatch records. This independent seal does not widen the execution seal.
+func reviewedCIJobPreparationPredicates(candidate checkedSourcePackage, file *ast.File, literal *ast.CompositeLit, generatedImport string) bool {
+	if candidate.listed.ImportPath != strings.TrimSuffix(generatedImport, "/internal/generated")+"/internal/store" {
+		return false
+	}
+	names := append(append([]string(nil), candidate.listed.GoFiles...), candidate.listed.CgoFiles...)
+	sort.Strings(names)
+	owner := false
+	for i, parsed := range candidate.files {
+		if parsed == file && i < len(names) && names[i] == "ci_job.go" {
+			owner = true
+		}
+	}
+	if !owner {
+		return false
+	}
+	raw, e := os.ReadFile(filepath.Join(candidate.listed.Dir, "ci_job.go"))
+	if e != nil || fmt.Sprintf("%x", sha256.Sum256(raw)) != "0299c1b8c621ae4ed7599da272abb3597c975c1b861c3049c6e6c82d2c4e5e99" {
+		return false
+	}
+	array, ok := literal.Type.(*ast.ArrayType)
+	if !ok || array.Len != nil || len(literal.Elts) != 3 {
+		return false
+	}
+	record, ok := array.Elt.(*ast.StructType)
+	if !ok || record.Fields == nil || len(record.Fields.List) != 2 {
+		return false
+	}
+	if !ciPredicateFields(record.Fields.List[0], []string{"id", "kind", "action", "cap"}, "string") || !ciPredicateFields(record.Fields.List[1], []string{"admin"}, "bool") {
+		return false
+	}
+	for i, row := range literal.Elts {
+		values, ok := row.(*ast.CompositeLit)
+		if !ok || values.Type != nil || len(values.Elts) != 5 {
+			return false
+		}
+		if i == 0 {
+			if !ciPredicateSelector(values.Elts[0], "in", "Definition", "EnrollmentID") || ciPredicateString(values.Elts[1]) != "ci-enrollment" || ciPredicateString(values.Elts[2]) != "author" || ciPredicateString(values.Elts[3]) != "ci.job.prepare" || !ciPredicateIdent(values.Elts[4], "false") {
+				return false
+			}
+		} else {
+			action, capability, admin := "read", "host.read", "false"
+			if i == 2 {
+				action, capability, admin = "author", "host.action.prepare", "true"
+			}
+			if !ciPredicateSelector(values.Elts[0], "in", "HostID") || ciPredicateString(values.Elts[1]) != "host" || ciPredicateString(values.Elts[2]) != action || ciPredicateString(values.Elts[3]) != capability || !ciPredicateIdent(values.Elts[4], admin) {
+				return false
+			}
+		}
+	}
+	for _, d := range file.Decls {
+		fn, ok := d.(*ast.FuncDecl)
+		if !ok || fn.Name.Name != "validate" || fn.Body == nil {
+			continue
+		}
+		found := false
+		ast.Inspect(fn.Body, func(n ast.Node) bool {
+			if r, ok := n.(*ast.RangeStmt); ok && r.X == literal {
+				found = true
+			}
+			return !found
+		})
+		return found
+	}
+	return false
+}
+func ciPredicateSelector(expr ast.Expr, path ...string) bool {
+	if len(path) == 1 {
+		return ciPredicateIdent(expr, path[0])
+	}
+	selector, ok := expr.(*ast.SelectorExpr)
+	return ok && selector.Sel.Name == path[len(path)-1] && ciPredicateSelector(selector.X, path[:len(path)-1]...)
 }
