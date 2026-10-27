@@ -121,29 +121,7 @@ func (c *Client) PrepareRegistration(ctx context.Context, q RunnerRegistrationRe
 	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	if e := c.organization(ctx, q.Organization, v, q.Check); e != nil {
-		return out, e
-	}
-	var repo repository
-	if _, e := c.runnerRequest(ctx, http.MethodGet, "/repos/"+q.Repository, v, q.Check, &repo, nil); e != nil {
-		return out, e
-	}
-	if !registrationRepository(repo, q) {
-		return out, ErrIdentity
-	}
-	groupPath := "/orgs/" + q.Organization.Login + "/actions/runner-groups/" + strconv.FormatInt(q.GroupID, 10)
-	var group struct {
-		ID         int64  `json:"id"`
-		Name       string `json:"name"`
-		Visibility string `json:"visibility"`
-	}
-	if _, e := c.runnerRequest(ctx, http.MethodGet, groupPath, v, q.Check, &group, nil); e != nil {
-		return out, e
-	}
-	if group.ID != q.GroupID || group.Name != q.GroupName || group.Visibility != "selected" {
-		return out, ErrIdentity
-	}
-	if e := c.selectedRepository(ctx, groupPath+"/repositories", q, v); e != nil {
+	if e := c.registrationPolicy(ctx, q, v); e != nil {
 		return out, e
 	}
 	// The callback runs before the request; only actual dispatch sets attempted.
@@ -186,6 +164,34 @@ func (c *Client) PrepareRegistration(ctx context.Context, q RunnerRegistrationRe
 	}
 	out.Stage = "consumed"
 	return out, nil
+}
+func (c *Client) registrationPolicy(ctx context.Context, q RunnerRegistrationRequest, v *credentialref.Value) error {
+	if e := c.organization(ctx, q.Organization, v, q.Check); e != nil {
+		return e
+	}
+	var repo repository
+	if _, e := c.runnerRequest(ctx, http.MethodGet, "/repos/"+q.Repository, v, q.Check, &repo, nil); e != nil {
+		return e
+	}
+	if !registrationRepository(repo, q) {
+		return ErrIdentity
+	}
+	groupPath := "/orgs/" + q.Organization.Login + "/actions/runner-groups/" + strconv.FormatInt(q.GroupID, 10)
+	var group struct {
+		ID         int64  `json:"id"`
+		Name       string `json:"name"`
+		Visibility string `json:"visibility"`
+	}
+	if _, e := c.runnerRequest(ctx, http.MethodGet, groupPath, v, q.Check, &group, nil); e != nil {
+		return e
+	}
+	if group.ID != q.GroupID || group.Name != q.GroupName || group.Visibility != "selected" {
+		return ErrIdentity
+	}
+	if e := c.selectedRepository(ctx, groupPath+"/repositories", q, v); e != nil {
+		return e
+	}
+	return nil
 }
 func registrationRepository(r repository, q RunnerRegistrationRequest) bool {
 	return r.ID == positiveID(q.RepositoryID) && r.Owner.ID == q.Organization.ID && r.Owner.Login == q.Organization.Login && r.FullName == q.Repository && r.Name == strings.Split(q.Repository, "/")[1]

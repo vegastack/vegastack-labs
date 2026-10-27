@@ -128,6 +128,9 @@ func (j job) matches(t Target) bool {
 // Observe uses only constructed routes; it never follows response URLs. Nil
 // credentials explicitly select public reads, without consulting environment.
 func (c *Client) Observe(ctx context.Context, t Target, v *credentialref.Value) (ci.Observation, error) {
+	return c.observe(ctx, t, v, nil)
+}
+func (c *Client) observe(ctx context.Context, t Target, v *credentialref.Value, check func() error) (ci.Observation, error) {
 	empty := ci.Observation{}
 	b := t.Enrollment.Binding
 	if ctx == nil || c == nil || c.http == nil || ci.ValidateEnrollment(t.Enrollment) != nil || !repositoryName.MatchString(b.Repository) || !workflowPath.MatchString(b.WorkflowPath) || strings.Contains(b.WorkflowPath, "..") || t.Attempt == 0 {
@@ -150,7 +153,7 @@ func (c *Client) Observe(ctx context.Context, t Target, v *credentialref.Value) 
 	prefix := "/repos/" + b.Repository
 	current := prefix + "/actions/runs/" + t.RunID
 	var repo repository
-	if e := c.get(ctx, prefix, v, &repo); e != nil {
+	if e := c.getChecked(ctx, prefix, v, &repo, check); e != nil {
 		return empty, e
 	}
 	if !repo.matches(b) {
@@ -158,7 +161,7 @@ func (c *Client) Observe(ctx context.Context, t Target, v *credentialref.Value) 
 	}
 	readRun := func(path string) error {
 		var r run
-		if e := c.get(ctx, path, v, &r); e != nil {
+		if e := c.getChecked(ctx, path, v, &r, check); e != nil {
 			return e
 		}
 		if !r.matches(t) {
@@ -173,10 +176,10 @@ func (c *Client) Observe(ctx context.Context, t Target, v *credentialref.Value) 
 	if e := readRun(attempt); e != nil {
 		return empty, e
 	}
-	if e := c.jobs(ctx, attempt+"/jobs", t, v); e != nil {
+	if e := c.jobsChecked(ctx, attempt+"/jobs", t, v, check); e != nil {
 		return empty, e
 	}
-	if e := c.workflow(ctx, prefix+"/contents/"+b.WorkflowPath+"?ref="+url.QueryEscape(b.Revision), b, v); e != nil {
+	if e := c.workflowChecked(ctx, prefix+"/contents/"+b.WorkflowPath+"?ref="+url.QueryEscape(b.Revision), b, v, check); e != nil {
 		return empty, e
 	}
 	if e := readRun(current); e != nil {
@@ -187,44 +190,30 @@ func (c *Client) Observe(ctx context.Context, t Target, v *credentialref.Value) 
 	return ci.Observation{Binding: b, HeadRepositoryID: b.RepositoryID, RunID: t.RunID, JobID: t.JobID, Attempt: t.Attempt, RunStatus: "in_progress", JobStatus: "in_progress", ObservedAt: time.Now().UTC()}, nil
 }
 func (c *Client) jobs(ctx context.Context, path string, t Target, v *credentialref.Value) error {
-	seen := map[int64]bool{}
-	total := -1
-	found := false
-	for page := 1; page <= 10; page++ {
-		var result struct {
-			Count *int  `json:"total_count"`
-			Jobs  []job `json:"jobs"`
-		}
-		if e := c.get(ctx, path+"?page="+strconv.Itoa(page)+"&per_page=100", v, &result); e != nil {
-			return e
-		}
-		if result.Count == nil || *result.Count < 1 || *result.Count > 1000 || len(result.Jobs) > 100 {
-			return ErrIdentity
-		}
-		if total < 0 {
-			total = *result.Count
-		}
-		if total != *result.Count {
-			return ErrIdentity
-		}
-		expected := min(100, total-len(seen))
-		if len(result.Jobs) != expected {
-			return ErrIdentity
-		}
-		for _, j := range result.Jobs {
-			if j.ID <= 0 || seen[j.ID] || j.RunID != positiveID(t.RunID) || j.SHA != t.Enrollment.Binding.Revision {
-				return ErrIdentity
-			}
-			seen[j.ID] = true
-			if j.ID == positiveID(t.JobID) {
+	return c.jobsChecked(ctx, path, t, v, nil)
+}
+func (c *Client) jobsChecked(ctx context.Context, path string, t Target, v *credentialref.Value, check func() error) error {
+	jobs, err := c.listJobs(ctx, path, t, v, check)
+	if err != nil {
+		return err
+	}
+	if check != nil {
+		owned := 0
+		for _, j := range jobs {
+			if j.RunnerID == positiveID(t.Enrollment.Binding.RunnerID) {
+				owned++
 				if !j.matches(t) {
 					return ErrIdentity
 				}
-				found = true
 			}
 		}
-		if len(seen) == total {
-			if !found {
+		if owned != 1 {
+			return ErrIdentity
+		}
+	}
+	for _, j := range jobs {
+		if j.ID == positiveID(t.JobID) {
+			if !j.matches(t) {
 				return ErrIdentity
 			}
 			return nil
@@ -232,7 +221,44 @@ func (c *Client) jobs(ctx context.Context, path string, t Target, v *credentialr
 	}
 	return ErrIdentity
 }
+func (c *Client) listJobs(ctx context.Context, path string, t Target, v *credentialref.Value, check func() error) ([]job, error) {
+	seen := map[int64]bool{}
+	total := -1
+	all := []job{}
+	for page := 1; page <= 10; page++ {
+		var result struct {
+			Count *int  `json:"total_count"`
+			Jobs  []job `json:"jobs"`
+		}
+		if e := c.getChecked(ctx, path+"?page="+strconv.Itoa(page)+"&per_page=100", v, &result, check); e != nil {
+			return nil, e
+		}
+		if result.Count == nil || *result.Count < 1 || *result.Count > 1000 || len(result.Jobs) > 100 {
+			return nil, ErrIdentity
+		}
+		if total < 0 {
+			total = *result.Count
+		}
+		if total != *result.Count || len(result.Jobs) != min(100, total-len(seen)) {
+			return nil, ErrIdentity
+		}
+		for _, j := range result.Jobs {
+			if j.ID <= 0 || seen[j.ID] || j.RunID != positiveID(t.RunID) || j.SHA != t.Enrollment.Binding.Revision {
+				return nil, ErrIdentity
+			}
+			seen[j.ID] = true
+			all = append(all, j)
+		}
+		if len(seen) == total {
+			return all, nil
+		}
+	}
+	return nil, ErrIdentity
+}
 func (c *Client) workflow(ctx context.Context, path string, b ci.Binding, v *credentialref.Value) error {
+	return c.workflowChecked(ctx, path, b, v, nil)
+}
+func (c *Client) workflowChecked(ctx context.Context, path string, b ci.Binding, v *credentialref.Value, check func() error) error {
 	var f struct {
 		Type     string `json:"type"`
 		Path     string `json:"path"`
@@ -241,7 +267,7 @@ func (c *Client) workflow(ctx context.Context, path string, b ci.Binding, v *cre
 		Content  string `json:"content"`
 		SHA      string `json:"sha"`
 	}
-	if e := c.get(ctx, path, v, &f); e != nil {
+	if e := c.getChecked(ctx, path, v, &f, check); e != nil {
 		return e
 	}
 	if f.Type != "file" || f.Path != b.WorkflowPath || f.Encoding != "base64" || f.Size == nil || *f.Size < 1 || *f.Size > maxWorkflow {
@@ -266,6 +292,9 @@ func (c *Client) workflow(ctx context.Context, path string, b ci.Binding, v *cre
 	return nil
 }
 func (c *Client) get(ctx context.Context, path string, v *credentialref.Value, out any) error {
+	return c.getChecked(ctx, path, v, out, nil)
+}
+func (c *Client) getChecked(ctx context.Context, path string, v *credentialref.Value, out any, check func() error) error {
 	req, e := http.NewRequestWithContext(ctx, http.MethodGet, c.base+path, nil)
 	if e != nil {
 		return ErrInput
@@ -274,6 +303,11 @@ func (c *Client) get(ctx context.Context, path string, v *credentialref.Value, o
 	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 	if v != nil {
 		req.Header.Set("Authorization", "Bearer "+string(v.Bytes()))
+	}
+	if check != nil {
+		if e := checked(ctx, check); e != nil {
+			return e
+		}
 	}
 	res, e := c.http.Do(req)
 	if e != nil {
