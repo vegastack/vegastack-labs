@@ -155,8 +155,8 @@ type IntentStore interface {
 type Config struct {
 	HostingLifecycleProfiles      []hostinglifecycle.Profile
 	ServiceRecoveryPolicies       []servicerecovery.Policy
-	CIEnrollmentPolicies []CIEnrollmentPolicy
- ServiceImportPolicies         []servicecatalog.Policy
+	CIEnrollmentPolicies          []CIEnrollmentPolicy
+	ServiceImportPolicies         []servicecatalog.Policy
 	ServiceDeploymentPolicies     []servicecatalog.DeploymentPolicy
 	NetworkConnectExcludedHostIDs []string
 	InitialSetup                  *InitialSetup
