@@ -409,3 +409,22 @@ test("Phase8 finish admits only exact reads and inert operator drafts", async(t)
   }
  }
 });
+
+
+test("approved #313 CI job draft retains its exact finite operator contract", async (t) => {
+  const registry = JSON.parse(await readFile(path.join(process.cwd(), "schemas/v1/endpoint-registry.json"), "utf8"));
+  const id = "api.v1.ci.jobs.drafts.create";
+  assert.equal((await verifyReadAPI()).status, "pass");
+  for (const mutation of ["method", "path", "request-schema", "data-schema", "sibling"]) {
+    const copy = structuredClone(registry);
+    const endpoint = copy.endpoints.find((endpoint) => endpoint.id === id);
+    assert.ok(endpoint);
+    if (mutation === "method") endpoint.method = "GET";
+    else if (mutation === "path") endpoint.path = "/api/v1/ci/jobs/execute";
+    else if (mutation === "request-schema") endpoint.requestSchema = "vegastack-labs.dev/ci-enrollment-draft-request";
+    else if (mutation === "data-schema") endpoint.dataSchema = "vegastack-labs.dev/run";
+    else copy.endpoints.push({...endpoint, id: "api.v1.ci.jobs.execute", path: "/api/v1/ci/jobs/execute"});
+    const root = await fixtureRepo(t, {"schemas/v1/endpoint-registry.json": `${JSON.stringify(copy)}\n`});
+    assert.ok((await verifyReadAPI(root)).codes.includes("READ_API_ENDPOINT_DRIFT"), mutation);
+  }
+});
