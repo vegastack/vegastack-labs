@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 27-10-2026 — CI gains protected runner registration and a held-job stop boundary ([#302](https://github.com/vegastack/vegastack-labs/issues/302), [#303](https://github.com/vegastack/vegastack-labs/issues/303))
+
+- **What:** Added internal Linux primitives for sending a transient registration token through the stock runner's hidden terminal prompt and holding a job until an exact controller decision. Whole-job termination uses an already-owned cgroup handle and verifies that the subtree is empty. These primitives prepare the controller integration; they do not activate a public CI command or qualify a runner host.
+- **Why:** Registration tokens must stay out of process arguments and environment. Rejecting a job by merely failing a startup hook can leave later conditional steps eligible, so denial must stop the whole job.
+- **How it went:** Two GPT-6.1 Sol medium implementation threads worked on separate packages. Native terminal and kernel fixtures ran in the explicitly authorized disposable Linux guest. The first threaded-cgroup fixture had an invalid parent arrangement; it was corrected, and the real child/descendant kill and surviving-sibling checks passed. No independent reviewer round or real provider/fleet operation was added.
+- **Changed:** Private registration terminal and bounded fixed diagnostics · exact lifecycle/run/job/attempt/plan/lease/epoch admission frame · held failure path when termination is uncertain · scoped Linux process and kernel evidence.
+- **Decisions:** None. Existing server-owned plans, credentials, one executable, prior deferrals and excluded nodes remain controlling. Full sandbox, immutable launcher startup, durable admission consumption and actual GitHub scheduler validation remain separate requirements.
+
+— approved by (omkarmohanta09) · built by Codex with GPT-6.1 Sol medium implementation agents · branch feat/9.5-ci-native-lifecycle
+
 ## 27-10-2026 — CI provider steps gain exact registration and image-publication protocols ([#298](https://github.com/vegastack/vegastack-labs/issues/298), [#299](https://github.com/vegastack/vegastack-labs/issues/299))
 
 - **What:** Added internal provider transports for preparing transient runner registration, cleaning up an exact owned offline runner, and publishing one immutable OCI image into one registry repository. The token stays within a synchronous protected consumer; publication independently verifies the remote manifest bytes. These are building blocks for the later server-owned CI flow, with no public operational entry point in this delivery.
