@@ -129,6 +129,7 @@ func ioVerifyWithContext(t *testing.T, ctx context.Context, artifact, bundleJSON
 }
 
 type syntheticFixtureOptions struct {
+	statement         []byte
 	withoutSCT        bool
 	expiredAtObserver bool
 	artifact          []byte
@@ -214,6 +215,10 @@ func newSyntheticFixture(t *testing.T, options syntheticFixtureOptions) syntheti
 		`{"_type":"https://in-toto.io/Statement/v0.1","predicateType":"https://example.invalid/vegastack/release-fixture/v1","subject":[{"name":"vsk-labs-synthetic-artifact","digest":{"sha256":"%x"}}],"predicate":{}}`,
 		artifactDigest,
 	))
+	if options.statement != nil {
+		statement = options.statement
+	}
+
 	signer, err := signature.LoadECDSASignerVerifier(signingKey, crypto.SHA256)
 	if err != nil {
 		t.Fatal(err)

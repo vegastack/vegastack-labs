@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 27-10-2026 — Image publication checks signed source and package evidence ([#306](https://github.com/vegastack/vegastack-labs/issues/306))
+
+- **What:** Added an internal path that verifies signed SLSA source/build claims and an SPDX package inventory for an exact image before publishing it through the existing registry adapter. Validly signed evidence with a wrong source or image package checksum cannot reach the registry. This verifies supplied build evidence; actual image and evidence generation remain separate.
+- **Why:** Image-digest publication alone cannot show which source produced the image or bind an SBOM to it. The existing offline Sigstore verifier and registry transport provide the required small composition.
+- **How it went:** A GPT-6.1 Sol medium owner implemented this independently of the controller enrollment work. Actual synthetic signatures and a local HTTPS registry exercise the success path and semantic denials; no new signing service, generator, dependency or independent review round was added.
+- **Changed:** Exact standard attestation subjects and source/build bindings · package-level SPDX checks · frozen candidate bytes · verified publication with existing attempted-effect receipts.
+- **Decisions:** None. Existing server-owned authorization and scoped credential boundaries remain required; this package does not admit a job, authorize deployment or qualify real infrastructure.
+
+— approved by (omkarmohanta09) · built by Codex with a GPT-6.1 Sol medium implementation agent · branch feat/9.8-build-evidence
+
 ## 27-10-2026 — CI gains protected runner registration and a held-job stop boundary ([#302](https://github.com/vegastack/vegastack-labs/issues/302), [#303](https://github.com/vegastack/vegastack-labs/issues/303))
 
 - **What:** Added internal Linux primitives for sending a transient registration token through the stock runner's hidden terminal prompt and holding a job until an exact controller decision. Whole-job termination uses an already-owned cgroup handle and verifies that the subtree is empty. These primitives prepare the controller integration; they do not activate a public CI command or qualify a runner host.
