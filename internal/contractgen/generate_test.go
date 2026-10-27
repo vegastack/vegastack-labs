@@ -250,6 +250,12 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/browser-scheduled-job-policy-list-data.schema.json",
 		"schemas/v1/browser-scheduled-job-policy.schema.json",
 		"schemas/v1/browser-scheduled-job.schema.json",
+		"schemas/v1/ci-enrollment-binding.schema.json",
+		"schemas/v1/ci-enrollment-definition.schema.json",
+		"schemas/v1/ci-enrollment-draft-request.schema.json",
+		"schemas/v1/ci-enrollment-list.schema.json",
+		"schemas/v1/ci-enrollment-record.schema.json",
+		"schemas/v1/ci-enrollment-request.schema.json",
 		"schemas/v1/cloudflare-access-profile.schema.json",
 		"schemas/v1/control-handoff-input.schema.json",
 		"schemas/v1/control-recovery-receive-input.schema.json",
@@ -929,9 +935,10 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 			}
 		}
 	}
-	if available != 94 || planned != 13 {
-		t.Fatalf("command availability = (%d available, %d planned), want (94, 13)", available, planned)
+	if available != 97 || planned != 13 {
+		t.Fatalf("command availability = (%d available, %d planned), want (97, 13)", available, planned)
 	}
+	// #304 adds three exact CI enrollment commands.
 	// #286 adds four exact service list/show/observe/import-draft commands.
 	// #269/#270 promote seven existing people/device CLI operations.
 	// #247 adds the approved grant-batch draft; #228 retains its exact qualification commands.
