@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 27-10-2026 — CI provider steps gain exact registration and image-publication protocols ([#298](https://github.com/vegastack/vegastack-labs/issues/298), [#299](https://github.com/vegastack/vegastack-labs/issues/299))
+
+- **What:** Added internal provider transports for preparing transient runner registration, cleaning up an exact owned offline runner, and publishing one immutable OCI image into one registry repository. The token stays within a synchronous protected consumer; publication independently verifies the remote manifest bytes. These are building blocks for the later server-owned CI flow, with no public operational entry point in this delivery.
+- **Why:** Managed CI needs both a one-job runner lifecycle and a build-only registry publication path. The two protocols have separate files and can be implemented in parallel.
+- **How it went:** Two GPT-6.1 Sol medium implementation threads owned the independent packages. Local HTTPS peers exercise real requests, uploaded bytes and failure transitions; the coordinator combines documentation and one final affected check. No independent review round or live provider operation was added.
+- **Changed:** Exact organization/group/repository registration preflight · transient token lifetime and attempted receipts · idle-offline runner cleanup · streamed digest-bound image publication · explicit remaining CI integration work.
+- **Decisions:** None. Existing credential boundaries, exact plan authority, one executable and earlier deferrals remain controlling. An adapter receipt does not admit a job or qualify a host.
+
+— approved by (omkarmohanta09) · built by Codex with GPT-6.1 Sol medium implementation agents · branch feat/9.2-ci-provider-delivery
+
 ## 27-10-2026 — CI source and assigned-job identities can be compared explicitly ([#296](https://github.com/vegastack/vegastack-labs/issues/296))
 
 - **What:** Added an internal enrollment comparison and read-only GitHub observer for the exact repository, workflow file, revision, run attempt and assigned job/runner. A matching observation is inert; it cannot start a job, retrieve a deployment credential or authorize a change. These packages are the first Phase9 foundation and do not add a public CI command yet.
