@@ -20,7 +20,7 @@ func (app *App) buildGoImage(ctx context.Context, p parsedArguments) int {
 		}
 		return app.fail(p.output, p.commandName(), code, "go-image", generated.RunStatusFailed, false)
 	}
-	data := generated.GoImageBuildData{ImageDigest: out.Expected.ImageDigest, SignatureStatus: "unsigned", InventoryScope: "compiled-go-modules-only", ProvenanceScope: "binary-packaging-only", MetadataTrust: "caller-and-compiler-reported-unverified"}
+	data := generated.GoImageBuildData{Schema: generated.SchemaIDGoImageBuildData, SchemaVersion: "1.0.0", ImageDigest: out.Expected.ImageDigest, SignatureStatus: "unsigned", InventoryScope: "compiled-go-modules-only", ProvenanceScope: "binary-packaging-only", MetadataTrust: "caller-and-compiler-reported-unverified"}
 	if p.output == outputJSON {
 		return app.succeedData(p.commandName(), data)
 	}

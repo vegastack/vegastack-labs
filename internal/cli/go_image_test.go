@@ -3,6 +3,8 @@ package cli
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"github.com/vegastack/vegastack-labs/internal/generated"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -55,6 +57,15 @@ func TestGoImageCLIActualCompileAndOutput(t *testing.T) {
 	code, stdout, stderr := runTestApp(t, context.Background(), args, nil)
 	if code != 0 || stderr != "" || !strings.Contains(stdout, `"signatureStatus":"unsigned"`) || !strings.Contains(stdout, `"provenanceScope":"binary-packaging-only"`) {
 		t.Fatal(code, stdout, stderr)
+	}
+	var reply struct {
+		Data json.RawMessage `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &reply); err != nil {
+		t.Fatal(err)
+	}
+	if err := generated.ValidateContractJSON(generated.SchemaIDGoImageBuildData, reply.Data, generated.ContractExact); err != nil {
+		t.Fatal(err)
 	}
 	for _, name := range []string{"oci-layout", "index.json", "provenance.statement.json", "sbom.statement.json", "expectations.json"} {
 		if _, e := os.Stat(filepath.Join(output, name)); e != nil {
