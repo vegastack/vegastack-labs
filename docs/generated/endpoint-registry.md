@@ -83,6 +83,7 @@ Contract schema: `1.32.0`
 | `api.v1.network.mesh.draft` | `POST` | `/api/v1/network/mesh/draft` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/mesh-draft-request` | `vegastack-labs.dev/mesh-draft-submission` |
 | `api.v1.network.mesh.observe` | `POST` | `/api/v1/network/mesh/observe` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/mesh-draft-request` | `vegastack-labs.dev/mesh-status-data` |
 | `api.v1.network.mesh.status` | `GET` | `/api/v1/network/mesh/{profileID}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/mesh-status-data` |
+| `api.v1.operations.notification-readiness` | `POST` | `/api/v1/operations/notification-readiness` | `available` | `operator` | `finite` | `vegastack-labs.dev/notification-readiness-request` | `vegastack-labs.dev/declaration-revision` |
 | `api.v1.operations.observe` | `POST` | `/api/v1/operations/observe` | `available` | `operator` | `finite` | `vegastack-labs.dev/operations-observe-request` | `vegastack-labs.dev/operations-status-data` |
 | `api.v1.operations.status` | `GET` | `/api/v1/operations` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/operations-status-data` |
 | `api.v1.people.list` | `GET` | `/api/v1/people` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/operator-people-page` |

@@ -121,6 +121,8 @@ func TestEveryGeneratedCommandHasTruthfulRuntimeBehavior(t *testing.T) {
 			// suggesting that the missing control dependency is operational.
 			providerScope := ""
 			switch commandName(command.Path) {
+			case generated.CommandNameOperationsNotificationReadiness:
+				providerScope = "notification-readiness-control"
 			case generated.CommandNameOperationsStatus, generated.CommandNameOperationsObserve:
 				providerScope = "operations-control"
 			case generated.CommandNameNetworkMeshDraft, generated.CommandNameNetworkMeshObserve, generated.CommandNameNetworkMeshStatus:

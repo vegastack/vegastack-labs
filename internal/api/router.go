@@ -66,6 +66,7 @@ var remoteBrowserWriteEndpoints = map[string]bool{
 }
 
 var constrainedSSHWriteEndpoints = map[string]bool{
+	"api.v1.operations.notification-readiness":    true,
 	"api.v1.operations.observe":                   true,
 	"api.v1.ci.jobs.drafts.create":                true,
 	"api.v1.ci.publications.drafts.create":        true,

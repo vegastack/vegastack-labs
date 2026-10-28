@@ -1010,6 +1010,86 @@
       ],
       "type": "object"
     },
+    "notification-readiness-policy": {
+      "additionalProperties": false,
+      "properties": {
+        "primaryCredentialClass": {
+          "enum": [
+            "fine-grained-pat",
+            "github-app-installation"
+          ],
+          "type": "string"
+        },
+        "primaryCredentialOwnerId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "primaryHumanId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "primaryMaterialVersion": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "primaryReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/notification-readiness-policy"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "secondaryChannelId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "secondaryCredentialOwnerId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "secondaryHumanId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "secondaryMaterialVersion": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "secondaryReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "targetId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "targetId",
+        "primaryHumanId",
+        "secondaryHumanId",
+        "primaryCredentialOwnerId",
+        "secondaryCredentialOwnerId",
+        "primaryCredentialClass",
+        "secondaryChannelId",
+        "primaryReferenceId",
+        "primaryMaterialVersion",
+        "secondaryReferenceId",
+        "secondaryMaterialVersion"
+      ],
+      "type": "object"
+    },
     "operations-beszel-binding": {
       "additionalProperties": false,
       "properties": {
@@ -1114,6 +1194,78 @@
         "targetId",
         "referenceId",
         "materialVersion"
+      ],
+      "type": "object"
+    },
+    "operations-heartbeat-binding": {
+      "additionalProperties": false,
+      "properties": {
+        "bucket": {
+          "maxLength": 63,
+          "minLength": 1,
+          "type": "string"
+        },
+        "endpoint": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "type": "string"
+        },
+        "materialVersion": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "objectKey": {
+          "enum": [
+            "heartbeat.json"
+          ],
+          "type": "string"
+        },
+        "policyId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "policyVersion": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "referenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/operations-heartbeat-binding"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "siteDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "targetId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "endpoint",
+        "bucket",
+        "objectKey",
+        "siteDigest",
+        "targetId",
+        "referenceId",
+        "materialVersion",
+        "policyId",
+        "policyVersion"
       ],
       "type": "object"
     },
@@ -2115,6 +2267,16 @@
       "maxLength": 4096,
       "type": "string"
     },
+    "notificationReadiness": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/notification-readiness-policy"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "offsiteAccountId": {
       "pattern": "^[a-f0-9]{32}$",
       "type": [
@@ -2275,6 +2437,16 @@
       "anyOf": [
         {
           "$ref": "#/$defs/operations-github-destination"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "operationsHeartbeat": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/operations-heartbeat-binding"
         },
         {
           "type": "null"

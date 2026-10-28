@@ -9,8 +9,9 @@ import (
 )
 
 type OperationsMonitoring struct {
-	Status  func(context.Context) (generated.OperationsStatusData, error)
-	Observe func(context.Context) (generated.OperationsStatusData, error)
+	Readiness func(context.Context, generated.NotificationReadinessRequest) (generated.DeclarationRevision, error)
+	Status    func(context.Context) (generated.OperationsStatusData, error)
+	Observe   func(context.Context) (generated.OperationsStatusData, error)
 }
 
 func RegisterOperationsMonitoring(app *Application, c OperationsMonitoring) error {
@@ -19,6 +20,9 @@ func RegisterOperationsMonitoring(app *Application, c OperationsMonitoring) erro
 	}
 	before := len(app.routes)
 	app.routes = append(app.routes, route{id: "api.v1.operations.status", method: http.MethodGet, pattern: "/api/v1/operations", capability: "operations.read", kind: "operations-view", handler: app.operationsMonitoringHandler(c, false)}, route{id: "api.v1.operations.observe", method: http.MethodPost, pattern: "/api/v1/operations/observe", capability: "operations.observe", kind: "operations-view", handler: app.operationsMonitoringHandler(c, true)})
+	if c.Readiness != nil {
+		app.routes = append(app.routes, route{id: "api.v1.operations.notification-readiness", method: http.MethodPost, pattern: "/api/v1/operations/notification-readiness", deferredAuthorization: true, handler: app.notificationReadinessHandler(c)})
+	}
 	if !routesAreGeneratedSubset(app.routes) {
 		app.routes = app.routes[:before]
 		return apiFailure(generated.ErrorCodeIntegrityFailure, "endpoint-registry")

@@ -6,15 +6,17 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/adapter"
 	"github.com/vegastack/vegastack-labs/internal/adapter/beszel"
 	"github.com/vegastack/vegastack-labs/internal/adapter/githubalerts"
+	"github.com/vegastack/vegastack-labs/internal/adapter/slackalerts"
 	"github.com/vegastack/vegastack-labs/internal/api"
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/authorization"
+	"github.com/vegastack/vegastack-labs/internal/change"
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
 	"github.com/vegastack/vegastack-labs/internal/failure"
-	"github.com/vegastack/vegastack-labs/internal/gate"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/identity"
 	"github.com/vegastack/vegastack-labs/internal/localapi"
+	"github.com/vegastack/vegastack-labs/internal/operations"
 	monitor "github.com/vegastack/vegastack-labs/internal/operations"
 	"github.com/vegastack/vegastack-labs/internal/readmodel"
 	"github.com/vegastack/vegastack-labs/internal/result"
@@ -28,6 +30,7 @@ import (
 const operationsDestination audit.DestinationID = "operations-github-alerts"
 
 type operationsMonitoring struct {
+	readiness *notificationReadiness
 	s         *store.Store
 	p         serverconfig.Profile
 	registry  *adapter.Registry
@@ -73,8 +76,7 @@ func (m *operationsMonitoring) deliveryAllowed(ctx context.Context) bool {
 	if e != nil || h.Revision.RecoveryEpoch != scope.RecoveryEpoch {
 		return false
 	}
-	v, e := gate.Evaluate(ctx, store.NewGateRepository(m.s), gate.ResolvedScope{ProfileID: scope.ProfileID, ProfileVersion: scope.ProfileVersion, PolicyID: scope.PolicyID, PolicyVersion: scope.PolicyVersion, Capabilities: scope.Capabilities, StateRevision: scope.StateRevision, RecoveryEpoch: scope.RecoveryEpoch}, gate.Subject{ID: "scope", Kind: "site", ReleaseBuildID: m.build.ReleaseBuildID, ToolVersion: m.build.ToolVersion, StateRevision: h.Revision.StateRevision}, "G-011", m.clock().UTC(), gate.NewProofRegistry())
-	return e == nil && v.Outcome == "passed"
+	return m.notificationGatePassed(ctx, scope, h, m.clock().UTC())
 }
 func (m *operationsMonitoring) status(ctx context.Context) (generated.OperationsStatusData, error) {
 	h, e := m.s.Health(ctx)
@@ -222,7 +224,7 @@ func (m *operationsMonitoring) dispatch(ctx context.Context) {
 		}
 	}
 }
-func registerOperationsMonitoring(ctx context.Context, app *api.Application, s *store.Store, registry *adapter.Registry, p serverconfig.Profile, build result.BuildInfo, databasePath string) error {
+func registerOperationsMonitoring(ctx context.Context, app *api.Application, s *store.Store, registry *adapter.Registry, p serverconfig.Profile, build result.BuildInfo, databasePath string, attach func(*notificationReadiness)) error {
 	m := &operationsMonitoring{s: s, p: p, registry: registry, build: build, clock: time.Now, beszel: map[string]*beszel.Client{}}
 	if e := composeOperationsNative(ctx, p, databasePath, s, registry); e != nil {
 		return e
@@ -258,8 +260,32 @@ func registerOperationsMonitoring(ctx context.Context, app *api.Application, s *
 		return heartbeatErr
 	}
 	m.heartbeat = heartbeat
-	if e := api.RegisterOperationsMonitoring(app, api.OperationsMonitoring{Status: m.status, Observe: m.observe}); e != nil {
+	if heartbeat != nil {
+		heartbeat.verifyGate = m.notificationGatePassed
+	}
+	if p.NotificationReadiness != nil && p.OperationsGithub != nil {
+		decl, e := change.NewService(store.NewDeclarationRepository(s), time.Now)
+		if e != nil {
+			return e
+		}
+		repo := store.NewNotificationReadinessRepository(s, *p.NotificationReadiness, *p.OperationsGithub)
+		m.readiness = &notificationReadiness{monitor: m, repo: repo, declarations: decl, slack: slackalerts.NewClient(nil, time.Now), results: map[string]adapter.ExactExecutionBinding{}, github: func(b githubalerts.Borrow) (*githubalerts.Client, error) {
+			return githubalerts.New(p.OperationsGithub.Endpoint, p.OperationsGithub.Repository, p.OperationsGithub.RepositoryID, nil, b)
+		}}
+		if e = registry.Register(operations.ReadinessAdapter, m.readiness); e != nil {
+			return e
+		}
+	}
+	if e := api.RegisterOperationsMonitoring(app, api.OperationsMonitoring{Status: m.status, Observe: m.observe, Readiness: func(ctx context.Context, q generated.NotificationReadinessRequest) (generated.DeclarationRevision, error) {
+		if m.readiness == nil {
+			return generated.DeclarationRevision{}, serviceFailure(generated.ErrorCodePrerequisiteBlocked)
+		}
+		return m.readiness.prepare(ctx, q)
+	}}); e != nil {
 		return e
+	}
+	if attach != nil {
+		attach(m.readiness)
 	}
 	if m.github != nil || m.heartbeat != nil {
 		go func() {

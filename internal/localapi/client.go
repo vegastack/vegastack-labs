@@ -86,6 +86,7 @@ type Client interface {
 	DraftIngressPilotEvidence(context.Context, serverconfig.Profile, generated.IngressPilotEvidenceRequest) (TypedResponse[generated.GateEvidenceSubmission], error)
 	ObserveIngress(context.Context, serverconfig.Profile, generated.IngressDraftRequest) (TypedResponse[generated.IngressStatusData], error)
 	DraftIngress(context.Context, serverconfig.Profile, generated.IngressDraftRequest) (TypedResponse[generated.IngressDraftSubmission], error)
+	NotificationReadiness(context.Context, serverconfig.Profile, generated.NotificationReadinessRequest) (TypedResponse[generated.DeclarationRevision], error)
 	OperationsStatus(context.Context, serverconfig.Profile, bool) (TypedResponse[generated.OperationsStatusData], error)
 	IngressStatus(context.Context, serverconfig.Profile, string) (TypedResponse[generated.IngressStatusData], error)
 	SubmitIngressRolloutEvidence(context.Context, serverconfig.Profile, generated.IngressRolloutEvidenceRequest) (TypedResponse[generated.IngressStatusData], error)

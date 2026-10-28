@@ -1,0 +1,53 @@
+{
+  "$id": "vegastack-labs.dev/notification-readiness-request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "action": {
+      "enum": [
+        "canary-draft",
+        "evidence-draft"
+      ],
+      "type": "string"
+    },
+    "expectedStateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "requestId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "runId": {
+      "maxLength": 128,
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/notification-readiness-request"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "action",
+    "requestId",
+    "expectedStateRevision",
+    "recoveryEpoch"
+  ],
+  "title": "VegaStack Labs notification readiness request",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

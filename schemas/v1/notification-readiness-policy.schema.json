@@ -1,0 +1,84 @@
+{
+  "$id": "vegastack-labs.dev/notification-readiness-policy",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "primaryCredentialClass": {
+      "enum": [
+        "fine-grained-pat",
+        "github-app-installation"
+      ],
+      "type": "string"
+    },
+    "primaryCredentialOwnerId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "primaryHumanId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "primaryMaterialVersion": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "primaryReferenceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/notification-readiness-policy"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "secondaryChannelId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "secondaryCredentialOwnerId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "secondaryHumanId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "secondaryMaterialVersion": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "secondaryReferenceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "targetId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "targetId",
+    "primaryHumanId",
+    "secondaryHumanId",
+    "primaryCredentialOwnerId",
+    "secondaryCredentialOwnerId",
+    "primaryCredentialClass",
+    "secondaryChannelId",
+    "primaryReferenceId",
+    "primaryMaterialVersion",
+    "secondaryReferenceId",
+    "secondaryMaterialVersion"
+  ],
+  "title": "VegaStack Labs notification readiness policy",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

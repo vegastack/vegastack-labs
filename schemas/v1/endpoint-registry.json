@@ -1043,6 +1043,19 @@
       ]
     },
     {
+      "id": "api.v1.operations.notification-readiness",
+      "method": "POST",
+      "path": "/api/v1/operations/notification-readiness",
+      "availability": "available",
+      "ownerPhase": "10",
+      "requestSchema": "vegastack-labs.dev/notification-readiness-request",
+      "dataSchema": "vegastack-labs.dev/declaration-revision",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
       "id": "api.v1.operations.observe",
       "method": "POST",
       "path": "/api/v1/operations/observe",

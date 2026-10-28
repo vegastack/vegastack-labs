@@ -1,0 +1,76 @@
+{
+  "$id": "vegastack-labs.dev/operations-heartbeat-binding",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "bucket": {
+      "maxLength": 63,
+      "minLength": 1,
+      "type": "string"
+    },
+    "endpoint": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "type": "string"
+    },
+    "materialVersion": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "objectKey": {
+      "enum": [
+        "heartbeat.json"
+      ],
+      "type": "string"
+    },
+    "policyId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "policyVersion": {
+      "maxLength": 64,
+      "minLength": 1,
+      "type": "string"
+    },
+    "referenceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/operations-heartbeat-binding"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "siteDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "targetId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "endpoint",
+    "bucket",
+    "objectKey",
+    "siteDigest",
+    "targetId",
+    "referenceId",
+    "materialVersion",
+    "policyId",
+    "policyVersion"
+  ],
+  "title": "VegaStack Labs operations heartbeat binding",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

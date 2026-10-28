@@ -437,8 +437,24 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 	gateRepository := nativeGateRepository(authority, operations.build)
 	roleComposition := hostRoleComposition{gates: gateRepository, render: roletransport.RenderLinuxRole, clock: time.Now}
 	runRepository.ConfigureHostRoles(gateRepository, roleComposition)
+	var notificationSourceForGates *notificationReadiness
 	var ingressSourceForGates *ingressAuthority
-	if err := api.RegisterGateOperations(application, api.GateOperations{EvaluatePilot: func(ctx context.Context, scope gate.ResolvedScope, subjectID, gateID string, at time.Time) (generated.GateEvaluation, bool, error) {
+	if err := api.RegisterGateOperations(application, api.GateOperations{EvaluateNotificationReadiness: func(ctx context.Context, scope gate.ResolvedScope, subjectID, gateID string, at time.Time) (generated.GateEvaluation, bool, error) {
+		if gateID != "G-011" || subjectID != "scope" || notificationSourceForGates == nil {
+			return generated.GateEvaluation{}, false, nil
+		}
+		m := notificationSourceForGates.monitor
+		applied, e := store.NewGateRepository(authority).GetAppliedProfileScope(ctx)
+		if e != nil {
+			return generated.GateEvaluation{}, true, e
+		}
+		h, e := authority.Health(ctx)
+		if e != nil {
+			return generated.GateEvaluation{}, true, e
+		}
+		v, e := m.notificationEvaluation(ctx, applied, h, at)
+		return v, true, e
+	}, EvaluatePilot: func(ctx context.Context, scope gate.ResolvedScope, subjectID, gateID string, at time.Time) (generated.GateEvaluation, bool, error) {
 		if ingressSourceForGates == nil {
 			return generated.GateEvaluation{}, false, nil
 		}
@@ -551,7 +567,10 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 	if recoveryBackupAdapter != nil {
 		secretGate = scheduledBackupLiveGate{admission: scheduledAdmission, fallback: secretGate, clock: time.Now}
 	}
-	if err = registerOperationsMonitoring(ctx, application, authority, adapters, profile, operations.build, operations.databasePath); err != nil {
+	if err = registerOperationsMonitoring(ctx, application, authority, adapters, profile, operations.build, operations.databasePath, func(n *notificationReadiness) {
+		notificationSourceForGates = n
+		secretGate = notificationReadinessGate{source: n, fallback: secretGate}
+	}); err != nil {
 		_ = application.Shutdown(ctx)
 		return err
 	}

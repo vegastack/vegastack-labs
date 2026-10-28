@@ -327,10 +327,13 @@ const (
 	SchemaIDNetworkConnectResult                   = "vegastack-labs.dev/network-connect-result"
 	SchemaIDNetworkEndpoint                        = "vegastack-labs.dev/network-endpoint"
 	SchemaIDNetworkEndpointRequest                 = "vegastack-labs.dev/network-endpoint-request"
+	SchemaIDNotificationReadinessPolicy            = "vegastack-labs.dev/notification-readiness-policy"
+	SchemaIDNotificationReadinessRequest           = "vegastack-labs.dev/notification-readiness-request"
 	SchemaIDOffsiteRunSpec                         = "vegastack-labs.dev/offsite-run-spec"
 	SchemaIDOperationsAlert                        = "vegastack-labs.dev/operations-alert"
 	SchemaIDOperationsBeszelBinding                = "vegastack-labs.dev/operations-beszel-binding"
 	SchemaIDOperationsGithubDestination            = "vegastack-labs.dev/operations-github-destination"
+	SchemaIDOperationsHeartbeatBinding             = "vegastack-labs.dev/operations-heartbeat-binding"
 	SchemaIDOperationsObserveRequest               = "vegastack-labs.dev/operations-observe-request"
 	SchemaIDOperationsStatusData                   = "vegastack-labs.dev/operations-status-data"
 	SchemaIDOperatorDevice                         = "vegastack-labs.dev/operator-device"
@@ -535,6 +538,7 @@ const (
 	CommandNameNodeReplacementPrepare              = "node replacement prepare"
 	CommandNameNodeRolePrepare                     = "node role prepare"
 	CommandNameNodeTargetPrepare                   = "node target prepare"
+	CommandNameOperationsNotificationReadiness     = "operations notification-readiness"
 	CommandNameOperationsObserve                   = "operations observe"
 	CommandNameOperationsStatus                    = "operations status"
 	CommandNamePlan                                = "plan"
@@ -4707,6 +4711,32 @@ type NetworkEndpointRequest struct {
 	ReasonDigest                string          `json:"reasonDigest"`
 }
 
+type NotificationReadinessPolicy struct {
+	Schema                     string `json:"schema"`
+	SchemaVersion              string `json:"schemaVersion"`
+	TargetID                   string `json:"targetId"`
+	PrimaryHumanID             string `json:"primaryHumanId"`
+	SecondaryHumanID           string `json:"secondaryHumanId"`
+	PrimaryCredentialOwnerID   string `json:"primaryCredentialOwnerId"`
+	SecondaryCredentialOwnerID string `json:"secondaryCredentialOwnerId"`
+	PrimaryCredentialClass     string `json:"primaryCredentialClass"`
+	SecondaryChannelID         string `json:"secondaryChannelId"`
+	PrimaryReferenceID         string `json:"primaryReferenceId"`
+	PrimaryMaterialVersion     string `json:"primaryMaterialVersion"`
+	SecondaryReferenceID       string `json:"secondaryReferenceId"`
+	SecondaryMaterialVersion   string `json:"secondaryMaterialVersion"`
+}
+
+type NotificationReadinessRequest struct {
+	Schema                string `json:"schema"`
+	SchemaVersion         string `json:"schemaVersion"`
+	Action                string `json:"action"`
+	RequestID             string `json:"requestId"`
+	RunID                 string `json:"runId,omitempty"`
+	ExpectedStateRevision int64  `json:"expectedStateRevision"`
+	RecoveryEpoch         int64  `json:"recoveryEpoch"`
+}
+
 type OffsiteRunSpec struct {
 	GenerationID               string `json:"generationId"`
 	SourcePointID              string `json:"sourcePointId"`
@@ -4764,6 +4794,20 @@ type OperationsGithubDestination struct {
 	TargetID        string `json:"targetId"`
 	ReferenceID     string `json:"referenceId"`
 	MaterialVersion string `json:"materialVersion"`
+}
+
+type OperationsHeartbeatBinding struct {
+	Schema          string `json:"schema"`
+	SchemaVersion   string `json:"schemaVersion"`
+	Endpoint        string `json:"endpoint"`
+	Bucket          string `json:"bucket"`
+	ObjectKey       string `json:"objectKey"`
+	SiteDigest      string `json:"siteDigest"`
+	TargetID        string `json:"targetId"`
+	ReferenceID     string `json:"referenceId"`
+	MaterialVersion string `json:"materialVersion"`
+	PolicyID        string `json:"policyId"`
+	PolicyVersion   string `json:"policyVersion"`
 }
 
 type OperationsObserveRequest struct {
@@ -5659,7 +5703,9 @@ type ServerProfile struct {
 	HostActionSignerPath             string                             `json:"hostActionSignerPath,omitempty"`
 	HostActionKeyID                  string                             `json:"hostActionKeyId,omitempty"`
 	IngressControllerReadPilot       *IngressControllerReadPilot        `json:"ingressControllerReadPilot,omitempty"`
+	NotificationReadiness            *NotificationReadinessPolicy       `json:"notificationReadiness,omitempty"`
 	OperationsBeszel                 []OperationsBeszelBinding          `json:"operationsBeszel,omitempty"`
+	OperationsHeartbeat              *OperationsHeartbeatBinding        `json:"operationsHeartbeat,omitempty"`
 	OperationsGithub                 *OperationsGithubDestination       `json:"operationsGithub,omitempty"`
 	IngressScopeDigests              []string                           `json:"ingressScopeDigests,omitempty"`
 	MeshScopeDigests                 []string                           `json:"meshScopeDigests,omitempty"`
@@ -6343,6 +6389,7 @@ var Commands = []Command{
 	{Path: []string{"node", "replacement", "prepare"}, Summary: "Prepare an inert exact host replacement continuation.", Availability: "available", OwnerPhase: "6", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one bounded typed request JSON file.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/host-replacement-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/host-replacement-submission", Examples: []Example{{Summary: "Prepare an inert exact host replacement continuation.", Arguments: []string{"node", "replacement", "prepare", "--config", "fixture/server-profile.json", "--file", "fixture/host-request.json", "--output", "json"}}}},
 	{Path: []string{"node", "role", "prepare"}, Summary: "Prepare an inert role action draft; exact approval and apply remain separate.", Availability: "available", OwnerPhase: "6", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one exact host-action request JSON file (128 KiB max).", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/host-action-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/host-action-submission", Examples: []Example{{Summary: "Prepare an inert role action draft; exact approval and apply remain separate.", Arguments: []string{"node", "role", "prepare", "--config", "fixture/server-profile.json", "--file", "fixture/role-action.json", "--output", "json"}}}},
 	{Path: []string{"node", "target", "prepare"}, Summary: "Prepare an inert discovery target draft.", Availability: "available", OwnerPhase: "6", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one bounded typed request JSON file.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/host-discovery-target-draft-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/host-discovery-target-draft-submission", Examples: []Example{{Summary: "Prepare an inert discovery target draft.", Arguments: []string{"node", "target", "prepare", "--config", "fixture/server-profile.json", "--file", "fixture/host-request.json", "--output", "json"}}}},
+	{Path: []string{"operations", "notification-readiness"}, Summary: "Prepare a fixed acknowledged notification test or inert G-011 evidence; never send while preparing.", Availability: "available", OwnerPhase: "10", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected operator profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read a bounded inert preparation request.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/notification-readiness-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/declaration-revision", Examples: []Example{{Summary: "Prepare a fixed acknowledged notification test or inert G-011 evidence; never send while preparing.", Arguments: []string{"operations", "notification-readiness", "--config", "fixture/client.json", "--file", "fixture/request.json"}}}},
 	{Path: []string{"operations", "observe"}, Summary: "Inspect local alerts or collect server-owned source observations; no infrastructure mutation.", Availability: "available", OwnerPhase: "10", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected operator profile.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/operations-observe-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/operations-status-data", Examples: []Example{{Summary: "Inspect local alerts or collect server-owned source observations; no infrastructure mutation.", Arguments: []string{"operations", "observe", "--config", "fixture/client.json"}}}},
 	{Path: []string{"operations", "status"}, Summary: "Inspect local alerts or collect server-owned source observations; no infrastructure mutation.", Availability: "available", OwnerPhase: "10", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected operator profile.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/operations-status-data", Examples: []Example{{Summary: "Inspect local alerts or collect server-owned source observations; no infrastructure mutation.", Arguments: []string{"operations", "status", "--config", "fixture/client.json"}}}},
 	{Path: []string{"plan"}, Summary: "Create an immutable plan from one exact inert declaration revision.", Availability: "available", OwnerPhase: "4", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--declaration-id", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Select one exact inert declaration.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--revision", Kind: "value", ValueName: "revision", Required: true, Repeatable: false, Summary: "Select the exact positive declaration revision.", Enum: []string(nil)}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/plan-create-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/plan", Examples: []Example{{Summary: "Create an immutable plan from one exact inert declaration revision.", Arguments: []string{"plan", "--config", "fixture/server-profile.json", "--declaration-id", "change-1", "--revision", "2", "--output", "json"}}}},
@@ -6468,6 +6515,7 @@ var Endpoints = []Endpoint{
 	{ID: "api.v1.network.mesh.draft", Method: "POST", Path: "/api/v1/network/mesh/draft", Availability: "available", OwnerPhase: "7", QuerySchema: "", RequestSchema: "vegastack-labs.dev/mesh-draft-request", DataSchema: "vegastack-labs.dev/mesh-draft-submission", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.network.mesh.observe", Method: "POST", Path: "/api/v1/network/mesh/observe", Availability: "available", OwnerPhase: "7", QuerySchema: "", RequestSchema: "vegastack-labs.dev/mesh-draft-request", DataSchema: "vegastack-labs.dev/mesh-status-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.network.mesh.status", Method: "GET", Path: "/api/v1/network/mesh/{profileID}", Availability: "available", OwnerPhase: "7", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/mesh-status-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.operations.notification-readiness", Method: "POST", Path: "/api/v1/operations/notification-readiness", Availability: "available", OwnerPhase: "10", QuerySchema: "", RequestSchema: "vegastack-labs.dev/notification-readiness-request", DataSchema: "vegastack-labs.dev/declaration-revision", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.operations.observe", Method: "POST", Path: "/api/v1/operations/observe", Availability: "available", OwnerPhase: "10", QuerySchema: "", RequestSchema: "vegastack-labs.dev/operations-observe-request", DataSchema: "vegastack-labs.dev/operations-status-data", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.operations.status", Method: "GET", Path: "/api/v1/operations", Availability: "available", OwnerPhase: "10", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/operations-status-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.people.list", Method: "GET", Path: "/api/v1/people", Availability: "available", OwnerPhase: "7", QuerySchema: "vegastack-labs.dev/operator-read-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/operator-people-page", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},

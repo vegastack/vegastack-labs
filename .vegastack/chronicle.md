@@ -11,6 +11,15 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 - **Decisions:** None. The default gate remains fail-closed and root connects the shared qualified G-011 verifier at integration. Native/provider evidence, actual credential setup and deployment remain unavailable.
 
 — approved by (omkarmohanta09) · built by Codex · branch feat/10.4-heartbeat-composition
+## 28-10-2026 — Notification readiness can be proven without pretending a message was read ([#323](https://github.com/vegastack/vegastack-labs/issues/323))
+
+- **What:** Added an exact acknowledged test for the configured GitHub and Slack routes, followed by server-owned G-011 evidence preparation and normal evidence apply. Actual provider acceptance receipts bind the selected recipients, channel, credential owners, reference versions and exact successful run.
+- **Why:** The earlier sender had an empty verifier and the wrong evidence lineage, so configuration alone could never make G-011 usable.
+- **How it went:** Reused the current engine, native references and gate lifecycle; added only a small four-receipt SQLite record. The source distinguishes provider acceptance from human reading and keeps external Worker-absence acceptance separate. No live send or independent review was run.
+- **Changed:** Fixed test/evidence preparation · exact applied-lineage evaluation · current-reference checks · shared notification/heartbeat G-011 helper · explicit activation/manual procedure.
+- **Decisions:** None; the coordinator recorded the bounded interpretation of the existing Phase 10 request. Protected inputs remain unselected and earlier Phase 6/Mac/recovery deferrals remain in force.
+
+— approved by (omkarmohanta09) · built by Codex with coordinator-owned Slack client · branch feat/10.1-notification-evidence
 
 ## 28-10-2026 — Give site silence an independent, bounded signal path ([#326](https://github.com/vegastack/vegastack-labs/issues/326))
 

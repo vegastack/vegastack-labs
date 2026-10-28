@@ -74,21 +74,37 @@ func (c *Client) request(ctx context.Context, token []byte, method, path string,
 // Deliver searches the fixed repository before creating, including closed issues,
 // so an uncertain create/restart retries the same correlation instead of opening
 // a second issue. Incomplete bounded lookup fails closed. The store serializes it.
+type AcceptanceReceipt struct {
+	IssueNumber    int64
+	State          string
+	AcceptedAt     time.Time
+	ResponseDigest string
+}
+
 func (c *Client) Deliver(ctx context.Context, event audit.Event) error {
+	_, e := c.deliverReceipt(ctx, event, false)
+	return e
+}
+
+// DeliverReceipt is consumed only by the exact acknowledged readiness operation.
+func (c *Client) DeliverReceipt(ctx context.Context, event audit.Event) (AcceptanceReceipt, error) {
+	return c.deliverReceipt(ctx, event, true)
+}
+func (c *Client) deliverReceipt(ctx context.Context, event audit.Event, canary bool) (AcceptanceReceipt, error) {
 	if event.Type != "operations.alert.opened" && event.Type != "operations.alert.closed" || event.Target.Kind != "operations-target" || !strings.HasPrefix(event.CorrelationID, "operations-") || !regexp.MustCompile(`^operations-[a-f0-9]{32}$`).MatchString(event.CorrelationID) || !regexp.MustCompile(`^sha256:[a-f0-9]{64}$`).MatchString(event.Target.ID) {
-		return ErrUnavailable
+		return AcceptanceReceipt{}, ErrUnavailable
 	}
 	if _, _, e := audit.CanonicalEvent(event); e != nil {
-		return ErrUnavailable
+		return AcceptanceReceipt{}, ErrUnavailable
 	}
 	v, e := c.borrow(ctx, "operations.github-issues.write", c.target)
 	if e != nil || v == nil {
-		return ErrUnavailable
+		return AcceptanceReceipt{}, ErrUnavailable
 	}
 	defer v.Close()
 	token := v.Bytes()
 	if len(token) == 0 || len(token) > 8192 {
-		return ErrUnavailable
+		return AcceptanceReceipt{}, ErrUnavailable
 	}
 	path := "/repos/" + c.repository
 	var repo struct {
@@ -96,7 +112,7 @@ func (c *Client) Deliver(ctx context.Context, event audit.Event) error {
 		FullName string `json:"full_name"`
 	}
 	if e = c.request(ctx, token, "GET", path, nil, &repo); e != nil || repo.ID != c.repositoryID || repo.FullName != c.repository {
-		return ErrUnavailable
+		return AcceptanceReceipt{}, ErrUnavailable
 	}
 	marker := "<!-- vsk-alert:" + event.CorrelationID + " -->"
 	number := int64(0)
@@ -108,12 +124,12 @@ func (c *Client) Deliver(ctx context.Context, event audit.Event) error {
 			PullRequest json.RawMessage `json:"pull_request"`
 		}
 		if e = c.request(ctx, token, "GET", fmt.Sprintf("%s/issues?state=all&per_page=100&page=%d", path, page), nil, &issues); e != nil {
-			return e
+			return AcceptanceReceipt{}, e
 		}
 		for _, issue := range issues {
 			if len(issue.PullRequest) == 0 && strings.HasPrefix(issue.Body, marker+"\n") {
 				if issue.Number <= 0 || number != 0 {
-					return ErrUnavailable
+					return AcceptanceReceipt{}, ErrUnavailable
 				}
 				number = issue.Number
 			}
@@ -124,7 +140,7 @@ func (c *Client) Deliver(ctx context.Context, event audit.Event) error {
 		}
 	}
 	if !complete {
-		return ErrUnavailable
+		return AcceptanceReceipt{}, ErrUnavailable
 	}
 	state := "open"
 	if event.Type == "operations.alert.closed" {
@@ -135,21 +151,27 @@ func (c *Client) Deliver(ctx context.Context, event audit.Event) error {
 	// are rechecked immediately before the provider mutation.
 	latest, e := c.borrow(ctx, "operations.github-issues.write", c.target)
 	if e != nil || latest == nil {
-		return ErrUnavailable
+		return AcceptanceReceipt{}, ErrUnavailable
 	}
 	defer latest.Close()
 	token = latest.Bytes()
 	if len(token) == 0 || len(token) > 8192 {
-		return ErrUnavailable
+		return AcceptanceReceipt{}, ErrUnavailable
+	}
+	if canary {
+		body = marker + "\nNotification readiness test: " + state + "\nThis is a test, not an infrastructure incident.\nRoute fingerprint: " + event.Target.ID
 	}
 	request := map[string]any{"title": "VegaStack operational alert " + event.CorrelationID, "body": body, "state": state}
+	if canary {
+		request["title"] = "VegaStack notification readiness test " + event.CorrelationID
+	}
 	var response struct {
 		Number int64  `json:"number"`
 		State  string `json:"state"`
 	}
 	if number == 0 {
 		if state == "closed" {
-			return ErrUnavailable
+			return AcceptanceReceipt{}, ErrUnavailable
 		}
 		delete(request, "state")
 		e = c.request(ctx, token, "POST", path+"/issues", request, &response)
@@ -157,7 +179,7 @@ func (c *Client) Deliver(ctx context.Context, event audit.Event) error {
 		e = c.request(ctx, token, "PATCH", fmt.Sprintf("%s/issues/%d", path, number), request, &response)
 	}
 	if e != nil || response.Number <= 0 || number != 0 && response.Number != number || response.State != state {
-		return ErrUnavailable
+		return AcceptanceReceipt{}, ErrUnavailable
 	}
-	return nil
+	return AcceptanceReceipt{IssueNumber: response.Number, State: response.State, AcceptedAt: time.Now().UTC(), ResponseDigest: operations.NotificationDigest(response)}, nil
 }

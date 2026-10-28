@@ -25,13 +25,14 @@ import (
 // GateOperations only drafts source-generated, bounded input. It deliberately
 // has no setter for an applied profile or a gate result.
 type GateOperations struct {
-	EvaluatePilot func(context.Context, gate.ResolvedScope, string, string, time.Time) (generated.GateEvaluation, bool, error)
-	Gates         *store.GateRepository
-	Revisions     *store.PlanRepository
-	Declarations  *change.Service
-	Results       *result.Factory
-	Build         result.BuildInfo
-	Clock         func() time.Time
+	EvaluateNotificationReadiness func(context.Context, gate.ResolvedScope, string, string, time.Time) (generated.GateEvaluation, bool, error)
+	EvaluatePilot                 func(context.Context, gate.ResolvedScope, string, string, time.Time) (generated.GateEvaluation, bool, error)
+	Gates                         *store.GateRepository
+	Revisions                     *store.PlanRepository
+	Declarations                  *change.Service
+	Results                       *result.Factory
+	Build                         result.BuildInfo
+	Clock                         func() time.Time
 }
 
 func RegisterGateOperations(app *Application, config GateOperations) error {
@@ -186,7 +187,13 @@ func gateResult(ctx context.Context, config GateOperations, def generated.GateDe
 				// those bindings. Preserve derived applicability/evidence inspection,
 				// but never expose a positive live result through this unbound read.
 				handled := false
-				if config.EvaluatePilot != nil {
+				if config.EvaluateNotificationReadiness != nil {
+					evaluation, handled, err = config.EvaluateNotificationReadiness(ctx, scope, subjectID, def.GateID, at)
+				}
+				if err != nil {
+					return generated.GateView{}, err
+				}
+				if !handled && config.EvaluatePilot != nil {
 					evaluation, handled, err = config.EvaluatePilot(ctx, scope, subjectID, def.GateID, at)
 					if err != nil {
 						return generated.GateView{}, err

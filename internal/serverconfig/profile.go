@@ -30,6 +30,7 @@ var offsiteBucketName = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]{1,62}$`)
 var scheduledRunnerPath = regexp.MustCompile(`^/[A-Za-z0-9._/-]+$`)
 
 type Profile struct {
+	NotificationReadiness            *generated.NotificationReadinessPolicy
 	IngressControllerReadPilot       *generated.IngressControllerReadPilot
 	OperationsBeszel                 []generated.OperationsBeszelBinding
 	OperationsGithub                 *generated.OperationsGithubDestination
@@ -222,6 +223,10 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 	if input.HostActionKeyID != "" && !offsiteProfileToken.MatchString(input.HostActionKeyID) {
 		return invalid()
 	}
+	notificationReadiness, notificationErr := freezeNotificationReadiness(input.NotificationReadiness, input.OperationsGithub)
+	if notificationErr != nil {
+		return invalid()
+	}
 	operationsBeszel, operationsGithub, operationsErr := FreezeOperations(input.OperationsBeszel, input.OperationsGithub)
 	if operationsErr != nil {
 		return invalid()
@@ -346,6 +351,7 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 		AcknowledgementAdapterConfigPath: adapterConfigPath,
 		IngressControllerReadPilot:       input.IngressControllerReadPilot,
 		IngressScopeDigests:              append([]string(nil), input.IngressScopeDigests...),
+		NotificationReadiness:            notificationReadiness,
 		OperationsBeszel:                 operationsBeszel, OperationsGithub: operationsGithub, OperationsHeartbeat: heartbeat,
 		MeshScopeDigests:     append([]string(nil), input.MeshScopeDigests...),
 		HostActionSignerPath: input.HostActionSignerPath, HostActionKeyID: input.HostActionKeyID, HostActionIdentityDigests: append([]string(nil), input.HostActionIdentityDigests...),

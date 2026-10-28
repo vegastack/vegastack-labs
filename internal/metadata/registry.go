@@ -229,6 +229,7 @@ func Current() Registry {
 	commands = append(commands, meshCommands()...)
 	commands = append(commands, ingressCommands()...)
 	commands = append(commands, operationsCommands()...)
+	commands = append(commands, notificationReadinessCommands()...)
 	commands = append(commands, authorizationGrantCommand())
 	commands = append(commands, networkConnectCommands()...)
 	commands = append(commands, ciEnrollmentCommands()...)
@@ -270,7 +271,7 @@ func Current() Registry {
 	endpoints = append(endpoints, hostingLifecycleEndpoints()...)
 	endpoints = append(endpoints, maintenanceEndpoints()...)
 	endpoints = append(endpoints, serviceRecoveryEndpoints()...)
-	for _, family := range [][]EndpointDefinition{operationsEndpoints(), operatorAccessEndpoints(), readEndpoints(), meshEndpoints(), ingressEndpoints(), phase4Endpoints(), phase5Endpoints(), hostDiscoveryEndpoints(), hostAdoptionEndpoints(), hostActionEndpoints(), accessEndpoints(), hostReplacementEndpoints(), qualificationEndpoints()} {
+	for _, family := range [][]EndpointDefinition{notificationReadinessEndpoints(), operationsEndpoints(), operatorAccessEndpoints(), readEndpoints(), meshEndpoints(), ingressEndpoints(), phase4Endpoints(), phase5Endpoints(), hostDiscoveryEndpoints(), hostAdoptionEndpoints(), hostActionEndpoints(), accessEndpoints(), hostReplacementEndpoints(), qualificationEndpoints()} {
 		endpoints = append(endpoints, family...)
 	}
 
@@ -963,6 +964,7 @@ func currentSchemas() []SchemaDefinition {
 				{JSONName: "hostActionSignerPath", GoName: "HostActionSignerPath", Kind: ValueString, Required: false, OmitEmpty: true, MinLength: intPointer(2), MaxLength: intPointer(4096), Pattern: `^/[^\x00]*$`},
 				{JSONName: "hostActionKeyId", GoName: "HostActionKeyID", Kind: ValueString, Required: false, OmitEmpty: true, Pattern: `^[a-z][a-z0-9._:-]{0,127}$`},
 				{JSONName: "ingressControllerReadPilot", GoName: "IngressControllerReadPilot", Kind: ValueObject, OmitEmpty: true, Nullable: true, Ref: ingressPilotPolicyID},
+				{JSONName: "notificationReadiness", GoName: "NotificationReadiness", Kind: ValueObject, Nullable: true, OmitEmpty: true, Ref: notificationPolicyID},
 				{JSONName: "operationsBeszel", GoName: "OperationsBeszel", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/operations-beszel-binding", MaxItems: intPointer(64)},
 				{JSONName: "operationsHeartbeat", GoName: "OperationsHeartbeat", Kind: ValueObject, Nullable: true, OmitEmpty: true, Ref: operationsHeartbeatBindingID},
 				{JSONName: "operationsGithub", GoName: "OperationsGithub", Kind: ValueObject, Nullable: true, OmitEmpty: true, Ref: "vegastack-labs.dev/operations-github-destination"},
@@ -1029,6 +1031,7 @@ func currentSchemas() []SchemaDefinition {
 	schemas = append(schemas, ingressSchemas()...)
 	schemas = append(schemas, operationsSchemas()...)
 	schemas = append(schemas, siteHeartbeatSchemas()...)
+	schemas = append(schemas, notificationReadinessSchemas()...)
 	schemas = append(schemas, hostAdoptionSchemas()...)
 	schemas = append(schemas, operatorAccessSchemas()...)
 	schemas = append(schemas, hostActionSchemas()...)

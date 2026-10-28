@@ -4982,6 +4982,75 @@
     {
       "path": [
         "operations",
+        "notification-readiness"
+      ],
+      "summary": "Prepare a fixed acknowledged notification test or inert G-011 evidence; never send while preparing.",
+      "availability": "available",
+      "ownerPhase": "10",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected operator profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read a bounded inert preparation request.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/notification-readiness-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/declaration-revision",
+      "examples": [
+        {
+          "summary": "Prepare a fixed acknowledged notification test or inert G-011 evidence; never send while preparing.",
+          "arguments": [
+            "operations",
+            "notification-readiness",
+            "--config",
+            "fixture/client.json",
+            "--file",
+            "fixture/request.json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "operations",
         "observe"
       ],
       "summary": "Inspect local alerts or collect server-owned source observations; no infrastructure mutation.",
@@ -9555,6 +9624,16 @@
       "artifactPath": "schemas/v1/network-endpoint-request.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/notification-readiness-policy",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/notification-readiness-policy.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/notification-readiness-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/notification-readiness-request.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/offsite-run-spec",
       "version": "1.0.0"
     },
@@ -9572,6 +9651,11 @@
       "id": "vegastack-labs.dev/operations-github-destination",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/operations-github-destination.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/operations-heartbeat-binding",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/operations-heartbeat-binding.schema.json"
     },
     {
       "id": "vegastack-labs.dev/operations-observe-request",
