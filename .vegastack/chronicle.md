@@ -2,6 +2,13 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 28-10-2026 — Install one explicitly selected connector without exporting its token ([#332](https://github.com/vegastack/vegastack-labs/issues/332))
+
+- **What:** Added one fixed cloudflared host action using the existing human-acknowledged plan and pinned SSH boundary. The protected bootstrap receipt selects the tunnel; an operator supplies its root-owned token artifact.
+- **Why:** Existing role actions installed only the controller service or role slices, and putting a token in action JSON would expose it to plans and SQLite.
+- **How it went:** Reused current baseline evaluation and fixed systemd ownership. Synthetic local fixtures cover installation and scope/secret-path denials; Linux source compiled, with no live installation or native qualification claim.
+- **Lesson:** A service running is not ingress qualification. Actual baseline evidence, correct token scope, TLS/Access observations and later connector identity remain required.
+
 ## 28-10-2026 — Prepare first Console ingress without borrowing another project's tunnel ([#330](https://github.com/vegastack/vegastack-labs/issues/330))
 
 - **What:** The existing ingress commands now support finite, separately acknowledged creation stages and a final same-record DNS cutover. New resource IDs come from retained server receipts rather than invented inputs; uncertain creation cannot be blindly repeated.

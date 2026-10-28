@@ -61,3 +61,57 @@ Provider token rotation prevents future connections with the old token; existing
 The human fallback has the same exact target list, approval, credential references and recovery prerequisites. On each declared eligible connector, use the existing approved host secret-custody and configuration procedure to install the new referenced token, restart only its named service, and verify its provider reconnect and origin behavior before proceeding in the approved order. Do not paste an installation command containing the token or put a token in process arguments. If that secure host procedure is not implemented or authorized, stop at partial; this issue adds no host executor or privilege bypass.
 
 Submit non-secret references through `vsk-labs network ingress rollout-evidence --config <profile> --file <evidence>`. The request names the exact rotation run, material version and connector set. The server independently rereads current provider connections; a caller receipt cannot mark success. Missing replicas or retained old sessions remain partial. The current provider API cannot prove the installed credential generation, so even new sessions remain `verification-pending`. This workflow does not claim full rotation, origin isolation, G-012 qualification or compromise containment. Any tunnel-wide emergency containment requires its own separately approved boundary; it is not an automatic fallback.
+
+### Single connector installation
+
+The fixed `cloudflare.connector.install` host action installs only
+`/usr/local/bin/vsk-labs-cloudflared` and `vsk-labs-ingress.service`. It is an
+ordinary `host.action.execute` operation: prepare with `node action prepare`,
+create the immutable plan, obtain human acknowledgement and apply through the
+same engine. The selected controller identity and the successfully created
+bootstrap tunnel receipt must match the protected bootstrap profile. A live
+connector ID is observed after its first connection; it is not invented as an
+installation prerequisite.
+
+Installation additionally requires the existing actual `role-install`
+`host.hardening-baseline` evaluation. Registered/adopted status, an installed
+service, or the one-connector pilot choice does not satisfy that evaluation.
+Missing current baseline/native evidence blocks this installer. This does not
+change ordinary two-connector qualification or pass G-012/G-016.
+
+The operator first supplies the tunnel-scoped token by hidden input into exactly
+`/etc/vsk-labs/ingress/tunnel-token`, owned by root with mode `0600`, one hard
+link and no symlink or writable ancestors. Token entry is an explicitly scoped
+operator preparation, not a credential-reveal command or an agent action.
+Never put the token in command arguments, environment, a plan, API response,
+SQLite or source. The installer reads and decodes the token only inside the local privileged effect, compares its public account/tunnel identifiers to the exact acknowledged scope, rejects malformed/unknown fields and alternate endpoints, and wipes its private buffers. It does not project, hash or transfer the token. This is scope validation, not provider acceptance or signature verification. The shape is grounded in the pinned [TunnelToken](https://github.com/cloudflare/cloudflared/blob/2026.10.5/connection/connection.go) and [ParseToken](https://github.com/cloudflare/cloudflared/blob/2026.10.5/cmd/cloudflared/tunnel/subcommands.go) implementations. Systemd delivers
+it to the DynamicUser service using `LoadCredential` and cloudflared's
+`--token-file`. Automated token retrieval/distribution is not implemented.
+
+For a private-CA HTTPS origin, prepare the actual public CA certificate(s) at
+`/etc/vsk-labs/ingress/origin-ca.pem`, root-owned mode `0644`, with protected
+ancestors which permit the service to traverse to the public certificate. The exact PEM digest is in the acknowledged action input; bootstrap
+must select that same fixed `caPool` path. The installer accepts current CA
+certificates only, never issuer private keys. `originServerName`, full TLS
+verification and the later origin leaf pin remain required. A valid configured
+origin certificate/key is an independent protected controller input; this
+installer does not issue certificates. Publicly trusted origins may omit caPool.
+Cloudflare documents [private-CA origin trust](https://developers.cloudflare.com/tunnel/troubleshooting/https-origins/)
+and the [CA pool parameter](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/origin-parameters/).
+
+The binary is pinned to the official [2026.10.5 release](https://github.com/cloudflare/cloudflared/releases/tag/2026.10.5),
+Linux AMD64 raw artifact SHA-256
+`e1bc0cf084fd9e590554fe769a86b1db46701c3f847a43d902f7b974a4e16298`.
+The acknowledged effect downloads only that fixed release URL, checks the hash,
+refuses replacement of unrelated files/units, and starts only the fixed unit.
+It disables cloudflared automatic updates. [Token-file support](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/run-parameters/)
+requires cloudflared 2025.4.0 or newer.
+
+Verification checks the fixed unit, active process and pinned executable;
+provider connection identity, origin TLS and Access allowed/denied behavior
+still require their actual observations. Partial installation never qualifies
+ingress. Preserve the partial result and inspect the fixed artifacts; retry only
+under a new current acknowledged plan after resolving the reported prerequisite.
+An unrelated existing unit, executable, token or CA artifact is never overwritten.
+Stopping/removing the service or replacing credential material requires a
+separately scoped supported operation or recorded operator emergency procedure.

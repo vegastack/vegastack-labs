@@ -588,7 +588,7 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 	}
 	secretGate = ingressSecretGate{source: ingressSource, fallback: secretGate}
 	secretGate = ciPublicationGate{source: ciPublication, fallback: secretGate}
-	secretGate = hostActionGate{jobs: ciJobs, targets: store.NewHostActionRepository(authority), credentials: credentialRepository, allowed: profile.HostActionIdentityDigests, fallback: secretGate}
+	secretGate = hostActionGate{connector: ingressConnectorAuthorization(profile, authority, gateRepository), jobs: ciJobs, targets: store.NewHostActionRepository(authority), credentials: credentialRepository, allowed: profile.HostActionIdentityDigests, fallback: secretGate}
 	lifecycleGate := hostActionGate{targets: store.NewHostActionRepository(authority), credentials: credentialRepository, allowed: profile.HostActionIdentityDigests, fallback: runengine.UnavailableGateVerifier{}}
 	credentialStep := &runengine.CredentialStep{Bindings: credentialRepository, Resolvers: adapters, Profiles: gateRepository, Plans: plans, ScheduledPlans: scheduledAdmission, Clock: time.Now}
 	credentialCore, err := runengine.NewCoreCredentialEffect(credentialRepository, store.NewAcknowledgementRepository(authority), lifecycleGate, composeNativeCredentialLifecycleVerifier(ctx, operations.databasePath, profile.SocketOwnerUID), runengine.UnavailableCredentialRecoveryVerifier{}, time.Now)
