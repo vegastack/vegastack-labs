@@ -1,6 +1,6 @@
 # Phase 10 — Operations, monitoring and agent/manual workflows
 
-Status on 28-10-2026: bounded source development is in progress. This phase is not accepted as complete. The existing simplicity mandate, protected-host exclusion and separate source/live authority boundaries remain controlling.
+Status on 28-10-2026: source deliveries #323, #325 and #326 were merged in PR #329 after the required combined exact-head checks passed. Maintenance issue #324 and live acceptance remain open. This phase is not accepted as complete. The existing simplicity mandate, protected-host exclusion and separate source/live authority boundaries remain controlling.
 
 ## Requirements and solution
 
@@ -8,10 +8,10 @@ Extend the existing `vsk-labs` executable, server-owned SQLite, generated API, i
 
 | Source delivery | Owner | Current acceptance boundary |
 |---|---|---|
-| Local operational observations, alert dedupe/recovery and optional configured Beszel/GitHub adapter source | [10.1 (#323)](https://github.com/vegastack/vegastack-labs/issues/323) | Source integrated with isolated alert/delivery checks; final combined proof remains outstanding. A destination receipt cannot prove source recovery. |
+| Local operational observations, alert dedupe/recovery and optional configured Beszel/GitHub adapter source | [10.1 (#323)](https://github.com/vegastack/vegastack-labs/issues/323) | Merged with isolated alert/delivery checks and a complete plan/acknowledgement/execution/evidence workflow using real SQLite and synthetic provider/native boundaries. Final combined checks passed. No live delivery or human-read claim; a destination receipt cannot prove source recovery. |
 | Hardening drift/staleness, inert maintenance/canary/drain and incident reconciliation construction | [10.2 (#324)](https://github.com/vegastack/vegastack-labs/issues/324) | Diagnosis, inert records and single-host baseline-action delegation are integrated. Plan, Slack acknowledgement and apply remain separate. Preparation alone does not prove actual maintenance execution, failed-canary stopping, drain completion or failure/recovery. |
 | Nine canonical skills, generated Claude/manual copies, Hermes read/plan contract and summary diagnosis | [10.3 (#325)](https://github.com/vegastack/vegastack-labs/issues/325) | Source/contract fixtures only; native agent loading, trust and actual vendor behavior are untested. |
-| Independent R2 heartbeat, external Worker checker and secondary delivery | [10.4 (#326)](https://github.com/vegastack/vegastack-labs/issues/326) | Producer, exact R2 writer, scheduled Worker/secondary source and protected server composition are implemented with local fixtures. Shared G-011 activation, real grants/receipts, deployment and independent detection of complete Worker nonexecution remain unqualified. |
+| Independent R2 heartbeat, external Worker checker and secondary delivery | [10.4 (#326)](https://github.com/vegastack/vegastack-labs/issues/326) | Producer, exact R2 writer, scheduled Worker/secondary source and protected server composition are implemented with local fixtures. The shared G-011 receipt verifier and protected lifecycle composition are wired and tested with synthetic boundaries. Real grants/receipts, deployment and independent detection of complete Worker nonexecution remain unqualified. |
 | Optional sanitized remote status projection | Explicit selection required | Disabled; no projection is a control, approval or synchronization authority. |
 
 The required watchdog writes sanitized status with a narrow write-only R2 identity, checks externally every five minutes and detects a heartbeat 15 minutes stale. Its local software fixtures cover dedupe, verified recovery, bounded failure behavior and concrete secondary delivery source. They do not prove live provider delivery or independent detection of a fully stopped Worker. Its live deployment still waits for G-011 recipients, a selected independent secondary route and explicit authorization. A live provider choice is not guessed to complete a fixture.
