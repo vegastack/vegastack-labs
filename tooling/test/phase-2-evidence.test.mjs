@@ -18,7 +18,7 @@ test("the original Phase 2 baseline stays immutable while later waves have exact
   assert.equal(manifest.contract.postPhase2MutationBoundaryDigest, "sha256:ec30a4cc9d4a6e5a3fc9817a55a5b0a1697adcae57b950325edd563637d308a8");
   assert.equal(manifest.contract.productionDependencyDigest, "sha256:a9e8788558fa5c3347b5b8464d8d5e4a67dcc9357e5ae07478b606a806f78133");
   assert.equal(manifest.contract.mutationAvailable, false);
-  assert.equal(manifest.contract.reviewedWaves?.length, 62 + 1);
+  assert.equal(manifest.contract.reviewedWaves?.length, 63 + 1);
   assert.equal(manifest.contract.reviewedWaves.slice(0, 62).length, 62);
   assert.deepEqual(manifest.contract.reviewedWaves.find(wave => wave.issue === 269), {"id":"phase7-issue269-v1","issue":269,"commands":["user offboard","user onboard","user resume","user suspend"],"imports":[],"mutationBoundaryDigest":"sha256:5e96ac023243311b523932fede76f010dacb3d42b020d140e9c4b694468bd4c8"});
   assert.deepEqual(manifest.contract.reviewedWaves.find(wave => wave.issue === 270), {"id":"phase7-issue270-v1","issue":270,"commands":["device approve","device request","device revoke"],"imports":[],"mutationBoundaryDigest":"sha256:0169a3072c212b8288df2c957bd5843e42637296dd1a02a802251b340ebecf0d"});
@@ -680,13 +680,39 @@ test("the #313 CI job wave rejects command, import, closure and historical drift
 test("the #322 pilot wave rejects command, import, source and historical widening", async () => {
   const manifest = await loadManifest();
   const facts = await collectIntegratedFacts(ROOT);
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-1), {"id":"controller-read-ingress-pilot-issue322-v1","issue":322,"commands":["network ingress pilot-evidence"],"imports":[],"mutationBoundaryDigest":"sha256:2cd2fbea250cc75ad29534e8162905a29b71b7643079c769c464e879fc7d8917"});
+  assert.deepEqual(manifest.contract.reviewedWaves.find(w => w.issue === 322), {"id":"controller-read-ingress-pilot-issue322-v1","issue":322,"commands":["network ingress pilot-evidence"],"imports":[],"mutationBoundaryDigest":"sha256:2cd2fbea250cc75ad29534e8162905a29b71b7643079c769c464e879fc7d8917"});
   assert.equal(validateEvidence(manifest, facts).status, "pass");
   for (const mutate of [
-    m => m.contract.reviewedWaves.at(-1).commands.push("network ingress pilot-apply"),
+    m => m.contract.reviewedWaves.find(w => w.issue === 322).commands.push("network ingress pilot-apply"),
+    m => m.contract.reviewedWaves.find(w => w.issue === 322).imports.push("unreviewed/authority"),
+    m => { m.contract.reviewedWaves.find(w => w.issue === 322).mutationBoundaryDigest = `sha256:${"0".repeat(64)}`; },
+    m => { m.contract.reviewedWaves.find(w => w.issue === 320).commands.push("ci arbitrary"); },
+    m => m.contract.reviewedWaves.splice(m.contract.reviewedWaves.findIndex(w => w.issue === 322), 1),
+  ]) {
+    const changed = structuredClone(manifest);
+    mutate(changed);
+    const result = validateEvidence(changed, facts);
+    assert.ok(result.codes.includes("PHASE2_TRACEABILITY_GAP"), JSON.stringify(result));
+    assert.ok(result.codes.includes("PHASE2_MUTATION_AVAILABLE"), JSON.stringify(result));
+  }
+  const changed = structuredClone(facts);
+  changed.postPhase2MutationBoundaryDigest = `sha256:${"0".repeat(64)}`;
+  assert.ok(validateEvidence(manifest, changed).codes.includes("PHASE2_MUTATION_AVAILABLE"));
+});
+
+
+test("the combined Phase 10 wave rejects command, import, source and historical widening", async () => {
+  const manifest = await loadManifest();
+  const facts = await collectIntegratedFacts(ROOT);
+  assert.equal(manifest.contract.reviewedWaves.length, 64);
+  assert.equal(manifest.contract.reviewedWaves.slice(0, 63).at(-1).issue, 322);
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-1), {"id":"phase10-issues323-324-325-326-328-v1","issue":323,"commands":["doctor","maintenance diagnose","maintenance draft","maintenance repair","operations notification-readiness","operations observe","operations status"],"imports":["github.com/vegastack/vegastack-labs/internal/adapter/beszel","github.com/vegastack/vegastack-labs/internal/adapter/githubalerts","github.com/vegastack/vegastack-labs/internal/adapter/slackalerts","github.com/vegastack/vegastack-labs/internal/maintenance","github.com/vegastack/vegastack-labs/internal/operations","github.com/vegastack/vegastack-labs/internal/siteheartbeat"],"mutationBoundaryDigest":"sha256:ee78ae62901d33d41a7999b5d5a03727b3b1e3d74418793718a35dc46edd164a"});
+  assert.equal(validateEvidence(manifest, facts).status, "pass");
+  for (const mutate of [
+    m => m.contract.reviewedWaves.at(-1).commands.push("operations send-now"),
     m => m.contract.reviewedWaves.at(-1).imports.push("unreviewed/authority"),
     m => { m.contract.reviewedWaves.at(-1).mutationBoundaryDigest = `sha256:${"0".repeat(64)}`; },
-    m => { m.contract.reviewedWaves.find(w => w.issue === 320).commands.push("ci arbitrary"); },
+    m => m.contract.reviewedWaves.find(w => w.issue === 322).commands.push("network ingress pilot-apply"),
     m => m.contract.reviewedWaves.pop(),
   ]) {
     const changed = structuredClone(manifest);

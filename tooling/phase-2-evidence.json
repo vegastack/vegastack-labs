@@ -687,6 +687,28 @@
         ],
         "imports": [],
         "mutationBoundaryDigest": "sha256:2cd2fbea250cc75ad29534e8162905a29b71b7643079c769c464e879fc7d8917"
+      },
+      {
+        "id": "phase10-issues323-324-325-326-328-v1",
+        "issue": 323,
+        "commands": [
+          "doctor",
+          "maintenance diagnose",
+          "maintenance draft",
+          "maintenance repair",
+          "operations notification-readiness",
+          "operations observe",
+          "operations status"
+        ],
+        "imports": [
+          "github.com/vegastack/vegastack-labs/internal/adapter/beszel",
+          "github.com/vegastack/vegastack-labs/internal/adapter/githubalerts",
+          "github.com/vegastack/vegastack-labs/internal/adapter/slackalerts",
+          "github.com/vegastack/vegastack-labs/internal/maintenance",
+          "github.com/vegastack/vegastack-labs/internal/operations",
+          "github.com/vegastack/vegastack-labs/internal/siteheartbeat"
+        ],
+        "mutationBoundaryDigest": "sha256:ee78ae62901d33d41a7999b5d5a03727b3b1e3d74418793718a35dc46edd164a"
       }
     ]
   },

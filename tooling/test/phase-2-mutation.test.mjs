@@ -11,7 +11,6 @@ const EXPECTED_PLANNED_MUTATIONS = [
   "control-plane plan",
   "control-plane recover",
   "control-plane verify",
-  "doctor",
   "maintenance plan",
   "maintenance run",
   "node nominate",
