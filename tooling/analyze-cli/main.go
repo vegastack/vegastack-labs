@@ -1968,14 +1968,14 @@ func inspectPackage(candidate checkedSourcePackage, generatedImport, stateExport
 					result.HandwrittenRegistry = true
 				}
 			case *ast.AssignStmt:
-				if candidate.listed.ImportPath != generatedImport && !isAPIPackage && assignmentIsRegistry(typed, candidate.info, context) && !reviewedSetupGrantCopy(candidate, file, typed, generatedImport) && !reviewedCIBlobDataCopy(candidate, file, typed, generatedImport) {
+				if candidate.listed.ImportPath != generatedImport && !isAPIPackage && assignmentIsRegistry(typed, candidate.info, context) && !reviewedSetupGrantCopy(candidate, file, typed, generatedImport) && !reviewedCIBlobDataCopy(candidate, file, typed, generatedImport) && !reviewedOperationsDataNode(candidate, file, typed, generatedImport) {
 					result.HandwrittenRegistry = true
 				}
 				if assignmentProvidesStateExportTrust(typed, candidate.info, stateExportImport) {
 					result.StateExportTrust = true
 				}
 			case *ast.CompositeLit:
-				if candidate.listed.ImportPath != generatedImport && !isAPIPackage && isDispatchCollection(candidate.info.TypeOf(typed), context) && !reviewedRecoveryGrantPredicates(candidate, file, typed, generatedImport) && !reviewedCIJobGrantPredicates(candidate, file, typed, generatedImport) {
+				if candidate.listed.ImportPath != generatedImport && !isAPIPackage && isDispatchCollection(candidate.info.TypeOf(typed), context) && !reviewedRecoveryGrantPredicates(candidate, file, typed, generatedImport) && !reviewedCIJobGrantPredicates(candidate, file, typed, generatedImport) && !reviewedOperationsDataNode(candidate, file, typed, generatedImport) {
 					result.HandwrittenRegistry = true
 				}
 				if stateExportConfigProvidesTrust(typed, candidate.info, stateExportImport) {
