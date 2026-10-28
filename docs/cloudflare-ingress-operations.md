@@ -82,7 +82,7 @@ the selected controller and this one connector through the shared actual
 controller-pilot verifier. Its complete protected policy digest must appear as
 `controllerSetupPilotDigest` in immutable ActionInput; a marker alone, a missing
 verifier, changed scope, or failed current checks still denies execution.
-Unmarked plans retain the ordinary baseline path. This setup eligibility does
+An unregistered initial controller instead uses the distinct `connector-install` stage in the [selected controller setup procedure](controller-setup-pilot.md); it does not need a manufactured host record. That stage rechecks the successful bootstrap tunnel receipt and current native ingress custody. Unmarked plans retain the ordinary baseline path. This setup eligibility does
 not mark baseline passed, change ordinary host/workload admission or two-connector
 qualification, or pass G-012/G-016.
 
