@@ -8,13 +8,19 @@ import (
 )
 
 func TestReviewedCredentialImportAndAuditLocalClientWavesRejectChangedAndAddedSource(t *testing.T) {
-	for _, testCase := range []struct {
-		name  string
-		files []string
-	}{
-		{"linux", []string{"apply_bound.go", "approval_client.go", "audit_client.go", "authorization_grants.go", "backup_client.go", "ci_enrollment.go", "ci_job.go", "ci_publication.go", "client.go", "credential_client.go", "credential_lifecycle_client.go", "database_client.go", "gates_client.go", "hosting_lifecycle.go", "hosts_client.go", "ingress_client.go", "listener.go", "listener_linux.go", "mesh_client.go", "network_endpoints.go", "qualification_client.go", "qualification_producer.go", "restore_client.go", "schedule_client.go", "service_configuration_client.go", "service_deployments_client.go", "service_recovery_client.go", "services_client.go"}},
-		{"unsupported", []string{"apply_bound.go", "approval_client.go", "audit_client.go", "authorization_grants.go", "backup_client.go", "ci_enrollment.go", "ci_job.go", "ci_publication.go", "client.go", "credential_client.go", "credential_lifecycle_client.go", "database_client.go", "gates_client.go", "hosting_lifecycle.go", "hosts_client.go", "ingress_client.go", "listener.go", "listener_unsupported.go", "mesh_client.go", "network_endpoints.go", "qualification_client.go", "qualification_producer.go", "restore_client.go", "schedule_client.go", "service_configuration_client.go", "service_deployments_client.go", "service_recovery_client.go", "services_client.go"}},
-	} {
+	for _, platform := range []string{"linux", "unsupported"} {
+		testCase := struct {
+			name  string
+			files []string
+		}{name: platform}
+		for key := range phase10SourceSeals {
+			if strings.HasPrefix(key, "internal/localapi|") && strings.Contains(key, "listener_"+platform+".go") {
+				testCase.files = strings.Split(strings.SplitN(key, "|", 2)[1], ",")
+			}
+		}
+		if len(testCase.files) == 0 {
+			t.Fatal("missing current local client variant")
+		}
 		t.Run(testCase.name, func(t *testing.T) {
 			temporary := t.TempDir()
 			for _, name := range testCase.files {
@@ -35,7 +41,7 @@ func TestReviewedCredentialImportAndAuditLocalClientWavesRejectChangedAndAddedSo
 			if !reviewedLocalAPISource(candidate) {
 				t.Fatal("the exact reviewed local gate, credential import, and audit client source was not accepted")
 			}
-			for _, clientFile := range []string{"ci_publication.go", "authorization_grants.go", "audit_client.go", "credential_client.go", "credential_lifecycle_client.go", "database_client.go", "restore_client.go", "schedule_client.go", "hosts_client.go", "network_endpoints.go", "mesh_client.go", "ingress_client.go", "service_deployments_client.go", "services_client.go"} {
+			for _, clientFile := range []string{"maintenance.go", "operations_client.go", "ci_publication.go", "authorization_grants.go", "audit_client.go", "credential_client.go", "credential_lifecycle_client.go", "database_client.go", "restore_client.go", "schedule_client.go", "hosts_client.go", "network_endpoints.go", "mesh_client.go", "ingress_client.go", "service_deployments_client.go", "services_client.go"} {
 				file := filepath.Join(temporary, clientFile)
 				original, err := os.ReadFile(file)
 				if err != nil {

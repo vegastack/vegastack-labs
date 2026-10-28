@@ -99,7 +99,7 @@ func TestNetworkConnectSourceSealsRejectDrift(t *testing.T) {
 		}
 		checked++
 	}
-	if checked != 24+1 {
-		t.Fatal("all 24 existing platform/domain variants plus the exact pilot validator must be sealed")
+	if checked != 24+1+1 {
+		t.Fatal("all 24 existing platform/domain variants plus exact pilot and maintenance validators must be sealed")
 	}
 }
