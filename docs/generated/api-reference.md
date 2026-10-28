@@ -75,6 +75,7 @@ Contract schema: `1.32.0`
 | `api.v1.network.endpoint-drafts.create` | `POST` | `/api/v1/network/endpoint-drafts` | `available` | `operator` | `finite` | `vegastack-labs.dev/network-endpoint-request` | `vegastack-labs.dev/declaration-revision` |
 | `api.v1.network.ingress.draft` | `POST` | `/api/v1/network/ingress/draft` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/ingress-draft-request` | `vegastack-labs.dev/ingress-draft-submission` |
 | `api.v1.network.ingress.observe` | `POST` | `/api/v1/network/ingress/observe` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/ingress-draft-request` | `vegastack-labs.dev/ingress-status-data` |
+| `api.v1.network.ingress.pilot-evidence` | `POST` | `/api/v1/network/ingress/pilot-evidence` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/ingress-pilot-evidence-request` | `vegastack-labs.dev/gate-evidence-submission` |
 | `api.v1.network.ingress.rollout-evidence` | `POST` | `/api/v1/network/ingress/rollout-evidence` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/ingress-rollout-evidence-request` | `vegastack-labs.dev/ingress-status-data` |
 | `api.v1.network.ingress.status` | `GET` | `/api/v1/network/ingress/{profileID}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/ingress-status-data` |
 | `api.v1.network.mesh.draft` | `POST` | `/api/v1/network/mesh/draft` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/mesh-draft-request` | `vegastack-labs.dev/mesh-draft-submission` |

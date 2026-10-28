@@ -3537,6 +3537,77 @@
       "path": [
         "network",
         "ingress",
+        "pilot-evidence"
+      ],
+      "summary": "Inspect or prepare owned ingress; provider rotation alone is incomplete.",
+      "availability": "available",
+      "ownerPhase": "7",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected operator profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read an exact non-secret typed request.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/ingress-pilot-evidence-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/gate-evidence-submission",
+      "examples": [
+        {
+          "summary": "Inspect or prepare owned ingress; provider rotation alone is incomplete.",
+          "arguments": [
+            "network",
+            "ingress",
+            "pilot-evidence",
+            "--config",
+            "fixture/client.json",
+            "--file",
+            "fixture/ingress.json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "network",
+        "ingress",
         "rollout-evidence"
       ],
       "summary": "Inspect or prepare owned ingress; provider rotation alone is incomplete.",
@@ -8599,6 +8670,11 @@
       "artifactPath": "schemas/v1/ingress-connector-target.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/ingress-controller-read-pilot",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/ingress-controller-read-pilot.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/ingress-draft-request",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/ingress-draft-request.schema.json"
@@ -8607,6 +8683,11 @@
       "id": "vegastack-labs.dev/ingress-draft-submission",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/ingress-draft-submission.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/ingress-pilot-evidence-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/ingress-pilot-evidence-request.schema.json"
     },
     {
       "id": "vegastack-labs.dev/ingress-rollout-evidence-request",

@@ -69,6 +69,33 @@ func (a *App) runIngressCommand(ctx context.Context, mode outputMode, p parsedAr
 		}
 		return 0
 	}
+	if p.commandName() == generated.CommandNameNetworkIngressPilotEvidence {
+		var q generated.IngressPilotEvidenceRequest
+		if len(raw) > 65536 || generated.ValidateContractJSON(generated.SchemaIDIngressPilotEvidenceRequest, raw, generated.ContractExact) != nil || json.Unmarshal(raw, &q) != nil {
+			return a.fail(mode, p.commandName(), generated.ErrorCodeInputInvalid, "pilot-evidence", generated.RunStatusFailed, false)
+		}
+		pilot, ok := a.control.(interface {
+			DraftIngressPilotEvidence(context.Context, string, generated.IngressPilotEvidenceRequest) (localapi.TypedResponse[generated.GateEvidenceSubmission], error)
+		})
+		if !ok {
+			return a.fail(mode, p.commandName(), generated.ErrorCodePrerequisiteBlocked, "pilot-evidence", generated.RunStatusFailed, false)
+		}
+		r, e := pilot.DraftIngressPilotEvidence(ctx, p.Value(generated.FlagConfig), q)
+		if e != nil {
+			return a.failServer(mode, p.commandName(), e)
+		}
+		if r.ExitCode != 0 {
+			return a.remoteFailure(mode, r.Raw, r.Result, r.ExitCode)
+		}
+		if mode == outputJSON {
+			return writeRemoteJSON(a.stdout, r.Raw, r.ExitCode)
+		}
+		_, e = fmt.Fprintf(a.stdout, "Pilot evidence draft %s\nDeclaration: %s\nPlan and human acknowledgement required. No HA or host qualification.\n", r.Data.EvidenceID, r.Data.ChangeID)
+		if e != nil {
+			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+		}
+		return 0
+	}
 	var q generated.IngressDraftRequest
 	if len(raw) > 65536 || generated.ValidateContractJSON(generated.SchemaIDIngressDraftRequest, raw, generated.ContractExact) != nil || json.Unmarshal(raw, &q) != nil {
 		return a.fail(mode, p.commandName(), generated.ErrorCodeInputInvalid, "ingress-request", generated.RunStatusFailed, false)

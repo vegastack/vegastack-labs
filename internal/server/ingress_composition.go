@@ -14,11 +14,13 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/run"
 	"github.com/vegastack/vegastack-labs/internal/serverconfig"
 	"github.com/vegastack/vegastack-labs/internal/store"
+	"net/http"
 	"slices"
 	"time"
 )
 
 type ingressAuthority struct {
+	pilot       *ingressPilotComposition
 	repository  *store.IngressRepository
 	gates       *store.GateRepository
 	credentials *store.CredentialRepository
@@ -37,6 +39,19 @@ func (c *ingressAuthority) check(ctx context.Context, d ingress.Staged) error {
 		return ingress.Error(generated.ErrorCodePrerequisiteBlocked)
 	}
 	resolved := gate.ResolvedScope{ProfileID: scope.ProfileID, ProfileVersion: scope.ProfileVersion, PolicyID: scope.PolicyID, PolicyVersion: scope.PolicyVersion, Capabilities: scope.Capabilities, StateRevision: scope.StateRevision, RecoveryEpoch: scope.RecoveryEpoch}
+	if c.pilot != nil {
+		if !c.pilot.enabled(resolved) || ingress.ValidatePilotChange(*c.pilot.profile.IngressControllerReadPilot, d.Request.Change, d.Request.RecoveryEpoch) != nil {
+			return ingress.Error(generated.ErrorCodePrerequisiteBlocked)
+		}
+		for _, id := range []string{"platform-safety", ingress.PilotGateID, "G-016"} {
+			evaluation, err := c.pilot.evaluate(ctx, resolved, id, time.Now().UTC())
+			if err != nil || evaluation.Outcome != "passed" {
+				return ingress.Error(generated.ErrorCodePrerequisiteBlocked)
+			}
+		}
+		return nil
+	}
+
 	for _, g := range []struct{ id, kind, subject string }{{"platform-safety", "site", "scope"}, {"G-012", "site", "scope"}, {"G-016", "adapter", ingress.AdapterID}} {
 		if g.id == "G-012" && d.Request.Change.Action == "import" {
 			continue
@@ -129,22 +144,28 @@ func (g ingressSecretGate) VerifySecretStep(ctx context.Context, p generated.Pla
 	}
 	return g.source.check(ctx, d)
 }
-func registerIngress(ctx context.Context, app *api.Application, s *store.Store, registry *adapter.Registry, declarations *change.Service, factory *result.Factory, p serverconfig.Profile, build result.BuildInfo, databasePath string) (*ingressAuthority, error) {
+func registerIngress(ctx context.Context, app *api.Application, s *store.Store, registry *adapter.Registry, declarations *change.Service, factory *result.Factory, p serverconfig.Profile, build result.BuildInfo, databasePath string, identityClient *http.Client) (*ingressAuthority, error) {
 	repository := store.NewIngressRepository(s, p.IngressScopeDigests)
 	source := &ingressAuthority{repository: repository, gates: store.NewGateRepository(s), credentials: store.NewCredentialRepository(s), registry: registry, build: build, proofs: gate.NewProofRegistry(), backend: cloud.NewClient()}
+	if p.IngressControllerReadPilot != nil {
+		source.pilot = &ingressPilotComposition{profile: p, store: s, source: source, identityClient: identityClient, probe: probePilotOrigin, machine: pilotMachineDigest}
+	}
 	if e := composeIngressNative(ctx, p, databasePath, s, registry); e != nil {
 		return nil, e
 	}
 	if e := registry.Register(ingress.AdapterID, &cloud.IngressAdapter{Authority: source, Backend: source.backend}); e != nil {
 		return nil, e
 	}
-	if e := api.RegisterIngressOperations(app, api.IngressOperations{Repository: repository, Declarations: declarations, Credentials: source.credentials, Results: factory, Observe: source.Observe, Rollout: source.Rollout}); e != nil {
+	if e := api.RegisterIngressOperations(app, api.IngressOperations{Repository: repository, Declarations: declarations, Credentials: source.credentials, Results: factory, Observe: source.Observe, Rollout: source.Rollout, PilotEvidence: source.CollectPilotEvidence, Revisions: store.NewPlanRepository(s)}); e != nil {
 		return nil, e
 	}
 	return source, nil
 }
 
 func (c *ingressAuthority) Observe(ctx context.Context, q generated.IngressDraftRequest) (generated.IngressStatusData, error) {
+	if c.pilot != nil && ingress.ValidatePilotChange(*c.pilot.profile.IngressControllerReadPilot, q.Change, q.RecoveryEpoch) != nil {
+		return generated.IngressStatusData{}, ingress.Error(generated.ErrorCodeAuthorizationDenied)
+	}
 	d, e := c.repository.Preview(ctx, q)
 	if e != nil {
 		return generated.IngressStatusData{}, e
@@ -184,6 +205,9 @@ func (c *ingressAuthority) Observe(ctx context.Context, q generated.IngressDraft
 }
 
 func (c *ingressAuthority) Rollout(ctx context.Context, q generated.IngressRolloutEvidenceRequest) (generated.IngressStatusData, error) {
+	if c.pilot != nil {
+		return generated.IngressStatusData{}, ingress.Error(generated.ErrorCodeAuthorizationDenied)
+	}
 	d, state, e := c.repository.Rotation(ctx, q)
 	if e != nil {
 		return generated.IngressStatusData{}, e

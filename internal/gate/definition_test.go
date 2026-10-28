@@ -29,7 +29,7 @@ func TestMissingAppliedScopeDoesNotSynthesizeProfile(t *testing.T) {
 
 func TestGeneratedGateDefinitionsValidateAndDeferOutOfScopeWork(t *testing.T) {
 	// platform-safety + G-001..G-023 + two host gates + three native stage gates.
-	if len(generated.GeneratedGateDefinitions) != 29 {
+	if len(generated.GeneratedGateDefinitions) != 30 {
 		t.Fatalf("definitions = %d", len(generated.GeneratedGateDefinitions))
 	}
 	for _, definition := range generated.GeneratedGateDefinitions {

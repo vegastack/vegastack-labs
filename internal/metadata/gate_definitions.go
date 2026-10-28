@@ -51,6 +51,7 @@ func CurrentGateDefinitions() []GateDefinitionSource {
 		}
 		definitions = append(definitions, definition)
 	}
+	definitions = append(definitions, GateDefinitionSource{GateID: "ingress.controller-read-pilot", DefinitionVersion: "1.0.0", Layer: "deployment-profile", ProfileID: "vegastack-labs", CapabilityID: "cloudflare.ingress.controller-read-pilot", Applicability: "capability", SubjectKinds: []string{"site"}, PrerequisiteGateIDs: []string{}, EvidenceSchemaID: gateEvidenceSchemaID, EvaluatorVersion: "1.0.0", FreshnessSeconds: 300, RecoveryEpochBound: true})
 	definitions = append(definitions, phase6HostGateDefinitions()...)
 	for _, stage := range []string{"baseline", "role", "recovery"} {
 		definitions = append(definitions, GateDefinitionSource{GateID: "native." + stage, DefinitionVersion: "1.0.0", Layer: "platform", Applicability: "always", SubjectKinds: []string{"profile"}, PrerequisiteGateIDs: []string{}, EvidenceSchemaID: gateEvidenceSchemaID, EvaluatorVersion: "1.0.0", FreshnessSeconds: 86400, RecoveryEpochBound: true})

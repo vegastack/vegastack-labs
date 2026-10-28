@@ -384,12 +384,17 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 	result.LocalClientBoundary = true
 	restoreCLISeen, restoreCLIValid := false, false
 	restoreClientSeen, restoreClientValid := false, false
-	localClosure := moduleDependencyClosure(inModule, localAPIImport)
+	pilotPruning := ingressPilotDependencyPruning(inModule, modulePath)
+	localClosure := moduleDependencyClosurePruned(inModule, localAPIImport, pilotPruning)
 	// The finite recovery witness command uses one byte-sealed package surface.
 	// Do not turn the server-only recovery engine behind that package into a
 	// portable CLI capability merely because Go compiles packages as a unit.
-	controlClosure := moduleDependencyClosurePruned(inModule, cliImport, map[string]bool{recoveryImport: true})
-	for importPath := range moduleDependencyClosure(inModule, clientFileImport) {
+	controlPruning := map[string]bool{recoveryImport: true}
+	for key, value := range pilotPruning {
+		controlPruning[key] = value
+	}
+	controlClosure := moduleDependencyClosurePruned(inModule, cliImport, controlPruning)
+	for importPath := range moduleDependencyClosurePruned(inModule, clientFileImport, pilotPruning) {
 		controlClosure[importPath] = true
 	}
 	controlClosure[mainImport] = true
@@ -425,7 +430,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 			if imported == cliImport || imported == serverImport || strings.HasPrefix(imported, serverImport+"/") || imported == backupImport {
 				continue
 			}
-			for importPath := range moduleDependencyClosure(inModule, imported) {
+			for importPath := range moduleDependencyClosurePruned(inModule, imported, pilotPruning) {
 				controlClosure[importPath] = true
 			}
 		}
@@ -870,6 +875,7 @@ func reviewedLocalClientDependencies(closure map[string]bool, modulePath, localA
 		localTransportImport:                      true,
 		sshTransportImport:                        true,
 		modulePath + "/internal/networkconnect":   true,
+		modulePath + "/internal/networkingress":   true,
 		modulePath + "/internal/servicecatalog":   true,
 		modulePath + "/internal/ci":               true,
 		modulePath + "/internal/hostinglifecycle": true,
@@ -895,6 +901,9 @@ func reviewedLocalClientDependencies(closure map[string]bool, modulePath, localA
 }
 
 func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, localAPIImport, localTransportImport, sshTransportImport string) bool {
+	if candidate.listed.ImportPath == modulePath+"/internal/networkingress" {
+		return approvedNetworkConnectPackage(candidate, modulePath, "internal/networkingress")
+	}
 	if candidate.listed.ImportPath == modulePath+"/internal/ci" {
 		return approvedNetworkConnectPackage(candidate, modulePath, "internal/ci")
 	}

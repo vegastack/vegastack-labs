@@ -25,6 +25,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/consoleassets"
 	"github.com/vegastack/vegastack-labs/internal/databaseexport"
 	"github.com/vegastack/vegastack-labs/internal/failure"
+	"github.com/vegastack/vegastack-labs/internal/gate"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/identity"
 	"github.com/vegastack/vegastack-labs/internal/inventory"
@@ -432,7 +433,13 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 	gateRepository := nativeGateRepository(authority, operations.build)
 	roleComposition := hostRoleComposition{gates: gateRepository, render: roletransport.RenderLinuxRole, clock: time.Now}
 	runRepository.ConfigureHostRoles(gateRepository, roleComposition)
-	if err := api.RegisterGateOperations(application, api.GateOperations{Gates: gateRepository, Revisions: planRepository, Declarations: declarations, Results: factory, Build: operations.build, Clock: time.Now}); err != nil {
+	var ingressSourceForGates *ingressAuthority
+	if err := api.RegisterGateOperations(application, api.GateOperations{EvaluatePilot: func(ctx context.Context, scope gate.ResolvedScope, subjectID, gateID string, at time.Time) (generated.GateEvaluation, bool, error) {
+		if ingressSourceForGates == nil {
+			return generated.GateEvaluation{}, false, nil
+		}
+		return ingressSourceForGates.EvaluatePilot(ctx, scope, subjectID, gateID, at)
+	}, Gates: gateRepository, Revisions: planRepository, Declarations: declarations, Results: factory, Build: operations.build, Clock: time.Now}); err != nil {
 		_ = application.Shutdown(ctx)
 		return err
 	}
@@ -546,7 +553,8 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 		return meshErr
 	}
 	secretGate = meshSecretGate{source: meshSource, fallback: secretGate}
-	ingressSource, ingressErr := registerIngress(ctx, application, authority, adapters, declarations, factory, profile, operations.build, operations.databasePath)
+	ingressSource, ingressErr := registerIngress(ctx, application, authority, adapters, declarations, factory, profile, operations.build, operations.databasePath, operations.identityHTTPClient)
+	ingressSourceForGates = ingressSource
 	if ingressErr != nil {
 		_ = application.Shutdown(ctx)
 		return ingressErr

@@ -81,6 +81,7 @@ type Client interface {
 	GetService(context.Context, serverconfig.Profile, string) (TypedResponse[generated.ServiceRecord], error)
 	ObserveService(context.Context, serverconfig.Profile, string) (TypedResponse[generated.ServiceObservation], error)
 	DraftServiceImport(context.Context, serverconfig.Profile, generated.ServiceImportDraftRequest) (TypedResponse[generated.DeclarationRevision], error)
+	DraftIngressPilotEvidence(context.Context, serverconfig.Profile, generated.IngressPilotEvidenceRequest) (TypedResponse[generated.GateEvidenceSubmission], error)
 	ObserveIngress(context.Context, serverconfig.Profile, generated.IngressDraftRequest) (TypedResponse[generated.IngressStatusData], error)
 	DraftIngress(context.Context, serverconfig.Profile, generated.IngressDraftRequest) (TypedResponse[generated.IngressDraftSubmission], error)
 	IngressStatus(context.Context, serverconfig.Profile, string) (TypedResponse[generated.IngressStatusData], error)

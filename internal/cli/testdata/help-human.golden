@@ -248,6 +248,11 @@ Available commands:
     --file <path>          Read an exact non-secret typed request.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  network ingress pilot-evidence Inspect or prepare owned ingress; provider rotation alone is incomplete.
+    --config <path>        Read one protected operator profile.
+    --file <path>          Read an exact non-secret typed request.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   network ingress rollout-evidence Inspect or prepare owned ingress; provider rotation alone is incomplete.
     --config <path>        Read one protected operator profile.
     --file <path>          Read an exact non-secret typed request.

@@ -42,3 +42,12 @@ func (c *client) SubmitIngressRolloutEvidence(ctx context.Context, p serverconfi
 		return validGateData(d, generated.SchemaIDIngressStatusData) && d.ProfileID == q.ProfileID && d.StateRevision == r.StateRevision && d.RecoveryEpoch == r.RecoveryEpoch && d.RecoveryEpoch == q.RecoveryEpoch && d.Status == "partial" && d.RotationStage != "complete"
 	})
 }
+
+func (c *client) DraftIngressPilotEvidence(ctx context.Context, p serverconfig.Profile, q generated.IngressPilotEvidenceRequest) (TypedResponse[generated.GateEvidenceSubmission], error) {
+	if !validGateData(q, generated.SchemaIDIngressPilotEvidenceRequest) {
+		return TypedResponse[generated.GateEvidenceSubmission]{}, failure.New(generated.ErrorCodeInputInvalid, "pilot-evidence", false)
+	}
+	return requestTyped(c, ctx, p, requestSpec{localtransport.MethodPost, "/api/v1/network/ingress/pilot-evidence", "api.v1.network.ingress.pilot-evidence", maxOperationResponseBodyBytes, operationTimeout, false}, q, func(d generated.GateEvidenceSubmission, r generated.RunResult) bool {
+		return validGateData(d, generated.SchemaIDGateEvidenceSubmission) && d.EvidenceID == q.EvidenceID && d.StateRevision == r.StateRevision && d.RecoveryEpoch == q.Request.RecoveryEpoch
+	})
+}

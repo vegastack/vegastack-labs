@@ -620,6 +620,19 @@ Owner phase: `7` · risk: `read-only` · availability: `available`
 
 - Inspect or prepare owned ingress; provider rotation alone is incomplete.: `vsk-labs network ingress observe --config fixture/client.json --file fixture/ingress.json`
 
+### `vsk-labs network ingress pilot-evidence`
+
+Inspect or prepare owned ingress; provider rotation alone is incomplete.
+
+Owner phase: `7` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--file <path>` — Read an exact non-secret typed request.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Inspect or prepare owned ingress; provider rotation alone is incomplete.: `vsk-labs network ingress pilot-evidence --config fixture/client.json --file fixture/ingress.json`
+
 ### `vsk-labs network ingress rollout-evidence`
 
 Inspect or prepare owned ingress; provider rotation alone is incomplete.

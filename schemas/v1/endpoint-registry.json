@@ -936,6 +936,20 @@
       ]
     },
     {
+      "id": "api.v1.network.ingress.pilot-evidence",
+      "method": "POST",
+      "path": "/api/v1/network/ingress/pilot-evidence",
+      "availability": "available",
+      "ownerPhase": "7",
+      "requestSchema": "vegastack-labs.dev/ingress-pilot-evidence-request",
+      "dataSchema": "vegastack-labs.dev/gate-evidence-submission",
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
+    },
+    {
       "id": "api.v1.network.ingress.rollout-evidence",
       "method": "POST",
       "path": "/api/v1/network/ingress/rollout-evidence",

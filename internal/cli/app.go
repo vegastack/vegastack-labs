@@ -494,7 +494,7 @@ func (app *App) Run(ctx context.Context, args []string) int {
 		return app.runRolePrepare(ctx, mode, parsed)
 	case generated.CommandNameNodeReplacementPrepare, generated.CommandNameNodeReplacementInspect, generated.CommandNameNodeTargetPrepare, generated.CommandNameNodeActionPrepare, generated.CommandNameNodeAccessPrepare, generated.CommandNameNodeObservationInspect:
 		return app.runHostLifecycleCommand(ctx, mode, parsed)
-	case generated.CommandNameNetworkIngressObserve, generated.CommandNameNetworkIngressDraft, generated.CommandNameNetworkIngressStatus, generated.CommandNameNetworkIngressRolloutEvidence:
+	case generated.CommandNameNetworkIngressPilotEvidence, generated.CommandNameNetworkIngressObserve, generated.CommandNameNetworkIngressDraft, generated.CommandNameNetworkIngressStatus, generated.CommandNameNetworkIngressRolloutEvidence:
 		return app.runIngressCommand(ctx, mode, parsed)
 	case generated.CommandNameNetworkMeshObserve, generated.CommandNameNetworkMeshDraft, generated.CommandNameNetworkMeshStatus:
 		return app.runMeshCommand(ctx, mode, parsed)
