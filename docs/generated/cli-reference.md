@@ -828,6 +828,30 @@ Owner phase: `6` · risk: `mutation` · availability: `available`
 
 - Prepare an inert discovery target draft.: `vsk-labs node target prepare --config fixture/server-profile.json --file fixture/host-request.json --output json`
 
+### `vsk-labs operations observe`
+
+Inspect local alerts or collect server-owned source observations; no infrastructure mutation.
+
+Owner phase: `10` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Inspect local alerts or collect server-owned source observations; no infrastructure mutation.: `vsk-labs operations observe --config fixture/client.json`
+
+### `vsk-labs operations status`
+
+Inspect local alerts or collect server-owned source observations; no infrastructure mutation.
+
+Owner phase: `10` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Inspect local alerts or collect server-owned source observations; no infrastructure mutation.: `vsk-labs operations status --config fixture/client.json`
+
 ### `vsk-labs plan`
 
 Create an immutable plan from one exact inert declaration revision.

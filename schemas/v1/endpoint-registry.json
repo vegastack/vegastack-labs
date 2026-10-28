@@ -1018,6 +1018,32 @@
       ]
     },
     {
+      "id": "api.v1.operations.observe",
+      "method": "POST",
+      "path": "/api/v1/operations/observe",
+      "availability": "available",
+      "ownerPhase": "10",
+      "requestSchema": "vegastack-labs.dev/operations-observe-request",
+      "dataSchema": "vegastack-labs.dev/operations-status-data",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.operations.status",
+      "method": "GET",
+      "path": "/api/v1/operations",
+      "availability": "available",
+      "ownerPhase": "10",
+      "dataSchema": "vegastack-labs.dev/operations-status-data",
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
+    },
+    {
       "id": "api.v1.people.list",
       "method": "GET",
       "path": "/api/v1/people",

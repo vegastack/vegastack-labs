@@ -121,6 +121,8 @@ func TestEveryGeneratedCommandHasTruthfulRuntimeBehavior(t *testing.T) {
 			// suggesting that the missing control dependency is operational.
 			providerScope := ""
 			switch commandName(command.Path) {
+			case generated.CommandNameOperationsStatus, generated.CommandNameOperationsObserve:
+				providerScope = "operations-control"
 			case generated.CommandNameNetworkMeshDraft, generated.CommandNameNetworkMeshObserve, generated.CommandNameNetworkMeshStatus:
 				providerScope = "mesh-control"
 			case generated.CommandNameNetworkIngressDraft, generated.CommandNameNetworkIngressObserve, generated.CommandNameNetworkIngressStatus, generated.CommandNameNetworkIngressRolloutEvidence, generated.CommandNameNetworkIngressPilotEvidence:
@@ -133,7 +135,7 @@ func TestEveryGeneratedCommandHasTruthfulRuntimeBehavior(t *testing.T) {
 				return
 			}
 			switch commandName(command.Path) {
-			case generated.CommandNameServiceConfigurationShow, generated.CommandNameHostingLifecycleDraft, generated.CommandNameHostingLifecycleShow, generated.CommandNameServiceRecoveryDraft, generated.CommandNameServiceRecoveryShow:
+			case generated.CommandNameOperationsStatus, generated.CommandNameOperationsObserve, generated.CommandNameServiceConfigurationShow, generated.CommandNameHostingLifecycleDraft, generated.CommandNameHostingLifecycleShow, generated.CommandNameServiceRecoveryDraft, generated.CommandNameServiceRecoveryShow:
 				if code != 6 || !strings.Contains(stdout, `"code":"PREREQUISITE_BLOCKED"`) || stderr != "" {
 					t.Fatalf("missing typed dependency: code=%d stdout=%q stderr=%q", code, stdout, stderr)
 				}

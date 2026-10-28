@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 28-10-2026 — Operational failures retain their own local alert history ([#323](https://github.com/vegastack/vegastack-labs/issues/323))
+
+- **What:** Operators can collect server-owned observations and inspect persistent, deduplicated alerts through the existing executable and generated API. A fresh verified recovery closes the alert; stale, unknown and unavailable observations do not. Notification receipts remain separate from health.
+- **Why:** Losing an external notification service must not lose local failure/recovery history or make a failed source appear healthy.
+- **How it went:** Reused the existing SQLite audit outbox and native credential-reference resolver. Focused local tests exercised real SQLite reopen, ordered retries, dead letters and uncertain GitHub issue creation. Live G-011 evidence, recipient/secondary-route selection and installed/loaded native credential custody remain unqualified; no host/provider operation or independent review was run.
+- **Changed:** Operations status/observe commands · atomic local alert transitions · protected exact Beszel/GitHub adapter configuration · fixed sanitized notifications with bounded retries · matching manual procedure and explicit activation limits.
+- **Decisions:** None. Required independent Worker/R2 site-silence source remains a separate Phase 10 slice; optional status projection and existing Phase 6/Mac/advanced-recovery deferrals are unchanged.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/10.1-operations-alerts
+
 ## 28-10-2026 — Prepare a truthful one-connector Console pilot ([#322](https://github.com/vegastack/vegastack-labs/issues/322))
 
 - **What:** Added an explicit protected policy and a server observation command for a single-controller read-only Console route. Collected evidence still needs the existing plan and Slack acknowledgement before apply. The live website remains blocked until its actual resources, credentials and approved setup exist.

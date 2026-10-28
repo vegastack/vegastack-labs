@@ -547,6 +547,10 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 	if recoveryBackupAdapter != nil {
 		secretGate = scheduledBackupLiveGate{admission: scheduledAdmission, fallback: secretGate, clock: time.Now}
 	}
+	if err = registerOperationsMonitoring(ctx, application, authority, adapters, profile, operations.build, operations.databasePath); err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
 	meshSource, meshErr := registerMesh(ctx, application, authority, adapters, declarations, factory, profile, operations.build, operations.databasePath)
 	if meshErr != nil {
 		_ = application.Shutdown(ctx)

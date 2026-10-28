@@ -4710,6 +4710,121 @@
     },
     {
       "path": [
+        "operations",
+        "observe"
+      ],
+      "summary": "Inspect local alerts or collect server-owned source observations; no infrastructure mutation.",
+      "availability": "available",
+      "ownerPhase": "10",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected operator profile.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/operations-observe-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/operations-status-data",
+      "examples": [
+        {
+          "summary": "Inspect local alerts or collect server-owned source observations; no infrastructure mutation.",
+          "arguments": [
+            "operations",
+            "observe",
+            "--config",
+            "fixture/client.json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "operations",
+        "status"
+      ],
+      "summary": "Inspect local alerts or collect server-owned source observations; no infrastructure mutation.",
+      "availability": "available",
+      "ownerPhase": "10",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected operator profile.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/operations-status-data",
+      "examples": [
+        {
+          "summary": "Inspect local alerts or collect server-owned source observations; no infrastructure mutation.",
+          "arguments": [
+            "operations",
+            "status",
+            "--config",
+            "fixture/client.json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
         "plan"
       ],
       "summary": "Create an immutable plan from one exact inert declaration revision.",
@@ -9141,6 +9256,31 @@
     {
       "id": "vegastack-labs.dev/offsite-run-spec",
       "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/operations-alert",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/operations-alert.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/operations-beszel-binding",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/operations-beszel-binding.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/operations-github-destination",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/operations-github-destination.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/operations-observe-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/operations-observe-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/operations-status-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/operations-status-data.schema.json"
     },
     {
       "id": "vegastack-labs.dev/operator-device",

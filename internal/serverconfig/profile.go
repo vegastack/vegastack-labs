@@ -31,6 +31,8 @@ var scheduledRunnerPath = regexp.MustCompile(`^/[A-Za-z0-9._/-]+$`)
 
 type Profile struct {
 	IngressControllerReadPilot       *generated.IngressControllerReadPilot
+	OperationsBeszel                 []generated.OperationsBeszelBinding
+	OperationsGithub                 *generated.OperationsGithubDestination
 	CIDeploymentJobs                 []generated.CiDeploymentJobBinding
 	HostingLifecycleProfiles         []generated.HostingLifecycleProfile
 	ServiceRecoveryProfiles          []generated.ServiceRecoveryProfile
@@ -219,6 +221,10 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 	if input.HostActionKeyID != "" && !offsiteProfileToken.MatchString(input.HostActionKeyID) {
 		return invalid()
 	}
+	operationsBeszel, operationsGithub, operationsErr := FreezeOperations(input.OperationsBeszel, input.OperationsGithub)
+	if operationsErr != nil {
+		return invalid()
+	}
 	seenMesh := map[string]bool{}
 	for _, d := range append(append([]string{}, input.MeshScopeDigests...), input.IngressScopeDigests...) {
 		if len(d) != 71 || !strings.HasPrefix(d, "sha256:") || seenMesh[d] {
@@ -334,8 +340,9 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 		AcknowledgementAdapterConfigPath: adapterConfigPath,
 		IngressControllerReadPilot:       input.IngressControllerReadPilot,
 		IngressScopeDigests:              append([]string(nil), input.IngressScopeDigests...),
-		MeshScopeDigests:                 append([]string(nil), input.MeshScopeDigests...),
-		HostActionSignerPath:             input.HostActionSignerPath, HostActionKeyID: input.HostActionKeyID, HostActionIdentityDigests: append([]string(nil), input.HostActionIdentityDigests...),
+		OperationsBeszel:                 operationsBeszel, OperationsGithub: operationsGithub,
+		MeshScopeDigests:     append([]string(nil), input.MeshScopeDigests...),
+		HostActionSignerPath: input.HostActionSignerPath, HostActionKeyID: input.HostActionKeyID, HostActionIdentityDigests: append([]string(nil), input.HostActionIdentityDigests...),
 		LocalBackup:     localBackup,
 		OffsiteBackup:   offsiteBackup,
 		ScheduledRunner: scheduledRunner,

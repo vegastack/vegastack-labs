@@ -1010,6 +1010,113 @@
       ],
       "type": "object"
     },
+    "operations-beszel-binding": {
+      "additionalProperties": false,
+      "properties": {
+        "endpoint": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "type": "string"
+        },
+        "materialVersion": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recordId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "referenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/operations-beszel-binding"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "staleAfterSeconds": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "targetId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "endpoint",
+        "recordId",
+        "targetId",
+        "referenceId",
+        "materialVersion",
+        "staleAfterSeconds"
+      ],
+      "type": "object"
+    },
+    "operations-github-destination": {
+      "additionalProperties": false,
+      "properties": {
+        "endpoint": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "type": "string"
+        },
+        "materialVersion": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "referenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "repository": {
+          "maxLength": 201,
+          "minLength": 1,
+          "type": "string"
+        },
+        "repositoryId": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/operations-github-destination"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "targetId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "endpoint",
+        "repository",
+        "repositoryId",
+        "targetId",
+        "referenceId",
+        "materialVersion"
+      ],
+      "type": "object"
+    },
     "remote-read-profile": {
       "additionalProperties": false,
       "properties": {
@@ -2155,6 +2262,23 @@
       "type": [
         "string",
         "null"
+      ]
+    },
+    "operationsBeszel": {
+      "items": {
+        "$ref": "#/$defs/operations-beszel-binding"
+      },
+      "maxItems": 64,
+      "type": "array"
+    },
+    "operationsGithub": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/operations-github-destination"
+        },
+        {
+          "type": "null"
+        }
       ]
     },
     "principalBindings": {

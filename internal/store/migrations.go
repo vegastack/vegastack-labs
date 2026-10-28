@@ -89,6 +89,7 @@ var embeddedMigrationManifest = []migrationManifestEntry{
 	{ID: 45, Name: "0045_service_recovery", SHA256: mustSHA256("91bae59dd74c6f240ce83206868588626571a9f43471939726733b5946007056")},
 	{ID: 46, Name: "0046_ci_enrollment", SHA256: mustSHA256("9b210875d66320c6533d872eac02c6e373e0a641662a68aef9964fba7f1f1ae8")},
 	{ID: 47, Name: "0047_ci_job", SHA256: mustSHA256("6af5819125dcde26473df37c5bf6cea59ee60fea0b4bc4bae519dbabbe80db78")},
+	{ID: 48, Name: "0048_operations_alerts", SHA256: mustSHA256("c56498f70f89c35a2f63c019cadf78c92e94ed108fbc3751a3f43df35501f790")},
 }
 
 func Catalog() ([]Migration, error) {
