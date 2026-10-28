@@ -33,6 +33,20 @@ func TestCIJobCurrentSourceSealsRejectDrift(t *testing.T) {
 		}
 	}
 	maps.Copy(current, ciDeliverySourceSeals)
+	// Current #322 fixtures use only their package's additive pilot variants.
+	for key := range current {
+		relative := strings.SplitN(key, "|", 2)[0]
+		for candidate := range ingressPilotSourceSeals {
+			if strings.HasPrefix(candidate, relative+"|") {
+				delete(current, key)
+				break
+			}
+		}
+	}
+	for key, seal := range ingressPilotSourceSeals {
+		current[key] = seal
+	}
+
 	for key, seal := range current {
 		t.Run(key, func(t *testing.T) {
 			parts := strings.SplitN(key, "|", 2)

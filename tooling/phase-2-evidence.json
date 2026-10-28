@@ -678,6 +678,15 @@
           "github.com/vegastack/vegastack-labs/internal/adapter/ociregistry"
         ],
         "mutationBoundaryDigest": "sha256:e7572c0f993e5206d505c2135dd5de37444ab5b120e5430c400218e94a0bcfc1"
+      },
+      {
+        "id": "controller-read-ingress-pilot-issue322-v1",
+        "issue": 322,
+        "commands": [
+          "network ingress pilot-evidence"
+        ],
+        "imports": [],
+        "mutationBoundaryDigest": "sha256:2cd2fbea250cc75ad29534e8162905a29b71b7643079c769c464e879fc7d8917"
       }
     ]
   },

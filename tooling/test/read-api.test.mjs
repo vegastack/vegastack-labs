@@ -321,7 +321,7 @@ test("approved #277 endpoints retain exact operator-only transport contracts", a
 
 test("approved Mesh and ingress routes retain exact finite endpoint contracts", async (t) => {
   const registry = JSON.parse(await readFile(path.join(process.cwd(), "schemas/v1/endpoint-registry.json"), "utf8"));
-  const approved = registry.endpoints.filter(({id}) => /^api\.v1\.network\.(mesh|ingress)\./.test(id));
+  const approved = registry.endpoints.filter(({id}) => /^api\.v1\.network\.(mesh|ingress)\./.test(id) && id !== "api.v1.network.ingress.pilot-evidence");
   assert.equal(approved.length, 7, "all approved Mesh and ingress endpoints must be present");
   for (const original of approved) {
     for (const change of ["remove", "audience", "method", "path", "schema", "extra"]) {
@@ -444,5 +444,25 @@ test("approved #319 CI publication draft retains its exact finite operator contr
     else copy.endpoints.push({...endpoint, id: "api.v1.ci.publications.execute", path: "/api/v1/ci/publications/execute"});
     const root = await fixtureRepo(t, {"schemas/v1/endpoint-registry.json": `${JSON.stringify(copy)}\n`});
     assert.ok((await verifyReadAPI(root)).codes.includes("READ_API_ENDPOINT_DRIFT"), mutation);
+  }
+});
+
+
+test("approved #322 pilot evidence endpoint is additive and exact", async (t) => {
+  const registry = JSON.parse(await readFile(path.join(process.cwd(), "schemas/v1/endpoint-registry.json"), "utf8"));
+  assert.equal((await verifyReadAPI()).status, "pass");
+  const id = "api.v1.network.ingress.pilot-evidence";
+  assert.equal(registry.endpoints.filter(endpoint => endpoint.id === id).length, 1);
+  for (const change of ["remove", "duplicate", "extra-field", "direct-activation", "historical-route", "id", "method", "path", "availability", "ownerPhase", "requestSchema", "dataSchema", "stream", "audiences"]) {
+    const copy = structuredClone(registry);
+    const endpoint = copy.endpoints.find(endpoint => endpoint.id === id);
+    if (change === "remove") copy.endpoints = copy.endpoints.filter(endpoint => endpoint.id !== id);
+    else if (change === "duplicate") copy.endpoints.push({...endpoint});
+    else if (change === "extra-field") endpoint.allowDirectExecution = true;
+    else if (change === "direct-activation") copy.endpoints.push({...endpoint, id:"api.v1.network.ingress.pilot-activate", path:"/api/v1/network/ingress/pilot-activate"});
+    else if (change === "historical-route") copy.endpoints = copy.endpoints.filter(endpoint => endpoint.id !== "api.v1.network.ingress.observe");
+    else endpoint[change] = change === "audiences" ? ["operator", "executor"] : "unreviewed";
+    const root = await fixtureRepo(t, {"schemas/v1/endpoint-registry.json": `${JSON.stringify(copy)}\n`});
+    assert.ok((await verifyReadAPI(root)).codes.includes("READ_API_ENDPOINT_DRIFT"), change);
   }
 });

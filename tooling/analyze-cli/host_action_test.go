@@ -122,6 +122,20 @@ func TestHostActionSourceSealRejectsChangedAddedOrImportedAuthority(t *testing.T
 		currentSeals[key] = seal
 	}
 
+	// Current #322 fixtures use only their package's additive pilot variants.
+	for key := range currentSeals {
+		relative := strings.SplitN(key, "|", 2)[0]
+		for candidate := range ingressPilotSourceSeals {
+			if strings.HasPrefix(candidate, relative+"|") {
+				delete(currentSeals, key)
+				break
+			}
+		}
+	}
+	for key, seal := range ingressPilotSourceSeals {
+		currentSeals[key] = seal
+	}
+
 	for key, seal := range currentSeals {
 		t.Run(key, func(t *testing.T) {
 			parts := strings.SplitN(key, "|", 2)
