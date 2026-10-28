@@ -2135,6 +2135,7 @@ type ControllerSetupPilotEligibility struct {
 	StateRevision             int64  `json:"stateRevision"`
 	RecoveryEpoch             int64  `json:"recoveryEpoch"`
 	AdministratorUID          int64  `json:"administratorUid"`
+	AdministratorGID          int64  `json:"administratorGid"`
 	AdministratorPrincipalID  string `json:"administratorPrincipalId"`
 	ServiceUID                int64  `json:"serviceUid"`
 	ServiceGID                int64  `json:"serviceGid"`
@@ -2152,6 +2153,7 @@ type ControllerSetupPilotPolicy struct {
 	RecoveryEpoch             int64  `json:"recoveryEpoch"`
 	RecoveryImageDigest       string `json:"recoveryImageDigest"`
 	AdministratorUID          int64  `json:"administratorUid"`
+	AdministratorGID          int64  `json:"administratorGid"`
 	AdministratorPrincipalID  string `json:"administratorPrincipalId"`
 	ServiceUID                int64  `json:"serviceUid"`
 	ServiceGID                int64  `json:"serviceGid"`

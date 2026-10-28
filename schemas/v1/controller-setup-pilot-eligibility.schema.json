@@ -3,6 +3,10 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
+    "administratorGid": {
+      "minimum": 1,
+      "type": "integer"
+    },
     "administratorPrincipalId": {
       "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
       "type": "string"
@@ -75,6 +79,7 @@
     "stateRevision",
     "recoveryEpoch",
     "administratorUid",
+    "administratorGid",
     "administratorPrincipalId",
     "serviceUid",
     "serviceGid",
