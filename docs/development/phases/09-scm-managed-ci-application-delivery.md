@@ -1,6 +1,6 @@
 # Phase 9 — SCM, managed CI and application delivery
 
-Status: implementation remains open. Source enrollment/observation, protected provider transports and supplied build-evidence verification/publication are delivered. The finite Docker runtime [#312](https://github.com/vegastack/vegastack-labs/issues/312) and controller integration [#313](https://github.com/vegastack/vegastack-labs/issues/313) pass their scoped native software tests. A real online GitHub job, image/evidence generation, protected deployment and combined operator acceptance remain outstanding. Phase8 supplies the existing hosting, registry, immutable deployment and recovery paths.
+Status: Phase 9 remains open. The current delivery batch adds online-network inspection [#318](https://github.com/vegastack/vegastack-labs/issues/318), actual Go image/unsigned evidence packaging [#315](https://github.com/vegastack/vegastack-labs/issues/315), deployment-job admission [#316](https://github.com/vegastack/vegastack-labs/issues/316), acknowledged verified publication [#319](https://github.com/vegastack/vegastack-labs/issues/319), and the private managed-deployment handoff [#320](https://github.com/vegastack/vegastack-labs/issues/320). Batch integration and its final affected proof must pass before landing. Real signing authority, dedicated runner-group preparation, a real GitHub job and combined live operator acceptance [#317](https://github.com/vegastack/vegastack-labs/issues/317) remain outstanding. Phase 8 supplies the existing hosting, registry, immutable deployment and recovery paths.
 
 ## Outcome and approach
 
@@ -22,6 +22,16 @@ The Labs GitHub adapter is replaceable. GitHub outages cannot disable local cont
 | Combined operator acceptance | Pending | One isolated source-to-build-to-registry-to-approved-deployment demonstration, plus wrong identity/digest, untrusted job, race/replay, cancellation, outage, cleanup and credential-scope denials and matching human procedure. Required real runner/isolation evidence cannot be replaced with API fixtures. |
 
 The broader requirements remain in [Module 4 / #10](https://github.com/vegastack/vegastack-labs/issues/10). Each next batch gets grounded issue scope and acceptance before code. The table records remaining work; it does not declare it deferred or complete.
+
+## Parallel continuation on 28-10-2026
+
+The operator requested the entire remaining phase and separate parallel implementation threads, preserving simplicity and no optional reviewer rounds. Three GPT-6.1 Sol medium owners implemented independent source changes; the coordinator integrates them, performs focused native tests and one final exact-head affected proof. The three issue deliveries share one immutable integration candidate; their completion does not close #317 or the phase.
+
+- **#318:** the finite root helper now checks actual protected egress rules, daemon ancestry and current exact Docker network/payload facts through a private inherited channel before registration delivery. First profile: public HTTPS plus one public DNS resolver, IPv6 denied, one active container per daemon. Native private-LAN/owned-witness checks are software evidence; complete internal gateway/DNS/hostile-job qualification and actual provider execution remain outstanding.
+- **#315:** `release build-go-image` creates real static-Go OCI bytes and unsigned SPDX/SLSA statement payloads. Actual Linux ARM64 Docker loading/execution passes. The inventory is compiled Go modules only; provenance describes binary packaging, and source/builder metadata is unauthenticated. No compilation authenticity, signing, publication or arbitrary-application support claim.
+- **#316:** current exact deployment-class enrollment and actual numeric job/source/runner observations guard external lease claims, renewals and receipts. Existing external credential-plan denial is preserved. A working narrow hosting credential handoff and external deployment adapter are still missing.
+
+After the administrator's role grant and CLI OAuth refresh, authenticated GETs now list organization runner groups and runners. None of the current selected-repository groups includes this repository; selecting/preparing the dedicated group remains an explicit provider prerequisite. No registration, group write, real job, CI dispatch, physical-node change or provider publication was performed. The matching [human procedure](../../operator-ci.md) records preparation, verification, failure and cleanup. #264 separately tracks the website and its Cloudflare/controller prerequisites; it does not grant runner or deployment admission.
 
 ## First delivery contract
 
@@ -136,3 +146,10 @@ Matching human procedure:
 
 
 Controller software proof: four actual Linux SQLite/API/plan/acknowledgement/lease/signed-SSH cases pass: success, revoked execution permission, wrong numeric job and wrong lifecycle-log digest. The SSH peer exercises the actual typed signed protocol and real bounded GitHub adapter against a synthetic HTTPS provider; it is explicitly not a stock job executor. The separate production Docker native tests cover that runtime boundary. Nine fresh enrollment API cases also pass, including the applied private-policy loader. A successful controller case consumes exactly one admission and rejects replay; before a durable active run and after completion, a background caller cannot recover execution authority. The tests fixed durable actor restoration, audit event suffix formatting, shared-reader preservation and a completion-close race; no failed attempt is counted as acceptance. Synthetic host gate evidence isolates software behavior and does not qualify a real host.
+
+
+## Current publication and managed deployment continuation
+
+Issue #319 adds `ci publication draft` to the existing API/CLI and exact-plan flow. The controller requires a durable admitted CI completion and actual successful GitHub run/job conclusions. It verifies real supplied Sigstore bundles, records one publication attempt per immutable plan and rechecks current credential authority. Linux controller tests exercise successful publication/read-back and failed-job, credential-revocation, lease-revocation and unsigned-evidence denial using synthetic providers. The packaging producer's statements remain unsigned; these tests do not establish a production signing identity.
+
+Issue #320 uses a companion external plan committed at the parent CI plan's current revision. Each plan retains its required human acknowledgement. Actual consumed job/runner identities and both leases constrain the hosting credential handoff over the existing private PID1 stream. The initial network subset supports public HTTPS Coolify, with independent provider/runtime verification required for completion. No extra daemon or secret endpoint is introduced. Native synthetic proof and any missing host-qualification evidence must be reported separately from the real combined acceptance in #317.

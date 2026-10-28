@@ -13,14 +13,14 @@ func currentCIEnrollmentFixtureSeals() map[string]hostActionSourceSeal {
 	}
 	for key := range result {
 		relative := strings.SplitN(key, "|", 2)[0]
-		for current := range ciJobSourceSeals {
+		for current := range currentCIJobFixtureSeals() {
 			if strings.HasPrefix(current, relative+"|") {
 				delete(result, key)
 				break
 			}
 		}
 	}
-	for key, seal := range ciJobSourceSeals {
+	for key, seal := range currentCIJobFixtureSeals() {
 		if packages[strings.SplitN(key, "|", 2)[0]] {
 			result[key] = seal
 		}
@@ -28,10 +28,31 @@ func currentCIEnrollmentFixtureSeals() map[string]hostActionSourceSeal {
 	return result
 }
 func isCurrentCIJobFixturePackage(relative string) bool {
-	for key := range ciJobSourceSeals {
+	for key := range currentCIJobFixtureSeals() {
 		if strings.HasPrefix(key, relative+"|") {
 			return true
 		}
 	}
 	return false
+}
+
+// Current source fixtures select the latest exact variant for each package;
+// they never rewrite or reinterpret historical production seal maps.
+func currentCIJobFixtureSeals() map[string]hostActionSourceSeal {
+	result := map[string]hostActionSourceSeal{}
+	for _, wave := range []map[string]hostActionSourceSeal{ciJobSourceSeals, ciNetworkSourceSeals, ciDeliverySourceSeals} {
+		for key := range result {
+			relative := strings.SplitN(key, "|", 2)[0]
+			for current := range wave {
+				if strings.HasPrefix(current, relative+"|") {
+					delete(result, key)
+					break
+				}
+			}
+		}
+		for key, seal := range wave {
+			result[key] = seal
+		}
+	}
+	return result
 }

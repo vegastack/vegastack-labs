@@ -74,11 +74,17 @@ func BindingDigest(value VerifiedIdentity) (string, error) {
 	return "sha256:" + hex.EncodeToString(sum[:]), nil
 }
 
+// ManagedCIControllerMethod identifies an in-process executor reconstructed
+// from current durable CI admission. It is never an external transport login.
+const ManagedCIControllerMethod = "managed-ci-controller"
+
 func ValidPrincipal(principal Principal) bool {
 	if principal.DeviceID != "" && !principalmodel.ValidID(principal.DeviceID) || !principalmodel.ValidID(principal.ID) || !ValidPrincipalKind(EffectivePrincipalKind(principal)) {
 		return false
 	}
 	switch principal.Method {
+	case ManagedCIControllerMethod:
+		return principal.Kind == PrincipalPolicy && principal.DeviceID == ""
 	case LocalOSPeerMethod, CloudflareAccessMethod, SlackSocketModeMethod:
 		return true
 	default:

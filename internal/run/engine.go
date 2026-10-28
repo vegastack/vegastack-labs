@@ -194,13 +194,25 @@ func (engine *Engine) Submit(ctx context.Context, request SubmitRequest) (genera
 	if plan.PlanID != request.Reference.PlanID || plan.PlanDigest != request.Reference.PlanDigest || plan.Binding.RecoveryEpoch != request.Reference.RecoveryEpoch || plan.Status != "planned" {
 		return generated.Run{}, runError(generated.ErrorCodePlanStale, "plan")
 	}
+	if credentialPlanDigest(plan) != "" && plan.ExecutorMode != "central" {
+		validator, ok := engine.plans.(interface {
+			ValidateManagedDeploymentPlan(context.Context, generated.Plan) error
+		})
+		if !ok {
+			return generated.Run{}, runError(generated.ErrorCodeAuthorizationDenied, "credential-external-execution")
+		}
+		if err := validator.ValidateManagedDeploymentPlan(ctx, plan); err != nil {
+			return generated.Run{}, err
+		}
+		ctx = context.WithValue(ctx, ciCompanionPreparationKey{}, ciCompanionPreparation{plan.PlanID, plan.PlanDigest})
+	}
 	if err := engine.verifyAdmission(ctx, plan, request.Authorization, request.Acknowledgement); err != nil {
 		return generated.Run{}, err
 	}
 	if err := engine.validateScheduled(ctx, plan); err != nil {
 		return generated.Run{}, err
 	}
-	if credentialPlanDigest(plan) != "" && plan.ExecutorMode != "central" {
+	if credentialPlanDigest(plan) != "" && plan.ExecutorMode != "central" && !credentialExternalAdmitted(ctx, plan) {
 		return generated.Run{}, runError(generated.ErrorCodeAuthorizationDenied, "credential-external-execution")
 	}
 	now := engine.clock().UTC().Truncate(time.Second)

@@ -20,6 +20,7 @@ const (
 var errUnknownRisk = errors.New("unknown plan operation or risk")
 
 var operationRisk = map[string]RiskClass{
+	"ci.artifact.publish":     RiskControlPlane,
 	"hosting.lifecycle.apply": RiskControlPlane,
 	"service.recover":         RiskProductionLike,
 	"network.ingress.import":  RiskInfrastructure, "network.ingress.tunnel-config-update": RiskInfrastructure, "network.ingress.access-policy-update": RiskInfrastructure, "network.ingress.dns-record-update": RiskInfrastructure, "network.ingress.connector-disconnect": RiskInfrastructure, "network.ingress.token-rotate": RiskInfrastructure,

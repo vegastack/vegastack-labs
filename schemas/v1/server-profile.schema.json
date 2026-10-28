@@ -1,5 +1,95 @@
 {
   "$defs": {
+    "ci-deployment-job-binding": {
+      "additionalProperties": false,
+      "properties": {
+        "artifactDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "attempt": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "enrollmentDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "enrollmentId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "executionBindingDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "executionBindingId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "executorId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "jobId": {
+          "maxLength": 20,
+          "minLength": 1,
+          "type": "string"
+        },
+        "planDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "planId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "runId": {
+          "maxLength": 20,
+          "minLength": 1,
+          "type": "string"
+        },
+        "runnerId": {
+          "maxLength": 20,
+          "minLength": 1,
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/ci-deployment-job-binding"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "targetId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "planId",
+        "planDigest",
+        "executionBindingId",
+        "executionBindingDigest",
+        "enrollmentId",
+        "enrollmentDigest",
+        "executorId",
+        "targetId",
+        "artifactDigest",
+        "runId",
+        "jobId",
+        "runnerId",
+        "attempt"
+      ],
+      "type": "object"
+    },
     "ci-enrollment-binding": {
       "additionalProperties": false,
       "properties": {
@@ -19,6 +109,13 @@
           "enum": [
             "push",
             "workflow_dispatch"
+          ],
+          "type": "string"
+        },
+        "jobClass": {
+          "enum": [
+            "build",
+            "deployment"
           ],
           "type": "string"
         },
@@ -115,6 +212,63 @@
         "jobName",
         "runnerGroupId",
         "labels"
+      ],
+      "type": "object"
+    },
+    "ci-external-deployment-binding": {
+      "additionalProperties": false,
+      "properties": {
+        "artifactId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "bindingId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "executionBindingId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "executorId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "materialVersion": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "resolverId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/ci-external-deployment-binding"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "serviceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "bindingId",
+        "executionBindingId",
+        "serviceId",
+        "artifactId",
+        "executorId",
+        "materialVersion",
+        "resolverId"
       ],
       "type": "object"
     },
@@ -223,6 +377,81 @@
         "runtimeDigest",
         "runnerGroupName",
         "maximumSeconds"
+      ],
+      "type": "object"
+    },
+    "ci-publication-binding": {
+      "additionalProperties": false,
+      "properties": {
+        "bindingId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "candidateDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "candidatePath": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        },
+        "enrollmentId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "materialVersion": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "referenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "registryOrigin": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        },
+        "repository": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/ci-publication-binding"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "sourceRunId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "sourceStepId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "bindingId",
+        "enrollmentId",
+        "sourceRunId",
+        "sourceStepId",
+        "registryOrigin",
+        "repository",
+        "referenceId",
+        "materialVersion",
+        "candidatePath",
+        "candidateDigest"
       ],
       "type": "object"
     },
@@ -1312,6 +1541,13 @@
       "pattern": "^/[^\\x00]*$",
       "type": "string"
     },
+    "ciDeploymentJobs": {
+      "items": {
+        "$ref": "#/$defs/ci-deployment-job-binding"
+      },
+      "maxItems": 64,
+      "type": "array"
+    },
     "ciEnrollmentBindings": {
       "items": {
         "$ref": "#/$defs/ci-enrollment-binding"
@@ -1319,9 +1555,23 @@
       "maxItems": 128,
       "type": "array"
     },
+    "ciExternalDeployments": {
+      "items": {
+        "$ref": "#/$defs/ci-external-deployment-binding"
+      },
+      "maxItems": 64,
+      "type": "array"
+    },
     "ciJobBindings": {
       "items": {
         "$ref": "#/$defs/ci-job-execution-binding"
+      },
+      "maxItems": 128,
+      "type": "array"
+    },
+    "ciPublicationBindings": {
+      "items": {
+        "$ref": "#/$defs/ci-publication-binding"
       },
       "maxItems": 128,
       "type": "array"

@@ -292,7 +292,7 @@ func newExternalExecutorFixtureWithPlan(t *testing.T, secondStep bool) *external
 	now := time.Date(2026, 9, 13, 0, 0, 0, 0, time.UTC)
 	leases := &memoryExternalLeases{runs: engine.store, leases: map[string]generated.ExecutorLease{}, receipts: map[string]generated.ExecutionReceipt{}}
 	fixture := &externalExecutorFixture{engine: engine, leases: leases, principal: identity.Principal{ID: executorID, Method: identity.CloudflareAccessMethod, Kind: identity.PrincipalPolicy}, now: now}
-	fixture.external, err = NewExternalExecutor(ExternalExecutorConfig{Runs: engine.store, Leases: leases, Plans: engine.store, Admission: allowAdmission{}, Adapters: engine.engine.adapters, Clock: func() time.Time { return fixture.now }, IDs: &deterministicIDs{}})
+	fixture.external, err = NewExternalExecutor(ExternalExecutorConfig{DeploymentAdmission: &deploymentAdmissionFixture{}, Runs: engine.store, Leases: leases, Plans: engine.store, Admission: allowAdmission{}, Adapters: engine.engine.adapters, Clock: func() time.Time { return fixture.now }, IDs: &deterministicIDs{}})
 	if err != nil {
 		t.Fatal(err)
 	}

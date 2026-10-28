@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 28-10-2026 — Connect CI image packaging, publication and private deployment ([#315](https://github.com/vegastack/vegastack-labs/issues/315), [#316](https://github.com/vegastack/vegastack-labs/issues/316), [#318](https://github.com/vegastack/vegastack-labs/issues/318), [#319](https://github.com/vegastack/vegastack-labs/issues/319), [#320](https://github.com/vegastack/vegastack-labs/issues/320))
+
+- **What:** Added current rootless-network verification, actual static-Go OCI packaging, acknowledged verified publication and a private deployment handoff bound to the consumed CI job and two approved plans/leases. The existing executable, server, database, credential adapters and approval engine remain controlling.
+- **Why:** The runner could not launch online, supplied build evidence had no local producer, and publication/deployment lacked their complete controller path.
+- **How it went:** GPT-6.1 Sol medium implementers worked in parallel. Actual Linux tests caught host-route parsing, append-only credential revocation, transient verification references, empty lease-extension serialization and the distinction between approved executor consumption and policy self-approval. The image ran in Docker; online bootstrap failure/cleanup passed; actual controller publication passed success and four denials. Private-stream tests exercised real typed TLS provider writes, one-use delivery, replay denial, wiping and revocation of credentials and either lease. The synthetic deployment peer is separate from the stock Docker runtime proof. Incomplete qualification still prevents verified deployment completion. The initial 30-minute target was missed; the combined final affected proof and landing are recorded in the issue evidence. No optional independent review round was run.
+- **Changed:** Current daemon/rules/payload checks · finite root verifier channel · unsigned packaging producer · successful-job publication check · one-use plan intent · companion plan navigation · private container credential channel · independent receipt verifier · matching operator procedure.
+- **Decisions:** Reused existing architecture and kept prior deferrals. These software results do not close #317, G-006 or fleet admission. Real signing authority, selected runner-group preparation and a real source-to-deployment demonstration remain required. Website activation remains separately tracked by #264.
+
+— approved by (omkarmohanta09) · built by Codex with GPT-6.1 Sol medium implementation owners · branch feat/9.12-ci-online-delivery
+
 ## 27-10-2026 — Connect the finite Docker CI runtime to controller plans ([#312](https://github.com/vegastack/vegastack-labs/issues/312), [#313](https://github.com/vegastack/vegastack-labs/issues/313))
 
 - **What:** Implemented one rootless Docker stock-runner lifecycle and its existing controller draft/plan/acknowledgement/lease integration. The fixed hook holds user steps until a current numeric assignment and one-use admission; the same executable supplies the finite bootstrap, hook and non-root worker modes.

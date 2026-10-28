@@ -160,5 +160,5 @@ func presentPlan(value store.PlanCommitResult) (generated.PlanPresentation, erro
 	if err != nil || decodeErr != nil || !bytes.Equal(canonical, value.Canonical) || exact.PlanID != value.Plan.PlanID || exact.PlanDigest != value.Plan.PlanDigest {
 		return generated.PlanPresentation{}, apiFailure(generated.ErrorCodeIntegrityFailure, "plan-presentation")
 	}
-	return generated.PlanPresentation{Plan: value.Plan, ReadablePlan: value.Readable, CanonicalPlan: string(value.Canonical)}, nil
+	return generated.PlanPresentation{Plan: value.Plan, ReadablePlan: value.Readable, CanonicalPlan: string(value.Canonical), CompanionPlanID: value.CompanionPlanID, CompanionPlanDigest: value.CompanionPlanDigest}, nil
 }

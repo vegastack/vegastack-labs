@@ -91,6 +91,9 @@ func validCIJobRequest(in generated.CiJobRequest) bool {
 	return e == nil && n > 0 && strconv.FormatInt(n, 10) == in.RunID && in.Attempt > 0 && in.Attempt <= int64(^uint32(0)) && generated.ValidateContractJSON(generated.SchemaIDCiJobRequest, raw, generated.ContractExact) == nil
 }
 func (r *CIJobRepository) validate(actor identity.Principal, row discoveryRow, in generated.CiJobRequest) error {
+	if e := r.validateExternalDeployment(actor, row, in); e != nil {
+		return e
+	}
 	if !validCIJobRequest(in) {
 		return actionError(generated.ErrorCodeInputInvalid)
 	}
@@ -161,6 +164,13 @@ func (r *CIJobRepository) Prepare(ctx context.Context, in generated.CiJobDraftRe
 		return out, e
 	}
 	out = generated.CiJobRequest{Schema: generated.SchemaIDCiJobRequest, SchemaVersion: "1.0.0", ExecutionBindingID: b.BindingID, ExecutionBindingDigest: hostaction.Digest(b), HostID: b.HostID, HostIdentityDigest: b.HostIdentityDigest, HostAdmissionDigest: HostAdmissionSnapshotDigest(snapshot), RunID: in.RunID, Attempt: in.Attempt, ExpectedStateRevision: in.ExpectedStateRevision, RecoveryEpoch: in.RecoveryEpoch, IdempotencyKey: in.IdempotencyKey, ReasonDigest: in.ReasonDigest}
+	external, e := r.ExternalDeploymentPolicy(b.BindingID)
+	if e != nil {
+		return out, e
+	}
+	if external.Binding.BindingID != "" {
+		out.DeploymentDigest = external.Digest()
+	}
 	err = r.store.Read(ctx, func(tx ReadTx) error {
 		row := func(q string, a ...any) *sql.Row { return tx.queryRow(ctx, q, a...) }
 		rec, e := readCIEnrollment(row, in.EnrollmentID)

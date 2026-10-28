@@ -250,15 +250,19 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/browser-scheduled-job-policy-list-data.schema.json",
 		"schemas/v1/browser-scheduled-job-policy.schema.json",
 		"schemas/v1/browser-scheduled-job.schema.json",
+		"schemas/v1/ci-deployment-job-binding.schema.json",
 		"schemas/v1/ci-enrollment-binding.schema.json",
 		"schemas/v1/ci-enrollment-definition.schema.json",
 		"schemas/v1/ci-enrollment-draft-request.schema.json",
 		"schemas/v1/ci-enrollment-list.schema.json",
 		"schemas/v1/ci-enrollment-record.schema.json",
 		"schemas/v1/ci-enrollment-request.schema.json",
+		"schemas/v1/ci-external-deployment-binding.schema.json",
 		"schemas/v1/ci-job-draft-request.schema.json",
 		"schemas/v1/ci-job-execution-binding.schema.json",
 		"schemas/v1/ci-job-request.schema.json",
+		"schemas/v1/ci-publication-binding.schema.json",
+		"schemas/v1/ci-publication-draft-request.schema.json",
 		"schemas/v1/cloudflare-access-profile.schema.json",
 		"schemas/v1/control-handoff-input.schema.json",
 		"schemas/v1/control-recovery-receive-input.schema.json",
@@ -299,6 +303,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/gate-profile-draft-request.schema.json",
 		"schemas/v1/gate-profile-draft-submission.schema.json",
 		"schemas/v1/gate-view.schema.json",
+		"schemas/v1/go-image-build-data.schema.json",
 		"schemas/v1/harbor-service-binding.schema.json",
 		"schemas/v1/host-access-draft-request.schema.json",
 		"schemas/v1/host-access-probe-request.schema.json",
@@ -938,8 +943,8 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 			}
 		}
 	}
-	if available != 98 || planned != 13 {
-		t.Fatalf("command availability = (%d available, %d planned), want (98, 13)", available, planned)
+	if available != 100 || planned != 13 {
+		t.Fatalf("command availability = (%d available, %d planned), want (100, 13)", available, planned)
 	}
 	// #304 adds three exact CI enrollment commands.
 	// #286 adds four exact service list/show/observe/import-draft commands.
@@ -982,7 +987,7 @@ func TestGeneratedGoIsRuntimeSerializable(t *testing.T) {
 	}
 	for _, want := range []string{
 		`RegistrySchemaVersion`,
-		`= "1.31.0"`,
+		`= "1.32.0"`,
 		`type Endpoint struct`,
 		`var Endpoints = []Endpoint`,
 		`type DatabaseStatusData struct`,

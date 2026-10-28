@@ -33,7 +33,7 @@ func reviewedCIJobGrantPredicates(candidate checkedSourcePackage, file *ast.File
 		return false
 	}
 	raw, e := os.ReadFile(filepath.Join(candidate.listed.Dir, "ci_job_execution.go"))
-	if e != nil || fmt.Sprintf("%x", sha256.Sum256(raw)) != "06322e37edf0c78139e05be7a83d412621f928671ba0b684e6f33b4e2061a8af" {
+	if e != nil || (fmt.Sprintf("%x", sha256.Sum256(raw)) != "06322e37edf0c78139e05be7a83d412621f928671ba0b684e6f33b4e2061a8af" && fmt.Sprintf("%x", sha256.Sum256(raw)) != "44880c2c5ee356aee780aa999327755ea672413d281c2e3d24c90495a5713639") {
 		return false
 	}
 	array, ok := literal.Type.(*ast.ArrayType)
@@ -127,7 +127,7 @@ func reviewedCIJobPreparationPredicates(candidate checkedSourcePackage, file *as
 		return false
 	}
 	raw, e := os.ReadFile(filepath.Join(candidate.listed.Dir, "ci_job.go"))
-	if e != nil || fmt.Sprintf("%x", sha256.Sum256(raw)) != "0299c1b8c621ae4ed7599da272abb3597c975c1b861c3049c6e6c82d2c4e5e99" {
+	if e != nil || (fmt.Sprintf("%x", sha256.Sum256(raw)) != "0299c1b8c621ae4ed7599da272abb3597c975c1b861c3049c6e6c82d2c4e5e99" && fmt.Sprintf("%x", sha256.Sum256(raw)) != "05ca306edabb0c00ecd7e2102811ac8aab01d37c2ed134dd547f03c9a99bd09f") {
 		return false
 	}
 	array, ok := literal.Type.(*ast.ArrayType)

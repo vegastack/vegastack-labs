@@ -200,3 +200,33 @@ func TestBuildEvidenceBoundedInputAndExpectedClaims(t *testing.T) {
 		t.Fatal("cancelled input accepted")
 	}
 }
+
+// Explicit public fixture export; synthetic signing keys are never retained.
+func TestExportCIPublicationFixture(t *testing.T) {
+	destination := os.Getenv("VSK_CI_PUBLICATION_FIXTURE_OUTPUT")
+	if destination == "" {
+		return
+	}
+	manifest, expected, p, s := buildStatements(t)
+	expected.SourceURI = "https://github.com/owner/repo"
+	expected.InvocationID = "https://github.com/owner/repo/actions/runs/60/attempts/2/jobs/70"
+	predicate := p["predicate"].(map[string]any)
+	predicate["buildDefinition"].(map[string]any)["resolvedDependencies"].([]any)[0].(map[string]any)["uri"] = expected.SourceURI
+	predicate["runDetails"].(map[string]any)["metadata"].(map[string]any)["invocationId"] = expected.InvocationID
+	pr, _ := json.Marshal(p)
+	sr, _ := json.Marshal(s)
+	q := signBuildStatements(t, manifest, expected, pr, sr)
+	if _, e := VerifyBuildEvidenceBytes(context.Background(), q); e != nil {
+		t.Fatal(e)
+	}
+	raw, e := json.MarshalIndent(q, "", "  ")
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = os.MkdirAll(destination, 0755); e != nil {
+		t.Fatal(e)
+	}
+	if e = os.WriteFile(filepath.Join(destination, "request.json"), append(raw, '\n'), 0644); e != nil {
+		t.Fatal(e)
+	}
+}

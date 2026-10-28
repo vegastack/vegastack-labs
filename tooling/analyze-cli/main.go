@@ -1947,7 +1947,7 @@ func inspectPackage(candidate checkedSourcePackage, generatedImport, stateExport
 					result.HandwrittenRegistry = true
 				}
 			case *ast.AssignStmt:
-				if candidate.listed.ImportPath != generatedImport && !isAPIPackage && assignmentIsRegistry(typed, candidate.info, context) && !reviewedSetupGrantCopy(candidate, file, typed, generatedImport) {
+				if candidate.listed.ImportPath != generatedImport && !isAPIPackage && assignmentIsRegistry(typed, candidate.info, context) && !reviewedSetupGrantCopy(candidate, file, typed, generatedImport) && !reviewedCIBlobDataCopy(candidate, file, typed, generatedImport) {
 					result.HandwrittenRegistry = true
 				}
 				if assignmentProvidesStateExportTrust(typed, candidate.info, stateExportImport) {

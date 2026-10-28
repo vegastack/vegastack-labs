@@ -28,9 +28,12 @@ var offsiteBucketName = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]{1,62}$`)
 var scheduledRunnerPath = regexp.MustCompile(`^/[A-Za-z0-9._/-]+$`)
 
 type Profile struct {
+	CIDeploymentJobs                 []generated.CiDeploymentJobBinding
 	HostingLifecycleProfiles         []generated.HostingLifecycleProfile
 	ServiceRecoveryProfiles          []generated.ServiceRecoveryProfile
+	CIExternalDeployments            []generated.CiExternalDeploymentBinding
 	CIJobBindings                    []generated.CiJobExecutionBinding
+	CIPublicationBindings            []generated.CiPublicationBinding
 	CIEnrollmentBindings             []generated.CiEnrollmentBinding
 	ServiceBindings                  []generated.ServiceProviderBinding
 	ServiceDeploymentBindings        []generated.ServiceDeploymentProviderBinding
@@ -260,7 +263,15 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 		}
 		scheduledRunner = &ScheduledRunner{UID: uid, PrincipalID: runner.PrincipalID, BinaryPath: runner.BinaryPath, ConfigPath: runner.ConfigPath}
 	}
+	ciPublications, err := FreezeCIPublicationBindings(input.CIPublicationBindings)
+	if err != nil {
+		return Profile{}, err
+	}
 	ciJobs, err := FreezeCIJobBindings(input.CIJobBindings)
+	if err != nil {
+		return invalid()
+	}
+	ciDeployments, err := FreezeCIDeploymentJobs(input.CIDeploymentJobs, input.CIJobBindings, input.CIEnrollmentBindings)
 	if err != nil {
 		return invalid()
 	}
@@ -273,6 +284,10 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 		return invalid()
 	}
 	deploymentBindings, err := FreezeDeploymentBindings(input.ServiceDeploymentBindings, serviceBindings)
+	if err != nil {
+		return invalid()
+	}
+	ciExternal, err := FreezeCIExternalDeployments(input.CIExternalDeployments, ciJobs, serviceBindings, deploymentBindings)
 	if err != nil {
 		return invalid()
 	}
@@ -291,8 +306,11 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 	}
 	return Profile{
 		HostingLifecycleProfiles: hostingProfiles, ServiceRecoveryProfiles: recoveryProfiles,
+		CIExternalDeployments:            ciExternal,
 		CIJobBindings:                    ciJobs,
+		CIPublicationBindings:            ciPublications,
 		CIEnrollmentBindings:             ciBindings,
+		CIDeploymentJobs:                 ciDeployments,
 		ServiceBindings:                  serviceBindings,
 		ServiceDeploymentBindings:        deploymentBindings,
 		NetworkConnectExcludedHostIDs:    append([]string(nil), input.NetworkConnectExcludedHostIDs...),

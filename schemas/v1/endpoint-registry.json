@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/endpoint-registry",
-  "schemaVersion": "1.31.0",
+  "schemaVersion": "1.32.0",
   "endpoints": [
     {
       "id": "api.v1.audit-checkpoints.create",
@@ -207,6 +207,19 @@
       "availability": "available",
       "ownerPhase": "9",
       "requestSchema": "vegastack-labs.dev/ci-job-draft-request",
+      "dataSchema": "vegastack-labs.dev/declaration-revision",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.ci.publications.drafts.create",
+      "method": "POST",
+      "path": "/api/v1/ci/publications/drafts",
+      "availability": "available",
+      "ownerPhase": "9",
+      "requestSchema": "vegastack-labs.dev/ci-publication-draft-request",
       "dataSchema": "vegastack-labs.dev/declaration-revision",
       "stream": "finite",
       "audiences": [

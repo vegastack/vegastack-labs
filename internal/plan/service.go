@@ -159,7 +159,10 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 	}
 	keyDigest, requestDigest := sha([]byte(request.IdempotencyKey)), sha(normalized)
 	if existing, found, err := service.config.Repository.ExistingPlan(ctx, keyDigest, requestDigest); err != nil || found {
-		return existing, err
+		if err != nil {
+			return existing, err
+		}
+		return service.ensureCICompanion(ctx, existing, author)
 	}
 	declaration, err := service.config.Repository.GetDeclaration(ctx, request.DeclarationID, request.DeclarationRevision)
 	if err != nil {
@@ -252,6 +255,12 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 		risk = string(authorization.RiskInfrastructure)
 	}
 
+	if declaration.DeclarationType == store.CIPublicationOperation {
+		if !store.ValidCIPublicationDeclaration(declaration) || service.config.AuthorizationBranch != "human" || service.config.ExecutorMode != "central" {
+			return store.PlanCommitResult{}, planError(generated.ErrorCodeAuthorizationDenied)
+		}
+		risk = string(authorization.RiskControlPlane)
+	}
 	if declaration.CIJob != nil || declaration.CIEnrollment != nil || declaration.ServiceImport != nil || declaration.AuthorizationGrantBatch != nil || declaration.NetworkEndpoint != nil {
 		risk = string(authorization.RiskControlPlane)
 	}
@@ -460,7 +469,11 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 	if author.AgentName != "" {
 		attribution.Agent = &audit.AgentMetadata{Name: author.AgentName, SessionID: author.AgentSessionID}
 	}
-	return service.config.Repository.CommitDeclarationAndPlan(ctx, store.PlanCommitRequest{Plan: candidate, DesiredDeclaration: desired, SourceDeclarationRevision: declaration.Revision, ReasonDigest: reason, CanonicalBytes: canonical, Readable: readable, Expected: current, KeyDigest: keyDigest, RequestDigest: requestDigest, Attribution: attribution})
+	committed, err := service.config.Repository.CommitDeclarationAndPlan(ctx, store.PlanCommitRequest{Plan: candidate, DesiredDeclaration: desired, SourceDeclarationRevision: declaration.Revision, ReasonDigest: reason, CanonicalBytes: canonical, Readable: readable, Expected: current, KeyDigest: keyDigest, RequestDigest: requestDigest, Attribution: attribution})
+	if err != nil {
+		return committed, err
+	}
+	return service.ensureCICompanion(ctx, committed, author)
 }
 
 func credentialLifecycleOperation(operation string) bool {
@@ -649,7 +662,25 @@ func (service *Service) Get(ctx context.Context, planID string) (store.PlanCommi
 	if service == nil || planID == "" {
 		return store.PlanCommitResult{}, planError(generated.ErrorCodeInputInvalid)
 	}
-	return service.config.Repository.GetPlan(ctx, planID)
+	out, e := service.config.Repository.GetPlan(ctx, planID)
+	if e != nil {
+		return out, e
+	}
+	if out.Plan.CIJob != nil && out.Plan.CIJob.DeploymentDigest != "" {
+		repo, ok := service.config.Repository.(interface {
+			CICompanion(context.Context, string) (store.PlanCommitResult, error)
+		})
+		if !ok {
+			return store.PlanCommitResult{}, planError(generated.ErrorCodePrerequisiteBlocked)
+		}
+		companion, e := repo.CICompanion(ctx, planID)
+		if e != nil {
+			return store.PlanCommitResult{}, e
+		}
+		out.CompanionPlanID = companion.Plan.PlanID
+		out.CompanionPlanDigest = companion.Plan.PlanDigest
+	}
+	return out, nil
 }
 
 // GetPlan exposes the same immutable lookup to the run API without requiring

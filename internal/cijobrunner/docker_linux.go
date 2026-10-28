@@ -15,12 +15,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/cijobguard"
+	"github.com/vegastack/vegastack-labs/internal/credentialref"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"golang.org/x/sys/unix"
 )
@@ -62,7 +64,11 @@ func mounts(v []string, toolsReadOnly bool) []string {
 	return a
 }
 func baseArgs(p RuntimeProfile) []string {
-	return []string{"--platform", "linux/arm64", "--network", p.NetworkID, "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--memory", strconv.FormatInt(p.MemoryBytes, 10), "--memory-swap", strconv.FormatInt(p.MemoryBytes, 10), "--pids-limit", strconv.FormatInt(p.PidsLimit, 10), "--cpu-period", strconv.FormatInt(p.CPUPeriodMicros, 10), "--cpu-quota", strconv.FormatInt(p.CPUQuotaMicros, 10), "--log-driver", "none"}
+	a := []string{"--platform", "linux/" + runtime.GOARCH, "--network", p.NetworkID, "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--memory", strconv.FormatInt(p.MemoryBytes, 10), "--memory-swap", strconv.FormatInt(p.MemoryBytes, 10), "--pids-limit", strconv.FormatInt(p.PidsLimit, 10), "--cpu-period", strconv.FormatInt(p.CPUPeriodMicros, 10), "--cpu-quota", strconv.FormatInt(p.CPUQuotaMicros, 10), "--log-driver", "none"}
+	if !p.Offline {
+		a = append(a, "--dns", p.DNSResolver)
+	}
+	return a
 }
 func jobCreateArgs(_ Spec, p RuntimeProfile, v []string, name string) []string {
 	a := append([]string{"create", "--name", name, "--label", "vsk.ci.owner=" + name, "--interactive", "--user", "1001:1001", "--workdir", runnerRoot, "--tmpfs", "/tmp:rw,noexec,nosuid,nodev,size=32m,uid=1001,gid=1001,mode=0700"}, baseArgs(p)...)
@@ -146,11 +152,11 @@ func (d *Docker) preflight(ctx context.Context, s Spec) error {
 		return ErrBlocked
 	}
 	arch, e := d.command(ctx, "image", "inspect", Image, "--format", "{{.Architecture}} {{.Os}}")
-	if e != nil || arch != "arm64 linux" {
+	if e != nil || (runtime.GOARCH != "arm64" && runtime.GOARCH != "amd64") || arch != runtime.GOARCH+" linux" {
 		return ErrBlocked
 	}
 	if !p.Offline {
-		if d.network == nil || d.network.Check(ctx, p) != nil {
+		if d.network == nil || d.network.Check(ctx, p, NetworkCheck{}) != nil {
 			return ErrBlocked
 		}
 	}
@@ -239,6 +245,7 @@ func (d *Docker) Run(ctx context.Context, s Spec, session Session) (receipt Rece
 	}
 	p := d.profile
 	p.NetworkID = "none"
+	p.Offline = true
 	initArgs := append([]string{"create", "--name", name + "-init", "--label", "vsk.ci.owner=" + name, "--user", "0:0", "--cap-add", "CHOWN"}, baseArgs(p)...)
 	initArgs = append(initArgs, mounts(vols, false)...)
 	initArgs = append(initArgs, "--entrypoint", "/bin/sh", Image, "-c", initCommand)
@@ -306,7 +313,7 @@ func (d *Docker) Run(ctx context.Context, s Spec, session Session) (receipt Rece
 	if e != nil {
 		return receipt, ErrBlocked
 	}
-	if !d.profile.Offline && d.network.Check(ctx, d.profile) != nil {
+	if !d.profile.Offline && d.network.Check(ctx, d.profile, NetworkCheck{ContainerID: id, InitPID: group.initPID}) != nil {
 		return receipt, ErrBlocked
 	}
 	receipt.Stage = "started"
@@ -351,6 +358,25 @@ func (d *Docker) Run(ctx context.Context, s Spec, session Session) (receipt Rece
 			receipt.Stage = "held"
 			if emit("held", 0) != nil {
 				return receipt, ErrProtocol
+			}
+			if outer, ok := session.(*Stream); ok {
+				outer.deploymentPrepare = func(ctx context.Context, command DeploymentCommand) error {
+					verifier, ok := d.network.(DeploymentNetworkVerifier)
+					if !ok || verifier.CheckDeployment(ctx, d.profile, NetworkCheck{ContainerID: id, InitPID: group.initPID}, command.Origin) != nil {
+						return ErrBlocked
+					}
+					if stream.write(ctx, frame{Kind: "deployment-offer", Deployment: &command}) != nil {
+						return ErrProtocol
+					}
+					ready, e := stream.read(ctx)
+					if e != nil || ready.Kind != "deployment-ready" || ready.DeploymentCheck == nil || ready.DeploymentCheck.CommandDigest != hostaction.Digest(command) || ready.DeploymentCheck.Sequence != 0 {
+						return ErrProtocol
+					}
+					return nil
+				}
+				outer.deploymentConsumer = func(ctx context.Context, command DeploymentCommand, value *credentialref.Value, check func(context.Context) error) (DeploymentResult, error) {
+					return relayDeployment(ctx, stream, command, value, check)
+				}
 			}
 			decision, e := session.Held(ctx)
 			if e != nil || ValidateDecision(s.Binding, decision) != nil {
@@ -493,12 +519,13 @@ func (d *Docker) verifyPayload(ctx context.Context, id string) (*payload, error)
 			return fail()
 		}
 	}
-	return &payload{group: group, directory: dir, path: filepath.Join("/sys/fs/cgroup", rel)}, nil
+	return &payload{group: group, directory: dir, path: filepath.Join("/sys/fs/cgroup", rel), initPID: x.State.Pid}, nil
 }
 
 // A removed cgroup directory is empty by the kernel rmdir contract. Keep its
 // descriptor to distinguish removal of this exact subtree from a reused path.
 type payload struct {
+	initPID   int
 	group     *cijobguard.Cgroup
 	directory *os.File
 	path      string

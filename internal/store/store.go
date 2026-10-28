@@ -179,6 +179,10 @@ func normalizeConfig(config Config) (Config, error) {
 		return Config{}, err
 	}
 	config.CIJobBindings = ciJobs
+	config.CIPublicationBindings, err = serverconfig.FreezeCIPublicationBindings(config.CIPublicationBindings)
+	if err != nil {
+		return Config{}, err
+	}
 	if err := normalizeCIEnrollmentPolicies(&config); err != nil {
 		return config, err
 	}

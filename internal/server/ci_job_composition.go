@@ -57,8 +57,9 @@ func (s ciJobExecutionSource) ExecutionForBundle(ctx context.Context, b generate
 }
 
 type ciJobControlFactory struct {
-	jobs     *store.CIJobRepository
-	provider *githubci.Client
+	deployment *ciExternalDeploymentControl
+	jobs       *store.CIJobRepository
+	provider   *githubci.Client
 }
 
 func (f ciJobControlFactory) NewCIControl(ctx context.Context, op adapter.Operation, b adapter.ExactExecutionBinding, values []*credentialref.Value) (transport.CIControl, error) {
@@ -87,10 +88,11 @@ func (f ciJobControlFactory) NewCIControl(ctx context.Context, op adapter.Operat
 	if len(found) != 3 {
 		return nil, actionFailure()
 	}
-	return &ciJobControl{jobs: f.jobs, provider: f.provider, op: op, binding: b, request: *x.Plan.CIJob, registration: found[store.CIJobRegistrationPurpose], observer: found[store.CIJobObserverPurpose]}, nil
+	return &ciJobControl{deployment: f.deployment, jobs: f.jobs, provider: f.provider, op: op, binding: b, request: *x.Plan.CIJob, registration: found[store.CIJobRegistrationPurpose], observer: found[store.CIJobObserverPurpose]}, nil
 }
 
 type ciJobControl struct {
+	deployment             *ciExternalDeploymentControl
 	jobs                   *store.CIJobRepository
 	provider               *githubci.Client
 	op                     adapter.Operation
@@ -207,6 +209,14 @@ func (c *ciJobControl) Exchange(ctx context.Context, b generated.HostActionBundl
 			}
 			if e = c.check(live); e != nil {
 				return e
+			}
+			if c.request.DeploymentDigest != "" {
+				if c.deployment == nil {
+					return actionFailure()
+				}
+				if e = c.deployment.exchange(live, c, control); e != nil {
+					return e
+				}
 			}
 			decision := cijobguard.Decision{Action: "allow", Binding: cijobguard.Binding{LifecycleID: c.spec.Binding.LifecycleID, RunID: observed.RunID, JobID: observed.JobID, Attempt: observed.Attempt, PlanID: c.binding.PlanID, LeaseID: c.binding.LeaseID, Epoch: uint64(c.binding.RecoveryEpoch)}}
 			if cijobrunner.ValidateDecision(c.spec.Binding, decision) != nil {

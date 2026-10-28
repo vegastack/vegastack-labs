@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/command-registry",
-  "schemaVersion": "1.31.0",
+  "schemaVersion": "1.32.0",
   "commands": [
     {
       "path": [
@@ -1130,6 +1130,79 @@
             "fixture/client.json",
             "--file",
             "fixture/ci-job.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "ci",
+        "publication",
+        "draft"
+      ],
+      "summary": "Draft verified OCI publication for exact human acknowledgement.",
+      "availability": "available",
+      "ownerPhase": "9",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected operator profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one exact publication draft request.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/ci-publication-draft-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/declaration-revision",
+      "examples": [
+        {
+          "summary": "Draft verified OCI publication for exact human acknowledgement.",
+          "arguments": [
+            "ci",
+            "publication",
+            "draft",
+            "--config",
+            "fixture/client.json",
+            "--file",
+            "fixture/publication.json",
             "--output",
             "json"
           ]
@@ -4990,6 +5063,120 @@
     {
       "path": [
         "release",
+        "build-go-image"
+      ],
+      "summary": "Package a static Linux Go binary into a local scratch OCI image and unsigned packaging statements; no compilation, signing or publication.",
+      "availability": "available",
+      "ownerPhase": "9",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--binary",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read the actual static Linux Go binary; embedded clean VCS revision must match.",
+          "enum": null
+        },
+        {
+          "name": "--builder-id",
+          "kind": "value",
+          "valueName": "uri",
+          "required": true,
+          "repeatable": false,
+          "summary": "Record supplied packaging builder URI; no signing identity is inferred.",
+          "enum": null
+        },
+        {
+          "name": "--directory",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Create a new local output directory; existing paths are refused.",
+          "enum": null
+        },
+        {
+          "name": "--invocation-id",
+          "kind": "value",
+          "valueName": "uri",
+          "required": true,
+          "repeatable": false,
+          "summary": "Record supplied packaging invocation URI.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        },
+        {
+          "name": "--source-revision",
+          "kind": "value",
+          "valueName": "revision",
+          "required": true,
+          "repeatable": false,
+          "summary": "Require this exact revision in compiler-reported clean VCS metadata.",
+          "enum": null
+        },
+        {
+          "name": "--source-uri",
+          "kind": "value",
+          "valueName": "uri",
+          "required": true,
+          "repeatable": false,
+          "summary": "Record caller-supplied source URI; this is not authenticated source identity.",
+          "enum": null
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/go-image-build-data",
+      "examples": [
+        {
+          "summary": "Package a previously compiled binary; output remains unsigned.",
+          "arguments": [
+            "release",
+            "build-go-image",
+            "--binary",
+            "build/app",
+            "--source-uri",
+            "https://example.org/application",
+            "--source-revision",
+            "0123456789abcdef0123456789abcdef01234567",
+            "--builder-id",
+            "https://example.org/packager",
+            "--invocation-id",
+            "https://example.org/runs/1",
+            "--directory",
+            "build/image",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "release",
         "inspect"
       ],
       "summary": "Inspect a local release manifest and compatibility without claiming cryptographic verification.",
@@ -7874,6 +8061,11 @@
       "artifactPath": "schemas/v1/browser-scheduled-job-policy-list-data.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/ci-deployment-job-binding",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/ci-deployment-job-binding.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/ci-enrollment-binding",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/ci-enrollment-binding.schema.json"
@@ -7904,6 +8096,11 @@
       "artifactPath": "schemas/v1/ci-enrollment-request.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/ci-external-deployment-binding",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/ci-external-deployment-binding.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/ci-job-draft-request",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/ci-job-draft-request.schema.json"
@@ -7917,6 +8114,16 @@
       "id": "vegastack-labs.dev/ci-job-request",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/ci-job-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/ci-publication-binding",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/ci-publication-binding.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/ci-publication-draft-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/ci-publication-draft-request.schema.json"
     },
     {
       "id": "vegastack-labs.dev/cloudflare-access-profile",
@@ -8125,6 +8332,11 @@
       "id": "vegastack-labs.dev/gate-view",
       "version": "1.1.0",
       "artifactPath": "schemas/v1/gate-view.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/go-image-build-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/go-image-build-data.schema.json"
     },
     {
       "id": "vegastack-labs.dev/harbor-service-binding",

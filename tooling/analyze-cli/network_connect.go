@@ -22,7 +22,7 @@ func approvedNetworkConnectPackage(c checkedSourcePackage, module, relative stri
 	names := append([]string(nil), c.listed.GoFiles...)
 	slices.Sort(names)
 	key := relative + "|" + strings.Join(names, ",")
-	for _, seals := range []map[string]hostActionSourceSeal{ciJobSourceSeals, ciEnrollmentSourceSeals, networkConnectSourceSeals, combinedNetworkSourceSeals, serviceCatalogSourceSeals, serviceDeploymentSourceSeals, phase8FinishSourceSeals} {
+	for _, seals := range []map[string]hostActionSourceSeal{ciDeliverySourceSeals, ciNetworkSourceSeals, ciJobSourceSeals, ciEnrollmentSourceSeals, networkConnectSourceSeals, combinedNetworkSourceSeals, serviceCatalogSourceSeals, serviceDeploymentSourceSeals, phase8FinishSourceSeals} {
 		seal, ok := seals[key]
 		if !ok {
 			continue

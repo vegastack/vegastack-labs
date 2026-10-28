@@ -19,13 +19,16 @@ import (
 const maxFrame = 8192
 
 type frame struct {
-	Kind       string               `json:"kind"`
-	Spec       *Spec                `json:"spec,omitempty"`
-	Token      []byte               `json:"token,omitempty"`
-	Decision   *cijobguard.Decision `json:"decision,omitempty"`
-	Event      *LifecycleEvent      `json:"event,omitempty"`
-	Runner     *ConfiguredRunner    `json:"runner,omitempty"`
-	Completion *Completion          `json:"completion,omitempty"`
+	Deployment       *DeploymentCommand   `json:"deployment,omitempty"`
+	DeploymentCheck  *DeploymentCheck     `json:"deploymentCheck,omitempty"`
+	DeploymentResult *DeploymentResult    `json:"deploymentResult,omitempty"`
+	Kind             string               `json:"kind"`
+	Spec             *Spec                `json:"spec,omitempty"`
+	Token            []byte               `json:"token,omitempty"`
+	Decision         *cijobguard.Decision `json:"decision,omitempty"`
+	Event            *LifecycleEvent      `json:"event,omitempty"`
+	Runner           *ConfiguredRunner    `json:"runner,omitempty"`
+	Completion       *Completion          `json:"completion,omitempty"`
 }
 
 // Stream is a single sequential private session, not an authentication boundary.
@@ -37,6 +40,8 @@ type Stream struct {
 	registration, configured, held, ready bool
 	sequence                              uint32
 	bytes                                 int
+	deploymentPrepare                     func(context.Context, DeploymentCommand) error
+	deploymentConsumer                    func(context.Context, DeploymentCommand, *credentialref.Value, func(context.Context) error) (DeploymentResult, error)
 	onDecision                            func()
 }
 
@@ -64,17 +69,20 @@ func decodeFrame(ctx context.Context, raw []byte, dst any) error {
 	f, ok := dst.(*frame)
 	if ok {
 		switch f.Kind {
-		case "ready", "start", "registration", "configured", "held", "decision", "event", "complete":
+		case "ready", "start", "registration", "configured", "held", "decision", "event", "complete", "deployment-offer", "deployment-ready", "deployment", "deployment-check", "deployment-checked", "deployment-result":
 		default:
 			return ErrProtocol
 		}
 		count := 0
-		for _, v := range []bool{f.Spec != nil, len(f.Token) > 0, f.Decision != nil, f.Event != nil, f.Runner != nil, f.Completion != nil} {
+		for _, v := range []bool{f.Spec != nil, len(f.Token) > 0, f.Decision != nil, f.Event != nil, f.Runner != nil, f.Completion != nil, f.Deployment != nil, f.DeploymentCheck != nil, f.DeploymentResult != nil} {
 			if v {
 				count++
 			}
 		}
 		expected := 1
+		if f.Kind == "deployment" {
+			expected = 2
+		}
 		if f.Kind == "ready" || f.Kind == "held" || f.Kind == "complete" {
 			expected = 0
 			if f.Kind == "complete" && f.Completion != nil {
@@ -84,7 +92,7 @@ func decodeFrame(ctx context.Context, raw []byte, dst any) error {
 		if count != expected {
 			return ErrProtocol
 		}
-		if f.Kind == "start" && f.Spec == nil || f.Kind == "registration" && len(f.Token) == 0 || f.Kind == "configured" && f.Runner == nil || f.Kind == "decision" && f.Decision == nil || f.Kind == "event" && f.Event == nil {
+		if f.Kind == "start" && f.Spec == nil || f.Kind == "registration" && len(f.Token) == 0 || f.Kind == "configured" && f.Runner == nil || f.Kind == "decision" && f.Decision == nil || f.Kind == "event" && f.Event == nil || (f.Kind == "deployment-offer" && f.Deployment == nil) || f.Kind == "deployment" && (f.Deployment == nil || len(f.Token) == 0) || (f.Kind == "deployment-ready" || f.Kind == "deployment-check" || f.Kind == "deployment-checked") && f.DeploymentCheck == nil || f.Kind == "deployment-result" && f.DeploymentResult == nil {
 			return ErrProtocol
 		}
 	}
@@ -207,6 +215,30 @@ func (s *Stream) Held(ctx context.Context) (cijobguard.Decision, error) {
 		return cijobguard.Decision{}, e
 	}
 	f, e := s.read(ctx)
+	offer := ""
+	if e == nil && f.Kind == "deployment-offer" {
+		if f.Deployment == nil || !validDeployment(*f.Deployment) {
+			return cijobguard.Decision{}, ErrProtocol
+		}
+		offer = hostaction.Digest(*f.Deployment)
+		if s.deploymentPrepare != nil && s.deploymentPrepare(ctx, *f.Deployment) != nil {
+			return cijobguard.Decision{}, ErrBlocked
+		}
+		if s.write(ctx, frame{Kind: "deployment-ready", DeploymentCheck: &DeploymentCheck{CommandDigest: offer}}) != nil {
+			return cijobguard.Decision{}, ErrProtocol
+		}
+		f, e = s.read(ctx)
+	}
+	if e == nil && f.Kind == "deployment" {
+		if offer == "" || f.Deployment == nil || hostaction.Digest(*f.Deployment) != offer {
+			clear(f.Token)
+			return cijobguard.Decision{}, ErrProtocol
+		}
+		if s.handleDeployment(ctx, f) != nil {
+			return cijobguard.Decision{}, ErrBlocked
+		}
+		f, e = s.read(ctx)
+	}
 	if e != nil || f.Kind != "decision" {
 		return cijobguard.Decision{}, ErrProtocol
 	}
@@ -232,15 +264,22 @@ type Completion struct {
 	VolumesRemoved bool   `json:"volumesRemoved"`
 }
 type Message struct {
-	Kind       string
-	Runner     *ConfiguredRunner
-	Event      *LifecycleEvent
-	Completion *Completion
+	DeploymentCheck  *DeploymentCheck
+	DeploymentResult *DeploymentResult
+	Kind             string
+	Runner           *ConfiguredRunner
+	Event            *LifecycleEvent
+	Completion       *Completion
 }
 
 // Control is the controller end of the authenticated CI-only duplex exchange.
 // It does not authorize admission; caller must observe/match and consume its lease.
 type Control struct {
+	deploymentSent                                         bool
+	deploymentReady                                        bool
+	deploymentDigest                                       string
+	deploymentSequence                                     uint32
+	deploymentResult                                       bool
 	stream                                                 *Stream
 	ready, registered, configured, held, decided, complete bool
 	configuredOK                                           bool
@@ -272,6 +311,21 @@ func (c *Control) Receive(ctx context.Context) (Message, error) {
 			return Message{}, ErrProtocol
 		}
 		c.held = true
+	case "deployment-ready":
+		if c.deploymentDigest == "" || c.deploymentReady || f.DeploymentCheck.CommandDigest != c.deploymentDigest || f.DeploymentCheck.Sequence != 0 {
+			return Message{}, ErrProtocol
+		}
+		c.deploymentReady = true
+	case "deployment-check":
+		if !c.held || c.decided || !c.deploymentSent || c.deploymentDigest == "" || c.deploymentResult || f.DeploymentCheck.CommandDigest != c.deploymentDigest || f.DeploymentCheck.Sequence != c.deploymentSequence+1 || f.DeploymentCheck.Sequence > 32 {
+			return Message{}, ErrProtocol
+		}
+		c.deploymentSequence++
+	case "deployment-result":
+		if !c.deploymentSent || c.deploymentDigest == "" || c.deploymentResult || c.decided || f.DeploymentResult.CommandDigest != c.deploymentDigest {
+			return Message{}, ErrProtocol
+		}
+		c.deploymentResult = true
 	case "event":
 		if !validEvent(*f.Event) || f.Event.Sequence != c.sequence+1 {
 			return Message{}, ErrProtocol
@@ -285,7 +339,7 @@ func (c *Control) Receive(ctx context.Context) (Message, error) {
 	default:
 		return Message{}, ErrProtocol
 	}
-	return Message{Kind: f.Kind, Runner: f.Runner, Event: f.Event, Completion: f.Completion}, nil
+	return Message{DeploymentCheck: f.DeploymentCheck, DeploymentResult: f.DeploymentResult, Kind: f.Kind, Runner: f.Runner, Event: f.Event, Completion: f.Completion}, nil
 }
 func (c *Control) WriteRegistration(ctx context.Context, v *credentialref.Value) error {
 	if !c.ready || c.registered || v == nil || len(v.Bytes()) < 1 || len(v.Bytes()) > 4096 {
@@ -295,7 +349,7 @@ func (c *Control) WriteRegistration(ctx context.Context, v *credentialref.Value)
 	return c.stream.write(ctx, frame{Kind: "registration", Token: v.Bytes()})
 }
 func (c *Control) WriteDecision(ctx context.Context, d cijobguard.Decision) error {
-	if !c.held || c.decided {
+	if !c.held || c.decided || c.deploymentDigest != "" && !c.deploymentResult {
 		return ErrProtocol
 	}
 	c.decided = true

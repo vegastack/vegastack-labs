@@ -71,3 +71,16 @@ func TestVerifiedRemoteIdentityContextRejectsForgedValuesAndCopiesAudiences(t *t
 		t.Fatal("invalid remote identity entered context")
 	}
 }
+
+func TestManagedCIControllerIdentityIsExplicitPolicyOnly(t *testing.T) {
+	for _, kind := range []PrincipalKind{"", PrincipalHuman, PrincipalAgent, PrincipalPolicy} {
+		p := Principal{ID: "ci-deployment", Kind: kind, Method: ManagedCIControllerMethod}
+		if ValidPrincipal(p) != (kind == PrincipalPolicy) {
+			t.Fatal("managed identity kind", kind)
+		}
+	}
+	p := Principal{ID: "ci-deployment", Kind: PrincipalPolicy, Method: ManagedCIControllerMethod, DeviceID: "device-a"}
+	if ValidPrincipal(p) {
+		t.Fatal("managed identity impersonated device")
+	}
+}

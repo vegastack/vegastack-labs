@@ -90,6 +90,12 @@ func TestEveryGeneratedCommandHasTruthfulRuntimeBehavior(t *testing.T) {
 
 			// The generic control stub lacks this optional typed capability. Dedicated
 			// CI enrollment tests exercise successful forwarding with its configured control.
+			if commandName(command.Path) == generated.CommandNameCiPublicationDraft {
+				if code != 6 || stderr != "" || !strings.Contains(stdout, `"code":"PREREQUISITE_BLOCKED"`) || !strings.Contains(stdout, "ci-publication-control") {
+					t.Fatal(code, stdout, stderr)
+				}
+				return
+			}
 			if commandName(command.Path) == generated.CommandNameCiJobDraft {
 				if code != 6 || stderr != "" || !strings.Contains(stdout, `"code":"PREREQUISITE_BLOCKED"`) || !strings.Contains(stdout, "ci-job-control") {
 					t.Fatal(code, stdout, stderr)
@@ -140,6 +146,12 @@ func TestEveryGeneratedCommandHasTruthfulRuntimeBehavior(t *testing.T) {
 				}
 				if code != wantCode || !strings.Contains(stdout, wantError) || stderr != "" {
 					t.Fatalf("qualification boundary: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+				}
+				return
+			}
+			if commandName(command.Path) == generated.CommandNameReleaseBuildGoImage {
+				if code != 2 || !strings.Contains(stdout, `"code":"EVIDENCE_INVALID"`) || stderr != "" {
+					t.Fatalf("missing binary example accepted: code=%d stdout=%q stderr=%q", code, stdout, stderr)
 				}
 				return
 			}

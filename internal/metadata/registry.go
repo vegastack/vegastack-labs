@@ -190,6 +190,7 @@ func Current() Registry {
 			{Summary: "Show version information as JSON.", Arguments: []string{"version", "--output", "json"}},
 		}),
 		releaseInspectCommand(),
+		goImageCommand(),
 		releaseVerifyCommand(),
 		serverRunCommand(),
 		serverAPISSHCommand(),
@@ -231,6 +232,7 @@ func Current() Registry {
 	commands = append(commands, networkConnectCommands()...)
 	commands = append(commands, ciEnrollmentCommands()...)
 	commands = append(commands, ciJobCommands()...)
+	commands = append(commands, ciPublicationCommands()...)
 	commands = append(commands, serviceCatalogCommands()...)
 	commands = append(commands, serviceDeploymentCommands()...)
 	commands = append(commands, serviceConfigurationCommands()...)
@@ -259,6 +261,7 @@ func Current() Registry {
 	endpoints := append([]EndpointDefinition{authorizationGrantEndpoint()}, networkConnectEndpoints()...)
 	endpoints = append(endpoints, ciEnrollmentEndpoints()...)
 	endpoints = append(endpoints, ciJobEndpoints()...)
+	endpoints = append(endpoints, ciPublicationEndpoints()...)
 	endpoints = append(endpoints, serviceCatalogEndpoints()...)
 	endpoints = append(endpoints, serviceDeploymentEndpoints()...)
 	endpoints = append(endpoints, serviceConfigurationEndpoints()...)
@@ -269,7 +272,7 @@ func Current() Registry {
 	}
 
 	return Registry{
-		SchemaVersion:   "1.31.0",
+		SchemaVersion:   "1.32.0",
 		Commands:        commands,
 		Endpoints:       endpoints,
 		GateDefinitions: CurrentGateDefinitions(),
@@ -944,7 +947,10 @@ func currentSchemas() []SchemaDefinition {
 				{JSONName: "serviceDeploymentBindings", GoName: "ServiceDeploymentBindings", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/service-deployment-provider-binding", MaxItems: intPointer(128)},
 				{JSONName: "hostingLifecycleProfiles", GoName: "HostingLifecycleProfiles", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/hosting-lifecycle-profile", MaxItems: intPointer(128)},
 				{JSONName: "serviceRecoveryProfiles", GoName: "ServiceRecoveryProfiles", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/service-recovery-profile", MaxItems: intPointer(128)},
+				{JSONName: "ciExternalDeployments", GoName: "CIExternalDeployments", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/ci-external-deployment-binding", MaxItems: intPointer(64)},
 				{JSONName: "ciJobBindings", GoName: "CIJobBindings", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/ci-job-execution-binding", MaxItems: intPointer(128)},
+				{JSONName: "ciPublicationBindings", GoName: "CIPublicationBindings", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/ci-publication-binding", MaxItems: intPointer(128)},
+				{JSONName: "ciDeploymentJobs", GoName: "CIDeploymentJobs", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/ci-deployment-job-binding", MaxItems: intPointer(64)},
 				{JSONName: "ciEnrollmentBindings", GoName: "CIEnrollmentBindings", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/ci-enrollment-binding", MaxItems: intPointer(128)},
 				{JSONName: "serviceBindings", GoName: "ServiceBindings", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/service-provider-binding", MaxItems: intPointer(128)},
 				{JSONName: "networkConnectExcludedHostIds", GoName: "NetworkConnectExcludedHostIDs", Kind: ValueArray, OmitEmpty: true, ItemKind: ValueString, MaxItems: intPointer(256), UniqueItems: true},
@@ -1025,7 +1031,10 @@ func currentSchemas() []SchemaDefinition {
 	schemas = append(schemas, authorizationGrantSchemas()...)
 	schemas = append(schemas, networkConnectSchemas()...)
 	schemas = append(schemas, ciEnrollmentSchemas()...)
+	schemas = append(schemas, goImageSchema())
 	schemas = append(schemas, ciJobSchemas()...)
+	schemas = append(schemas, ciPublicationSchemas()...)
+	schemas = append(schemas, ciExternalDeploymentSchemas()...)
 	schemas = append(schemas, serviceCatalogSchemas()...)
 	schemas = append(schemas, serviceDeploymentSchemas()...)
 	schemas = append(schemas, serviceConfigurationSchemas()...)

@@ -93,6 +93,35 @@ func TestHostActionSourceSealRejectsChangedAddedOrImportedAuthority(t *testing.T
 		currentSeals[key] = seal
 	}
 
+	// #316/#318 current-file fixtures use the exact current configuration/runtime
+	// variants. Historical seals continue to describe their original source.
+	for key := range currentSeals {
+		relative := strings.SplitN(key, "|", 2)[0]
+		for current := range ciNetworkSourceSeals {
+			if strings.HasPrefix(current, relative+"|") {
+				delete(currentSeals, key)
+				break
+			}
+		}
+	}
+	for key, seal := range ciNetworkSourceSeals {
+		currentSeals[key] = seal
+	}
+
+	// Current #319/#320 fixtures use only their exact additive source variants.
+	for key := range currentSeals {
+		relative := strings.SplitN(key, "|", 2)[0]
+		for candidate := range ciDeliverySourceSeals {
+			if strings.HasPrefix(candidate, relative+"|") {
+				delete(currentSeals, key)
+				break
+			}
+		}
+	}
+	for key, seal := range ciDeliverySourceSeals {
+		currentSeals[key] = seal
+	}
+
 	for key, seal := range currentSeals {
 		t.Run(key, func(t *testing.T) {
 			parts := strings.SplitN(key, "|", 2)

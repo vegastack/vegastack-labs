@@ -243,6 +243,8 @@ func (app *App) Run(ctx context.Context, args []string) int {
 			return app.succeedJSON(parsed.commandName(), json.RawMessage("{}"))
 		}
 		return renderHumanVersion(app.stdout, app.build)
+	case generated.CommandNameReleaseBuildGoImage:
+		return app.buildGoImage(ctx, parsed)
 	case generated.CommandNameReleaseInspect:
 		if app.releases == nil {
 			return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "release-verifier", generated.RunStatusFailed, false)
@@ -472,6 +474,8 @@ func (app *App) Run(ctx context.Context, args []string) int {
 		return app.runServiceRecovery(ctx, mode, parsed)
 	case generated.CommandNameServiceDeploymentDraft, generated.CommandNameServiceDeploymentShow:
 		return app.runServiceDeployment(ctx, mode, parsed)
+	case generated.CommandNameCiPublicationDraft:
+		return app.runCIPublication(ctx, mode, parsed)
 	case generated.CommandNameCiJobDraft:
 		return app.runCIJob(ctx, mode, parsed)
 	case generated.CommandNameCiEnrollmentList, generated.CommandNameCiEnrollmentShow, generated.CommandNameCiEnrollmentDraft:
@@ -607,7 +611,7 @@ var serverErrorTargets = map[string]struct{}{
 	"local-setup":          {},
 	"host-replacement":     {}, "replacement-id": {},
 	"application-health": {}, "application-shutdown": {}, "application-start": {},
-	"ci-job-control": {}, "ci-job-request": {}, "ci-job": {},
+	"ci-publication-control": {}, "ci-publication-request": {}, "ci-publication": {}, "ci-job-control": {}, "ci-job-request": {}, "ci-job": {},
 	"ci-enrollment-control": {}, "ci-enrollment-request": {}, "ci-enrollment-query": {}, "ci-enrollment-id": {}, "ci-enrollment": {},
 	"service-control": {}, "service-request": {}, "service-query": {}, "service-id": {}, "context": {}, "control-operations": {}, "control-service": {}, "control-service-drain": {}, "control-service-lock": {}, "control-service-request": {},
 	"control-service-response": {}, "control-socket": {}, "control-socket-parent": {},

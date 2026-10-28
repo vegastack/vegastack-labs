@@ -1,6 +1,7 @@
 package main
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -13,7 +14,26 @@ func TestCIJobCurrentSourceSealsRejectDrift(t *testing.T) {
 	if len(ciJobSourceSeals) == 0 {
 		t.Fatal("missing CI job source seals")
 	}
-	for key, seal := range ciJobSourceSeals {
+	// Current-file fixtures select the current #318 runtime variants; old seals
+	// continue to authenticate their historical bytes, not today's source.
+	current := maps.Clone(ciJobSourceSeals)
+	for key := range current {
+		if strings.HasPrefix(key, "internal/cijobrunner|") || strings.HasPrefix(key, "internal/serverconfig|") {
+			delete(current, key)
+		}
+	}
+	maps.Copy(current, ciNetworkSourceSeals)
+	for key := range current {
+		relative := strings.SplitN(key, "|", 2)[0]
+		for candidate := range ciDeliverySourceSeals {
+			if strings.HasPrefix(candidate, relative+"|") {
+				delete(current, key)
+				break
+			}
+		}
+	}
+	maps.Copy(current, ciDeliverySourceSeals)
+	for key, seal := range current {
 		t.Run(key, func(t *testing.T) {
 			parts := strings.SplitN(key, "|", 2)
 			relative, names := parts[0], strings.Split(parts[1], ",")
@@ -45,6 +65,21 @@ func TestCIJobCurrentSourceSealsRejectDrift(t *testing.T) {
 			if err = os.WriteFile(first, raw, 0600); err != nil {
 				t.Fatal(err)
 			}
+			c.listed.GoFiles = slices.Clone(names)
+			c.listed.GoFiles[0] = "renamed.go"
+			if err = os.WriteFile(filepath.Join(dir, "renamed.go"), raw, 0600); err != nil {
+				t.Fatal(err)
+			}
+			if approvedNetworkConnectPackage(c, module, relative) {
+				t.Fatal("renamed source inherited authority")
+			}
+			c.listed.GoFiles = slices.Clone(names)
+			originalPath := c.listed.ImportPath
+			c.listed.ImportPath = module + "/internal/sibling"
+			if approvedNetworkConnectPackage(c, module, relative) {
+				t.Fatal("renamed package inherited authority")
+			}
+			c.listed.ImportPath = originalPath
 			c.listed.GoFiles = append(c.listed.GoFiles, "extra.go")
 			if err = os.WriteFile(filepath.Join(dir, "extra.go"), []byte("package extra\n"), 0600); err != nil {
 				t.Fatal(err)
