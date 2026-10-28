@@ -1,0 +1,59 @@
+{
+  "$id": "vegastack-labs.dev/go-image-build-data",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "imageDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "inventoryScope": {
+      "enum": [
+        "compiled-go-modules-only"
+      ],
+      "type": "string"
+    },
+    "metadataTrust": {
+      "enum": [
+        "caller-and-compiler-reported-unverified"
+      ],
+      "type": "string"
+    },
+    "provenanceScope": {
+      "enum": [
+        "binary-packaging-only"
+      ],
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/go-image-build-data"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "signatureStatus": {
+      "enum": [
+        "unsigned"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "imageDigest",
+    "signatureStatus",
+    "inventoryScope",
+    "provenanceScope",
+    "metadataTrust"
+  ],
+  "title": "VegaStack Labs go image build data",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

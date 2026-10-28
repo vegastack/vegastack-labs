@@ -196,8 +196,8 @@ func endpointByID(t *testing.T, registry Registry, id string) EndpointDefinition
 
 func TestSourceHealthContractsAreClosedAndPhaseThreeOwned(t *testing.T) {
 	registry := Current()
-	if registry.SchemaVersion != "1.31.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.31.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.32.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.32.0", registry.SchemaVersion)
 	}
 	var endpoint EndpointDefinition
 	for _, candidate := range registry.Endpoints {
@@ -321,8 +321,8 @@ func TestInventoryDraftContractsAreStrictAndProviderNeutral(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.31.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.31.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.32.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.32.0", registry.SchemaVersion)
 	}
 	input := schemaByID(t, registry, "vegastack-labs.dev/inventory-draft-input")
 	result := schemaByID(t, registry, "vegastack-labs.dev/inventory-import-data")
@@ -353,8 +353,8 @@ func TestAuditContractsAreClosedBoundedAndSecretFree(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.31.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.31.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.32.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.32.0", registry.SchemaVersion)
 	}
 	event := schemaByID(t, registry, "vegastack-labs.dev/audit-event")
 	outbox := schemaByID(t, registry, "vegastack-labs.dev/outbox-record-data")
@@ -433,8 +433,8 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.31.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.31.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.32.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.32.0", registry.SchemaVersion)
 	}
 
 	wantAvailable := map[string]bool{
@@ -447,7 +447,7 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 		"node target prepare": false, "node action prepare": false, "node access prepare": false, "node observation inspect": false, "node replacement prepare": false, "node replacement inspect": false,
 		"qualification fixture-peer": false, "qualification inspect": false, "qualification native": false, "qualification step": false,
 		"node discover": false, "node add": false, "node inspect": false, "node role prepare": false, "server prepare": false,
-		"help": false, "release inspect": false, "release verify": false, "server api-ssh": false, "server run": false, "server status": false, "version": false,
+		"help": false, "release inspect": false, "release build-go-image": false, "release verify": false, "server api-ssh": false, "server run": false, "server status": false, "version": false,
 		"status": false, "database status": false, "inventory import": false, "inventory diff": false, "inventory export": false,
 		"device request": false, "device approve": false, "device revoke": false, "network endpoint draft": false, "connect": false, "plan": false, "authorization grants draft": false, "user onboard": false, "user suspend": false, "user resume": false, "user offboard": false,
 		"apply": false, "run inspect": false, "run cancel": false, "run resume": false,

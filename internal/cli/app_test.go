@@ -143,6 +143,12 @@ func TestEveryGeneratedCommandHasTruthfulRuntimeBehavior(t *testing.T) {
 				}
 				return
 			}
+			if commandName(command.Path) == generated.CommandNameReleaseBuildGoImage {
+				if code != 2 || !strings.Contains(stdout, `"code":"EVIDENCE_INVALID"`) || stderr != "" {
+					t.Fatalf("missing binary example accepted: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+				}
+				return
+			}
 			if commandName(command.Path) == generated.CommandNameRecoveryWitnessCollect {
 				wantCode, wantError := 6, `"code":"PREREQUISITE_BLOCKED"`
 				if runtime.GOOS == "linux" {

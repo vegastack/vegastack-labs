@@ -348,6 +348,15 @@ Available commands:
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
     --signing-key-fd <fd>  Read the protected witness signing seed from an inherited descriptor.
+  release build-go-image   Package a static Linux Go binary into a local scratch OCI image and unsigned packaging statements; no compilation, signing or publication.
+    --binary <path>        Read the actual static Linux Go binary; embedded clean VCS revision must match.
+    --builder-id <uri>     Record supplied packaging builder URI; no signing identity is inferred.
+    --directory <path>     Create a new local output directory; existing paths are refused.
+    --invocation-id <uri>  Record supplied packaging invocation URI.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+    --source-revision <revision> Require this exact revision in compiler-reported clean VCS metadata.
+    --source-uri <uri>     Record caller-supplied source URI; this is not authenticated source identity.
   release inspect          Inspect a local release manifest and compatibility without claiming cryptographic verification.
     --manifest <path>      Read the local release manifest at this path.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.

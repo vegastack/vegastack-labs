@@ -190,6 +190,7 @@ func Current() Registry {
 			{Summary: "Show version information as JSON.", Arguments: []string{"version", "--output", "json"}},
 		}),
 		releaseInspectCommand(),
+		goImageCommand(),
 		releaseVerifyCommand(),
 		serverRunCommand(),
 		serverAPISSHCommand(),
@@ -269,7 +270,7 @@ func Current() Registry {
 	}
 
 	return Registry{
-		SchemaVersion:   "1.31.0",
+		SchemaVersion:   "1.32.0",
 		Commands:        commands,
 		Endpoints:       endpoints,
 		GateDefinitions: CurrentGateDefinitions(),
@@ -1025,6 +1026,7 @@ func currentSchemas() []SchemaDefinition {
 	schemas = append(schemas, authorizationGrantSchemas()...)
 	schemas = append(schemas, networkConnectSchemas()...)
 	schemas = append(schemas, ciEnrollmentSchemas()...)
+	schemas = append(schemas, goImageSchema())
 	schemas = append(schemas, ciJobSchemas()...)
 	schemas = append(schemas, serviceCatalogSchemas()...)
 	schemas = append(schemas, serviceDeploymentSchemas()...)

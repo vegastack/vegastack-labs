@@ -243,6 +243,8 @@ func (app *App) Run(ctx context.Context, args []string) int {
 			return app.succeedJSON(parsed.commandName(), json.RawMessage("{}"))
 		}
 		return renderHumanVersion(app.stdout, app.build)
+	case generated.CommandNameReleaseBuildGoImage:
+		return app.buildGoImage(ctx, parsed)
 	case generated.CommandNameReleaseInspect:
 		if app.releases == nil {
 			return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "release-verifier", generated.RunStatusFailed, false)

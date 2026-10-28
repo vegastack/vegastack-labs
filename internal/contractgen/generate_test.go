@@ -299,6 +299,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/gate-profile-draft-request.schema.json",
 		"schemas/v1/gate-profile-draft-submission.schema.json",
 		"schemas/v1/gate-view.schema.json",
+		"schemas/v1/go-image-build-data.schema.json",
 		"schemas/v1/harbor-service-binding.schema.json",
 		"schemas/v1/host-access-draft-request.schema.json",
 		"schemas/v1/host-access-probe-request.schema.json",
@@ -938,8 +939,8 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 			}
 		}
 	}
-	if available != 98 || planned != 13 {
-		t.Fatalf("command availability = (%d available, %d planned), want (98, 13)", available, planned)
+	if available != 99 || planned != 13 {
+		t.Fatalf("command availability = (%d available, %d planned), want (99, 13)", available, planned)
 	}
 	// #304 adds three exact CI enrollment commands.
 	// #286 adds four exact service list/show/observe/import-draft commands.
@@ -982,7 +983,7 @@ func TestGeneratedGoIsRuntimeSerializable(t *testing.T) {
 	}
 	for _, want := range []string{
 		`RegistrySchemaVersion`,
-		`= "1.31.0"`,
+		`= "1.32.0"`,
 		`type Endpoint struct`,
 		`var Endpoints = []Endpoint`,
 		`type DatabaseStatusData struct`,
