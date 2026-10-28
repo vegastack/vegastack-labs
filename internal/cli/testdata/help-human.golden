@@ -169,6 +169,10 @@ Available commands:
     --file <path>          Read one grant batch JSON file (32 KiB max).
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  doctor                   Diagnose the first failing control-summary invariant without mutation.
+    --config <path>        Read the protected server profile at this explicit path.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   gate check               Check one gate for one subject without changing state.
     --config <path>        Read one protected server profile.
     --gate-id <id>         Select one generated gate ID.
@@ -528,7 +532,6 @@ Planned commands (unavailable):
   control-plane plan       Create an immutable control-plane change plan.
   control-plane recover    Create an inert control-plane recovery change.
   control-plane verify     Verify control-plane health and authority.
-  doctor                   Diagnose one actionable platform invariant at a time.
   maintenance plan         Create an immutable maintenance plan.
   maintenance run          Run one authorized maintenance plan.
   node nominate            Create an inert role-nomination change.

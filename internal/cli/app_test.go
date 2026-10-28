@@ -167,6 +167,14 @@ func TestEveryGeneratedCommandHasTruthfulRuntimeBehavior(t *testing.T) {
 				}
 				return
 			}
+			// The shared fixture deliberately has a noncanonical database mode; doctor must
+			// identify that invariant rather than report successful qualification.
+			if commandName(command.Path) == generated.CommandNameDoctor {
+				if code != 8 || !strings.Contains(stdout, "database-mode") || stderr != "" {
+					t.Fatalf("doctor database diagnosis: %d %s %s", code, stdout, stderr)
+				}
+				return
+			}
 			if command.Availability == generated.AvailabilityPlanned {
 				if code != 6 || stdout != "" || stderr != "vsk-labs: PREREQUISITE_BLOCKED (command)\n" {
 					t.Fatalf("planned command %v: code=%d stdout=%q stderr=%q", command.Path, code, stdout, stderr)

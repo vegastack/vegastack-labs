@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 28-10-2026 — Give operators and agents the same bounded workflow guidance ([#325](https://github.com/vegastack/vegastack-labs/issues/325))
+
+- **What:** Nine focused repository skills now generate matching Claude copies and manual runbooks. Doctor reads the existing authenticated summary and identifies the first database, read or source-health problem with a safe next action.
+- **Why:** Operators needed usable instructions tied to real commands without another privileged agent or provider bypass.
+- **How it went:** Focused contract tests caught unavailable commands and instruction drift. Source guidance and synthetic precedence fixtures deliberately remain separate from native agent loading/trust and live operations evidence.
+- **Changed:** Canonical skills · exact generated copies and hash inventory · read/plan Hermes contract · truthful doctor · Phase 10 capability/evidence map.
+- **Decisions:** None. Required watchdog, actual maintenance execution evidence and native/live gates remain open; prior Mac and advanced recovery deferrals are unchanged.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/10.3-agent-manual-workflows
+
 ## 28-10-2026 — Operational failures retain their own local alert history ([#323](https://github.com/vegastack/vegastack-labs/issues/323))
 
 - **What:** Operators can collect server-owned observations and inspect persistent, deduplicated alerts through the existing executable and generated API. A fresh verified recovery closes the alert; stale, unknown and unavailable observations do not. Notification receipts remain separate from health.

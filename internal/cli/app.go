@@ -302,6 +302,8 @@ func (app *App) Run(ctx context.Context, args []string) int {
 			return app.failAPISSH(err)
 		}
 		return 0
+	case generated.CommandNameDoctor:
+		return app.doctor(ctx, parsed)
 	case generated.CommandNameServerStatus:
 		if app.server == nil {
 			return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "server-operations", generated.RunStatusFailed, false)

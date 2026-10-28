@@ -129,7 +129,6 @@ type plannedCommand struct {
 
 var plannedCommands = []plannedCommand{
 	{path: "status", phase: "2", summary: "Show the current platform summary."},
-	{path: "doctor", phase: "2", summary: "Diagnose one actionable platform invariant at a time."},
 	{path: "plan", phase: "4", summary: "Create an immutable plan from an inert change."},
 	{path: "apply", phase: "4", summary: "Execute one current, authorized immutable plan."},
 	{path: "run inspect", phase: "4", summary: "Inspect one durable run."},
@@ -195,6 +194,7 @@ func Current() Registry {
 		serverRunCommand(),
 		serverAPISSHCommand(),
 		serverStatusCommand(),
+		doctorCommand(),
 		platformStatusCommand(),
 		databaseStatusCommand(),
 		inventoryImportCommand(),
