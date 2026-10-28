@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 28-10-2026 — Give site silence an independent, bounded signal path ([#326](https://github.com/vegastack/vegastack-labs/issues/326))
+
+- **What:** A closed heartbeat producer and exact R2 writer now share a tested contract with versioned Cloudflare Worker source. Local fixtures prove stale-site issue creation, verified recovery, deduplication and independent Slack notification attempts during primary delivery failure.
+- **Why:** Local alerts cannot report a silent control site, and the existing Phase10 requirements explicitly call for an external watcher.
+- **How it went:** Focused tests exercised lost issue-creation responses, overlapping checks, malformed/future heartbeat input, simultaneous delivery failures and bounded retries. No provider, webhook, host or CI operation ran, including while the operator relocated machines.
+- **Changed:** Fresh authority snapshot contract · one signed status-object PUT · embedded scheduled Worker · bounded conditional delivery state · concrete secondary source · matching operator procedure.
+- **Decisions:** None. Production server composition, G-011 recipients/credential ownership/provider selection, independent detection of a fully stopped checker and live delivery evidence remain required. Source cannot activate the existing fail-closed notification registry.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/10.4-site-watchdog
+
 ## 28-10-2026 — Give operators and agents the same bounded workflow guidance ([#325](https://github.com/vegastack/vegastack-labs/issues/325))
 
 - **What:** Nine focused repository skills now generate matching Claude copies and manual runbooks. Doctor reads the existing authenticated summary and identifies the first database, read or source-health problem with a safe next action.
