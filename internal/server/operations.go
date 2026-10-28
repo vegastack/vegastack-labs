@@ -611,7 +611,7 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	setupClaims := newControllerSetupClaims(authority, runRepository, planRepository, setupVerifier, profile, time.Now)
+	setupClaims := newControllerSetupClaims(authority, runRepository, planRepository, setupVerifier, profile, time.Now, operations.databasePath)
 	if err := api.RegisterControllerSetupOperations(application, api.ControllerSetupOperations{Runs: api.RunOperationConfig{Runs: controllerSetupRuns{runs}, Plans: plans, Acknowledgements: acknowledgements, Results: factory, Authorization: effectiveConfig}, Lifecycle: setupClaims, Recovery: controllerSetupRecovery{authority: authority, profile: profile}}); err != nil {
 		_ = application.Shutdown(ctx)
 		return err

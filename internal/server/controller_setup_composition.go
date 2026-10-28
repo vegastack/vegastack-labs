@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func newControllerSetupClaims(a *store.Store, r *store.RunRepository, p *store.PlanRepository, v *controllerSetupPilotVerifier, profile serverconfig.Profile, clock func() time.Time) *controllerSetupClaims {
+func newControllerSetupClaims(a *store.Store, r *store.RunRepository, p *store.PlanRepository, v *controllerSetupPilotVerifier, profile serverconfig.Profile, clock func() time.Time, databasePath string) *controllerSetupClaims {
 	c := &controllerSetupClaims{authority: a, runs: r, plans: p, verifier: v, profile: profile, clock: clock}
 	c.validateInput = func(ctx context.Context, plan generated.Plan, raw string) error {
 		in, e := linuxrole.DecodeControllerInstallInput([]byte(raw))
@@ -21,7 +21,10 @@ func newControllerSetupClaims(a *store.Store, r *store.RunRepository, p *store.P
 		if len(plan.Operations) != 1 || hostaction.Digest(in) != plan.Operations[0].InputDigest || in.ControllerSetupPilotDigest != hostaction.Digest(policy) || in.ControllerInstanceID != policy.ControllerInstanceID || in.ControllerMachineIDDigest != policy.ControllerMachineIDDigest || in.RecoveryEpoch != policy.RecoveryEpoch || in.StateRevision != plan.Binding.StateRevision || in.RecoveryImageDigest != policy.RecoveryImageDigest || in.ServiceUID != policy.ServiceUID || in.ServiceGID != policy.ServiceGID || in.AdministratorUID != policy.AdministratorUID || in.AdministratorGID != policy.AdministratorGID || in.ExecutableDigest != policy.ExecutableDigest {
 			return actionFailure()
 		}
-		return verifyControllerRecoveryImage(ctx, in)
+		if e := verifyControllerRecoveryImage(ctx, in); e != nil {
+			return e
+		}
+		return verifyControllerConnectorStage(ctx, plan, raw, profile, a, databasePath)
 	}
 	c.preconditions = func(ctx context.Context, _ generated.Plan, raw string) error {
 		in, e := linuxrole.DecodeControllerInstallInput([]byte(raw))
