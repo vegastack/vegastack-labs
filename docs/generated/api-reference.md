@@ -22,6 +22,8 @@ Contract schema: `1.32.0`
 | `api.v1.ci.enrollments.list` | `GET` | `/api/v1/ci/enrollments` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/ci-enrollment-list` |
 | `api.v1.ci.jobs.drafts.create` | `POST` | `/api/v1/ci/jobs/drafts` | `available` | `operator` | `finite` | `vegastack-labs.dev/ci-job-draft-request` | `vegastack-labs.dev/declaration-revision` |
 | `api.v1.ci.publications.drafts.create` | `POST` | `/api/v1/ci/publications/drafts` | `available` | `operator` | `finite` | `vegastack-labs.dev/ci-publication-draft-request` | `vegastack-labs.dev/declaration-revision` |
+| `api.v1.controller-setup.claim` | `POST` | `/api/v1/controller-setup/claim` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/controller-setup-claim-request` | `vegastack-labs.dev/controller-setup-claim` |
+| `api.v1.controller-setup.receipt` | `POST` | `/api/v1/controller-setup/receipt` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/controller-setup-receipt-request` | `vegastack-labs.dev/run` |
 | `api.v1.credential-lifecycle-drafts.create` | `POST` | `/api/v1/credential-lifecycle-drafts` | `available` | `operator` | `finite` | `vegastack-labs.dev/credential-lifecycle-request` | `vegastack-labs.dev/credential-lifecycle-submission` |
 | `api.v1.credential-references.get` | `GET` | `/api/v1/credential-references/{referenceId}` | `planned` | `operator` | `finite` | `` | `vegastack-labs.dev/credential-reference` |
 | `api.v1.credential-references.import-stream` | `POST` | `/api/v1/credential-references/{referenceId}/import-stream` | `available` | `operator` | `finite` | `vegastack-labs.dev/credential-import-request` | `vegastack-labs.dev/credential-import-submission` |
@@ -334,6 +336,18 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 - `planId`
 - `errors`
 - `data`
+
+### `vegastack-labs.dev/controller-setup-receipt-request`
+
+- `schema`: `vegastack-labs.dev/controller-setup-receipt-request`
+- `schemaVersion`: `1.0.0`
+- `claimDigest`
+- `runId`
+- `leaseId`
+- `recoveryEpoch`
+- `resultDigest`
+- `inputJson`
+- `status`: `installed-awaiting-native-verification`, `partial`, `failed`
 
 ### `vegastack-labs.dev/declaration-revision`
 

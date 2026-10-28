@@ -183,6 +183,15 @@ func NewEngine(config Config) (*Engine, error) {
 }
 
 func (engine *Engine) Submit(ctx context.Context, request SubmitRequest) (generated.Run, error) {
+	return engine.submit(ctx, request, false)
+}
+
+// SubmitControllerSetup uses the same current plan/admission/acknowledgement
+// lifecycle, deferring only the finite controller setup class to a local claim.
+func (engine *Engine) SubmitControllerSetup(ctx context.Context, request SubmitRequest) (generated.Run, error) {
+	return engine.submit(ctx, request, true)
+}
+func (engine *Engine) submit(ctx context.Context, request SubmitRequest, controllerSetup bool) (generated.Run, error) {
 	if engine == nil || !exactContract(generated.SchemaIDPlanReferenceRequest, request.Reference) || !exactContract(generated.SchemaIDAuthorizationDecision, request.Authorization) {
 		return generated.Run{}, runError(generated.ErrorCodeInputInvalid, "run-submit")
 	}
@@ -191,6 +200,9 @@ func (engine *Engine) Submit(ctx context.Context, request SubmitRequest) (genera
 		return generated.Run{}, err
 	}
 	plan := stored.Plan
+	if controllerSetup && !ControllerSetupPlan(plan) {
+		return generated.Run{}, runError(generated.ErrorCodeAuthorizationDenied, "controller-setup-class")
+	}
 	if plan.PlanID != request.Reference.PlanID || plan.PlanDigest != request.Reference.PlanDigest || plan.Binding.RecoveryEpoch != request.Reference.RecoveryEpoch || plan.Status != "planned" {
 		return generated.Run{}, runError(generated.ErrorCodePlanStale, "plan")
 	}
@@ -261,7 +273,7 @@ func (engine *Engine) Submit(ctx context.Context, request SubmitRequest) (genera
 	if err := engine.after(BoundaryAdmissionActivated); err != nil {
 		return created.Run, err
 	}
-	if plan.ExecutorMode == "external" {
+	if plan.ExecutorMode == "external" || controllerSetup {
 		started, err := engine.repository.TransitionRun(context.WithoutCancel(ctx), store.RunTransitionRequest{RunID: created.Run.RunID, From: "queued", To: "running", At: now, Attribution: request.Attribution})
 		if err != nil {
 			return created.Run, err

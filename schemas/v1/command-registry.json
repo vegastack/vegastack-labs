@@ -8740,6 +8740,16 @@
       "artifactPath": "schemas/v1/controller-prerequisites-data.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/controller-setup-claim",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/controller-setup-claim.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/controller-setup-claim-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/controller-setup-claim-request.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/controller-setup-pilot-eligibility",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/controller-setup-pilot-eligibility.schema.json"
@@ -8748,6 +8758,11 @@
       "id": "vegastack-labs.dev/controller-setup-pilot-policy",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/controller-setup-pilot-policy.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/controller-setup-receipt-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/controller-setup-receipt-request.schema.json"
     },
     {
       "id": "vegastack-labs.dev/coolify-service-binding",

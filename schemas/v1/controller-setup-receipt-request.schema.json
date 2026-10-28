@@ -1,0 +1,66 @@
+{
+  "$id": "vegastack-labs.dev/controller-setup-receipt-request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "claimDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "inputJson": {
+      "maxLength": 32768,
+      "minLength": 1,
+      "type": "string"
+    },
+    "leaseId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "resultDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "runId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/controller-setup-receipt-request"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "installed-awaiting-native-verification",
+        "partial",
+        "failed"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "claimDigest",
+    "runId",
+    "leaseId",
+    "recoveryEpoch",
+    "resultDigest",
+    "inputJson",
+    "status"
+  ],
+  "title": "VegaStack Labs controller setup receipt request",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

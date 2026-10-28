@@ -1717,6 +1717,18 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 - `errors`
 - `data`
 
+### `vegastack-labs.dev/controller-setup-receipt-request`
+
+- `schema`: `vegastack-labs.dev/controller-setup-receipt-request`
+- `schemaVersion`: `1.0.0`
+- `claimDigest`
+- `runId`
+- `leaseId`
+- `recoveryEpoch`
+- `resultDigest`
+- `inputJson`
+- `status`: `installed-awaiting-native-verification`, `partial`, `failed`
+
 ### `vegastack-labs.dev/declaration-revision`
 
 - `schema`: `vegastack-labs.dev/declaration-revision`

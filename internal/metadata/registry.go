@@ -271,6 +271,7 @@ func Current() Registry {
 	endpoints = append(endpoints, serviceConfigurationEndpoints()...)
 	endpoints = append(endpoints, hostingLifecycleEndpoints()...)
 	endpoints = append(endpoints, maintenanceEndpoints()...)
+	endpoints = append(endpoints, controllerSetupClaimEndpoints()...)
 	endpoints = append(endpoints, serviceRecoveryEndpoints()...)
 	for _, family := range [][]EndpointDefinition{notificationReadinessEndpoints(), operationsEndpoints(), operatorAccessEndpoints(), readEndpoints(), meshEndpoints(), ingressEndpoints(), phase4Endpoints(), phase5Endpoints(), hostDiscoveryEndpoints(), hostAdoptionEndpoints(), hostActionEndpoints(), accessEndpoints(), hostReplacementEndpoints(), qualificationEndpoints()} {
 		endpoints = append(endpoints, family...)
@@ -1033,6 +1034,7 @@ func currentSchemas() []SchemaDefinition {
 	schemas = append(schemas, meshSchemas()...)
 	schemas = append(schemas, ingressSchemas()...)
 	schemas = append(schemas, controllerSetupPilotSchemas()...)
+	schemas = append(schemas, controllerSetupClaimSchemas()...)
 	schemas = append(schemas, controllerPrerequisitesSchemas()...)
 	schemas = append(schemas, operationsSchemas()...)
 	schemas = append(schemas, siteHeartbeatSchemas()...)

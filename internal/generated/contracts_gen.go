@@ -135,8 +135,11 @@ const (
 	SchemaIDControlRecoveryReceiveInput            = "vegastack-labs.dev/control-recovery-receive-input"
 	SchemaIDControllerPrerequisiteFact             = "vegastack-labs.dev/controller-prerequisite-fact"
 	SchemaIDControllerPrerequisitesData            = "vegastack-labs.dev/controller-prerequisites-data"
+	SchemaIDControllerSetupClaim                   = "vegastack-labs.dev/controller-setup-claim"
+	SchemaIDControllerSetupClaimRequest            = "vegastack-labs.dev/controller-setup-claim-request"
 	SchemaIDControllerSetupPilotEligibility        = "vegastack-labs.dev/controller-setup-pilot-eligibility"
 	SchemaIDControllerSetupPilotPolicy             = "vegastack-labs.dev/controller-setup-pilot-policy"
+	SchemaIDControllerSetupReceiptRequest          = "vegastack-labs.dev/controller-setup-receipt-request"
 	SchemaIDCoolifyServiceBinding                  = "vegastack-labs.dev/coolify-service-binding"
 	SchemaIDCredentialImportRequest                = "vegastack-labs.dev/credential-import-request"
 	SchemaIDCredentialImportSubmission             = "vegastack-labs.dev/credential-import-submission"
@@ -2124,6 +2127,25 @@ type ControllerPrerequisitesData struct {
 	Facts              []ControllerPrerequisiteFact `json:"facts"`
 }
 
+type ControllerSetupClaim struct {
+	Schema        string                     `json:"schema"`
+	SchemaVersion string                     `json:"schemaVersion"`
+	Plan          Plan                       `json:"plan"`
+	Run           Run                        `json:"run"`
+	Lease         ExecutorLease              `json:"lease"`
+	Policy        ControllerSetupPilotPolicy `json:"policy"`
+	InputJSON     string                     `json:"inputJson"`
+	ClaimDigest   string                     `json:"claimDigest"`
+	ExpiresAt     string                     `json:"expiresAt"`
+}
+
+type ControllerSetupClaimRequest struct {
+	Schema        string               `json:"schema"`
+	SchemaVersion string               `json:"schemaVersion"`
+	Reference     PlanReferenceRequest `json:"reference"`
+	InputJSON     string               `json:"inputJson"`
+}
+
 type ControllerSetupPilotEligibility struct {
 	Schema                    string `json:"schema"`
 	SchemaVersion             string `json:"schemaVersion"`
@@ -2159,6 +2181,18 @@ type ControllerSetupPilotPolicy struct {
 	ServiceGID                int64  `json:"serviceGid"`
 	ExecutableDigest          string `json:"executableDigest"`
 	ExpiresAt                 string `json:"expiresAt"`
+}
+
+type ControllerSetupReceiptRequest struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	ClaimDigest   string `json:"claimDigest"`
+	RunID         string `json:"runId"`
+	LeaseID       string `json:"leaseId"`
+	RecoveryEpoch int64  `json:"recoveryEpoch"`
+	ResultDigest  string `json:"resultDigest"`
+	InputJSON     string `json:"inputJson"`
+	Status        string `json:"status"`
 }
 
 type CoolifyServiceBinding struct {
@@ -6548,6 +6582,8 @@ var Endpoints = []Endpoint{
 	{ID: "api.v1.ci.enrollments.list", Method: "GET", Path: "/api/v1/ci/enrollments", Availability: "available", OwnerPhase: "9", QuerySchema: "vegastack-labs.dev/service-read-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/ci-enrollment-list", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.ci.jobs.drafts.create", Method: "POST", Path: "/api/v1/ci/jobs/drafts", Availability: "available", OwnerPhase: "9", QuerySchema: "", RequestSchema: "vegastack-labs.dev/ci-job-draft-request", DataSchema: "vegastack-labs.dev/declaration-revision", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.ci.publications.drafts.create", Method: "POST", Path: "/api/v1/ci/publications/drafts", Availability: "available", OwnerPhase: "9", QuerySchema: "", RequestSchema: "vegastack-labs.dev/ci-publication-draft-request", DataSchema: "vegastack-labs.dev/declaration-revision", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.controller-setup.claim", Method: "POST", Path: "/api/v1/controller-setup/claim", Availability: "available", OwnerPhase: "7", QuerySchema: "", RequestSchema: "vegastack-labs.dev/controller-setup-claim-request", DataSchema: "vegastack-labs.dev/controller-setup-claim", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.controller-setup.receipt", Method: "POST", Path: "/api/v1/controller-setup/receipt", Availability: "available", OwnerPhase: "7", QuerySchema: "", RequestSchema: "vegastack-labs.dev/controller-setup-receipt-request", DataSchema: "vegastack-labs.dev/run", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.credential-lifecycle-drafts.create", Method: "POST", Path: "/api/v1/credential-lifecycle-drafts", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/credential-lifecycle-request", DataSchema: "vegastack-labs.dev/credential-lifecycle-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.credential-references.get", Method: "GET", Path: "/api/v1/credential-references/{referenceId}", Availability: "planned", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/credential-reference", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.credential-references.import-stream", Method: "POST", Path: "/api/v1/credential-references/{referenceId}/import-stream", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/credential-import-request", DataSchema: "vegastack-labs.dev/credential-import-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "binary", TransportScope: "local", MaxRequestBytes: 4096},
