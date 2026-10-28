@@ -28,6 +28,7 @@ var offsiteBucketName = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]{1,62}$`)
 var scheduledRunnerPath = regexp.MustCompile(`^/[A-Za-z0-9._/-]+$`)
 
 type Profile struct {
+	CIDeploymentJobs                 []generated.CiDeploymentJobBinding
 	HostingLifecycleProfiles         []generated.HostingLifecycleProfile
 	ServiceRecoveryProfiles          []generated.ServiceRecoveryProfile
 	CIJobBindings                    []generated.CiJobExecutionBinding
@@ -264,6 +265,10 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 	if err != nil {
 		return invalid()
 	}
+	ciDeployments, err := FreezeCIDeploymentJobs(input.CIDeploymentJobs, input.CIJobBindings, input.CIEnrollmentBindings)
+	if err != nil {
+		return invalid()
+	}
 	ciBindings, err := FreezeCIEnrollmentBindings(input.CIEnrollmentBindings)
 	if err != nil {
 		return invalid()
@@ -293,6 +298,7 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 		HostingLifecycleProfiles: hostingProfiles, ServiceRecoveryProfiles: recoveryProfiles,
 		CIJobBindings:                    ciJobs,
 		CIEnrollmentBindings:             ciBindings,
+		CIDeploymentJobs:                 ciDeployments,
 		ServiceBindings:                  serviceBindings,
 		ServiceDeploymentBindings:        deploymentBindings,
 		NetworkConnectExcludedHostIDs:    append([]string(nil), input.NetworkConnectExcludedHostIDs...),

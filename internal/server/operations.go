@@ -583,7 +583,12 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	executors, err := runengine.NewExternalExecutor(runengine.ExternalExecutorConfig{Runs: runRepository, Leases: leaseRepository, Plans: plans, Admission: admission, Adapters: adapters, Clock: time.Now})
+	deploymentAdmission, err := newExternalDeploymentAdmission(profile, authority, adapters)
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	executors, err := runengine.NewExternalExecutor(runengine.ExternalExecutorConfig{DeploymentAdmission: deploymentAdmission, Runs: runRepository, Leases: leaseRepository, Plans: plans, Admission: admission, Adapters: adapters, Clock: time.Now})
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err

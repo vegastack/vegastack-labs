@@ -307,3 +307,36 @@ func validateCIEnrollmentRequest(in generated.CiEnrollmentRequest) error {
 	}
 	return nil
 }
+
+// ExecutionPolicy exposes current private enrollment only to the protected
+// executor composition after its authenticated read scope and applied history
+// have been checked. Enrollment observation alone never authorizes a lease.
+func (r *CIEnrollmentRepository) ExecutionPolicy(ctx context.Context, id string, expected RevisionToken) (out CIEnrollmentPolicy, err error) {
+	actor, err := serviceActor(ctx)
+	if err != nil {
+		return out, err
+	}
+	if r == nil || r.store == nil {
+		return out, actionError(generated.ErrorCodePrerequisiteBlocked)
+	}
+	err = r.store.Read(ctx, func(tx ReadTx) error {
+		row := func(q string, a ...any) *sql.Row { return tx.queryRow(ctx, q, a...) }
+		record, e := readCIEnrollment(row, id)
+		if e != nil {
+			return e
+		}
+		if e = r.authorize(actor, row, record.Definition, "read", "ci.enrollment.read"); e != nil {
+			return e
+		}
+		if _, e = r.appliedPolicy(row, record.Definition, expected); e != nil {
+			return e
+		}
+		out, e = r.policy(record.Definition)
+		out.Binding.Labels = append([]string(nil), out.Binding.Labels...)
+		return e
+	})
+	if err != nil {
+		out = CIEnrollmentPolicy{}
+	}
+	return
+}

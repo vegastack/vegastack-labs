@@ -116,6 +116,7 @@ const (
 	SchemaIDBrowserScheduledJobListData            = "vegastack-labs.dev/browser-scheduled-job-list-data"
 	SchemaIDBrowserScheduledJobPolicy              = "vegastack-labs.dev/browser-scheduled-job-policy"
 	SchemaIDBrowserScheduledJobPolicyListData      = "vegastack-labs.dev/browser-scheduled-job-policy-list-data"
+	SchemaIDCiDeploymentJobBinding                 = "vegastack-labs.dev/ci-deployment-job-binding"
 	SchemaIDCiEnrollmentBinding                    = "vegastack-labs.dev/ci-enrollment-binding"
 	SchemaIDCiEnrollmentDefinition                 = "vegastack-labs.dev/ci-enrollment-definition"
 	SchemaIDCiEnrollmentDraftRequest               = "vegastack-labs.dev/ci-enrollment-draft-request"
@@ -1833,9 +1834,28 @@ type BrowserScheduledJobPolicyListData struct {
 	RecoveryEpoch int64                       `json:"recoveryEpoch"`
 }
 
+type CiDeploymentJobBinding struct {
+	Schema                 string `json:"schema"`
+	SchemaVersion          string `json:"schemaVersion"`
+	PlanID                 string `json:"planId"`
+	PlanDigest             string `json:"planDigest"`
+	ExecutionBindingID     string `json:"executionBindingId"`
+	ExecutionBindingDigest string `json:"executionBindingDigest"`
+	EnrollmentID           string `json:"enrollmentId"`
+	EnrollmentDigest       string `json:"enrollmentDigest"`
+	ExecutorID             string `json:"executorId"`
+	TargetID               string `json:"targetId"`
+	ArtifactDigest         string `json:"artifactDigest"`
+	RunID                  string `json:"runId"`
+	JobID                  string `json:"jobId"`
+	RunnerID               string `json:"runnerId"`
+	Attempt                int64  `json:"attempt"`
+}
+
 type CiEnrollmentBinding struct {
 	Schema            string   `json:"schema"`
 	SchemaVersion     string   `json:"schemaVersion"`
+	JobClass          string   `json:"jobClass,omitempty"`
 	EnrollmentID      string   `json:"enrollmentId"`
 	OwnerID           string   `json:"ownerId"`
 	BindingID         string   `json:"bindingId"`
@@ -5405,6 +5425,7 @@ type ServerProfile struct {
 	HostingLifecycleProfiles         []HostingLifecycleProfile          `json:"hostingLifecycleProfiles,omitempty"`
 	ServiceRecoveryProfiles          []ServiceRecoveryProfile           `json:"serviceRecoveryProfiles,omitempty"`
 	CIJobBindings                    []CiJobExecutionBinding            `json:"ciJobBindings,omitempty"`
+	CIDeploymentJobs                 []CiDeploymentJobBinding           `json:"ciDeploymentJobs,omitempty"`
 	CIEnrollmentBindings             []CiEnrollmentBinding              `json:"ciEnrollmentBindings,omitempty"`
 	ServiceBindings                  []ServiceProviderBinding           `json:"serviceBindings,omitempty"`
 	NetworkConnectExcludedHostIDs    []string                           `json:"networkConnectExcludedHostIds,omitempty"`

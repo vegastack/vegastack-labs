@@ -7988,6 +7988,11 @@
       "artifactPath": "schemas/v1/browser-scheduled-job-policy-list-data.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/ci-deployment-job-binding",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/ci-deployment-job-binding.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/ci-enrollment-binding",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/ci-enrollment-binding.schema.json"

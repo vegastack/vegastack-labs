@@ -1,0 +1,94 @@
+{
+  "$id": "vegastack-labs.dev/ci-deployment-job-binding",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "artifactDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "attempt": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "enrollmentDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "enrollmentId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "executionBindingDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "executionBindingId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "executorId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "jobId": {
+      "maxLength": 20,
+      "minLength": 1,
+      "type": "string"
+    },
+    "planDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "planId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "runId": {
+      "maxLength": 20,
+      "minLength": 1,
+      "type": "string"
+    },
+    "runnerId": {
+      "maxLength": 20,
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/ci-deployment-job-binding"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "targetId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "planId",
+    "planDigest",
+    "executionBindingId",
+    "executionBindingDigest",
+    "enrollmentId",
+    "enrollmentDigest",
+    "executorId",
+    "targetId",
+    "artifactDigest",
+    "runId",
+    "jobId",
+    "runnerId",
+    "attempt"
+  ],
+  "title": "VegaStack Labs ci deployment job binding",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

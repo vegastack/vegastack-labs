@@ -946,6 +946,7 @@ func currentSchemas() []SchemaDefinition {
 				{JSONName: "hostingLifecycleProfiles", GoName: "HostingLifecycleProfiles", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/hosting-lifecycle-profile", MaxItems: intPointer(128)},
 				{JSONName: "serviceRecoveryProfiles", GoName: "ServiceRecoveryProfiles", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/service-recovery-profile", MaxItems: intPointer(128)},
 				{JSONName: "ciJobBindings", GoName: "CIJobBindings", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/ci-job-execution-binding", MaxItems: intPointer(128)},
+				{JSONName: "ciDeploymentJobs", GoName: "CIDeploymentJobs", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/ci-deployment-job-binding", MaxItems: intPointer(64)},
 				{JSONName: "ciEnrollmentBindings", GoName: "CIEnrollmentBindings", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/ci-enrollment-binding", MaxItems: intPointer(128)},
 				{JSONName: "serviceBindings", GoName: "ServiceBindings", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/service-provider-binding", MaxItems: intPointer(128)},
 				{JSONName: "networkConnectExcludedHostIds", GoName: "NetworkConnectExcludedHostIDs", Kind: ValueArray, OmitEmpty: true, ItemKind: ValueString, MaxItems: intPointer(256), UniqueItems: true},

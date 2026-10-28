@@ -22,14 +22,19 @@ type ExternalLeaseRepository interface {
 	RecordAuthorizationDenial(context.Context, store.ExecutorAuthorizationDenialRequest) error
 }
 
+type ExternalDeploymentAdmission interface {
+	VerifyDeploymentJob(context.Context, identity.Principal, generated.Plan, generated.RunStep) error
+}
+
 type ExternalExecutorConfig struct {
-	Runs      Repository
-	Leases    ExternalLeaseRepository
-	Plans     PlanSource
-	Admission AdmissionVerifier
-	Adapters  AdapterRegistry
-	Clock     func() time.Time
-	IDs       IDSource
+	DeploymentAdmission ExternalDeploymentAdmission
+	Runs                Repository
+	Leases              ExternalLeaseRepository
+	Plans               PlanSource
+	Admission           AdmissionVerifier
+	Adapters            AdapterRegistry
+	Clock               func() time.Time
+	IDs                 IDSource
 	// SweepInterval is test-configurable; production always uses the generated
 	// 20-second executor check-in cadence.
 	SweepInterval time.Duration
@@ -40,14 +45,15 @@ type ExternalExecutorConfig struct {
 // adapter Execute method. Receipts remain observations until ReceiptVerifier
 // independently checks the exact target.
 type ExternalExecutor struct {
-	runs          Repository
-	leases        ExternalLeaseRepository
-	plans         PlanSource
-	admission     AdmissionVerifier
-	adapters      AdapterRegistry
-	clock         func() time.Time
-	ids           IDSource
-	sweepInterval time.Duration
+	deploymentAdmission ExternalDeploymentAdmission
+	runs                Repository
+	leases              ExternalLeaseRepository
+	plans               PlanSource
+	admission           AdmissionVerifier
+	adapters            AdapterRegistry
+	clock               func() time.Time
+	ids                 IDSource
+	sweepInterval       time.Duration
 }
 
 func NewExternalExecutor(config ExternalExecutorConfig) (*ExternalExecutor, error) {
@@ -63,7 +69,7 @@ func NewExternalExecutor(config ExternalExecutorConfig) (*ExternalExecutor, erro
 	if config.SweepInterval <= 0 {
 		config.SweepInterval = time.Duration(generated.ExecutorCheckInSeconds) * time.Second
 	}
-	return &ExternalExecutor{runs: config.Runs, leases: config.Leases, plans: config.Plans, admission: config.Admission, adapters: config.Adapters, clock: config.Clock, ids: config.IDs, sweepInterval: config.SweepInterval}, nil
+	return &ExternalExecutor{deploymentAdmission: config.DeploymentAdmission, runs: config.Runs, leases: config.Leases, plans: config.Plans, admission: config.Admission, adapters: config.Adapters, clock: config.Clock, ids: config.IDs, sweepInterval: config.SweepInterval}, nil
 }
 
 // Run makes lease loss fail closed even if no worker sends another request.
@@ -146,6 +152,9 @@ func (executor *ExternalExecutor) Claim(ctx context.Context, principal identity.
 			if _, ok := authorization.BindExternalExecutorIdentity(principal, request, plan, step); !ok {
 				return generated.ExecutorLease{}, executor.authorizationDenied(ctx, principal, "claim-binding", current.RunID)
 			}
+			if err := executor.verifyDeploymentJob(ctx, principal, plan, current, step, false); err != nil {
+				return generated.ExecutorLease{}, err
+			}
 			implementation, resolveErr := executor.adapters.Resolve(step.AdapterID)
 			if resolveErr != nil {
 				return generated.ExecutorLease{}, resolveErr
@@ -199,6 +208,9 @@ func (executor *ExternalExecutor) Renew(ctx context.Context, principal identity.
 	if err := executor.admission.VerifyRun(ctx, plan, current); err != nil {
 		return generated.ExecutorLease{}, err
 	}
+	if err := executor.verifyDeploymentJob(ctx, principal, plan, current, step, false); err != nil {
+		return generated.ExecutorLease{}, err
+	}
 	_, nextNonce, idErr := executor.ids.Lease(step)
 	if idErr != nil {
 		return generated.ExecutorLease{}, runError(generated.ErrorCodeIntegrityFailure, "executor-renew-identity")
@@ -219,6 +231,9 @@ func (executor *ExternalExecutor) SubmitReceipt(ctx context.Context, principal i
 		return generated.ExecutionReceipt{}, err
 	}
 	if err := executor.admission.VerifyRun(ctx, plan, current); err != nil {
+		return generated.ExecutionReceipt{}, err
+	}
+	if err := executor.verifyDeploymentJob(ctx, principal, plan, current, step, true); err != nil {
 		return generated.ExecutionReceipt{}, err
 	}
 	operation, err := exactOperation(plan, step)
@@ -420,4 +435,26 @@ func allStepsVerified(run generated.Run) bool {
 		}
 	}
 	return true
+}
+
+func (executor *ExternalExecutor) verifyDeploymentJob(ctx context.Context, p identity.Principal, plan generated.Plan, current generated.Run, step generated.RunStep, receipt bool) error {
+	switch step.OperationType {
+	case "application.deploy.low-risk", "application.deploy.production-like", "service.deploy":
+	default:
+		return nil
+	}
+	if executor.deploymentAdmission == nil {
+		return executor.authorizationDenied(ctx, p, "deployment-job-unconfigured", step.TargetID)
+	}
+	if err := executor.deploymentAdmission.VerifyDeploymentJob(ctx, p, plan, step); err != nil {
+		return executor.authorizationDenied(ctx, p, "deployment-job-denied", step.TargetID)
+	}
+	fresh, err := executor.runs.GetRun(ctx, current.RunID)
+	if err != nil {
+		return err
+	}
+	if fresh.Status != "running" || (fresh.CancellationRequested && !receipt) || fresh.PlanID != plan.PlanID || fresh.PlanDigest != plan.PlanDigest {
+		return executor.authorizationDenied(ctx, p, "deployment-job-run-stale", current.RunID)
+	}
+	return executor.admission.VerifyRun(ctx, plan, fresh)
 }
