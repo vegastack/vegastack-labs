@@ -33,8 +33,19 @@ func VerifyControllerInstallPreconditions(ctx context.Context, in ControllerInst
 	if ValidateControllerInstallInput(in) != nil {
 		return errInput
 	}
+	if in.Stage == ControllerHandoffStage {
+		return controllerHandoffPreconditions(ctx, in)
+	}
+	if in.Stage == ControllerConnectorStage {
+		_, e := verifyControllerService(ctx, in)
+		return e
+	}
+	metadata, e := ObserveControllerCredentialCustody(in)
+	if e != nil || metadata != in.CredentialCustodyDigest {
+		return errNative
+	}
 	n := NewNativeRuntime("").(*nativeRuntime)
-	_, e := n.controllerFoundationPreflight(ctx, in)
+	_, e = n.controllerFoundationPreflight(ctx, in)
 	return e
 }
 
@@ -123,19 +134,6 @@ func InstallControllerFoundation(ctx context.Context, in ControllerInstallInput,
 	}
 	n := NewNativeRuntime(version).(*nativeRuntime)
 	changed := false
-	// The operator prepares these protected artifacts locally. Only ownership,
-	// type and mode are inspected; plaintext bytes and secret hashes never enter
-	// the request, plan, database, process arguments or result.
-	for _, name := range in.SlackCredentialNames {
-		p := "/etc/vsk-labs/control/credentials/" + name
-		if ownedAncestors(p, in.AdministratorUID) != nil {
-			return false, errNative
-		}
-		var st unix.Stat_t
-		if unix.Lstat(p, &st) != nil || st.Mode&unix.S_IFMT != unix.S_IFREG || st.Mode&0777 != 0600 || st.Uid != 0 || st.Nlink != 1 {
-			return false, errNative
-		}
-	}
 	// The existing role serialization directory is a fixed root-only artifact;
 	// creating it cannot confer control-database or service authority.
 	if _, e := n.controllerFoundationPreflight(ctx, in); e != nil {
@@ -178,8 +176,13 @@ func InstallControllerFoundation(ctx context.Context, in ControllerInstallInput,
 		if e != nil {
 			return e
 		}
-		// Only the finite authority parent may be established here. Existing
-		// controller config/state paths and their contents remain untouched.
+		moved, e := moveControllerCredentialCustody(in)
+		changed = changed || moved
+		if e != nil {
+			return e
+		}
+		// The exact config parent and three credential artifacts have moved
+		// metadata custody; their content and the running database are untouched.
 		if _, e = protectedInfo(n.root, "etc/vsk-labs"); e != nil {
 			return e
 		}
@@ -317,7 +320,7 @@ func controllerPolkitGID(ctx context.Context, run func(context.Context, string, 
 // VerifyControllerInstallResult deliberately reports only the public foundation
 // facts. The old administrator server need not read the service group's policy.
 // Effective native authority and loaded/denied readers remain separate checks.
-func VerifyControllerInstallResult(ctx context.Context, in ControllerInstallInput) (string, error) {
+func verifyControllerFoundation(ctx context.Context, in ControllerInstallInput) (string, error) {
 	if ValidateControllerInstallInput(in) != nil {
 		return "", errInput
 	}
