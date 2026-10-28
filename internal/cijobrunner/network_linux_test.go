@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"net"
 	"net/netip"
 	"os"
 	"runtime"
@@ -173,5 +174,32 @@ func TestActiveCrossBridgeSiblingBlocks(t *testing.T) {
 	}
 	if solePayload(other, "") {
 		t.Fatal("preexisting sibling accepted")
+	}
+}
+
+func TestDeploymentResolverIPv4NormalizationPreservesPrivateDenial(t *testing.T) {
+	for _, tc := range []struct {
+		address string
+		allowed bool
+	}{{"1.1.1.1", true}, {"127.0.0.1", false}, {"192.168.1.1", false}, {"100.64.0.1", false}, {"169.254.169.254", false}} {
+		t.Run(tc.address, func(t *testing.T) {
+			// Literal lookup performs no DNS request and exercises Go's actual mapped
+			// representation, which previously denied every public deployment origin.
+			ips, e := net.DefaultResolver.LookupNetIP(context.Background(), "ip4", tc.address)
+			if e != nil {
+				t.Fatal(e)
+			}
+			if got := publicDeploymentAddresses(ips); got != tc.allowed {
+				t.Fatalf("address qualification=%v want=%v", got, tc.allowed)
+			}
+			if tc.allowed && (len(ips) != 1 || !ips[0].Is4()) {
+				t.Fatal("public result was not normalized for tcp4")
+			}
+		})
+	}
+	for _, ips := range [][]netip.Addr{nil, {netip.MustParseAddr("2001:4860:4860::8888")}, {netip.MustParseAddr("1.1.1.1"), netip.MustParseAddr("::ffff:10.0.0.1")}} {
+		if publicDeploymentAddresses(ips) {
+			t.Fatal("empty, IPv6 or mixed private result accepted")
+		}
 	}
 }

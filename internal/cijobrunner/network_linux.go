@@ -483,13 +483,8 @@ func (v rootNetworkVerifier) CheckDeployment(ctx context.Context, p RuntimeProfi
 		return (&net.Dialer{Timeout: time.Second}).DialContext(ctx, "udp4", net.JoinHostPort(p.DNSResolver, "53"))
 	}}
 	ips, e := resolver.LookupNetIP(ctx, "ip4", u.Hostname())
-	if e != nil || len(ips) == 0 || len(ips) > 16 {
+	if e != nil || !publicDeploymentAddresses(ips) {
 		return ErrBlocked
-	}
-	for _, ip := range ips {
-		if deniedAddress(ip) {
-			return ErrBlocked
-		}
 	}
 	target, e := os.Open("/proc/" + strconv.Itoa(c.InitPID) + "/ns/net")
 	if e != nil {
@@ -542,4 +537,19 @@ func (v rootNetworkVerifier) CheckDeployment(ctx context.Context, p RuntimeProfi
 		return ErrBlocked
 	}
 	return v.checkRules(ctx, p)
+}
+
+// LookupNetIP may return IPv4-mapped addresses even for an ip4 lookup.
+// Normalize their representation before applying the unchanged IPv4 deny list.
+func publicDeploymentAddresses(ips []netip.Addr) bool {
+	if len(ips) == 0 || len(ips) > 16 {
+		return false
+	}
+	for i := range ips {
+		ips[i] = ips[i].Unmap()
+		if deniedAddress(ips[i]) {
+			return false
+		}
+	}
+	return true
 }
