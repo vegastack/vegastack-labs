@@ -2475,6 +2475,65 @@
     },
     {
       "path": [
+        "doctor",
+        "controller-prerequisites"
+      ],
+      "summary": "Collect fixed local controller metadata without secrets, writes or admission.",
+      "availability": "available",
+      "ownerPhase": "10",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--expected-machine-id",
+          "kind": "value",
+          "valueName": "id",
+          "required": true,
+          "repeatable": false,
+          "summary": "Require this exact Linux machine ID before reading controller metadata.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/controller-prerequisites-data",
+      "examples": [
+        {
+          "summary": "Collect fixed local controller metadata without secrets, writes or admission.",
+          "arguments": [
+            "doctor",
+            "controller-prerequisites",
+            "--expected-machine-id",
+            "00000000000000000000000000000001",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
         "gate",
         "check"
       ],
@@ -8669,6 +8728,16 @@
       "id": "vegastack-labs.dev/control-recovery-receive-input",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/control-recovery-receive-input.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/controller-prerequisite-fact",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/controller-prerequisite-fact.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/controller-prerequisites-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/controller-prerequisites-data.schema.json"
     },
     {
       "id": "vegastack-labs.dev/coolify-service-binding",

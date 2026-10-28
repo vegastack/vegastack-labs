@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 28-10-2026 — Inspect controller setup facts without a shell probe ([#331](https://github.com/vegastack/vegastack-labs/issues/331))
+
+- **What:** An operator-local doctor mode now checks an exact machine identity before collecting fixed controller account/path/unit metadata, custody presence and public TLS certificate facts. It emits versioned JSON and reports missing, unsafe or unavailable inputs without changing the machine.
+- **Why:** Preparing the persistent controller required nonsecret facts that summary diagnosis and inert service rendering did not collect.
+- **How it went:** Local fixtures exercised identity mismatch, secret non-disclosure, symlink and path denial, bounded reads and public TLS. Native Linux execution and live installation remain unperformed; source work does not establish admission or custody qualification.
+- **Changed:** Fixed local inspection command · generated result contract · equivalent operator-local procedure. No remote transport, service or dependency added.
+- **Decisions:** None. Coordinator conveyed the operator's explicit source implementation instruction; no separate review of subsequently authored issue text is claimed.
+
+— approved source scope by (omkarmohanta09), conveyed by coordinator · built by Codex · branch feat/331-controller-prerequisites
+
 ## 28-10-2026 — Check the application host before managed deployment credentials ([#328](https://github.com/vegastack/vegastack-labs/issues/328))
 
 - **What:** Managed external deployment now checks the exact application destination's current admission before credential handoff and each provider permission.

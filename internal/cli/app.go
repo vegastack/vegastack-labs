@@ -302,6 +302,8 @@ func (app *App) Run(ctx context.Context, args []string) int {
 			return app.failAPISSH(err)
 		}
 		return 0
+	case generated.CommandNameDoctorControllerPrerequisites:
+		return app.controllerPrerequisites(ctx, parsed)
 	case generated.CommandNameDoctor:
 		return app.doctor(ctx, parsed)
 	case generated.CommandNameServerStatus:

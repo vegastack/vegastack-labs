@@ -195,6 +195,7 @@ func Current() Registry {
 		serverAPISSHCommand(),
 		serverStatusCommand(),
 		doctorCommand(),
+		controllerPrerequisitesCommand(),
 		platformStatusCommand(),
 		databaseStatusCommand(),
 		inventoryImportCommand(),
@@ -1029,6 +1030,7 @@ func currentSchemas() []SchemaDefinition {
 	schemas = append(schemas, hostDiscoverySchemas()...)
 	schemas = append(schemas, meshSchemas()...)
 	schemas = append(schemas, ingressSchemas()...)
+	schemas = append(schemas, controllerPrerequisitesSchemas()...)
 	schemas = append(schemas, operationsSchemas()...)
 	schemas = append(schemas, siteHeartbeatSchemas()...)
 	schemas = append(schemas, notificationReadinessSchemas()...)

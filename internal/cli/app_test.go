@@ -169,6 +169,12 @@ func TestEveryGeneratedCommandHasTruthfulRuntimeBehavior(t *testing.T) {
 				}
 				return
 			}
+			if commandName(command.Path) == generated.CommandNameDoctorControllerPrerequisites {
+				if code != 6 || !strings.Contains(stdout, "controller-identity") || stderr != "" {
+					t.Fatalf("controller prerequisite identity boundary: %d %s %s", code, stdout, stderr)
+				}
+				return
+			}
 			// The shared fixture deliberately has a noncanonical database mode; doctor must
 			// identify that invariant rather than report successful qualification.
 			if commandName(command.Path) == generated.CommandNameDoctor {

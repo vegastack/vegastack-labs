@@ -1,0 +1,83 @@
+{
+  "$id": "vegastack-labs.dev/controller-prerequisite-fact",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "digest": {
+      "maxLength": 71,
+      "minLength": 1,
+      "type": "string"
+    },
+    "dnsNames": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "type": "string"
+    },
+    "gid": {
+      "maxLength": 20,
+      "minLength": 1,
+      "type": "string"
+    },
+    "mode": {
+      "maxLength": 10,
+      "minLength": 1,
+      "type": "string"
+    },
+    "notAfter": {
+      "maxLength": 40,
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/controller-prerequisite-fact"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "selector": {
+      "enum": [
+        "account",
+        "profile",
+        "executable",
+        "state",
+        "runtime",
+        "unit",
+        "custody-policy",
+        "credential-drafts",
+        "tls-certificate"
+      ],
+      "type": "string"
+    },
+    "state": {
+      "enum": [
+        "present",
+        "missing",
+        "unavailable",
+        "unsafe",
+        "invalid",
+        "disabled"
+      ],
+      "type": "string"
+    },
+    "uid": {
+      "maxLength": 20,
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "selector",
+    "state"
+  ],
+  "title": "VegaStack Labs controller prerequisite fact",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}
