@@ -30,6 +30,7 @@ var offsiteBucketName = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]{1,62}$`)
 var scheduledRunnerPath = regexp.MustCompile(`^/[A-Za-z0-9._/-]+$`)
 
 type Profile struct {
+	IngressBootstrap                 *generated.IngressBootstrapPolicy
 	NotificationReadiness            *generated.NotificationReadinessPolicy
 	IngressControllerReadPilot       *generated.IngressControllerReadPilot
 	OperationsBeszel                 []generated.OperationsBeszelBinding
@@ -209,6 +210,11 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 		// instead of preventing the protected local Unix service from starting.
 		remoteRead = RemoteRead{Enabled: true}
 	}
+	if bootstrap := input.IngressBootstrap; bootstrap != nil {
+		if ingress.ValidateBootstrapPolicy(*bootstrap) != nil || !slices.Contains(input.IngressScopeDigests, ingress.BootstrapScopeDigest(bootstrap.Change)) {
+			return invalid()
+		}
+	}
 	if pilot := input.IngressControllerReadPilot; pilot != nil {
 		if ingress.ValidatePilot(*pilot) != nil || !remoteRead.Enabled || !remoteRead.ConfigurationValid || remoteRead.PublicOrigin != "https://"+pilot.Change.Hostname || pilot.Change.OriginService != "https://"+remoteRead.BindAddress || !slices.Contains(input.IngressScopeDigests, ingress.ScopeDigest(pilot.Change)) {
 			return invalid()
@@ -349,6 +355,7 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 		PrincipalBindings:                append([]principal.Binding(nil), bindings...),
 		RemoteRead:                       remoteRead,
 		AcknowledgementAdapterConfigPath: adapterConfigPath,
+		IngressBootstrap:                 input.IngressBootstrap,
 		IngressControllerReadPilot:       input.IngressControllerReadPilot,
 		IngressScopeDigests:              append([]string(nil), input.IngressScopeDigests...),
 		NotificationReadiness:            notificationReadiness,

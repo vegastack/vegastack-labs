@@ -1,0 +1,51 @@
+{
+  "$id": "vegastack-labs.dev/ingress-bootstrap",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "allowedEmail": {
+      "maxLength": 254,
+      "minLength": 1,
+      "type": "string"
+    },
+    "name": {
+      "maxLength": 128,
+      "minLength": 1,
+      "type": "string"
+    },
+    "originCaPool": {
+      "maxLength": 128,
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/ingress-bootstrap"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "sourceRunIds": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 8,
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "name",
+    "allowedEmail",
+    "sourceRunIds"
+  ],
+  "title": "VegaStack Labs ingress bootstrap",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

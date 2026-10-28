@@ -45,6 +45,9 @@ func ingressOwner(row discoveryRow, c generated.IngressChange) error {
 	return nil
 }
 func ingressOwnership(row discoveryRow, c generated.IngressChange, epoch int64) error {
+	if ingress.IsBootstrap(c) {
+		return bootstrapDependencies(row, c, epoch)
+	}
 	var rev int64
 	var scope string
 	var oldEpoch int64
@@ -66,6 +69,11 @@ func (r *IngressRepository) Stage(ctx context.Context, q generated.IngressDraftR
 	raw, _ := json.Marshal(q)
 	if generated.ValidateContractJSON(generated.SchemaIDIngressDraftRequest, raw, generated.ContractExact) != nil || ingress.Validate(q.Change) != nil || !slices.Contains(r.allowed, ingress.ScopeDigest(q.Change)) {
 		return out, ingressError(generated.ErrorCodeInputInvalid)
+	}
+	if ingress.IsBootstrap(q.Change) {
+		if e := r.CheckBootstrapUnattempted(ctx, q.Change, q.RecoveryEpoch); e != nil {
+			return out, e
+		}
 	}
 	d := ingress.Digest(q)
 	out = ingress.Staged{ID: "ingress-" + d[7:39], Digest: d, Request: q}
@@ -219,6 +227,9 @@ func (r *IngressRepository) Record(ctx context.Context, d ingress.Staged, b adap
 				return e
 			}
 		}
+		if ingress.IsBootstrap(d.Request.Change) {
+			return recordBootstrapReceipt(ctx, tx, d, b, s, status)
+		}
 		if status == "observed" {
 			row := func(q string, args ...any) *sql.Row { return tx.QueryRowContext(ctx, q, args...) }
 			actor := identity.Principal{ID: d.ActorID, Method: d.ActorMethod, DeviceID: d.ActorDevice}
@@ -264,6 +275,23 @@ func (r *IngressRepository) Status(ctx context.Context, id string) (out generate
 			return e
 		}
 		out.OwnershipRevision = rev.Int64
+		var bootstrapKind, bootstrapID, bootstrapRun string
+		if row(`SELECT action,resource_id,run_id FROM ingress_bootstrap_receipts WHERE profile_id=? AND recovery_epoch=? ORDER BY rowid DESC LIMIT 1`, id, out.RecoveryEpoch).Scan(&bootstrapKind, &bootstrapID, &bootstrapRun) == nil {
+			out.ResourceKind = ingress.BootstrapKind(bootstrapKind)
+			out.ResourceID = bootstrapID
+			out.RunID = bootstrapRun
+			var status, result string
+			if row(`SELECT status,result_digest FROM ingress_bootstrap_receipts WHERE run_id=?`, bootstrapRun).Scan(&status, &result) == nil {
+				out.Status = "partial"
+				out.Reason = "bootstrap-" + status
+				if status == "observed" {
+					out.Status = "observed"
+				}
+				if result != "" {
+					out.ObservationDigest = result
+				}
+			}
+		}
 		e := row(`SELECT status,reason,observation_digest,observed_at FROM ingress_observations WHERE profile_id=? AND recovery_epoch=? ORDER BY rowid DESC LIMIT 1`, id, out.RecoveryEpoch).Scan(&out.Status, &out.Reason, &out.ObservationDigest, &out.ObservedAt)
 		if errors.Is(e, sql.ErrNoRows) {
 			return nil

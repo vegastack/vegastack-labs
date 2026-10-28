@@ -9184,6 +9184,16 @@
       "artifactPath": "schemas/v1/hosting-owned-resource.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/ingress-bootstrap",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/ingress-bootstrap.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/ingress-bootstrap-policy",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/ingress-bootstrap-policy.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/ingress-change",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/ingress-change.schema.json"

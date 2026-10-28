@@ -31,6 +31,27 @@ After evidence apply, observe/import the existing tunnel ownership and prepare o
 
 Finally verify real browser login and allowed scoped reads, signed-out/unauthorized denial, retained local access and the approved origin/connector behavior. JWKS reachability and a configured identity binding alone do not prove a real login. Ingress observation still does not claim browser acceptance, origin isolation, HA or full deployment qualification. Remove only the owned approved route and restore the prior protected remote-disabled profile through the same scoped recovery procedure if required; preserve SQLite and unrelated provider resources.
 
+## First controller-read ingress bootstrap
+
+The optional protected `ingressBootstrap` policy enables only the selected one-controller initial setup. It pins the exact account, zone, hostname, existing DNS record, administrator/device, native credential references, controller physical/machine/database identity and epoch, private HTTPS origin/certificate digest, resource name and single allowed email. Its template is a `bootstrap-tunnel` change with empty provider-assigned IDs and one controller mapping whose connector ID is empty. Include its `BootstrapScopeDigest` in `ingressScopeDigests` and explicitly apply `cloudflare.ingress.controller-bootstrap`, `cloudflare.ingress` and `credential.ingress.read`. This setup-only branch does not produce passed G-012/G-016 evidence or change ordinary ingress checks.
+
+Reuse `network ingress observe`, then `network ingress draft`, then the existing immutable plan, infrastructure-admin human acknowledgement and apply. Each row below is a separate plan; successful `network ingress status --profile-id <id>` returns the nonsecret `resourceId` and `runId`. Copy actual predecessor IDs into the next typed request, never guessed IDs. Every request has `resourceId: ""`, ownership revision zero and the same protected bootstrap parameters. Set `resourceKind` as shown. `bootstrap.name` also equals `policyName`; `bootstrap.allowedEmail` is exactly one email.
+
+| Action | Resource kind | Required successful source runs |
+| --- | --- | --- |
+| `bootstrap-tunnel` | `tunnel-configuration` | None |
+| `bootstrap-group` | `access-group` | None |
+| `bootstrap-app` | `access-application` | None |
+| `bootstrap-policy` | `access-policy` | Group and application |
+| `bootstrap-seed` | `tunnel-configuration` | Tunnel, group, application and policy |
+| `bootstrap-cutover` | `dns-record` | All five preceding stages |
+
+List those run IDs in `bootstrap.sourceRunIds`. Top-level `tunnelId`, `accessAppId`, `accessPolicyId` and the one `allowedGroupIds` entry must exactly match the required predecessor receipts; leave IDs absent from that stage's dependencies empty. Creation rejects conflicting names/hostnames and cannot adopt another resource. The seed writes only the exact hostname and final 404 catch-all. Its strict TLS rule sets `originServerName` and `noTLSVerify: false`. When the separately prepared connector uses a private CA, protect `bootstrap.originCaPool: "/etc/vsk-labs/ingress/origin-ca.pem"` in the policy and every request; only the public CA certificate belongs at that connector path. Otherwise omit the pool. Ordinary hostname updates retain this origin option.
+
+The first five stages leave DNS unchanged. Connector token retrieval, secure connector installation and permanent controller/native-systemd custody are separate implemented/authorized host prerequisites, never implicit provider effects. Before the final cutover, configure the exact private listener with its actual Access application audience, retain local recovery, and put the actual serving connector UUID into the single controller mapping. The server verifies its current controller/database/machine/epoch and native references before credential handoff and rechecks before mutation. Cutover additionally probes real origin TLS/certificate identity and signed-out API denial, then verifies actual Access app/group/policy, strict seeded route and serving connector. Unknown or stale facts deny. Only the same pinned existing CNAME is updated; its previous content/proxy state and before digest are retained, and unrelated record attributes survive.
+
+A stage is durably reserved before its provider write. Lost responses, changed authority or failed verification remain partial/pending; another plan cannot blindly repeat the create. Inspect the exact receipt and provider resource under separately authorized scoped reconciliation; this feature supplies no automatic deletion, retry or rollback. Recovery to the retained DNS target requires another exact approved operation; do not delete the old tunnel. After bootstrap, build the complete existing controller-read pilot policy from actual IDs and genuine browser identity, collect/apply its current evidence and verify allowed/denied browser behavior. Bootstrap alone establishes neither browser acceptance, host admission, HA nor full-site qualification.
+
 ## Connector failure and rotation
 
 Disconnect names one connector UUID. The adapter always sends `client_id` and never silently issues all-connector cleanup. Zero or one serving connector is reported without inventing route health. A disconnected connector may reconnect while its token remains valid.

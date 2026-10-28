@@ -1,0 +1,343 @@
+{
+  "$defs": {
+    "ingress-bootstrap": {
+      "additionalProperties": false,
+      "properties": {
+        "allowedEmail": {
+          "maxLength": 254,
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "originCaPool": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/ingress-bootstrap"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "sourceRunIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 8,
+          "type": "array"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "name",
+        "allowedEmail",
+        "sourceRunIds"
+      ],
+      "type": "object"
+    },
+    "ingress-change": {
+      "additionalProperties": false,
+      "properties": {
+        "accessAppId": {
+          "maxLength": 36,
+          "minLength": 0,
+          "type": "string"
+        },
+        "accessPolicyId": {
+          "maxLength": 36,
+          "minLength": 0,
+          "type": "string"
+        },
+        "accountId": {
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
+        },
+        "action": {
+          "enum": [
+            "import",
+            "tunnel-config-update",
+            "access-policy-update",
+            "dns-record-update",
+            "connector-disconnect",
+            "token-rotate",
+            "bootstrap-tunnel",
+            "bootstrap-group",
+            "bootstrap-app",
+            "bootstrap-policy",
+            "bootstrap-seed",
+            "bootstrap-cutover"
+          ],
+          "type": "string"
+        },
+        "allowedGroupIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 128,
+          "type": "array"
+        },
+        "beforeDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "bootstrap": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ingress-bootstrap"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "connectorId": {
+          "maxLength": 36,
+          "minLength": 0,
+          "type": "string"
+        },
+        "connectors": {
+          "items": {
+            "$ref": "#/$defs/ingress-connector-target"
+          },
+          "maxItems": 16,
+          "type": "array"
+        },
+        "deviceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "dnsRecordId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "expectedOwnershipRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "hostname": {
+          "maxLength": 253,
+          "minLength": 1,
+          "type": "string"
+        },
+        "mutationReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "observationReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "originIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "originServerName": {
+          "maxLength": 253,
+          "minLength": 1,
+          "type": "string"
+        },
+        "originService": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "ownerId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "policyName": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "precedence": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "profileId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "replacementReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "resourceId": {
+          "maxLength": 64,
+          "minLength": 0,
+          "type": "string"
+        },
+        "resourceKind": {
+          "enum": [
+            "tunnel-configuration",
+            "access-policy",
+            "dns-record",
+            "connector",
+            "tunnel-token",
+            "access-group",
+            "access-application"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/ingress-change"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "tunnelId": {
+          "maxLength": 36,
+          "minLength": 0,
+          "type": "string"
+        },
+        "zoneId": {
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "profileId",
+        "accountId",
+        "zoneId",
+        "tunnelId",
+        "action",
+        "resourceKind",
+        "resourceId",
+        "ownerId",
+        "deviceId",
+        "expectedOwnershipRevision",
+        "beforeDigest",
+        "hostname",
+        "originService",
+        "originServerName",
+        "originIdentityDigest",
+        "accessAppId",
+        "accessPolicyId",
+        "dnsRecordId",
+        "connectorId",
+        "policyName",
+        "precedence",
+        "allowedGroupIds",
+        "connectors",
+        "observationReferenceId",
+        "mutationReferenceId",
+        "replacementReferenceId"
+      ],
+      "type": "object"
+    },
+    "ingress-connector-target": {
+      "additionalProperties": false,
+      "properties": {
+        "connectorId": {
+          "maxLength": 36,
+          "minLength": 0,
+          "type": "string"
+        },
+        "hostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "identityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/ingress-connector-target"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "connectorId",
+        "hostId",
+        "identityDigest"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/ingress-bootstrap-policy",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "change": {
+      "$ref": "#/$defs/ingress-change"
+    },
+    "controllerHostId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "controllerIdentityDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "controllerInstanceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "controllerMachineIdDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/ingress-bootstrap-policy"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "change",
+    "controllerHostId",
+    "controllerIdentityDigest",
+    "controllerMachineIdDigest",
+    "controllerInstanceId",
+    "recoveryEpoch"
+  ],
+  "title": "VegaStack Labs ingress bootstrap policy",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

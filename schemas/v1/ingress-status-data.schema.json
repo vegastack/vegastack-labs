@@ -41,6 +41,16 @@
       "minimum": 0,
       "type": "integer"
     },
+    "resourceId": {
+      "maxLength": 64,
+      "minLength": 1,
+      "type": "string"
+    },
+    "resourceKind": {
+      "maxLength": 64,
+      "minLength": 1,
+      "type": "string"
+    },
     "rotationStage": {
       "enum": [
         "not-requested",
@@ -50,6 +60,11 @@
         "partial",
         "uncertain"
       ],
+      "type": "string"
+    },
+    "runId": {
+      "maxLength": 128,
+      "minLength": 1,
       "type": "string"
     },
     "schema": {

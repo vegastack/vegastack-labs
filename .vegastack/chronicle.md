@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 28-10-2026 — Prepare first Console ingress without borrowing another project's tunnel ([#330](https://github.com/vegastack/vegastack-labs/issues/330))
+
+- **What:** The existing ingress commands now support finite, separately acknowledged creation stages and a final same-record DNS cutover. New resource IDs come from retained server receipts rather than invented inputs; uncertain creation cannot be blindly repeated.
+- **Why:** The selected Console pilot required existing remote-managed resources, while the discovered tunnel was locally managed and had no active connector.
+- **How it went:** Reused the existing declaration, plan, acknowledgement, credential and adapter paths. Focused local fixtures cover provider effects, strict TLS, exact ownership and retry denial; Linux API/SQLite workflow is compiled separately and no live website claim follows.
+- **Changed:** Optional exact controller bootstrap policy · six finite effects · durable nonsecret receipts · separate readiness-checked first DNS publication · equivalent operator procedure.
+- **Decisions:** None. Coordinator interpreted the ongoing selected-pilot implementation instruction as this bounded source scope; ordinary G-012/G-016 remain unchanged and host/custody work stays separate.
+
+— approved by (omkarmohanta09), under the coordinator's recorded instruction interpretation · built by Codex and coordinator · branch feat/330-ingress-bootstrap
+
 ## 28-10-2026 — Inspect controller setup facts without a shell probe ([#331](https://github.com/vegastack/vegastack-labs/issues/331))
 
 - **What:** An operator-local doctor mode now checks an exact machine identity before collecting fixed controller account/path/unit metadata, custody presence and public TLS certificate facts. It emits versioned JSON and reports missing, unsafe or unavailable inputs without changing the machine.

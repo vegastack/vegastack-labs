@@ -224,6 +224,8 @@ const (
 	SchemaIDHostingLifecycleRecord                 = "vegastack-labs.dev/hosting-lifecycle-record"
 	SchemaIDHostingLifecycleRequest                = "vegastack-labs.dev/hosting-lifecycle-request"
 	SchemaIDHostingOwnedResource                   = "vegastack-labs.dev/hosting-owned-resource"
+	SchemaIDIngressBootstrap                       = "vegastack-labs.dev/ingress-bootstrap"
+	SchemaIDIngressBootstrapPolicy                 = "vegastack-labs.dev/ingress-bootstrap-policy"
 	SchemaIDIngressChange                          = "vegastack-labs.dev/ingress-change"
 	SchemaIDIngressConnectorTarget                 = "vegastack-labs.dev/ingress-connector-target"
 	SchemaIDIngressControllerReadPilot             = "vegastack-labs.dev/ingress-controller-read-pilot"
@@ -3373,6 +3375,26 @@ type HostingOwnedResource struct {
 	ParentID      string `json:"parentId"`
 }
 
+type IngressBootstrap struct {
+	Schema        string   `json:"schema"`
+	SchemaVersion string   `json:"schemaVersion"`
+	Name          string   `json:"name"`
+	AllowedEmail  string   `json:"allowedEmail"`
+	OriginCAPool  string   `json:"originCaPool,omitempty"`
+	SourceRunIDs  []string `json:"sourceRunIds"`
+}
+
+type IngressBootstrapPolicy struct {
+	Schema                    string        `json:"schema"`
+	SchemaVersion             string        `json:"schemaVersion"`
+	Change                    IngressChange `json:"change"`
+	ControllerHostID          string        `json:"controllerHostId"`
+	ControllerIdentityDigest  string        `json:"controllerIdentityDigest"`
+	ControllerMachineIDDigest string        `json:"controllerMachineIdDigest"`
+	ControllerInstanceID      string        `json:"controllerInstanceId"`
+	RecoveryEpoch             int64         `json:"recoveryEpoch"`
+}
+
 type IngressChange struct {
 	Schema                    string                   `json:"schema"`
 	SchemaVersion             string                   `json:"schemaVersion"`
@@ -3402,6 +3424,7 @@ type IngressChange struct {
 	ObservationReferenceID    string                   `json:"observationReferenceId"`
 	MutationReferenceID       string                   `json:"mutationReferenceId"`
 	ReplacementReferenceID    string                   `json:"replacementReferenceId"`
+	Bootstrap                 *IngressBootstrap        `json:"bootstrap,omitempty"`
 }
 
 type IngressConnectorTarget struct {
@@ -3468,6 +3491,9 @@ type IngressRolloutEvidenceRequest struct {
 type IngressStatusData struct {
 	Schema            string `json:"schema"`
 	SchemaVersion     string `json:"schemaVersion"`
+	ResourceID        string `json:"resourceId,omitempty"`
+	ResourceKind      string `json:"resourceKind,omitempty"`
+	RunID             string `json:"runId,omitempty"`
 	ProfileID         string `json:"profileId"`
 	Status            string `json:"status"`
 	Reason            string `json:"reason"`
@@ -5728,6 +5754,7 @@ type ServerProfile struct {
 	RemoteRead                       RemoteReadProfile                  `json:"remoteRead"`
 	HostActionSignerPath             string                             `json:"hostActionSignerPath,omitempty"`
 	HostActionKeyID                  string                             `json:"hostActionKeyId,omitempty"`
+	IngressBootstrap                 *IngressBootstrapPolicy            `json:"ingressBootstrap,omitempty"`
 	IngressControllerReadPilot       *IngressControllerReadPilot        `json:"ingressControllerReadPilot,omitempty"`
 	NotificationReadiness            *NotificationReadinessPolicy       `json:"notificationReadiness,omitempty"`
 	OperationsBeszel                 []OperationsBeszelBinding          `json:"operationsBeszel,omitempty"`
