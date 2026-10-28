@@ -2420,10 +2420,58 @@
       "path": [
         "doctor"
       ],
-      "summary": "Diagnose one actionable platform invariant at a time.",
-      "availability": "planned",
-      "ownerPhase": "2",
-      "risk": "unassigned"
+      "summary": "Diagnose the first failing control-summary invariant without mutation.",
+      "availability": "available",
+      "ownerPhase": "10",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read the protected server profile at this explicit path.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/api-summary-data",
+      "examples": [
+        {
+          "summary": "Diagnose the first failing control-summary invariant without mutation.",
+          "arguments": [
+            "doctor",
+            "--config",
+            "fixture/server-profile.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [

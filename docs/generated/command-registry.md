@@ -429,6 +429,18 @@ Owner phase: `7` · risk: `mutation` · availability: `available`
 
 - Draft one explicit device and human binding.: `vsk-labs device revoke --config fixture/server-profile.json --file fixture/device.json --output json`
 
+### `vsk-labs doctor`
+
+Diagnose the first failing control-summary invariant without mutation.
+
+Owner phase: `10` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read the protected server profile at this explicit path.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Diagnose the first failing control-summary invariant without mutation.: `vsk-labs doctor --config fixture/server-profile.json --output json`
+
 ### `vsk-labs gate check`
 
 Check one gate for one subject without changing state.
@@ -1424,12 +1436,6 @@ Owner phase: `6` · risk: `unassigned` · availability: `planned`
 Verify control-plane health and authority.
 
 Owner phase: `6` · risk: `unassigned` · availability: `planned`
-
-### `vsk-labs doctor`
-
-Diagnose one actionable platform invariant at a time.
-
-Owner phase: `2` · risk: `unassigned` · availability: `planned`
 
 ### `vsk-labs maintenance plan`
 
