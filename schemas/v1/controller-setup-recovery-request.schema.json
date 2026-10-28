@@ -1,0 +1,36 @@
+{
+  "$id": "vegastack-labs.dev/controller-setup-recovery-request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "expectedStateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/controller-setup-recovery-request"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "expectedStateRevision",
+    "recoveryEpoch"
+  ],
+  "title": "VegaStack Labs controller setup recovery request",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

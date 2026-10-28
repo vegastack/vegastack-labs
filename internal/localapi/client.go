@@ -65,6 +65,7 @@ type TypedResponse[T any] struct {
 }
 
 type Client interface {
+	PrepareControllerSetupRecovery(context.Context, serverconfig.Profile, generated.ControllerSetupRecoveryRequest) (TypedResponse[generated.ControllerSetupRecoveryData], error)
 	ClaimControllerSetup(context.Context, serverconfig.Profile, generated.ControllerSetupClaimRequest) (TypedResponse[generated.ControllerSetupClaim], error)
 	SubmitControllerSetupReceipt(context.Context, serverconfig.Profile, generated.ControllerSetupReceiptRequest) (TypedResponse[generated.Run], error)
 	DiagnoseMaintenance(context.Context, serverconfig.Profile, string) (TypedResponse[generated.MaintenanceDiagnosis], error)

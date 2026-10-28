@@ -24,3 +24,12 @@ func (c *client) SubmitControllerSetupReceipt(ctx context.Context, p serverconfi
 		return validGateData(d, generated.SchemaIDRun) && d.RunID == q.RunID && d.StateRevision == r.StateRevision && d.RecoveryEpoch == r.RecoveryEpoch
 	})
 }
+
+func (c *client) PrepareControllerSetupRecovery(ctx context.Context, p serverconfig.Profile, q generated.ControllerSetupRecoveryRequest) (TypedResponse[generated.ControllerSetupRecoveryData], error) {
+	if !validGateData(q, generated.SchemaIDControllerSetupRecoveryRequest) || p.ConstrainedSSH != nil {
+		return TypedResponse[generated.ControllerSetupRecoveryData]{}, failure.New(generated.ErrorCodeAuthorizationDenied, "controller-setup-local", false)
+	}
+	return requestTyped(c, ctx, p, requestSpec{localtransport.MethodPost, "/api/v1/controller-setup/recovery", "api.v1.controller-setup.recovery", maxOperationResponseBodyBytes, operationTimeout, true}, q, func(d generated.ControllerSetupRecoveryData, r generated.RunResult) bool {
+		return validGateData(d, generated.SchemaIDControllerSetupRecoveryData) && d.StateRevision == r.StateRevision && d.RecoveryEpoch == r.RecoveryEpoch
+	})
+}

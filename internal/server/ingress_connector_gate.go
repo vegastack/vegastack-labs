@@ -12,7 +12,7 @@ type connectorSelection struct {
 	HostID, IdentityDigest, AccountID, TunnelID, OriginCAPool string
 	RecoveryEpoch                                             int64
 }
-type connectorPilot func(context.Context, generated.Plan) (store.HostAdmissionSnapshot, error)
+type connectorPilot func(context.Context, generated.Plan) (generated.ControllerSetupPilotEligibility, error)
 
 type connectorBaseline func(context.Context, string) (store.HostAdmissionSnapshot, error)
 
@@ -33,7 +33,11 @@ func verifyIngressConnector(ctx context.Context, p generated.Plan, selected conn
 		if pilot == nil {
 			return actionFailure()
 		}
-		s, e = pilot(ctx, p)
+		eligibility, err := pilot(ctx, p)
+		if err != nil || eligibility.HostID != in.HostID || eligibility.HostIdentityDigest != in.HostIdentityDigest || eligibility.RecoveryEpoch != p.Binding.RecoveryEpoch || eligibility.StateRevision != p.Binding.StateRevision || eligibility.PolicyDigest != in.ControllerSetupPilotDigest {
+			return actionFailure()
+		}
+		return nil
 	} else {
 		if baseline == nil {
 			return actionFailure()

@@ -8765,6 +8765,16 @@
       "artifactPath": "schemas/v1/controller-setup-receipt-request.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/controller-setup-recovery-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/controller-setup-recovery-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/controller-setup-recovery-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/controller-setup-recovery-request.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/coolify-service-binding",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/coolify-service-binding.schema.json"

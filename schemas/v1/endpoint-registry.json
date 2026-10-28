@@ -255,6 +255,20 @@
       ]
     },
     {
+      "id": "api.v1.controller-setup.recovery",
+      "method": "POST",
+      "path": "/api/v1/controller-setup/recovery",
+      "availability": "available",
+      "ownerPhase": "7",
+      "requestSchema": "vegastack-labs.dev/controller-setup-recovery-request",
+      "dataSchema": "vegastack-labs.dev/controller-setup-recovery-data",
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
+    },
+    {
       "id": "api.v1.credential-lifecycle-drafts.create",
       "method": "POST",
       "path": "/api/v1/credential-lifecycle-drafts",

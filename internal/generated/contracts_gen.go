@@ -140,6 +140,8 @@ const (
 	SchemaIDControllerSetupPilotEligibility        = "vegastack-labs.dev/controller-setup-pilot-eligibility"
 	SchemaIDControllerSetupPilotPolicy             = "vegastack-labs.dev/controller-setup-pilot-policy"
 	SchemaIDControllerSetupReceiptRequest          = "vegastack-labs.dev/controller-setup-receipt-request"
+	SchemaIDControllerSetupRecoveryData            = "vegastack-labs.dev/controller-setup-recovery-data"
+	SchemaIDControllerSetupRecoveryRequest         = "vegastack-labs.dev/controller-setup-recovery-request"
 	SchemaIDCoolifyServiceBinding                  = "vegastack-labs.dev/coolify-service-binding"
 	SchemaIDCredentialImportRequest                = "vegastack-labs.dev/credential-import-request"
 	SchemaIDCredentialImportSubmission             = "vegastack-labs.dev/credential-import-submission"
@@ -2193,6 +2195,22 @@ type ControllerSetupReceiptRequest struct {
 	ResultDigest  string `json:"resultDigest"`
 	InputJSON     string `json:"inputJson"`
 	Status        string `json:"status"`
+}
+
+type ControllerSetupRecoveryData struct {
+	Schema               string `json:"schema"`
+	SchemaVersion        string `json:"schemaVersion"`
+	ImageDigest          string `json:"imageDigest"`
+	ControllerInstanceID string `json:"controllerInstanceId"`
+	StateRevision        int64  `json:"stateRevision"`
+	RecoveryEpoch        int64  `json:"recoveryEpoch"`
+}
+
+type ControllerSetupRecoveryRequest struct {
+	Schema                string `json:"schema"`
+	SchemaVersion         string `json:"schemaVersion"`
+	ExpectedStateRevision int64  `json:"expectedStateRevision"`
+	RecoveryEpoch         int64  `json:"recoveryEpoch"`
 }
 
 type CoolifyServiceBinding struct {
@@ -6584,6 +6602,7 @@ var Endpoints = []Endpoint{
 	{ID: "api.v1.ci.publications.drafts.create", Method: "POST", Path: "/api/v1/ci/publications/drafts", Availability: "available", OwnerPhase: "9", QuerySchema: "", RequestSchema: "vegastack-labs.dev/ci-publication-draft-request", DataSchema: "vegastack-labs.dev/declaration-revision", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.controller-setup.claim", Method: "POST", Path: "/api/v1/controller-setup/claim", Availability: "available", OwnerPhase: "7", QuerySchema: "", RequestSchema: "vegastack-labs.dev/controller-setup-claim-request", DataSchema: "vegastack-labs.dev/controller-setup-claim", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.controller-setup.receipt", Method: "POST", Path: "/api/v1/controller-setup/receipt", Availability: "available", OwnerPhase: "7", QuerySchema: "", RequestSchema: "vegastack-labs.dev/controller-setup-receipt-request", DataSchema: "vegastack-labs.dev/run", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.controller-setup.recovery", Method: "POST", Path: "/api/v1/controller-setup/recovery", Availability: "available", OwnerPhase: "7", QuerySchema: "", RequestSchema: "vegastack-labs.dev/controller-setup-recovery-request", DataSchema: "vegastack-labs.dev/controller-setup-recovery-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.credential-lifecycle-drafts.create", Method: "POST", Path: "/api/v1/credential-lifecycle-drafts", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/credential-lifecycle-request", DataSchema: "vegastack-labs.dev/credential-lifecycle-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.credential-references.get", Method: "GET", Path: "/api/v1/credential-references/{referenceId}", Availability: "planned", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/credential-reference", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.credential-references.import-stream", Method: "POST", Path: "/api/v1/credential-references/{referenceId}/import-stream", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/credential-import-request", DataSchema: "vegastack-labs.dev/credential-import-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "binary", TransportScope: "local", MaxRequestBytes: 4096},

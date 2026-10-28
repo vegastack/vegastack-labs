@@ -22,3 +22,13 @@ func (r *RunRepository) ControllerSetupLease(ctx context.Context, runID, leaseID
 	})
 	return
 }
+
+// IsInitialAdministrator uses the persisted setup audit, not a caller assertion
+// or root UID. Ordinary current effective grants remain checked by the API.
+func (s *Store) IsInitialAdministrator(ctx context.Context, id string) (bool, error) {
+	var n int
+	e := s.Read(ctx, func(tx ReadTx) error {
+		return tx.queryRow(ctx, `SELECT count(*) FROM audit_events a JOIN effective_authorization_principals p ON p.principal_id=a.principal_id WHERE a.event_type='control.initialized' AND a.principal_id=? AND p.principal_kind='human' AND p.status='active'`, id).Scan(&n)
+	})
+	return n == 1, e
+}

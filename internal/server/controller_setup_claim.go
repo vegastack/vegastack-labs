@@ -28,6 +28,7 @@ type controllerSetupClaims struct {
 	profile       serverconfig.Profile
 	clock         func() time.Time
 	validateInput func(context.Context, generated.Plan, string) error
+	preconditions func(context.Context, generated.Plan, string) error
 	observe       func(context.Context, generated.Plan, string) (string, error)
 }
 
@@ -41,6 +42,9 @@ func (c *controllerSetupClaims) Validate(ctx context.Context, p generated.Plan, 
 	policy := *c.verifier.policy
 	bound := false
 	for _, binding := range c.profile.PrincipalBindings {
+		if binding.PrincipalID == policy.AdministratorPrincipalID && int64(binding.UID) != policy.AdministratorUID {
+			return generated.ControllerSetupPilotPolicy{}, actionFailure()
+		}
 		if int64(binding.UID) == policy.AdministratorUID && binding.PrincipalID == policy.AdministratorPrincipalID {
 			bound = true
 		}
@@ -63,6 +67,9 @@ func (c *controllerSetupClaims) Claim(ctx context.Context, p generated.Plan, r g
 		return zero, e
 	}
 	if principal.ID != policy.AdministratorPrincipalID || principal.Method != identity.LocalOSPeerMethod || identity.EffectivePrincipalKind(principal) != identity.PrincipalHuman || r.Status != "running" || len(r.Steps) != 1 || r.Steps[0].Status != "queued" || r.Steps[0].EffectState != "not-started" || r.PlanID != p.PlanID || r.PlanDigest != p.PlanDigest {
+		return zero, actionFailure()
+	}
+	if c.preconditions == nil || c.preconditions(ctx, p, raw) != nil {
 		return zero, actionFailure()
 	}
 	a, e := c.authority.HostAccessRunAttribution(ctx, r.RunID)

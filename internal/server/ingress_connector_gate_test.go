@@ -109,13 +109,13 @@ func TestConnectorPilotMarkerUsesOnlySharedActualEligibility(t *testing.T) {
 		baselineCalls++
 		return store.HostAdmissionSnapshot{}, actionFailure()
 	}
-	pilot := func(_ context.Context, plan generated.Plan) (store.HostAdmissionSnapshot, error) {
+	pilot := func(_ context.Context, plan generated.Plan) (generated.ControllerSetupPilotEligibility, error) {
 		pilotCalls++
 		actual, e := ingressconnector.Decode([]byte(plan.HostAction.ActionInput))
 		if e != nil || actual.ControllerSetupPilotDigest != marker {
-			return store.HostAdmissionSnapshot{}, actionFailure()
+			return generated.ControllerSetupPilotEligibility{}, actionFailure()
 		}
-		return store.HostAdmissionSnapshot{Host: generated.ManagedHost{HostID: in.HostID}, IdentityDigest: d, Revision: store.RevisionToken{StateRevision: 4, RecoveryEpoch: 2}}, nil
+		return generated.ControllerSetupPilotEligibility{HostID: in.HostID, HostIdentityDigest: d, StateRevision: 4, RecoveryEpoch: 2, PolicyDigest: marker}, nil
 	}
 	if e := verifyIngressConnector(context.Background(), p, selected, baseline, nil); e == nil {
 		t.Fatal("marker alone became eligibility")

@@ -15,7 +15,11 @@ type ControllerSetupLifecycle interface {
 	Claim(context.Context, generated.Plan, generated.Run, string, identity.Principal) (generated.ControllerSetupClaim, error)
 	SubmitReceipt(context.Context, generated.ControllerSetupReceiptRequest, identity.Principal) (generated.Run, error)
 }
+type ControllerSetupRecovery interface {
+	PrepareRecovery(context.Context, generated.ControllerSetupRecoveryRequest, identity.Principal) (generated.ControllerSetupRecoveryData, error)
+}
 type ControllerSetupOperations struct {
+	Recovery  ControllerSetupRecovery
 	Runs      RunOperationConfig
 	Lifecycle ControllerSetupLifecycle
 }
@@ -25,10 +29,11 @@ func RegisterControllerSetupOperations(app *Application, c ControllerSetupOperat
 		return apiFailure(generated.ErrorCodeInputInvalid, "controller-setup-config")
 	}
 	app.routes = append(app.routes,
+		route{id: "api.v1.controller-setup.recovery", method: http.MethodPost, pattern: "/api/v1/controller-setup/recovery", deferredAuthorization: true, handler: app.controllerSetupRecovery(c)},
 		route{id: "api.v1.controller-setup.claim", method: http.MethodPost, pattern: "/api/v1/controller-setup/claim", deferredAuthorization: true, handler: app.controllerSetupClaim(c)},
 		route{id: "api.v1.controller-setup.receipt", method: http.MethodPost, pattern: "/api/v1/controller-setup/receipt", deferredAuthorization: true, handler: app.controllerSetupReceipt(c)})
 	if !routesAreGeneratedSubset(app.routes) {
-		app.routes = app.routes[:len(app.routes)-2]
+		app.routes = app.routes[:len(app.routes)-3]
 		return apiFailure(generated.ErrorCodeIntegrityFailure, "controller-setup-endpoints")
 	}
 	return nil
@@ -132,5 +137,31 @@ func (app *Application) controllerSetupReceipt(c ControllerSetupOperations) func
 			return
 		}
 		app.success(w, op, result.StateRevision, result.RecoveryEpoch, result)
+	}
+}
+
+func (app *Application) controllerSetupRecovery(c ControllerSetupOperations) func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string) {
+	return func(w http.ResponseWriter, r *http.Request, _ authorization.ReadScope, _ map[string]string) {
+		const op = "api.v1.controller-setup.recovery"
+		principal, e := controllerSetupLocalPrincipal(r)
+		if e != nil {
+			app.failure(w, op, e)
+			return
+		}
+		var q generated.ControllerSetupRecoveryRequest
+		if c.Recovery == nil || decodeOperationRequest(r, 65536, []string{"schema", "schemaVersion", "expectedStateRevision", "recoveryEpoch"}, &q) != nil || !exactGeneratedContract(generated.SchemaIDControllerSetupRecoveryRequest, q) || r.URL.RawQuery != "" {
+			app.failure(w, op, apiFailure(generated.ErrorCodeInputInvalid, "controller-setup-recovery"))
+			return
+		}
+		if _, e = app.authorizeAction(r, authorization.ActionAuthor, authorization.Target{Capability: "authorization.policy.write", ResourceKind: "authorization-policy", ResourceID: principal.ID}); e != nil {
+			app.failure(w, op, e)
+			return
+		}
+		d, e := c.Recovery.PrepareRecovery(r.Context(), q, principal)
+		if e != nil {
+			app.failure(w, op, e)
+			return
+		}
+		app.success(w, op, d.StateRevision, d.RecoveryEpoch, d)
 	}
 }
