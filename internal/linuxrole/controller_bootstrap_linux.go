@@ -106,6 +106,12 @@ func (n *nativeRuntime) controllerFoundationPreflight(ctx context.Context, in Co
 		}
 	}
 	for selector, p := range controllerArtifacts {
+		// A claim does not assert private preimages were verified. The root
+		// executor repeats this preflight and must check every exact preimage
+		// before it writes; the administrator server may lack directory access.
+		if os.Geteuid() != 0 && (selector == "polkit" || selector == "sudoers" || selector == "native-policy") {
+			continue
+		}
 		limit := int64(65536)
 		if selector == "executable" {
 			limit = 256 << 20
@@ -355,6 +361,12 @@ func verifyControllerFoundation(ctx context.Context, in ControllerInstallInput) 
 	}
 	facts := map[string]any{"inputDigest": hostaction.Digest(in), "stage": "installed-awaiting-native-verification", "serviceUID": in.ServiceUID, "serviceGID": in.ServiceGID}
 	for s, p := range controllerArtifacts {
+		// These private rule directories need not be traversable by the old
+		// administrator. Their effective authority is deliberately not claimed
+		// by this public foundation receipt, even when called as root.
+		if s == "polkit" || s == "sudoers" {
+			continue
+		}
 		var st unix.Stat_t
 		if unix.Lstat("/"+p, &st) != nil || st.Mode&unix.S_IFMT != unix.S_IFREG || st.Nlink != 1 || st.Uid != 0 {
 			return "", errNative
