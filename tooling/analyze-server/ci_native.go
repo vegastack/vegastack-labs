@@ -27,7 +27,7 @@ func acceptedCINativeUnixFile(relative string, content []byte) bool {
 	case "internal/cijobrunner/bridge_linux.go":
 		expected = []string{"81a89d1a559de6ea502e22ee4c546c1fded9a3d0ded03f3aa37a1698ffad909f"}
 	case "internal/cijobrunner/network_linux.go":
-		expected = []string{"c5b37a4b02d1d60d79b4dbf64b2db6f2d2ce7a30808c0dfe91d27204968d948c", "6e37a34c5ecd030bd18fe24035bd221a5e2f4ba568e58471ffea5d0de37ca417"}
+		expected = []string{"c5b37a4b02d1d60d79b4dbf64b2db6f2d2ce7a30808c0dfe91d27204968d948c", "6e37a34c5ecd030bd18fe24035bd221a5e2f4ba568e58471ffea5d0de37ca417", "946fdef06c71443ff652d495f19c088d202df121d1137b9c562b3056be4cb75a"}
 	default:
 		return false
 	}
