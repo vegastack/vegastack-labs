@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 28-10-2026 — Check the application host before managed deployment credentials ([#328](https://github.com/vegastack/vegastack-labs/issues/328))
+
+- **What:** Managed external deployment now checks the exact application destination's current admission before credential handoff and each provider permission.
+- **Why:** The prior path checked the CI runner first and the application destination only after the external write.
+- **How it went:** The original broker reproduction handed over a synthetic credential for a denied destination; the same reproduction now denies before resolution or handoff. Focused tests, vet and Linux compilation passed. Linux execution and the real Phase 9 delivery test have not run.
+- **Changed:** Existing role-admission evaluator reused at the broker boundary, including destination identity, application role, epoch and service binding. No new service or approval path.
+- **Decisions:** None. Source work does not admit a host or authorize deployment.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/317-destination-admission
+
 ## 28-10-2026 — Connect heartbeat publication to exact applied server policy ([#326](https://github.com/vegastack/vegastack-labs/issues/326))
 
 - **What:** The optional protected heartbeat binding now composes the producer, current authority snapshot and existing native credential resolver inside the current server lifecycle. Browser/read requests cannot start writes.
