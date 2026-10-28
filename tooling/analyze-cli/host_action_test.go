@@ -108,6 +108,20 @@ func TestHostActionSourceSealRejectsChangedAddedOrImportedAuthority(t *testing.T
 		currentSeals[key] = seal
 	}
 
+	// Current #319/#320 fixtures use only their exact additive source variants.
+	for key := range currentSeals {
+		relative := strings.SplitN(key, "|", 2)[0]
+		for candidate := range ciDeliverySourceSeals {
+			if strings.HasPrefix(candidate, relative+"|") {
+				delete(currentSeals, key)
+				break
+			}
+		}
+	}
+	for key, seal := range ciDeliverySourceSeals {
+		currentSeals[key] = seal
+	}
+
 	for key, seal := range currentSeals {
 		t.Run(key, func(t *testing.T) {
 			parts := strings.SplitN(key, "|", 2)

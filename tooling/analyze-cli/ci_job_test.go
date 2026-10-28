@@ -23,6 +23,16 @@ func TestCIJobCurrentSourceSealsRejectDrift(t *testing.T) {
 		}
 	}
 	maps.Copy(current, ciNetworkSourceSeals)
+	for key := range current {
+		relative := strings.SplitN(key, "|", 2)[0]
+		for candidate := range ciDeliverySourceSeals {
+			if strings.HasPrefix(candidate, relative+"|") {
+				delete(current, key)
+				break
+			}
+		}
+	}
+	maps.Copy(current, ciDeliverySourceSeals)
 	for key, seal := range current {
 		t.Run(key, func(t *testing.T) {
 			parts := strings.SplitN(key, "|", 2)
