@@ -65,6 +65,8 @@ type TypedResponse[T any] struct {
 }
 
 type Client interface {
+	DiagnoseMaintenance(context.Context, serverconfig.Profile, string) (TypedResponse[generated.MaintenanceDiagnosis], error)
+	DraftMaintenance(context.Context, serverconfig.Profile, generated.MaintenanceDraftRequest) (TypedResponse[generated.DeclarationRevision], error)
 	GetServiceConfiguration(context.Context, serverconfig.Profile, string) (TypedResponse[generated.ServiceConfigurationStatus], error)
 	GetHostingLifecycle(context.Context, serverconfig.Profile, string) (TypedResponse[generated.HostingLifecycleRecord], error)
 	DraftHostingLifecycle(context.Context, serverconfig.Profile, generated.HostingLifecycleDraftRequest) (TypedResponse[generated.DeclarationRevision], error)
@@ -372,6 +374,9 @@ func remoteCommandArguments(spec requestSpec) []string {
 		return args
 	}
 	if args := serviceConfigurationRemoteArguments(spec); args != nil {
+		return args
+	}
+	if args := maintenanceRemoteArguments(spec); args != nil {
 		return args
 	}
 	if args := hostingLifecycleRemoteArguments(spec); args != nil {

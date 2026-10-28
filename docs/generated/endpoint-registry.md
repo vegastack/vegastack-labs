@@ -72,6 +72,8 @@ Contract schema: `1.32.0`
 | `api.v1.inventory-drafts.import` | `POST` | `/api/v1/inventory-drafts/import` | `available` | `operator` | `finite` | `vegastack-labs.dev/inventory-import-request` | `vegastack-labs.dev/inventory-import-data` |
 | `api.v1.inventory-drafts.list` | `GET` | `/api/v1/inventory-drafts` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/api-inventory-draft-list-data` |
 | `api.v1.inventory-exports.create` | `POST` | `/api/v1/inventory-exports` | `available` | `operator` | `finite` | `vegastack-labs.dev/inventory-export-request` | `vegastack-labs.dev/inventory-export-data` |
+| `api.v1.maintenance.diagnose` | `GET` | `/api/v1/maintenance/hosts/{hostID}` | `available` | `operator` | `finite` | `` | `vegastack-labs.dev/maintenance-diagnosis` |
+| `api.v1.maintenance.drafts.create` | `POST` | `/api/v1/maintenance/drafts` | `available` | `operator` | `finite` | `vegastack-labs.dev/maintenance-draft-request` | `vegastack-labs.dev/declaration-revision` |
 | `api.v1.network.endpoint-drafts.create` | `POST` | `/api/v1/network/endpoint-drafts` | `available` | `operator` | `finite` | `vegastack-labs.dev/network-endpoint-request` | `vegastack-labs.dev/declaration-revision` |
 | `api.v1.network.ingress.draft` | `POST` | `/api/v1/network/ingress/draft` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/ingress-draft-request` | `vegastack-labs.dev/ingress-draft-submission` |
 | `api.v1.network.ingress.observe` | `POST` | `/api/v1/network/ingress/observe` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/ingress-draft-request` | `vegastack-labs.dev/ingress-status-data` |

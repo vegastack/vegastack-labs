@@ -106,6 +106,9 @@ func (service *Service) Prepare(ctx context.Context, declarationID string, revis
 	if err != nil {
 		return generated.PlanPreparation{}, err
 	}
+	if maintenanceRecordOnly(declaration) {
+		return generated.PlanPreparation{}, planError(generated.ErrorCodePrerequisiteBlocked)
+	}
 	if declaration.DeclarationID != declarationID || declaration.Revision != revision || declaration.Status != "draft" {
 		return generated.PlanPreparation{}, planError(generated.ErrorCodeStateConflict)
 	}
@@ -167,6 +170,9 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 	declaration, err := service.config.Repository.GetDeclaration(ctx, request.DeclarationID, request.DeclarationRevision)
 	if err != nil {
 		return store.PlanCommitResult{}, err
+	}
+	if maintenanceRecordOnly(declaration) {
+		return store.PlanCommitResult{}, planError(generated.ErrorCodePrerequisiteBlocked)
 	}
 	if declaration.Status != "draft" || declaration.DeclarationID != request.DeclarationID || declaration.Revision != request.DeclarationRevision {
 		return store.PlanCommitResult{}, planError(generated.ErrorCodeStateConflict)
@@ -691,3 +697,15 @@ func (service *Service) GetPlan(ctx context.Context, planID string) (store.PlanC
 
 func parseTime(value string) time.Time { parsed, _ := time.Parse(time.RFC3339, value); return parsed }
 func planError(code string) error      { return failure.New(code, "plan", false) }
+
+func maintenanceRecordOnly(d generated.DeclarationRevision) bool {
+	if d.Maintenance != nil || d.DeclarationType == "maintenance.review" {
+		return true
+	}
+	for _, op := range d.Operations {
+		if op.AdapterID == "local.maintenance.unsupported" || op.OperationType == "maintenance.review" {
+			return true
+		}
+	}
+	return false
+}

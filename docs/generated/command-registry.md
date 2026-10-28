@@ -581,6 +581,46 @@ Owner phase: `2` · risk: `read-only` · availability: `available`
 
 - Validate and store one inventory candidate as an inert draft.: `vsk-labs inventory import --config fixture/server-profile.json --file fixture/inventory.json --format typed-json --source-revision source-1 --captured-at 2026-09-08T06:00:00Z --idempotency-key opaque-1 --output json`
 
+### `vsk-labs maintenance diagnose`
+
+Diagnose recorded host baseline drift without contacting a host.
+
+Owner phase: `10` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--host-id <id>` — Select one exact host.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Diagnose recorded host baseline drift without contacting a host.: `vsk-labs maintenance diagnose --config fixture/client.json --host-id host-a --output json`
+
+### `vsk-labs maintenance draft`
+
+Record an inert exact repair or incident reconciliation draft; execution remains unsupported.
+
+Owner phase: `10` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--file <path>` — Read one bounded inert maintenance request.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Record an inert exact repair or incident reconciliation draft; execution remains unsupported.: `vsk-labs maintenance draft --config fixture/client.json --file fixture/maintenance.json --output json`
+
+### `vsk-labs maintenance repair`
+
+Prepare one diagnosed host's existing baseline action; plan, acknowledgement and apply remain separate.
+
+Owner phase: `10` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--file <path>` — Read the existing complete bounded baseline host-action request.
+- `--host-id <id>` — Select the exact diagnosed repair host.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Prepare one diagnosed host's existing baseline action; plan, acknowledgement and apply remain separate.: `vsk-labs maintenance repair --config fixture/client.json --host-id host-a --file fixture/host-action.json --output json`
+
 ### `vsk-labs network endpoint draft`
 
 Draft one managed-host connection endpoint; acknowledge its exact plan before apply.

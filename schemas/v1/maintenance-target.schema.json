@@ -1,0 +1,95 @@
+{
+  "$id": "vegastack-labs.dev/maintenance-target",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "bindingDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "canary": {
+      "enum": [
+        "passed",
+        "failed",
+        "partial",
+        "unknown",
+        "unsupported"
+      ],
+      "type": "string"
+    },
+    "diagnosis": {
+      "enum": [
+        "healthy",
+        "stale",
+        "failed",
+        "unknown"
+      ],
+      "type": "string"
+    },
+    "drain": {
+      "enum": [
+        "passed",
+        "failed",
+        "partial",
+        "unknown",
+        "unsupported"
+      ],
+      "type": "string"
+    },
+    "health": {
+      "enum": [
+        "passed",
+        "failed",
+        "partial",
+        "unknown",
+        "unsupported"
+      ],
+      "type": "string"
+    },
+    "hostId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "observationDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "recovery": {
+      "enum": [
+        "passed",
+        "failed",
+        "partial",
+        "unknown",
+        "unsupported"
+      ],
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/maintenance-target"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "hostId",
+    "bindingDigest",
+    "observationDigest",
+    "diagnosis",
+    "canary",
+    "drain",
+    "health",
+    "recovery"
+  ],
+  "title": "VegaStack Labs maintenance target",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

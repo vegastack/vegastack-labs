@@ -238,6 +238,7 @@ func Current() Registry {
 	commands = append(commands, serviceDeploymentCommands()...)
 	commands = append(commands, serviceConfigurationCommands()...)
 	commands = append(commands, hostingLifecycleCommands()...)
+	commands = append(commands, maintenanceCommands()...)
 	commands = append(commands, serviceRecoveryCommands()...)
 	commands = append(commands, userLifecycleCommands()...)
 	commands = append(commands, deviceLifecycleCommands()...)
@@ -267,6 +268,7 @@ func Current() Registry {
 	endpoints = append(endpoints, serviceDeploymentEndpoints()...)
 	endpoints = append(endpoints, serviceConfigurationEndpoints()...)
 	endpoints = append(endpoints, hostingLifecycleEndpoints()...)
+	endpoints = append(endpoints, maintenanceEndpoints()...)
 	endpoints = append(endpoints, serviceRecoveryEndpoints()...)
 	for _, family := range [][]EndpointDefinition{operationsEndpoints(), operatorAccessEndpoints(), readEndpoints(), meshEndpoints(), ingressEndpoints(), phase4Endpoints(), phase5Endpoints(), hostDiscoveryEndpoints(), hostAdoptionEndpoints(), hostActionEndpoints(), accessEndpoints(), hostReplacementEndpoints(), qualificationEndpoints()} {
 		endpoints = append(endpoints, family...)
@@ -1044,6 +1046,7 @@ func currentSchemas() []SchemaDefinition {
 	schemas = append(schemas, serviceDeploymentSchemas()...)
 	schemas = append(schemas, serviceConfigurationSchemas()...)
 	schemas = append(schemas, hostingLifecycleSchemas()...)
+	schemas = append(schemas, maintenanceSchemas()...)
 	schemas = append(schemas, serviceRecoverySchemas()...)
 	schemas = append(schemas, qualificationSchemas()...)
 	schemas = append(schemas, nativeWitnessSchemas()...)

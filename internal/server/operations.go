@@ -298,6 +298,10 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 		_ = application.Shutdown(ctx)
 		return err
 	}
+	if err := registerMaintenance(application, authority, declarations, factory); err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
 	if err := api.RegisterServiceOperations(application, api.ServicesOperations{Services: serviceSource.repo, Declarations: declarations, Results: factory, Prepare: serviceSource.Prepare, Observe: serviceSource.Observe}); err != nil {
 		_ = application.Shutdown(ctx)
 		return err

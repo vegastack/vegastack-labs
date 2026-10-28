@@ -1,0 +1,129 @@
+{
+  "$defs": {
+    "maintenance-finding": {
+      "additionalProperties": false,
+      "properties": {
+        "controlId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "reasonCode": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/maintenance-finding"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "healthy",
+            "stale",
+            "failed",
+            "unknown"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "controlId",
+        "status",
+        "reasonCode"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/maintenance-diagnosis",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "bindingDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "existingWorkloads": {
+      "enum": [
+        "unchanged"
+      ],
+      "type": "string"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/maintenance-finding"
+      },
+      "maxItems": 128,
+      "type": "array"
+    },
+    "hostId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "newAdmissionBlocked": {
+      "type": "boolean"
+    },
+    "observationDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "observedAt": {
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": "string"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/maintenance-diagnosis"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "stateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "status": {
+      "enum": [
+        "healthy",
+        "stale",
+        "failed",
+        "unknown"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "hostId",
+    "status",
+    "bindingDigest",
+    "observationDigest",
+    "stateRevision",
+    "recoveryEpoch",
+    "observedAt",
+    "newAdmissionBlocked",
+    "existingWorkloads",
+    "findings"
+  ],
+  "title": "VegaStack Labs maintenance diagnosis",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

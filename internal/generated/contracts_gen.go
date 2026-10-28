@@ -266,6 +266,12 @@ const (
 	SchemaIDLocalSetupReadGrant                    = "vegastack-labs.dev/local-setup-read-grant"
 	SchemaIDLocalSetupRequest                      = "vegastack-labs.dev/local-setup-request"
 	SchemaIDLocalSetupReviewRequest                = "vegastack-labs.dev/local-setup-review-request"
+	SchemaIDMaintenanceDiagnosis                   = "vegastack-labs.dev/maintenance-diagnosis"
+	SchemaIDMaintenanceDraftRequest                = "vegastack-labs.dev/maintenance-draft-request"
+	SchemaIDMaintenanceFinding                     = "vegastack-labs.dev/maintenance-finding"
+	SchemaIDMaintenanceIncident                    = "vegastack-labs.dev/maintenance-incident"
+	SchemaIDMaintenanceRecord                      = "vegastack-labs.dev/maintenance-record"
+	SchemaIDMaintenanceTarget                      = "vegastack-labs.dev/maintenance-target"
 	SchemaIDManagedHost                            = "vegastack-labs.dev/managed-host"
 	SchemaIDManagedHostList                        = "vegastack-labs.dev/managed-host-list"
 	SchemaIDMeshChange                             = "vegastack-labs.dev/mesh-change"
@@ -497,6 +503,10 @@ const (
 	FlagSourceRevision                             = "--source-revision"
 	CommandNameInventoryExport                     = "inventory export"
 	CommandNameInventoryImport                     = "inventory import"
+	CommandNameMaintenanceDiagnose                 = "maintenance diagnose"
+	FlagHostID                                     = "--host-id"
+	CommandNameMaintenanceDraft                    = "maintenance draft"
+	CommandNameMaintenanceRepair                   = "maintenance repair"
 	CommandNameNetworkEndpointDraft                = "network endpoint draft"
 	CommandNameNetworkIngressDraft                 = "network ingress draft"
 	CommandNameNetworkIngressObserve               = "network ingress observe"
@@ -512,7 +522,6 @@ const (
 	CommandNameNodeAdd                             = "node add"
 	CommandNameNodeDiscover                        = "node discover"
 	CommandNameNodeInspect                         = "node inspect"
-	FlagHostID                                     = "--host-id"
 	CommandNameNodeObservationInspect              = "node observation inspect"
 	FlagObservationID                              = "--observation-id"
 	CommandNameNodeReplacementInspect              = "node replacement inspect"
@@ -2345,6 +2354,7 @@ type DeclarationOperation struct {
 type DeclarationRevision struct {
 	Schema                  string                          `json:"schema"`
 	SchemaVersion           string                          `json:"schemaVersion"`
+	Maintenance             *MaintenanceRecord              `json:"maintenance,omitempty"`
 	HostingLifecycle        *HostingLifecycleRequest        `json:"hostingLifecycle,omitempty"`
 	ServiceRecovery         *ServiceRecoveryRequest         `json:"serviceRecovery,omitempty"`
 	ServiceDeployment       *ServiceDeploymentRequest       `json:"serviceDeployment,omitempty"`
@@ -2371,6 +2381,7 @@ type DeclarationRevision struct {
 type DeclarationRevisionRequest struct {
 	Schema                  string                          `json:"schema"`
 	SchemaVersion           string                          `json:"schemaVersion"`
+	Maintenance             *MaintenanceRecord              `json:"maintenance,omitempty"`
 	HostingLifecycle        *HostingLifecycleRequest        `json:"hostingLifecycle,omitempty"`
 	ServiceRecovery         *ServiceRecoveryRequest         `json:"serviceRecovery,omitempty"`
 	ServiceDeployment       *ServiceDeploymentRequest       `json:"serviceDeployment,omitempty"`
@@ -3808,6 +3819,86 @@ type LocalSetupReviewRequest struct {
 	RequestNonceDigest      string                     `json:"requestNonceDigest"`
 	InitialReadGrants       []LocalSetupReadGrant      `json:"initialReadGrants"`
 	InitialEffectiveGrants  []LocalSetupEffectiveGrant `json:"initialEffectiveGrants"`
+}
+
+type MaintenanceDiagnosis struct {
+	Schema              string               `json:"schema"`
+	SchemaVersion       string               `json:"schemaVersion"`
+	HostID              string               `json:"hostId"`
+	Status              string               `json:"status"`
+	BindingDigest       string               `json:"bindingDigest"`
+	ObservationDigest   string               `json:"observationDigest"`
+	StateRevision       int64                `json:"stateRevision"`
+	RecoveryEpoch       int64                `json:"recoveryEpoch"`
+	ObservedAt          string               `json:"observedAt"`
+	NewAdmissionBlocked bool                 `json:"newAdmissionBlocked"`
+	ExistingWorkloads   string               `json:"existingWorkloads"`
+	Findings            []MaintenanceFinding `json:"findings"`
+}
+
+type MaintenanceDraftRequest struct {
+	Schema                string               `json:"schema"`
+	SchemaVersion         string               `json:"schemaVersion"`
+	DeclarationID         string               `json:"declarationId"`
+	ExpectedRevision      int64                `json:"expectedRevision"`
+	ExpectedStateRevision int64                `json:"expectedStateRevision"`
+	RecoveryEpoch         int64                `json:"recoveryEpoch"`
+	Action                string               `json:"action"`
+	TargetIDs             []string             `json:"targetIds"`
+	CanaryHostID          string               `json:"canaryHostId"`
+	CanaryRunID           string               `json:"canaryRunId,omitempty"`
+	Incident              *MaintenanceIncident `json:"incident,omitempty"`
+	ReasonDigest          string               `json:"reasonDigest"`
+}
+
+type MaintenanceFinding struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	ControlID     string `json:"controlId"`
+	Status        string `json:"status"`
+	ReasonCode    string `json:"reasonCode"`
+}
+
+type MaintenanceIncident struct {
+	Schema                 string   `json:"schema"`
+	SchemaVersion          string   `json:"schemaVersion"`
+	ResponsibleHumanDigest string   `json:"responsibleHumanDigest"`
+	AgentSessionDigest     string   `json:"agentSessionDigest"`
+	ReasonDigest           string   `json:"reasonDigest"`
+	StartedAt              string   `json:"startedAt"`
+	EndedAt                string   `json:"endedAt"`
+	EvidenceDigests        []string `json:"evidenceDigests"`
+}
+
+type MaintenanceRecord struct {
+	Schema             string               `json:"schema"`
+	SchemaVersion      string               `json:"schemaVersion"`
+	Action             string               `json:"action"`
+	Targets            []MaintenanceTarget  `json:"targets"`
+	CanaryHostID       string               `json:"canaryHostId"`
+	CanaryRunID        string               `json:"canaryRunId,omitempty"`
+	Incident           *MaintenanceIncident `json:"incident,omitempty"`
+	PreparedByDigest   string               `json:"preparedByDigest"`
+	AgentSessionDigest string               `json:"agentSessionDigest"`
+	PreparedAt         string               `json:"preparedAt"`
+	StateRevision      int64                `json:"stateRevision"`
+	RecoveryEpoch      int64                `json:"recoveryEpoch"`
+	ReasonDigest       string               `json:"reasonDigest"`
+	Blockers           []string             `json:"blockers"`
+	ExecutionAvailable bool                 `json:"executionAvailable"`
+}
+
+type MaintenanceTarget struct {
+	Schema            string `json:"schema"`
+	SchemaVersion     string `json:"schemaVersion"`
+	HostID            string `json:"hostId"`
+	BindingDigest     string `json:"bindingDigest"`
+	ObservationDigest string `json:"observationDigest"`
+	Diagnosis         string `json:"diagnosis"`
+	Canary            string `json:"canary"`
+	Drain             string `json:"drain"`
+	Health            string `json:"health"`
+	Recovery          string `json:"recovery"`
 }
 
 type ManagedHost struct {
@@ -6161,7 +6252,10 @@ var Commands = []Command{
 	{Path: []string{"inventory", "diff"}, Summary: "Compare one inert draft or local candidate with a compatible inert draft.", Availability: "available", OwnerPhase: "2", Risk: "read-only", Flags: []Flag{{Name: "--captured-at", Kind: "value", ValueName: "timestamp", Required: false, Repeatable: false, Summary: "Record an RFC 3339 UTC capture time.", Enum: []string(nil)}, {Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--draft-id", Kind: "value", ValueName: "id", Required: false, Repeatable: false, Summary: "Select an existing inert draft.", Enum: []string(nil)}, {Name: "--draft-revision", Kind: "value", ValueName: "revision", Required: false, Repeatable: false, Summary: "Select the exact inert draft revision.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: false, Repeatable: false, Summary: "Read one protected local candidate file.", Enum: []string(nil)}, {Name: "--format", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select the explicit candidate format.", Enum: []string{"labs-sheet1-csv", "typed-json"}}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}, {Name: "--source-revision", Kind: "value", ValueName: "revision", Required: false, Repeatable: false, Summary: "Record the source revision supplied by its owner.", Enum: []string(nil)}}, RequestSchema: "vegastack-labs.dev/inventory-diff-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/inventory-diff-data", Examples: []Example{{Summary: "Compare one inert draft or local candidate with a compatible inert draft.", Arguments: []string{"inventory", "diff", "--config", "fixture/server-profile.json", "--draft-id", "draft-test", "--draft-revision", "1", "--output", "json"}}}},
 	{Path: []string{"inventory", "export"}, Summary: "Publish one verified signed inert-draft export.", Availability: "available", OwnerPhase: "2", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--draft-id", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Select an existing inert draft.", Enum: []string(nil)}, {Name: "--draft-revision", Kind: "value", ValueName: "revision", Required: true, Repeatable: false, Summary: "Select the exact inert draft revision.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/inventory-export-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/inventory-export-data", Examples: []Example{{Summary: "Publish one verified signed inert-draft export.", Arguments: []string{"inventory", "export", "--config", "fixture/server-profile.json", "--draft-id", "draft-test", "--draft-revision", "1", "--output", "json"}}}},
 	{Path: []string{"inventory", "import"}, Summary: "Validate and store one inventory candidate as an inert draft.", Availability: "available", OwnerPhase: "2", Risk: "read-only", Flags: []Flag{{Name: "--captured-at", Kind: "value", ValueName: "timestamp", Required: true, Repeatable: false, Summary: "Record an RFC 3339 UTC capture time.", Enum: []string(nil)}, {Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--expected-state-revision", Kind: "value", ValueName: "revision", Required: false, Repeatable: false, Summary: "Require this current state revision.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected local candidate file.", Enum: []string(nil)}, {Name: "--format", Kind: "value", ValueName: "format", Required: true, Repeatable: false, Summary: "Select the explicit candidate format.", Enum: []string{"labs-sheet1-csv", "typed-json"}}, {Name: "--idempotency-key", Kind: "value", ValueName: "key", Required: true, Repeatable: false, Summary: "Supply one opaque retry key.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}, {Name: "--source-revision", Kind: "value", ValueName: "revision", Required: true, Repeatable: false, Summary: "Record the source revision supplied by its owner.", Enum: []string(nil)}}, RequestSchema: "vegastack-labs.dev/inventory-import-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/inventory-import-data", Examples: []Example{{Summary: "Validate and store one inventory candidate as an inert draft.", Arguments: []string{"inventory", "import", "--config", "fixture/server-profile.json", "--file", "fixture/inventory.json", "--format", "typed-json", "--source-revision", "source-1", "--captured-at", "2026-09-08T06:00:00Z", "--idempotency-key", "opaque-1", "--output", "json"}}}},
+	{Path: []string{"maintenance", "diagnose"}, Summary: "Diagnose recorded host baseline drift without contacting a host.", Availability: "available", OwnerPhase: "10", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected operator profile.", Enum: []string(nil)}, {Name: "--host-id", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Select one exact host.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/maintenance-diagnosis", Examples: []Example{{Summary: "Diagnose recorded host baseline drift without contacting a host.", Arguments: []string{"maintenance", "diagnose", "--config", "fixture/client.json", "--host-id", "host-a", "--output", "json"}}}},
+	{Path: []string{"maintenance", "draft"}, Summary: "Record an inert exact repair or incident reconciliation draft; execution remains unsupported.", Availability: "available", OwnerPhase: "10", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected operator profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one bounded inert maintenance request.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/maintenance-draft-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/declaration-revision", Examples: []Example{{Summary: "Record an inert exact repair or incident reconciliation draft; execution remains unsupported.", Arguments: []string{"maintenance", "draft", "--config", "fixture/client.json", "--file", "fixture/maintenance.json", "--output", "json"}}}},
 	{Path: []string{"maintenance", "plan"}, Summary: "Create an immutable maintenance plan.", Availability: "planned", OwnerPhase: "10", Risk: "unassigned"},
+	{Path: []string{"maintenance", "repair"}, Summary: "Prepare one diagnosed host's existing baseline action; plan, acknowledgement and apply remain separate.", Availability: "available", OwnerPhase: "10", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected operator profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the existing complete bounded baseline host-action request.", Enum: []string(nil)}, {Name: "--host-id", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Select the exact diagnosed repair host.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/host-action-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/host-action-submission", Examples: []Example{{Summary: "Prepare one diagnosed host's existing baseline action; plan, acknowledgement and apply remain separate.", Arguments: []string{"maintenance", "repair", "--config", "fixture/client.json", "--host-id", "host-a", "--file", "fixture/host-action.json", "--output", "json"}}}},
 	{Path: []string{"maintenance", "run"}, Summary: "Run one authorized maintenance plan.", Availability: "planned", OwnerPhase: "10", Risk: "unassigned"},
 	{Path: []string{"network", "endpoint", "draft"}, Summary: "Draft one managed-host connection endpoint; acknowledge its exact plan before apply.", Availability: "available", OwnerPhase: "7", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one grant batch JSON file (32 KiB max).", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/network-endpoint-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/declaration-revision", Examples: []Example{{Summary: "Draft an explicit endpoint.", Arguments: []string{"network", "endpoint", "draft", "--config", "fixture/profile.json", "--file", "fixture/endpoint.json", "--output", "json"}}}},
 	{Path: []string{"network", "ingress", "draft"}, Summary: "Inspect or prepare owned ingress; provider rotation alone is incomplete.", Availability: "available", OwnerPhase: "7", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected operator profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read an exact non-secret typed request.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/ingress-draft-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/ingress-draft-submission", Examples: []Example{{Summary: "Inspect or prepare owned ingress; provider rotation alone is incomplete.", Arguments: []string{"network", "ingress", "draft", "--config", "fixture/client.json", "--file", "fixture/ingress.json"}}}},
@@ -6297,6 +6391,8 @@ var Endpoints = []Endpoint{
 	{ID: "api.v1.inventory-drafts.import", Method: "POST", Path: "/api/v1/inventory-drafts/import", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "vegastack-labs.dev/inventory-import-request", DataSchema: "vegastack-labs.dev/inventory-import-data", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.inventory-drafts.list", Method: "GET", Path: "/api/v1/inventory-drafts", Availability: "available", OwnerPhase: "2", QuerySchema: "vegastack-labs.dev/api-page-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-draft-list-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.inventory-exports.create", Method: "POST", Path: "/api/v1/inventory-exports", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "vegastack-labs.dev/inventory-export-request", DataSchema: "vegastack-labs.dev/inventory-export-data", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.maintenance.diagnose", Method: "GET", Path: "/api/v1/maintenance/hosts/{hostID}", Availability: "available", OwnerPhase: "10", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/maintenance-diagnosis", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.maintenance.drafts.create", Method: "POST", Path: "/api/v1/maintenance/drafts", Availability: "available", OwnerPhase: "10", QuerySchema: "", RequestSchema: "vegastack-labs.dev/maintenance-draft-request", DataSchema: "vegastack-labs.dev/declaration-revision", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.network.endpoint-drafts.create", Method: "POST", Path: "/api/v1/network/endpoint-drafts", Availability: "available", OwnerPhase: "7", QuerySchema: "", RequestSchema: "vegastack-labs.dev/network-endpoint-request", DataSchema: "vegastack-labs.dev/declaration-revision", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.network.ingress.draft", Method: "POST", Path: "/api/v1/network/ingress/draft", Availability: "available", OwnerPhase: "7", QuerySchema: "", RequestSchema: "vegastack-labs.dev/ingress-draft-request", DataSchema: "vegastack-labs.dev/ingress-draft-submission", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.network.ingress.observe", Method: "POST", Path: "/api/v1/network/ingress/observe", Availability: "available", OwnerPhase: "7", QuerySchema: "", RequestSchema: "vegastack-labs.dev/ingress-draft-request", DataSchema: "vegastack-labs.dev/ingress-status-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},

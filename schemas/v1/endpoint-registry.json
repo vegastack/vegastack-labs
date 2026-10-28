@@ -895,6 +895,31 @@
       ]
     },
     {
+      "id": "api.v1.maintenance.diagnose",
+      "method": "GET",
+      "path": "/api/v1/maintenance/hosts/{hostID}",
+      "availability": "available",
+      "ownerPhase": "10",
+      "dataSchema": "vegastack-labs.dev/maintenance-diagnosis",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.maintenance.drafts.create",
+      "method": "POST",
+      "path": "/api/v1/maintenance/drafts",
+      "availability": "available",
+      "ownerPhase": "10",
+      "requestSchema": "vegastack-labs.dev/maintenance-draft-request",
+      "dataSchema": "vegastack-labs.dev/declaration-revision",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
       "id": "api.v1.network.endpoint-drafts.create",
       "method": "POST",
       "path": "/api/v1/network/endpoint-drafts",

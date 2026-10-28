@@ -2289,6 +2289,16 @@
             }
           ]
         },
+        "maintenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/maintenance-record"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "networkEndpoint": {
           "anyOf": [
             {
@@ -5417,6 +5427,254 @@
         "capacityMemoryBytes",
         "capacityCpuPercent",
         "capacityTasks"
+      ],
+      "type": "object"
+    },
+    "maintenance-incident": {
+      "additionalProperties": false,
+      "properties": {
+        "agentSessionDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "endedAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "evidenceDigests": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "reasonDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "responsibleHumanDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/maintenance-incident"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "startedAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "responsibleHumanDigest",
+        "agentSessionDigest",
+        "reasonDigest",
+        "startedAt",
+        "endedAt",
+        "evidenceDigests"
+      ],
+      "type": "object"
+    },
+    "maintenance-record": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "enum": [
+            "repair",
+            "incident-reconciliation"
+          ],
+          "type": "string"
+        },
+        "agentSessionDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "blockers": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "canaryHostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "canaryRunId": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "executionAvailable": {
+          "type": "boolean"
+        },
+        "incident": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/maintenance-incident"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "preparedAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "preparedByDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "reasonDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/maintenance-record"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "stateRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "targets": {
+          "items": {
+            "$ref": "#/$defs/maintenance-target"
+          },
+          "maxItems": 32,
+          "type": "array"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "action",
+        "targets",
+        "canaryHostId",
+        "preparedByDigest",
+        "agentSessionDigest",
+        "preparedAt",
+        "stateRevision",
+        "recoveryEpoch",
+        "reasonDigest",
+        "blockers",
+        "executionAvailable"
+      ],
+      "type": "object"
+    },
+    "maintenance-target": {
+      "additionalProperties": false,
+      "properties": {
+        "bindingDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "canary": {
+          "enum": [
+            "passed",
+            "failed",
+            "partial",
+            "unknown",
+            "unsupported"
+          ],
+          "type": "string"
+        },
+        "diagnosis": {
+          "enum": [
+            "healthy",
+            "stale",
+            "failed",
+            "unknown"
+          ],
+          "type": "string"
+        },
+        "drain": {
+          "enum": [
+            "passed",
+            "failed",
+            "partial",
+            "unknown",
+            "unsupported"
+          ],
+          "type": "string"
+        },
+        "health": {
+          "enum": [
+            "passed",
+            "failed",
+            "partial",
+            "unknown",
+            "unsupported"
+          ],
+          "type": "string"
+        },
+        "hostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "observationDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "recovery": {
+          "enum": [
+            "passed",
+            "failed",
+            "partial",
+            "unknown",
+            "unsupported"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/maintenance-target"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "hostId",
+        "bindingDigest",
+        "observationDigest",
+        "diagnosis",
+        "canary",
+        "drain",
+        "health",
+        "recovery"
       ],
       "type": "object"
     },

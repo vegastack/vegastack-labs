@@ -868,6 +868,7 @@ export interface DeclarationOperation {
 export interface DeclarationRevisionRequest {
   readonly "schema": "vegastack-labs.dev/declaration-revision-request";
   readonly "schemaVersion": "1.0.0";
+  readonly "maintenance"?: MaintenanceRecord | null;
   readonly "hostingLifecycle"?: HostingLifecycleRequest | null;
   readonly "serviceRecovery"?: ServiceRecoveryRequest | null;
   readonly "serviceDeployment"?: ServiceDeploymentRequest | null;
@@ -1569,6 +1570,48 @@ export interface LinuxRoleResources {
   readonly "capacityMemoryBytes": number;
   readonly "capacityCpuPercent": number;
   readonly "capacityTasks": number;
+}
+
+export interface MaintenanceIncident {
+  readonly "schema": "vegastack-labs.dev/maintenance-incident";
+  readonly "schemaVersion": "1.0.0";
+  readonly "responsibleHumanDigest": string;
+  readonly "agentSessionDigest": string;
+  readonly "reasonDigest": string;
+  readonly "startedAt": string;
+  readonly "endedAt": string;
+  readonly "evidenceDigests": ReadonlyArray<string>;
+}
+
+export interface MaintenanceRecord {
+  readonly "schema": "vegastack-labs.dev/maintenance-record";
+  readonly "schemaVersion": "1.0.0";
+  readonly "action": "repair" | "incident-reconciliation";
+  readonly "targets": ReadonlyArray<MaintenanceTarget>;
+  readonly "canaryHostId": string;
+  readonly "canaryRunId"?: string;
+  readonly "incident"?: MaintenanceIncident | null;
+  readonly "preparedByDigest": string;
+  readonly "agentSessionDigest": string;
+  readonly "preparedAt": string;
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
+  readonly "reasonDigest": string;
+  readonly "blockers": ReadonlyArray<string>;
+  readonly "executionAvailable": boolean;
+}
+
+export interface MaintenanceTarget {
+  readonly "schema": "vegastack-labs.dev/maintenance-target";
+  readonly "schemaVersion": "1.0.0";
+  readonly "hostId": string;
+  readonly "bindingDigest": string;
+  readonly "observationDigest": string;
+  readonly "diagnosis": "healthy" | "stale" | "failed" | "unknown";
+  readonly "canary": "passed" | "failed" | "partial" | "unknown" | "unsupported";
+  readonly "drain": "passed" | "failed" | "partial" | "unknown" | "unsupported";
+  readonly "health": "passed" | "failed" | "partial" | "unknown" | "unsupported";
+  readonly "recovery": "passed" | "failed" | "partial" | "unknown" | "unsupported";
 }
 
 export interface ManagedHost {
@@ -7417,6 +7460,14 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         ]
       },
       {
+        "name": "maintenance",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "omitEmpty": true,
+        "ref": "vegastack-labs.dev/maintenance-record"
+      },
+      {
         "name": "hostingLifecycle",
         "kind": "object",
         "required": false,
@@ -11944,6 +11995,303 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "minimum": 1
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/maintenance-incident",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/maintenance-incident"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "responsibleHumanDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "agentSessionDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "reasonDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "startedAt",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      {
+        "name": "endedAt",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      {
+        "name": "evidenceDigests",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "maxItems": 32,
+        "uniqueItems": true
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/maintenance-record",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/maintenance-record"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "action",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "repair",
+          "incident-reconciliation"
+        ]
+      },
+      {
+        "name": "targets",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/maintenance-target",
+        "maxItems": 32
+      },
+      {
+        "name": "canaryHostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "canaryRunId",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "minLength": 1,
+        "maxLength": 128
+      },
+      {
+        "name": "incident",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "omitEmpty": true,
+        "ref": "vegastack-labs.dev/maintenance-incident"
+      },
+      {
+        "name": "preparedByDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "agentSessionDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "preparedAt",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "reasonDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "blockers",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "maxItems": 64,
+        "uniqueItems": true
+      },
+      {
+        "name": "executionAvailable",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/maintenance-target",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/maintenance-target"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "hostId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "bindingDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "observationDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "diagnosis",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "healthy",
+          "stale",
+          "failed",
+          "unknown"
+        ]
+      },
+      {
+        "name": "canary",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "passed",
+          "failed",
+          "partial",
+          "unknown",
+          "unsupported"
+        ]
+      },
+      {
+        "name": "drain",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "passed",
+          "failed",
+          "partial",
+          "unknown",
+          "unsupported"
+        ]
+      },
+      {
+        "name": "health",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "passed",
+          "failed",
+          "partial",
+          "unknown",
+          "unsupported"
+        ]
+      },
+      {
+        "name": "recovery",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "passed",
+          "failed",
+          "partial",
+          "unknown",
+          "unsupported"
+        ]
       }
     ]
   },
@@ -17840,6 +18188,18 @@ function decodeLinuxRoleInput(value: unknown): LinuxRoleInput {
 
 function decodeLinuxRoleResources(value: unknown): LinuxRoleResources {
   return decodeSchema("vegastack-labs.dev/linux-role-resources", value) as unknown as LinuxRoleResources;
+}
+
+function decodeMaintenanceIncident(value: unknown): MaintenanceIncident {
+  return decodeSchema("vegastack-labs.dev/maintenance-incident", value) as unknown as MaintenanceIncident;
+}
+
+function decodeMaintenanceRecord(value: unknown): MaintenanceRecord {
+  return decodeSchema("vegastack-labs.dev/maintenance-record", value) as unknown as MaintenanceRecord;
+}
+
+function decodeMaintenanceTarget(value: unknown): MaintenanceTarget {
+  return decodeSchema("vegastack-labs.dev/maintenance-target", value) as unknown as MaintenanceTarget;
 }
 
 function decodeManagedHost(value: unknown): ManagedHost {
