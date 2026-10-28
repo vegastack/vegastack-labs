@@ -385,6 +385,9 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 	restoreCLISeen, restoreCLIValid := false, false
 	restoreClientSeen, restoreClientValid := false, false
 	pilotPruning := ingressPilotDependencyPruning(inModule, modulePath)
+	for key, value := range phase10DependencyPruning(inModule, modulePath) {
+		pilotPruning[key] = value
+	}
 	localClosure := moduleDependencyClosurePruned(inModule, localAPIImport, pilotPruning)
 	// The finite recovery witness command uses one byte-sealed package surface.
 	// Do not turn the server-only recovery engine behind that package into a
@@ -435,7 +438,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 			}
 		}
 	}
-	if len(localClosure) > 0 && !reviewedLocalClientDependencies(localClosure, modulePath, localAPIImport, localTransportImport, sshTransportImport) {
+	if len(localClosure) > 0 && !reviewedLocalClientDependencies(localClosure, modulePath, localAPIImport, localTransportImport, sshTransportImport, pilotPruning) {
 		result.LocalClientBoundary = false
 	}
 	for _, candidate := range inModule {
@@ -869,7 +872,7 @@ func moduleDependencyClosurePruned(packages []listedPackage, root string, stop m
 	return closure
 }
 
-func reviewedLocalClientDependencies(closure map[string]bool, modulePath, localAPIImport, localTransportImport, sshTransportImport string) bool {
+func reviewedLocalClientDependencies(closure map[string]bool, modulePath, localAPIImport, localTransportImport, sshTransportImport string, exactPruning ...map[string]bool) bool {
 	approved := map[string]bool{
 		localAPIImport:                            true,
 		localTransportImport:                      true,
@@ -892,6 +895,12 @@ func reviewedLocalClientDependencies(closure map[string]bool, modulePath, localA
 		modulePath + "/internal/strictjson":       true,
 		modulePath + "/internal/hostaction":       true,
 	}
+	// This node is admitted only by its exact source/import seal, never its name alone.
+	for _, pruning := range exactPruning {
+		if pruning[modulePath+"/internal/maintenance"] {
+			approved[modulePath+"/internal/maintenance"] = true
+		}
+	}
 	for importPath := range closure {
 		if !approved[importPath] {
 			return false
@@ -901,6 +910,9 @@ func reviewedLocalClientDependencies(closure map[string]bool, modulePath, localA
 }
 
 func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, localAPIImport, localTransportImport, sshTransportImport string) bool {
+	if candidate.listed.ImportPath == modulePath+"/internal/maintenance" {
+		return approvedNetworkConnectPackage(candidate, modulePath, "internal/maintenance")
+	}
 	if candidate.listed.ImportPath == modulePath+"/internal/networkingress" {
 		return approvedNetworkConnectPackage(candidate, modulePath, "internal/networkingress")
 	}
@@ -1956,14 +1968,14 @@ func inspectPackage(candidate checkedSourcePackage, generatedImport, stateExport
 					result.HandwrittenRegistry = true
 				}
 			case *ast.AssignStmt:
-				if candidate.listed.ImportPath != generatedImport && !isAPIPackage && assignmentIsRegistry(typed, candidate.info, context) && !reviewedSetupGrantCopy(candidate, file, typed, generatedImport) && !reviewedCIBlobDataCopy(candidate, file, typed, generatedImport) {
+				if candidate.listed.ImportPath != generatedImport && !isAPIPackage && assignmentIsRegistry(typed, candidate.info, context) && !reviewedSetupGrantCopy(candidate, file, typed, generatedImport) && !reviewedCIBlobDataCopy(candidate, file, typed, generatedImport) && !reviewedOperationsDataNode(candidate, file, typed, generatedImport) {
 					result.HandwrittenRegistry = true
 				}
 				if assignmentProvidesStateExportTrust(typed, candidate.info, stateExportImport) {
 					result.StateExportTrust = true
 				}
 			case *ast.CompositeLit:
-				if candidate.listed.ImportPath != generatedImport && !isAPIPackage && isDispatchCollection(candidate.info.TypeOf(typed), context) && !reviewedRecoveryGrantPredicates(candidate, file, typed, generatedImport) && !reviewedCIJobGrantPredicates(candidate, file, typed, generatedImport) {
+				if candidate.listed.ImportPath != generatedImport && !isAPIPackage && isDispatchCollection(candidate.info.TypeOf(typed), context) && !reviewedRecoveryGrantPredicates(candidate, file, typed, generatedImport) && !reviewedCIJobGrantPredicates(candidate, file, typed, generatedImport) && !reviewedOperationsDataNode(candidate, file, typed, generatedImport) {
 					result.HandwrittenRegistry = true
 				}
 				if stateExportConfigProvidesTrust(typed, candidate.info, stateExportImport) {

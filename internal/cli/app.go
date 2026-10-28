@@ -302,6 +302,8 @@ func (app *App) Run(ctx context.Context, args []string) int {
 			return app.failAPISSH(err)
 		}
 		return 0
+	case generated.CommandNameDoctor:
+		return app.doctor(ctx, parsed)
 	case generated.CommandNameServerStatus:
 		if app.server == nil {
 			return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "server-operations", generated.RunStatusFailed, false)
@@ -468,6 +470,8 @@ func (app *App) Run(ctx context.Context, args []string) int {
 		return app.handlePlanResponse(mode, response)
 	case generated.CommandNameServiceConfigurationShow:
 		return app.runServiceConfiguration(ctx, mode, parsed)
+	case generated.CommandNameMaintenanceDiagnose, generated.CommandNameMaintenanceDraft, generated.CommandNameMaintenanceRepair:
+		return app.runMaintenance(ctx, mode, parsed)
 	case generated.CommandNameHostingLifecycleDraft, generated.CommandNameHostingLifecycleShow:
 		return app.runHostingLifecycle(ctx, mode, parsed)
 	case generated.CommandNameServiceRecoveryDraft, generated.CommandNameServiceRecoveryShow:
@@ -494,6 +498,10 @@ func (app *App) Run(ctx context.Context, args []string) int {
 		return app.runRolePrepare(ctx, mode, parsed)
 	case generated.CommandNameNodeReplacementPrepare, generated.CommandNameNodeReplacementInspect, generated.CommandNameNodeTargetPrepare, generated.CommandNameNodeActionPrepare, generated.CommandNameNodeAccessPrepare, generated.CommandNameNodeObservationInspect:
 		return app.runHostLifecycleCommand(ctx, mode, parsed)
+	case generated.CommandNameOperationsNotificationReadiness:
+		return app.runNotificationReadiness(ctx, mode, parsed)
+	case generated.CommandNameOperationsStatus, generated.CommandNameOperationsObserve:
+		return app.runOperationsMonitoring(ctx, mode, parsed)
 	case generated.CommandNameNetworkIngressPilotEvidence, generated.CommandNameNetworkIngressObserve, generated.CommandNameNetworkIngressDraft, generated.CommandNameNetworkIngressStatus, generated.CommandNameNetworkIngressRolloutEvidence:
 		return app.runIngressCommand(ctx, mode, parsed)
 	case generated.CommandNameNetworkMeshObserve, generated.CommandNameNetworkMeshDraft, generated.CommandNameNetworkMeshStatus:

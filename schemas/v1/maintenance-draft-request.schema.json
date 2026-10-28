@@ -1,0 +1,146 @@
+{
+  "$defs": {
+    "maintenance-incident": {
+      "additionalProperties": false,
+      "properties": {
+        "agentSessionDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "endedAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "evidenceDigests": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "reasonDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "responsibleHumanDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/maintenance-incident"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "startedAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "responsibleHumanDigest",
+        "agentSessionDigest",
+        "reasonDigest",
+        "startedAt",
+        "endedAt",
+        "evidenceDigests"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/maintenance-draft-request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "action": {
+      "enum": [
+        "repair",
+        "incident-reconciliation"
+      ],
+      "type": "string"
+    },
+    "canaryHostId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "canaryRunId": {
+      "maxLength": 128,
+      "minLength": 1,
+      "type": "string"
+    },
+    "declarationId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "expectedRevision": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "expectedStateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "incident": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/maintenance-incident"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "reasonDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/maintenance-draft-request"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "targetIds": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 32,
+      "type": "array",
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "declarationId",
+    "expectedRevision",
+    "expectedStateRevision",
+    "recoveryEpoch",
+    "action",
+    "targetIds",
+    "canaryHostId",
+    "reasonDigest"
+  ],
+  "title": "VegaStack Labs maintenance draft request",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

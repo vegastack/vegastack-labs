@@ -30,7 +30,11 @@ var offsiteBucketName = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]{1,62}$`)
 var scheduledRunnerPath = regexp.MustCompile(`^/[A-Za-z0-9._/-]+$`)
 
 type Profile struct {
+	NotificationReadiness            *generated.NotificationReadinessPolicy
 	IngressControllerReadPilot       *generated.IngressControllerReadPilot
+	OperationsBeszel                 []generated.OperationsBeszelBinding
+	OperationsGithub                 *generated.OperationsGithubDestination
+	OperationsHeartbeat              *generated.OperationsHeartbeatBinding
 	CIDeploymentJobs                 []generated.CiDeploymentJobBinding
 	HostingLifecycleProfiles         []generated.HostingLifecycleProfile
 	ServiceRecoveryProfiles          []generated.ServiceRecoveryProfile
@@ -219,6 +223,14 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 	if input.HostActionKeyID != "" && !offsiteProfileToken.MatchString(input.HostActionKeyID) {
 		return invalid()
 	}
+	notificationReadiness, notificationErr := freezeNotificationReadiness(input.NotificationReadiness, input.OperationsGithub)
+	if notificationErr != nil {
+		return invalid()
+	}
+	operationsBeszel, operationsGithub, operationsErr := FreezeOperations(input.OperationsBeszel, input.OperationsGithub)
+	if operationsErr != nil {
+		return invalid()
+	}
 	seenMesh := map[string]bool{}
 	for _, d := range append(append([]string{}, input.MeshScopeDigests...), input.IngressScopeDigests...) {
 		if len(d) != 71 || !strings.HasPrefix(d, "sha256:") || seenMesh[d] {
@@ -254,6 +266,11 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 	if err != nil {
 		return invalid()
 	}
+	heartbeat, heartbeatErr := FreezeSiteHeartbeat(input.OperationsHeartbeat, offsiteBackup)
+	if heartbeatErr != nil {
+		return invalid()
+	}
+
 	var scheduledRunner *ScheduledRunner
 	if input.ScheduledRunner != nil {
 		runner := input.ScheduledRunner
@@ -334,8 +351,10 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 		AcknowledgementAdapterConfigPath: adapterConfigPath,
 		IngressControllerReadPilot:       input.IngressControllerReadPilot,
 		IngressScopeDigests:              append([]string(nil), input.IngressScopeDigests...),
-		MeshScopeDigests:                 append([]string(nil), input.MeshScopeDigests...),
-		HostActionSignerPath:             input.HostActionSignerPath, HostActionKeyID: input.HostActionKeyID, HostActionIdentityDigests: append([]string(nil), input.HostActionIdentityDigests...),
+		NotificationReadiness:            notificationReadiness,
+		OperationsBeszel:                 operationsBeszel, OperationsGithub: operationsGithub, OperationsHeartbeat: heartbeat,
+		MeshScopeDigests:     append([]string(nil), input.MeshScopeDigests...),
+		HostActionSignerPath: input.HostActionSignerPath, HostActionKeyID: input.HostActionKeyID, HostActionIdentityDigests: append([]string(nil), input.HostActionIdentityDigests...),
 		LocalBackup:     localBackup,
 		OffsiteBackup:   offsiteBackup,
 		ScheduledRunner: scheduledRunner,

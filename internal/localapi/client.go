@@ -65,6 +65,8 @@ type TypedResponse[T any] struct {
 }
 
 type Client interface {
+	DiagnoseMaintenance(context.Context, serverconfig.Profile, string) (TypedResponse[generated.MaintenanceDiagnosis], error)
+	DraftMaintenance(context.Context, serverconfig.Profile, generated.MaintenanceDraftRequest) (TypedResponse[generated.DeclarationRevision], error)
 	GetServiceConfiguration(context.Context, serverconfig.Profile, string) (TypedResponse[generated.ServiceConfigurationStatus], error)
 	GetHostingLifecycle(context.Context, serverconfig.Profile, string) (TypedResponse[generated.HostingLifecycleRecord], error)
 	DraftHostingLifecycle(context.Context, serverconfig.Profile, generated.HostingLifecycleDraftRequest) (TypedResponse[generated.DeclarationRevision], error)
@@ -84,6 +86,8 @@ type Client interface {
 	DraftIngressPilotEvidence(context.Context, serverconfig.Profile, generated.IngressPilotEvidenceRequest) (TypedResponse[generated.GateEvidenceSubmission], error)
 	ObserveIngress(context.Context, serverconfig.Profile, generated.IngressDraftRequest) (TypedResponse[generated.IngressStatusData], error)
 	DraftIngress(context.Context, serverconfig.Profile, generated.IngressDraftRequest) (TypedResponse[generated.IngressDraftSubmission], error)
+	NotificationReadiness(context.Context, serverconfig.Profile, generated.NotificationReadinessRequest) (TypedResponse[generated.DeclarationRevision], error)
+	OperationsStatus(context.Context, serverconfig.Profile, bool) (TypedResponse[generated.OperationsStatusData], error)
 	IngressStatus(context.Context, serverconfig.Profile, string) (TypedResponse[generated.IngressStatusData], error)
 	SubmitIngressRolloutEvidence(context.Context, serverconfig.Profile, generated.IngressRolloutEvidenceRequest) (TypedResponse[generated.IngressStatusData], error)
 	ObserveMesh(context.Context, serverconfig.Profile, generated.MeshDraftRequest) (TypedResponse[generated.MeshStatusData], error)
@@ -371,6 +375,9 @@ func remoteCommandArguments(spec requestSpec) []string {
 		return args
 	}
 	if args := serviceConfigurationRemoteArguments(spec); args != nil {
+		return args
+	}
+	if args := maintenanceRemoteArguments(spec); args != nil {
 		return args
 	}
 	if args := hostingLifecycleRemoteArguments(spec); args != nil {

@@ -175,7 +175,7 @@ func configureCIExternalDeployments(p serverconfig.Profile, s *store.Store, r *a
 		return err
 	}
 	jobs := newCIJobRepository(s, g)
-	control := &ciExternalDeploymentControl{authority: s, profile: p, executors: e, guard: guard, broker: ciDeploymentBroker{authority: s, jobs: jobs, registry: r, gates: g}}
+	control := &ciExternalDeploymentControl{authority: s, profile: p, executors: e, guard: guard, broker: ciDeploymentBroker{authority: s, jobs: jobs, registry: r, gates: g, destination: hostReplacementComposition{authority: s, gates: g, clock: time.Now}}}
 	return configurable.ConfigureCI(ciJobControlFactory{jobs: jobs, provider: provider, deployment: control})
 }
 

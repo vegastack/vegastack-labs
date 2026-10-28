@@ -356,8 +356,10 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/hosting-owned-resource.schema.json",
 		"schemas/v1/ingress-change.schema.json",
 		"schemas/v1/ingress-connector-target.schema.json",
+		"schemas/v1/ingress-controller-read-pilot.schema.json",
 		"schemas/v1/ingress-draft-request.schema.json",
 		"schemas/v1/ingress-draft-submission.schema.json",
+		"schemas/v1/ingress-pilot-evidence-request.schema.json",
 		"schemas/v1/ingress-rollout-evidence-request.schema.json",
 		"schemas/v1/ingress-status-data.schema.json",
 		"schemas/v1/inventory-diff-data.schema.json",
@@ -380,6 +382,12 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/local-setup-read-grant.schema.json",
 		"schemas/v1/local-setup-request.schema.json",
 		"schemas/v1/local-setup-review-request.schema.json",
+		"schemas/v1/maintenance-diagnosis.schema.json",
+		"schemas/v1/maintenance-draft-request.schema.json",
+		"schemas/v1/maintenance-finding.schema.json",
+		"schemas/v1/maintenance-incident.schema.json",
+		"schemas/v1/maintenance-record.schema.json",
+		"schemas/v1/maintenance-target.schema.json",
 		"schemas/v1/managed-host-list.schema.json",
 		"schemas/v1/managed-host.schema.json",
 		"schemas/v1/mesh-change.schema.json",
@@ -435,6 +443,14 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/network-connect-result.schema.json",
 		"schemas/v1/network-endpoint-request.schema.json",
 		"schemas/v1/network-endpoint.schema.json",
+		"schemas/v1/notification-readiness-policy.schema.json",
+		"schemas/v1/notification-readiness-request.schema.json",
+		"schemas/v1/operations-alert.schema.json",
+		"schemas/v1/operations-beszel-binding.schema.json",
+		"schemas/v1/operations-github-destination.schema.json",
+		"schemas/v1/operations-heartbeat-binding.schema.json",
+		"schemas/v1/operations-observe-request.schema.json",
+		"schemas/v1/operations-status-data.schema.json",
 		"schemas/v1/operator-device-list.schema.json",
 		"schemas/v1/operator-device.schema.json",
 		"schemas/v1/operator-grant-list.schema.json",
@@ -943,9 +959,10 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 			}
 		}
 	}
-	if available != 100 || planned != 13 {
-		t.Fatalf("command availability = (%d available, %d planned), want (100, 13)", available, planned)
+	if available != 108 || planned != 12 {
+		t.Fatalf("command availability = (%d available, %d planned), want (108, 12)", available, planned)
 	}
+	// The current pilot/Phase10 wave adds seven commands and promotes doctor.
 	// #304 adds three exact CI enrollment commands.
 	// #286 adds four exact service list/show/observe/import-draft commands.
 	// #269/#270 promote seven existing people/device CLI operations.

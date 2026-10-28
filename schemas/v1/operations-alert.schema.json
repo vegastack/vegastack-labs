@@ -1,0 +1,100 @@
+{
+  "$id": "vegastack-labs.dev/operations-alert",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "class": {
+      "enum": [
+        "source-health"
+      ],
+      "type": "string"
+    },
+    "firstFailure": {
+      "maxLength": 40,
+      "type": "string"
+    },
+    "generation": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "key": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "lastFailure": {
+      "maxLength": 40,
+      "type": "string"
+    },
+    "lastGood": {
+      "maxLength": 40,
+      "type": "string"
+    },
+    "observationState": {
+      "enum": [
+        "healthy",
+        "failed",
+        "stale",
+        "unknown",
+        "unavailable"
+      ],
+      "type": "string"
+    },
+    "observedAt": {
+      "maxLength": 40,
+      "minLength": 1,
+      "type": "string"
+    },
+    "occurrences": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/operations-alert"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "severity": {
+      "enum": [
+        "critical",
+        "warning"
+      ],
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "clear",
+        "pending",
+        "open",
+        "closed"
+      ],
+      "type": "string"
+    },
+    "targetDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "key",
+    "targetDigest",
+    "class",
+    "severity",
+    "observationState",
+    "status",
+    "observedAt",
+    "occurrences",
+    "generation"
+  ],
+  "title": "VegaStack Labs operations alert",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

@@ -895,6 +895,31 @@
       ]
     },
     {
+      "id": "api.v1.maintenance.diagnose",
+      "method": "GET",
+      "path": "/api/v1/maintenance/hosts/{hostID}",
+      "availability": "available",
+      "ownerPhase": "10",
+      "dataSchema": "vegastack-labs.dev/maintenance-diagnosis",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.maintenance.drafts.create",
+      "method": "POST",
+      "path": "/api/v1/maintenance/drafts",
+      "availability": "available",
+      "ownerPhase": "10",
+      "requestSchema": "vegastack-labs.dev/maintenance-draft-request",
+      "dataSchema": "vegastack-labs.dev/declaration-revision",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
       "id": "api.v1.network.endpoint-drafts.create",
       "method": "POST",
       "path": "/api/v1/network/endpoint-drafts",
@@ -1011,6 +1036,45 @@
       "availability": "available",
       "ownerPhase": "7",
       "dataSchema": "vegastack-labs.dev/mesh-status-data",
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.operations.notification-readiness",
+      "method": "POST",
+      "path": "/api/v1/operations/notification-readiness",
+      "availability": "available",
+      "ownerPhase": "10",
+      "requestSchema": "vegastack-labs.dev/notification-readiness-request",
+      "dataSchema": "vegastack-labs.dev/declaration-revision",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.operations.observe",
+      "method": "POST",
+      "path": "/api/v1/operations/observe",
+      "availability": "available",
+      "ownerPhase": "10",
+      "requestSchema": "vegastack-labs.dev/operations-observe-request",
+      "dataSchema": "vegastack-labs.dev/operations-status-data",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.operations.status",
+      "method": "GET",
+      "path": "/api/v1/operations",
+      "availability": "available",
+      "ownerPhase": "10",
+      "dataSchema": "vegastack-labs.dev/operations-status-data",
       "stream": "finite",
       "audiences": [
         "browser",

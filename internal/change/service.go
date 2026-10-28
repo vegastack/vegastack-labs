@@ -15,6 +15,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"github.com/vegastack/vegastack-labs/internal/hostreplacement"
+	"github.com/vegastack/vegastack-labs/internal/maintenance"
 	"github.com/vegastack/vegastack-labs/internal/stateexport"
 	"github.com/vegastack/vegastack-labs/internal/store"
 )
@@ -89,6 +90,7 @@ func (service *Service) Revise(ctx context.Context, author AuthorScope, request 
 		alias = &cloned
 	}
 	semantic := struct {
+		Maintenance             *generated.MaintenanceRecord              `json:"maintenance,omitempty"`
 		CIJob                   *generated.CiJobRequest                   `json:"ciJob,omitempty"`
 		CIEnrollment            *generated.CiEnrollmentRequest            `json:"ciEnrollment,omitempty"`
 		HostingLifecycle        *generated.HostingLifecycleRequest        `json:"hostingLifecycle,omitempty"`
@@ -103,13 +105,13 @@ func (service *Service) Revise(ctx context.Context, author AuthorScope, request 
 		Operations              []generated.DeclarationOperation          `json:"operations"`
 		ReasonDigest            string                                    `json:"reasonDigest"`
 		Extensions              []generated.ContractExtension             `json:"extensions"`
-	}{request.CIJob, request.CIEnrollment, request.HostingLifecycle, request.ServiceRecovery, request.ServiceDeployment, request.ServiceImport, request.NetworkEndpoint, alias, request.AuthorizationGrantBatch, request.DeclarationID, request.DeclarationType, operations, request.ReasonDigest, extensions}
+	}{request.Maintenance, request.CIJob, request.CIEnrollment, request.HostingLifecycle, request.ServiceRecovery, request.ServiceDeployment, request.ServiceImport, request.NetworkEndpoint, alias, request.AuthorizationGrantBatch, request.DeclarationID, request.DeclarationType, operations, request.ReasonDigest, extensions}
 	_, contentSum, err := stateexport.CanonicalJSON(semantic)
 	if err != nil {
 		return Result{}, inputError()
 	}
-	document := generated.DeclarationRevision{CIJob: request.CIJob, CIEnrollment: request.CIEnrollment, HostingLifecycle: request.HostingLifecycle, ServiceRecovery: request.ServiceRecovery, ServiceDeployment: request.ServiceDeployment, ServiceImport: request.ServiceImport, NetworkEndpoint: request.NetworkEndpoint, AuthorizationGrantBatch: request.AuthorizationGrantBatch, HostAliasClaim: alias, Schema: generated.SchemaIDDeclarationRevision, SchemaVersion: "1.0.0", DeclarationID: request.DeclarationID, DeclarationType: request.DeclarationType, Revision: request.ExpectedRevision, StateRevision: request.ExpectedStateRevision + 1, RecoveryEpoch: request.RecoveryEpoch, ContentDigest: digest(contentSum), Status: "draft", Operations: operations, CreatedAt: service.clock().UTC().Truncate(time.Second).Format(time.RFC3339), CreatedBy: author.PrincipalID, AgentSessionID: author.AgentSessionID, Extensions: extensions}
-	if !store.ValidCIPublicationDeclaration(document) || !store.ValidateCIJobDeclaration(document) || !store.ValidateCIEnrollmentDeclaration(document) || !store.ValidateHostingLifecycleDeclaration(document) || !store.ValidateServiceRecoveryDeclaration(document) || !store.ValidateServiceDeploymentDeclaration(document) || !store.ValidateServiceImportDeclaration(document) || !store.ValidateNetworkEndpointDeclaration(document) || !store.ValidateGrantBatchDeclaration(document) {
+	document := generated.DeclarationRevision{Maintenance: request.Maintenance, CIJob: request.CIJob, CIEnrollment: request.CIEnrollment, HostingLifecycle: request.HostingLifecycle, ServiceRecovery: request.ServiceRecovery, ServiceDeployment: request.ServiceDeployment, ServiceImport: request.ServiceImport, NetworkEndpoint: request.NetworkEndpoint, AuthorizationGrantBatch: request.AuthorizationGrantBatch, HostAliasClaim: alias, Schema: generated.SchemaIDDeclarationRevision, SchemaVersion: "1.0.0", DeclarationID: request.DeclarationID, DeclarationType: request.DeclarationType, Revision: request.ExpectedRevision, StateRevision: request.ExpectedStateRevision + 1, RecoveryEpoch: request.RecoveryEpoch, ContentDigest: digest(contentSum), Status: "draft", Operations: operations, CreatedAt: service.clock().UTC().Truncate(time.Second).Format(time.RFC3339), CreatedBy: author.PrincipalID, AgentSessionID: author.AgentSessionID, Extensions: extensions}
+	if (request.Maintenance != nil && request.Maintenance.ReasonDigest != request.ReasonDigest) || !maintenance.ValidateDeclaration(document) || !store.ValidCIPublicationDeclaration(document) || !store.ValidateCIJobDeclaration(document) || !store.ValidateCIEnrollmentDeclaration(document) || !store.ValidateHostingLifecycleDeclaration(document) || !store.ValidateServiceRecoveryDeclaration(document) || !store.ValidateServiceDeploymentDeclaration(document) || !store.ValidateServiceImportDeclaration(document) || !store.ValidateNetworkEndpointDeclaration(document) || !store.ValidateGrantBatchDeclaration(document) {
 		return Result{}, inputError()
 	}
 	normalizedRequest := request

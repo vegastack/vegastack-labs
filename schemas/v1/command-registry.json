@@ -2420,10 +2420,58 @@
       "path": [
         "doctor"
       ],
-      "summary": "Diagnose one actionable platform invariant at a time.",
-      "availability": "planned",
-      "ownerPhase": "2",
-      "risk": "unassigned"
+      "summary": "Diagnose the first failing control-summary invariant without mutation.",
+      "availability": "available",
+      "ownerPhase": "10",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read the protected server profile at this explicit path.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/api-summary-data",
+      "examples": [
+        {
+          "summary": "Diagnose the first failing control-summary invariant without mutation.",
+          "arguments": [
+            "doctor",
+            "--config",
+            "fixture/server-profile.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
@@ -3301,12 +3349,235 @@
     {
       "path": [
         "maintenance",
+        "diagnose"
+      ],
+      "summary": "Diagnose recorded host baseline drift without contacting a host.",
+      "availability": "available",
+      "ownerPhase": "10",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected operator profile.",
+          "enum": null
+        },
+        {
+          "name": "--host-id",
+          "kind": "value",
+          "valueName": "id",
+          "required": true,
+          "repeatable": false,
+          "summary": "Select one exact host.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/maintenance-diagnosis",
+      "examples": [
+        {
+          "summary": "Diagnose recorded host baseline drift without contacting a host.",
+          "arguments": [
+            "maintenance",
+            "diagnose",
+            "--config",
+            "fixture/client.json",
+            "--host-id",
+            "host-a",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "maintenance",
+        "draft"
+      ],
+      "summary": "Record an inert exact repair or incident reconciliation draft; execution remains unsupported.",
+      "availability": "available",
+      "ownerPhase": "10",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected operator profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one bounded inert maintenance request.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/maintenance-draft-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/declaration-revision",
+      "examples": [
+        {
+          "summary": "Record an inert exact repair or incident reconciliation draft; execution remains unsupported.",
+          "arguments": [
+            "maintenance",
+            "draft",
+            "--config",
+            "fixture/client.json",
+            "--file",
+            "fixture/maintenance.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "maintenance",
         "plan"
       ],
       "summary": "Create an immutable maintenance plan.",
       "availability": "planned",
       "ownerPhase": "10",
       "risk": "unassigned"
+    },
+    {
+      "path": [
+        "maintenance",
+        "repair"
+      ],
+      "summary": "Prepare one diagnosed host's existing baseline action; plan, acknowledgement and apply remain separate.",
+      "availability": "available",
+      "ownerPhase": "10",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected operator profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read the existing complete bounded baseline host-action request.",
+          "enum": null
+        },
+        {
+          "name": "--host-id",
+          "kind": "value",
+          "valueName": "id",
+          "required": true,
+          "repeatable": false,
+          "summary": "Select the exact diagnosed repair host.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/host-action-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/host-action-submission",
+      "examples": [
+        {
+          "summary": "Prepare one diagnosed host's existing baseline action; plan, acknowledgement and apply remain separate.",
+          "arguments": [
+            "maintenance",
+            "repair",
+            "--config",
+            "fixture/client.json",
+            "--host-id",
+            "host-a",
+            "--file",
+            "fixture/host-action.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
@@ -4704,6 +4975,190 @@
             "fixture/host-request.json",
             "--output",
             "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "operations",
+        "notification-readiness"
+      ],
+      "summary": "Prepare a fixed acknowledged notification test or inert G-011 evidence; never send while preparing.",
+      "availability": "available",
+      "ownerPhase": "10",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected operator profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read a bounded inert preparation request.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/notification-readiness-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/declaration-revision",
+      "examples": [
+        {
+          "summary": "Prepare a fixed acknowledged notification test or inert G-011 evidence; never send while preparing.",
+          "arguments": [
+            "operations",
+            "notification-readiness",
+            "--config",
+            "fixture/client.json",
+            "--file",
+            "fixture/request.json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "operations",
+        "observe"
+      ],
+      "summary": "Inspect local alerts or collect server-owned source observations; no infrastructure mutation.",
+      "availability": "available",
+      "ownerPhase": "10",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected operator profile.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/operations-observe-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/operations-status-data",
+      "examples": [
+        {
+          "summary": "Inspect local alerts or collect server-owned source observations; no infrastructure mutation.",
+          "arguments": [
+            "operations",
+            "observe",
+            "--config",
+            "fixture/client.json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "operations",
+        "status"
+      ],
+      "summary": "Inspect local alerts or collect server-owned source observations; no infrastructure mutation.",
+      "availability": "available",
+      "ownerPhase": "10",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected operator profile.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/operations-status-data",
+      "examples": [
+        {
+          "summary": "Inspect local alerts or collect server-owned source observations; no infrastructure mutation.",
+          "arguments": [
+            "operations",
+            "status",
+            "--config",
+            "fixture/client.json"
           ]
         }
       ]
@@ -8864,6 +9319,36 @@
       "artifactPath": "schemas/v1/local-setup-review-request.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/maintenance-diagnosis",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/maintenance-diagnosis.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/maintenance-draft-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/maintenance-draft-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/maintenance-finding",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/maintenance-finding.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/maintenance-incident",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/maintenance-incident.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/maintenance-record",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/maintenance-record.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/maintenance-target",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/maintenance-target.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/managed-host",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/managed-host.schema.json"
@@ -9139,8 +9624,48 @@
       "artifactPath": "schemas/v1/network-endpoint-request.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/notification-readiness-policy",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/notification-readiness-policy.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/notification-readiness-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/notification-readiness-request.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/offsite-run-spec",
       "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/operations-alert",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/operations-alert.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/operations-beszel-binding",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/operations-beszel-binding.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/operations-github-destination",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/operations-github-destination.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/operations-heartbeat-binding",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/operations-heartbeat-binding.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/operations-observe-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/operations-observe-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/operations-status-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/operations-status-data.schema.json"
     },
     {
       "id": "vegastack-labs.dev/operator-device",

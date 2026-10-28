@@ -1,0 +1,71 @@
+{
+  "schema": "vegastack-labs.dev/agent-workflows",
+  "schemaVersion": "1.0.0",
+  "generatedBy": "node tooling/agent-workflows.mjs --write",
+  "nativeAcceptance": "not-run",
+  "workflows": [
+    {
+      "name": "vegastack-labs-inspect",
+      "canonical": ".agents/skills/vegastack-labs-inspect/SKILL.md",
+      "sha256": "sha256:67d3a7a78f66f684452cc8d4c5e459871728847f5a574983df1bbf744940c3c3",
+      "claude": ".claude/skills/vegastack-labs-inspect/SKILL.md",
+      "manual": "docs/runbooks/vegastack-labs-inspect.md"
+    },
+    {
+      "name": "vegastack-labs-manage-users",
+      "canonical": ".agents/skills/vegastack-labs-manage-users/SKILL.md",
+      "sha256": "sha256:15591e7e6d99949ab3d0064e60421bfe471292bfd0347c33deab60b0cfbad9fd",
+      "claude": ".claude/skills/vegastack-labs-manage-users/SKILL.md",
+      "manual": "docs/runbooks/vegastack-labs-manage-users.md"
+    },
+    {
+      "name": "vegastack-labs-manage-devices",
+      "canonical": ".agents/skills/vegastack-labs-manage-devices/SKILL.md",
+      "sha256": "sha256:6fc95cf334003d009400f8a14e6e5e732ef42adc0083ead9d1fb8585ad224e03",
+      "claude": ".claude/skills/vegastack-labs-manage-devices/SKILL.md",
+      "manual": "docs/runbooks/vegastack-labs-manage-devices.md"
+    },
+    {
+      "name": "vegastack-labs-manage-nodes",
+      "canonical": ".agents/skills/vegastack-labs-manage-nodes/SKILL.md",
+      "sha256": "sha256:3d5426d4d7194392786ccf117277fabe184a3f8f5b11442da5c02ffee6e484c1",
+      "claude": ".claude/skills/vegastack-labs-manage-nodes/SKILL.md",
+      "manual": "docs/runbooks/vegastack-labs-manage-nodes.md"
+    },
+    {
+      "name": "vegastack-labs-manage-services",
+      "canonical": ".agents/skills/vegastack-labs-manage-services/SKILL.md",
+      "sha256": "sha256:5763e60c98055a8d5f85e0b828bdd5372c7ece6db2fefd4e79594257282233e8",
+      "claude": ".claude/skills/vegastack-labs-manage-services/SKILL.md",
+      "manual": "docs/runbooks/vegastack-labs-manage-services.md"
+    },
+    {
+      "name": "vegastack-labs-manage-network",
+      "canonical": ".agents/skills/vegastack-labs-manage-network/SKILL.md",
+      "sha256": "sha256:baa3117f7ba60e5808b8a6cbcca26389eec40f07906e39f63812d0004b89ee54",
+      "claude": ".claude/skills/vegastack-labs-manage-network/SKILL.md",
+      "manual": "docs/runbooks/vegastack-labs-manage-network.md"
+    },
+    {
+      "name": "vegastack-labs-backup-restore",
+      "canonical": ".agents/skills/vegastack-labs-backup-restore/SKILL.md",
+      "sha256": "sha256:703ddd0f5a851b622d098c60bda5d21e7e359af1f4e5871b76036d493d3dcb78",
+      "claude": ".claude/skills/vegastack-labs-backup-restore/SKILL.md",
+      "manual": "docs/runbooks/vegastack-labs-backup-restore.md"
+    },
+    {
+      "name": "vegastack-labs-maintenance",
+      "canonical": ".agents/skills/vegastack-labs-maintenance/SKILL.md",
+      "sha256": "sha256:7ca4e6bc1614ef328615517bff681cd66db526bbb3f2718bd93d2a1d90898edf",
+      "claude": ".claude/skills/vegastack-labs-maintenance/SKILL.md",
+      "manual": "docs/runbooks/vegastack-labs-maintenance.md"
+    },
+    {
+      "name": "vegastack-labs-incident-response",
+      "canonical": ".agents/skills/vegastack-labs-incident-response/SKILL.md",
+      "sha256": "sha256:2edfb46bbcf0d3688d152fe0e7ec9ae235d8e08d3e879845e37b07019f37a150",
+      "claude": ".claude/skills/vegastack-labs-incident-response/SKILL.md",
+      "manual": "docs/runbooks/vegastack-labs-incident-response.md"
+    }
+  ]
+}

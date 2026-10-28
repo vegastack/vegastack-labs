@@ -1,0 +1,58 @@
+{
+  "$id": "vegastack-labs.dev/operations-github-destination",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "endpoint": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "type": "string"
+    },
+    "materialVersion": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "referenceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "repository": {
+      "maxLength": 201,
+      "minLength": 1,
+      "type": "string"
+    },
+    "repositoryId": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/operations-github-destination"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "targetId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "endpoint",
+    "repository",
+    "repositoryId",
+    "targetId",
+    "referenceId",
+    "materialVersion"
+  ],
+  "title": "VegaStack Labs operations github destination",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

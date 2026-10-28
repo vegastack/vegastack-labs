@@ -1,6 +1,7 @@
 import { readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { buildArtifacts, checkArtifacts } from "./agent-workflows.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const EXCLUDED_DIRECTORIES = new Set([".git", ".next", "node_modules", "out", "coverage"]);
@@ -134,6 +135,7 @@ export async function verifyDocumentation(root = ROOT) {
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   try {
+    await checkArtifacts(ROOT, await buildArtifacts(ROOT));
     const result = await verifyDocumentation();
     process.stdout.write(
       `${JSON.stringify({ schemaVersion: 1, check: "documentation", status: "pass", ...result })}\n`,

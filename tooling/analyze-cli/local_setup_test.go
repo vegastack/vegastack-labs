@@ -74,7 +74,15 @@ func TestReviewedSetupProfileRejectsChangedAndAddedSource(t *testing.T) {
 	for _, platform := range []string{"linux", "unsupported"} {
 		t.Run(platform, func(t *testing.T) {
 			directory := t.TempDir()
-			names := []string{"ci_deployment.go", "ci_enrollment.go", "ci_external_deployment.go", "ci_job.go", "ci_publication.go", "profile.go", "profile_" + platform + ".go", "restic.go", "service_bindings.go", "service_deployments.go", "service_recovery.go"}
+			var names []string
+			for key := range phase10SourceSeals {
+				if strings.HasPrefix(key, "internal/serverconfig|") && strings.Contains(key, "profile_"+platform+".go") {
+					names = strings.Split(strings.SplitN(key, "|", 2)[1], ",")
+				}
+			}
+			if len(names) == 0 {
+				t.Fatal("missing current profile variant")
+			}
 			for _, name := range names {
 				raw, err := os.ReadFile(filepath.Join("..", "..", "internal", "serverconfig", name))
 				if err != nil {

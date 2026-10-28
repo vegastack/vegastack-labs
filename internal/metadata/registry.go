@@ -129,7 +129,6 @@ type plannedCommand struct {
 
 var plannedCommands = []plannedCommand{
 	{path: "status", phase: "2", summary: "Show the current platform summary."},
-	{path: "doctor", phase: "2", summary: "Diagnose one actionable platform invariant at a time."},
 	{path: "plan", phase: "4", summary: "Create an immutable plan from an inert change."},
 	{path: "apply", phase: "4", summary: "Execute one current, authorized immutable plan."},
 	{path: "run inspect", phase: "4", summary: "Inspect one durable run."},
@@ -195,6 +194,7 @@ func Current() Registry {
 		serverRunCommand(),
 		serverAPISSHCommand(),
 		serverStatusCommand(),
+		doctorCommand(),
 		platformStatusCommand(),
 		databaseStatusCommand(),
 		inventoryImportCommand(),
@@ -228,6 +228,8 @@ func Current() Registry {
 	commands = append(commands, hostCommands()...)
 	commands = append(commands, meshCommands()...)
 	commands = append(commands, ingressCommands()...)
+	commands = append(commands, operationsCommands()...)
+	commands = append(commands, notificationReadinessCommands()...)
 	commands = append(commands, authorizationGrantCommand())
 	commands = append(commands, networkConnectCommands()...)
 	commands = append(commands, ciEnrollmentCommands()...)
@@ -237,6 +239,7 @@ func Current() Registry {
 	commands = append(commands, serviceDeploymentCommands()...)
 	commands = append(commands, serviceConfigurationCommands()...)
 	commands = append(commands, hostingLifecycleCommands()...)
+	commands = append(commands, maintenanceCommands()...)
 	commands = append(commands, serviceRecoveryCommands()...)
 	commands = append(commands, userLifecycleCommands()...)
 	commands = append(commands, deviceLifecycleCommands()...)
@@ -266,8 +269,9 @@ func Current() Registry {
 	endpoints = append(endpoints, serviceDeploymentEndpoints()...)
 	endpoints = append(endpoints, serviceConfigurationEndpoints()...)
 	endpoints = append(endpoints, hostingLifecycleEndpoints()...)
+	endpoints = append(endpoints, maintenanceEndpoints()...)
 	endpoints = append(endpoints, serviceRecoveryEndpoints()...)
-	for _, family := range [][]EndpointDefinition{operatorAccessEndpoints(), readEndpoints(), meshEndpoints(), ingressEndpoints(), phase4Endpoints(), phase5Endpoints(), hostDiscoveryEndpoints(), hostAdoptionEndpoints(), hostActionEndpoints(), accessEndpoints(), hostReplacementEndpoints(), qualificationEndpoints()} {
+	for _, family := range [][]EndpointDefinition{notificationReadinessEndpoints(), operationsEndpoints(), operatorAccessEndpoints(), readEndpoints(), meshEndpoints(), ingressEndpoints(), phase4Endpoints(), phase5Endpoints(), hostDiscoveryEndpoints(), hostAdoptionEndpoints(), hostActionEndpoints(), accessEndpoints(), hostReplacementEndpoints(), qualificationEndpoints()} {
 		endpoints = append(endpoints, family...)
 	}
 
@@ -960,6 +964,10 @@ func currentSchemas() []SchemaDefinition {
 				{JSONName: "hostActionSignerPath", GoName: "HostActionSignerPath", Kind: ValueString, Required: false, OmitEmpty: true, MinLength: intPointer(2), MaxLength: intPointer(4096), Pattern: `^/[^\x00]*$`},
 				{JSONName: "hostActionKeyId", GoName: "HostActionKeyID", Kind: ValueString, Required: false, OmitEmpty: true, Pattern: `^[a-z][a-z0-9._:-]{0,127}$`},
 				{JSONName: "ingressControllerReadPilot", GoName: "IngressControllerReadPilot", Kind: ValueObject, OmitEmpty: true, Nullable: true, Ref: ingressPilotPolicyID},
+				{JSONName: "notificationReadiness", GoName: "NotificationReadiness", Kind: ValueObject, Nullable: true, OmitEmpty: true, Ref: notificationPolicyID},
+				{JSONName: "operationsBeszel", GoName: "OperationsBeszel", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/operations-beszel-binding", MaxItems: intPointer(64)},
+				{JSONName: "operationsHeartbeat", GoName: "OperationsHeartbeat", Kind: ValueObject, Nullable: true, OmitEmpty: true, Ref: operationsHeartbeatBindingID},
+				{JSONName: "operationsGithub", GoName: "OperationsGithub", Kind: ValueObject, Nullable: true, OmitEmpty: true, Ref: "vegastack-labs.dev/operations-github-destination"},
 				{JSONName: "ingressScopeDigests", GoName: "IngressScopeDigests", Kind: ValueArray, Required: false, OmitEmpty: true, ItemKind: ValueString, MaxItems: intPointer(128), UniqueItems: true},
 				{JSONName: "meshScopeDigests", GoName: "MeshScopeDigests", Kind: ValueArray, Required: false, OmitEmpty: true, ItemKind: ValueString, MaxItems: intPointer(128), UniqueItems: true},
 				{JSONName: "hostActionIdentityDigests", GoName: "HostActionIdentityDigests", Kind: ValueArray, Required: false, OmitEmpty: true, ItemKind: ValueString, MaxItems: intPointer(64), UniqueItems: true},
@@ -1021,6 +1029,9 @@ func currentSchemas() []SchemaDefinition {
 	schemas = append(schemas, hostDiscoverySchemas()...)
 	schemas = append(schemas, meshSchemas()...)
 	schemas = append(schemas, ingressSchemas()...)
+	schemas = append(schemas, operationsSchemas()...)
+	schemas = append(schemas, siteHeartbeatSchemas()...)
+	schemas = append(schemas, notificationReadinessSchemas()...)
 	schemas = append(schemas, hostAdoptionSchemas()...)
 	schemas = append(schemas, operatorAccessSchemas()...)
 	schemas = append(schemas, hostActionSchemas()...)
@@ -1040,6 +1051,7 @@ func currentSchemas() []SchemaDefinition {
 	schemas = append(schemas, serviceDeploymentSchemas()...)
 	schemas = append(schemas, serviceConfigurationSchemas()...)
 	schemas = append(schemas, hostingLifecycleSchemas()...)
+	schemas = append(schemas, maintenanceSchemas()...)
 	schemas = append(schemas, serviceRecoverySchemas()...)
 	schemas = append(schemas, qualificationSchemas()...)
 	schemas = append(schemas, nativeWitnessSchemas()...)

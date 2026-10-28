@@ -136,6 +136,20 @@ func TestHostActionSourceSealRejectsChangedAddedOrImportedAuthority(t *testing.T
 		currentSeals[key] = seal
 	}
 
+	// Current source fixtures select the additive Phase10 variants only.
+	for key := range currentSeals {
+		relative := strings.SplitN(key, "|", 2)[0]
+		for candidate := range phase10SourceSeals {
+			if strings.HasPrefix(candidate, relative+"|") {
+				delete(currentSeals, key)
+				break
+			}
+		}
+	}
+	for key, seal := range phase10SourceSeals {
+		currentSeals[key] = seal
+	}
+
 	for key, seal := range currentSeals {
 		t.Run(key, func(t *testing.T) {
 			parts := strings.SplitN(key, "|", 2)

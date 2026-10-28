@@ -2,6 +2,65 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 28-10-2026 — Check the application host before managed deployment credentials ([#328](https://github.com/vegastack/vegastack-labs/issues/328))
+
+- **What:** Managed external deployment now checks the exact application destination's current admission before credential handoff and each provider permission.
+- **Why:** The prior path checked the CI runner first and the application destination only after the external write.
+- **How it went:** The original broker reproduction handed over a synthetic credential for a denied destination; the same reproduction now denies before resolution or handoff. Focused tests, vet and Linux compilation passed. Linux execution and the real Phase 9 delivery test have not run.
+- **Changed:** Existing role-admission evaluator reused at the broker boundary, including destination identity, application role, epoch and service binding. No new service or approval path.
+- **Decisions:** None. Source work does not admit a host or authorize deployment.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/317-destination-admission
+
+## 28-10-2026 — Connect heartbeat publication to exact applied server policy ([#326](https://github.com/vegastack/vegastack-labs/issues/326))
+
+- **What:** The optional protected heartbeat binding now composes the producer, current authority snapshot and existing native credential resolver inside the current server lifecycle. Browser/read requests cannot start writes.
+- **Why:** A standalone producer/artifact did not provide the required production composition.
+- **How it went:** Focused fixtures proved exact policy/capability, destination, epoch, material, custody and G-011 denials before remote writes. A busy notification dispatch did not block heartbeat publication. No live operation ran while machines were being relocated.
+- **Changed:** Complete destination-bound capability · five-minute attempts on the existing ticker · current authority/UTC source · native purpose-bound resolver · protected optional profile and operator documentation.
+- **Decisions:** None. The default gate remains fail-closed and root connects the shared qualified G-011 verifier at integration. Native/provider evidence, actual credential setup and deployment remain unavailable.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/10.4-heartbeat-composition
+## 28-10-2026 — Notification readiness can be proven without pretending a message was read ([#323](https://github.com/vegastack/vegastack-labs/issues/323))
+
+- **What:** Added an exact acknowledged test for the configured GitHub and Slack routes, followed by server-owned G-011 evidence preparation and normal evidence apply. Actual provider acceptance receipts bind the selected recipients, channel, credential owners, reference versions and exact successful run.
+- **Why:** The earlier sender had an empty verifier and the wrong evidence lineage, so configuration alone could never make G-011 usable.
+- **How it went:** Reused the current engine, native references and gate lifecycle; added only a small four-receipt SQLite record. The source distinguishes provider acceptance from human reading and keeps external Worker-absence acceptance separate. The complete real SQLite/plan/acknowledgement/receipt/evidence workflow passed with synthetic OS, credential and HTTP boundaries; it caught and corrected a missing exact operation risk classification. Linux cross-compilation passed; no native run, live send or independent review was performed.
+- **Changed:** Fixed test/evidence preparation · exact applied-lineage evaluation · current-reference checks · shared notification/heartbeat G-011 helper · explicit activation/manual procedure.
+- **Decisions:** None; the coordinator recorded the bounded interpretation of the existing Phase 10 request. Protected inputs remain unselected and earlier Phase 6/Mac/recovery deferrals remain in force.
+
+— approved by (omkarmohanta09) · built by Codex with coordinator-owned Slack client · branch feat/10.1-notification-evidence
+
+## 28-10-2026 — Give site silence an independent, bounded signal path ([#326](https://github.com/vegastack/vegastack-labs/issues/326))
+
+- **What:** A closed heartbeat producer and exact R2 writer now share a tested contract with versioned Cloudflare Worker source. Local fixtures prove stale-site issue creation, verified recovery, deduplication and independent Slack notification attempts during primary delivery failure.
+- **Why:** Local alerts cannot report a silent control site, and the existing Phase10 requirements explicitly call for an external watcher.
+- **How it went:** Focused tests exercised lost issue-creation responses, overlapping checks, malformed/future heartbeat input, simultaneous delivery failures and bounded retries. No provider, webhook, host or CI operation ran, including while the operator relocated machines.
+- **Changed:** Fresh authority snapshot contract · one signed status-object PUT · embedded scheduled Worker · bounded conditional delivery state · concrete secondary source · matching operator procedure.
+- **Decisions:** None. Production server composition, G-011 recipients/credential ownership/provider selection, independent detection of a fully stopped checker and live delivery evidence remain required. Source cannot activate the existing fail-closed notification registry.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/10.4-site-watchdog
+
+## 28-10-2026 — Give operators and agents the same bounded workflow guidance ([#325](https://github.com/vegastack/vegastack-labs/issues/325))
+
+- **What:** Nine focused repository skills now generate matching Claude copies and manual runbooks. Doctor reads the existing authenticated summary and identifies the first database, read or source-health problem with a safe next action.
+- **Why:** Operators needed usable instructions tied to real commands without another privileged agent or provider bypass.
+- **How it went:** Focused contract tests caught unavailable commands and instruction drift. Source guidance and synthetic precedence fixtures deliberately remain separate from native agent loading/trust and live operations evidence.
+- **Changed:** Canonical skills · exact generated copies and hash inventory · read/plan Hermes contract · truthful doctor · Phase 10 capability/evidence map.
+- **Decisions:** None. Required watchdog, actual maintenance execution evidence and native/live gates remain open; prior Mac and advanced recovery deferrals are unchanged.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/10.3-agent-manual-workflows
+
+## 28-10-2026 — Operational failures retain their own local alert history ([#323](https://github.com/vegastack/vegastack-labs/issues/323))
+
+- **What:** Operators can collect server-owned observations and inspect persistent, deduplicated alerts through the existing executable and generated API. A fresh verified recovery closes the alert; stale, unknown and unavailable observations do not. Notification receipts remain separate from health.
+- **Why:** Losing an external notification service must not lose local failure/recovery history or make a failed source appear healthy.
+- **How it went:** Reused the existing SQLite audit outbox and native credential-reference resolver. Focused local tests exercised real SQLite reopen, ordered retries, dead letters and uncertain GitHub issue creation. Live G-011 evidence, recipient/secondary-route selection and installed/loaded native credential custody remain unqualified; no host/provider operation or independent review was run.
+- **Changed:** Operations status/observe commands · atomic local alert transitions · protected exact Beszel/GitHub adapter configuration · fixed sanitized notifications with bounded retries · matching manual procedure and explicit activation limits.
+- **Decisions:** None. Required independent Worker/R2 site-silence source remains a separate Phase 10 slice; optional status projection and existing Phase 6/Mac/advanced-recovery deferrals are unchanged.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/10.1-operations-alerts
+
 ## 28-10-2026 — Prepare a truthful one-connector Console pilot ([#322](https://github.com/vegastack/vegastack-labs/issues/322))
 
 - **What:** Added an explicit protected policy and a server observation command for a single-controller read-only Console route. Collected evidence still needs the existing plan and Slack acknowledgement before apply. The live website remains blocked until its actual resources, credentials and approved setup exist.

@@ -429,6 +429,18 @@ Owner phase: `7` · risk: `mutation` · availability: `available`
 
 - Draft one explicit device and human binding.: `vsk-labs device revoke --config fixture/server-profile.json --file fixture/device.json --output json`
 
+### `vsk-labs doctor`
+
+Diagnose the first failing control-summary invariant without mutation.
+
+Owner phase: `10` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read the protected server profile at this explicit path.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Diagnose the first failing control-summary invariant without mutation.: `vsk-labs doctor --config fixture/server-profile.json --output json`
+
 ### `vsk-labs gate check`
 
 Check one gate for one subject without changing state.
@@ -580,6 +592,46 @@ Owner phase: `2` · risk: `read-only` · availability: `available`
 - `--source-revision <revision>` — Record the source revision supplied by its owner.
 
 - Validate and store one inventory candidate as an inert draft.: `vsk-labs inventory import --config fixture/server-profile.json --file fixture/inventory.json --format typed-json --source-revision source-1 --captured-at 2026-09-08T06:00:00Z --idempotency-key opaque-1 --output json`
+
+### `vsk-labs maintenance diagnose`
+
+Diagnose recorded host baseline drift without contacting a host.
+
+Owner phase: `10` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--host-id <id>` — Select one exact host.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Diagnose recorded host baseline drift without contacting a host.: `vsk-labs maintenance diagnose --config fixture/client.json --host-id host-a --output json`
+
+### `vsk-labs maintenance draft`
+
+Record an inert exact repair or incident reconciliation draft; execution remains unsupported.
+
+Owner phase: `10` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--file <path>` — Read one bounded inert maintenance request.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Record an inert exact repair or incident reconciliation draft; execution remains unsupported.: `vsk-labs maintenance draft --config fixture/client.json --file fixture/maintenance.json --output json`
+
+### `vsk-labs maintenance repair`
+
+Prepare one diagnosed host's existing baseline action; plan, acknowledgement and apply remain separate.
+
+Owner phase: `10` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--file <path>` — Read the existing complete bounded baseline host-action request.
+- `--host-id <id>` — Select the exact diagnosed repair host.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Prepare one diagnosed host's existing baseline action; plan, acknowledgement and apply remain separate.: `vsk-labs maintenance repair --config fixture/client.json --host-id host-a --file fixture/host-action.json --output json`
 
 ### `vsk-labs network endpoint draft`
 
@@ -827,6 +879,43 @@ Owner phase: `6` · risk: `mutation` · availability: `available`
 - `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
 
 - Prepare an inert discovery target draft.: `vsk-labs node target prepare --config fixture/server-profile.json --file fixture/host-request.json --output json`
+
+### `vsk-labs operations notification-readiness`
+
+Prepare a fixed acknowledged notification test or inert G-011 evidence; never send while preparing.
+
+Owner phase: `10` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--file <path>` — Read a bounded inert preparation request.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Prepare a fixed acknowledged notification test or inert G-011 evidence; never send while preparing.: `vsk-labs operations notification-readiness --config fixture/client.json --file fixture/request.json`
+
+### `vsk-labs operations observe`
+
+Inspect local alerts or collect server-owned source observations; no infrastructure mutation.
+
+Owner phase: `10` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Inspect local alerts or collect server-owned source observations; no infrastructure mutation.: `vsk-labs operations observe --config fixture/client.json`
+
+### `vsk-labs operations status`
+
+Inspect local alerts or collect server-owned source observations; no infrastructure mutation.
+
+Owner phase: `10` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Inspect local alerts or collect server-owned source observations; no infrastructure mutation.: `vsk-labs operations status --config fixture/client.json`
 
 ### `vsk-labs plan`
 
@@ -1360,12 +1449,6 @@ Owner phase: `6` · risk: `unassigned` · availability: `planned`
 Verify control-plane health and authority.
 
 Owner phase: `6` · risk: `unassigned` · availability: `planned`
-
-### `vsk-labs doctor`
-
-Diagnose one actionable platform invariant at a time.
-
-Owner phase: `2` · risk: `unassigned` · availability: `planned`
 
 ### `vsk-labs maintenance plan`
 

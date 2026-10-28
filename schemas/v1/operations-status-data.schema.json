@@ -1,0 +1,269 @@
+{
+  "$defs": {
+    "operations-alert": {
+      "additionalProperties": false,
+      "properties": {
+        "class": {
+          "enum": [
+            "source-health"
+          ],
+          "type": "string"
+        },
+        "firstFailure": {
+          "maxLength": 40,
+          "type": "string"
+        },
+        "generation": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "key": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "lastFailure": {
+          "maxLength": 40,
+          "type": "string"
+        },
+        "lastGood": {
+          "maxLength": 40,
+          "type": "string"
+        },
+        "observationState": {
+          "enum": [
+            "healthy",
+            "failed",
+            "stale",
+            "unknown",
+            "unavailable"
+          ],
+          "type": "string"
+        },
+        "observedAt": {
+          "maxLength": 40,
+          "minLength": 1,
+          "type": "string"
+        },
+        "occurrences": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/operations-alert"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "critical",
+            "warning"
+          ],
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "clear",
+            "pending",
+            "open",
+            "closed"
+          ],
+          "type": "string"
+        },
+        "targetDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "key",
+        "targetDigest",
+        "class",
+        "severity",
+        "observationState",
+        "status",
+        "observedAt",
+        "occurrences",
+        "generation"
+      ],
+      "type": "object"
+    },
+    "outbox-record-data": {
+      "additionalProperties": false,
+      "properties": {
+        "attemptCount": {
+          "maximum": 8,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "createdAt": {
+          "maxLength": 64,
+          "type": "string"
+        },
+        "dedupeSha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "deliveredAt": {
+          "maxLength": 64,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "destinationId": {
+          "maxLength": 96,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+          "type": "string"
+        },
+        "eventId": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "lastErrorCode": {
+          "enum": [
+            null,
+            "DESTINATION_UNAVAILABLE",
+            "DELIVERY_REJECTED",
+            "PAYLOAD_INVALID",
+            "INTERRUPTED"
+          ],
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "maxAttempts": {
+          "maximum": 8,
+          "minimum": 8,
+          "type": "integer"
+        },
+        "nextAttemptAt": {
+          "maxLength": 64,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "outboxId": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "payloadSchema": {
+          "enum": [
+            "vegastack-labs.dev/audit-event"
+          ],
+          "type": "string"
+        },
+        "payloadSha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "payloadVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "pending",
+            "retry_wait",
+            "paused",
+            "delivered",
+            "dead_letter"
+          ],
+          "type": "string"
+        },
+        "updatedAt": {
+          "maxLength": 64,
+          "type": "string"
+        }
+      },
+      "required": [
+        "outboxId",
+        "eventId",
+        "destinationId",
+        "payloadSchema",
+        "payloadVersion",
+        "payloadSha256",
+        "dedupeSha256",
+        "status",
+        "attemptCount",
+        "maxAttempts",
+        "nextAttemptAt",
+        "lastErrorCode",
+        "createdAt",
+        "updatedAt",
+        "deliveredAt"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/operations-status-data",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "alerts": {
+      "items": {
+        "$ref": "#/$defs/operations-alert"
+      },
+      "maxItems": 200,
+      "type": "array"
+    },
+    "deliveries": {
+      "items": {
+        "$ref": "#/$defs/outbox-record-data"
+      },
+      "maxItems": 200,
+      "type": "array"
+    },
+    "notifications": {
+      "enum": [
+        "disabled",
+        "configured"
+      ],
+      "type": "string"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/operations-status-data"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "stateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "alerts",
+    "deliveries",
+    "stateRevision",
+    "recoveryEpoch",
+    "notifications"
+  ],
+  "title": "VegaStack Labs operations status data",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

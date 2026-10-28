@@ -169,6 +169,10 @@ Available commands:
     --file <path>          Read one grant batch JSON file (32 KiB max).
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  doctor                   Diagnose the first failing control-summary invariant without mutation.
+    --config <path>        Read the protected server profile at this explicit path.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   gate check               Check one gate for one subject without changing state.
     --config <path>        Read one protected server profile.
     --gate-id <id>         Select one generated gate ID.
@@ -233,6 +237,22 @@ Available commands:
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
     --source-revision <revision> Record the source revision supplied by its owner.
+  maintenance diagnose     Diagnose recorded host baseline drift without contacting a host.
+    --config <path>        Read one protected operator profile.
+    --host-id <id>         Select one exact host.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  maintenance draft        Record an inert exact repair or incident reconciliation draft; execution remains unsupported.
+    --config <path>        Read one protected operator profile.
+    --file <path>          Read one bounded inert maintenance request.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  maintenance repair       Prepare one diagnosed host's existing baseline action; plan, acknowledgement and apply remain separate.
+    --config <path>        Read one protected operator profile.
+    --file <path>          Read the existing complete bounded baseline host-action request.
+    --host-id <id>         Select the exact diagnosed repair host.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   network endpoint draft   Draft one managed-host connection endpoint; acknowledge its exact plan before apply.
     --config <path>        Read one protected server profile.
     --file <path>          Read one grant batch JSON file (32 KiB max).
@@ -326,6 +346,19 @@ Available commands:
   node target prepare      Prepare an inert discovery target draft.
     --config <path>        Read one protected server profile.
     --file <path>          Read one bounded typed request JSON file.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  operations notification-readiness Prepare a fixed acknowledged notification test or inert G-011 evidence; never send while preparing.
+    --config <path>        Read one protected operator profile.
+    --file <path>          Read a bounded inert preparation request.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  operations observe       Inspect local alerts or collect server-owned source observations; no infrastructure mutation.
+    --config <path>        Read one protected operator profile.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  operations status        Inspect local alerts or collect server-owned source observations; no infrastructure mutation.
+    --config <path>        Read one protected operator profile.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   plan                     Create an immutable plan from one exact inert declaration revision.
@@ -528,7 +561,6 @@ Planned commands (unavailable):
   control-plane plan       Create an immutable control-plane change plan.
   control-plane recover    Create an inert control-plane recovery change.
   control-plane verify     Verify control-plane health and authority.
-  doctor                   Diagnose one actionable platform invariant at a time.
   maintenance plan         Create an immutable maintenance plan.
   maintenance run          Run one authorized maintenance plan.
   node nominate            Create an inert role-nomination change.

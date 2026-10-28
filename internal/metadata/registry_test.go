@@ -438,6 +438,8 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 	}
 
 	wantAvailable := map[string]bool{
+		"doctor": false, "operations status": false, "operations observe": false, "operations notification-readiness": false,
+		"maintenance diagnose": false, "maintenance draft": false, "maintenance repair": false,
 		"ci publication draft": false, "ci job draft": false, "ci enrollment draft": false, "ci enrollment list": false, "ci enrollment show": false,
 		"service configuration show": false, "service recovery draft": false, "service recovery show": false, "hosting lifecycle draft": false, "hosting lifecycle show": false,
 		"service deployment draft": false, "service deployment show": false,
@@ -459,7 +461,7 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 		"schedule list":            false, "schedule inspect": false, "schedule policy draft": false, "schedule dispatch": false, "schedule cancel": false,
 	}
 	wantPlanned := map[string]string{
-		"doctor": "2", "audit": "5",
+		"audit":         "5",
 		"node nominate": "6", "node quarantine": "6", "node replace": "6",
 
 		"service plan": "8", "service deploy": "8", "service rollback": "8",

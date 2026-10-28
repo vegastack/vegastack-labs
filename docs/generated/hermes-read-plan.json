@@ -1,0 +1,187 @@
+{
+  "schema": "vegastack-labs.dev/hermes-read-plan",
+  "schemaVersion": "1.0.0",
+  "nativeAcceptance": "not-run",
+  "instructionPriority": [
+    ".hermes.md",
+    "AGENTS.md",
+    "CLAUDE.md"
+  ],
+  "trustedRootRequired": true,
+  "allowMutation": false,
+  "allowSecrets": false,
+  "allowProviderDirect": false,
+  "commands": [
+    {
+      "path": [
+        "audit",
+        "checkpoints"
+      ],
+      "risk": "read-only",
+      "invocation": [
+        "audit",
+        "checkpoints",
+        "--config",
+        "<protected-profile>",
+        "--output",
+        "json"
+      ]
+    },
+    {
+      "path": [
+        "audit",
+        "verify"
+      ],
+      "risk": "read-only",
+      "invocation": [
+        "audit",
+        "verify",
+        "--config",
+        "<protected-profile>",
+        "--output",
+        "json"
+      ]
+    },
+    {
+      "path": [
+        "backup",
+        "status"
+      ],
+      "risk": "read-only",
+      "invocation": [
+        "backup",
+        "status",
+        "--config",
+        "<protected-profile>",
+        "--output",
+        "json"
+      ]
+    },
+    {
+      "path": [
+        "gate",
+        "list"
+      ],
+      "risk": "read-only",
+      "invocation": [
+        "gate",
+        "list",
+        "--config",
+        "<protected-profile>",
+        "--output",
+        "json"
+      ]
+    },
+    {
+      "path": [
+        "node",
+        "inspect"
+      ],
+      "risk": "read-only",
+      "invocation": [
+        "node",
+        "inspect",
+        "--config",
+        "<protected-profile>",
+        "--host-id",
+        "<host-id>",
+        "--output",
+        "json"
+      ]
+    },
+    {
+      "path": [
+        "plan"
+      ],
+      "risk": "read-only",
+      "invocation": [
+        "plan",
+        "--config",
+        "<protected-profile>",
+        "--declaration-id",
+        "<declaration-id>",
+        "--revision",
+        "<revision>",
+        "--output",
+        "json"
+      ]
+    },
+    {
+      "path": [
+        "run",
+        "inspect"
+      ],
+      "risk": "read-only",
+      "invocation": [
+        "run",
+        "inspect",
+        "--config",
+        "<protected-profile>",
+        "--run-id",
+        "<run-id>",
+        "--output",
+        "json"
+      ]
+    },
+    {
+      "path": [
+        "server",
+        "status"
+      ],
+      "risk": "read-only",
+      "invocation": [
+        "server",
+        "status",
+        "--config",
+        "<protected-profile>",
+        "--output",
+        "json"
+      ]
+    },
+    {
+      "path": [
+        "service",
+        "list"
+      ],
+      "risk": "read-only",
+      "invocation": [
+        "service",
+        "list",
+        "--config",
+        "<protected-profile>",
+        "--output",
+        "json"
+      ]
+    },
+    {
+      "path": [
+        "service",
+        "show"
+      ],
+      "risk": "read-only",
+      "invocation": [
+        "service",
+        "show",
+        "--config",
+        "<protected-profile>",
+        "--service-id",
+        "<service-id>",
+        "--output",
+        "json"
+      ]
+    },
+    {
+      "path": [
+        "status"
+      ],
+      "risk": "read-only",
+      "invocation": [
+        "status",
+        "--config",
+        "<protected-profile>",
+        "--output",
+        "json"
+      ]
+    }
+  ]
+}

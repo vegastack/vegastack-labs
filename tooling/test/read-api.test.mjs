@@ -466,3 +466,29 @@ test("approved #322 pilot evidence endpoint is additive and exact", async (t) =>
     assert.ok((await verifyReadAPI(root)).codes.includes("READ_API_ENDPOINT_DRIFT"), change);
   }
 });
+
+
+test("combined Phase 10 routes retain exact read and inert draft contracts", async (t) => {
+  const registry = JSON.parse(await readFile(path.join(process.cwd(), "schemas/v1/endpoint-registry.json"), "utf8"));
+  assert.equal((await verifyReadAPI()).status, "pass");
+  const ids = ["api.v1.maintenance.diagnose", "api.v1.maintenance.drafts.create", "api.v1.operations.notification-readiness", "api.v1.operations.observe", "api.v1.operations.status"];
+  for (const id of ids) {
+    for (const change of ["remove", "duplicate", "extra-field", "id", "method", "path", "availability", "ownerPhase", "requestSchema", "dataSchema", "stream", "audiences"]) {
+      const copy = structuredClone(registry);
+      const endpoint = copy.endpoints.find(endpoint => endpoint.id === id);
+      assert.ok(endpoint, id);
+      if (change === "remove") copy.endpoints = copy.endpoints.filter(endpoint => endpoint.id !== id);
+      else if (change === "duplicate") copy.endpoints.push({...endpoint});
+      else if (change === "extra-field") endpoint.allowDirectExecution = true;
+      else endpoint[change] = change === "audiences" ? ["operator", "executor"] : "unreviewed";
+      const root = await fixtureRepo(t, {"schemas/v1/endpoint-registry.json": `${JSON.stringify(copy)}\n`});
+      assert.ok((await verifyReadAPI(root)).codes.includes("READ_API_ENDPOINT_DRIFT"), `${id}/${change}`);
+    }
+  }
+  for (const id of ["api.v1.operations.send-now", "api.v1.maintenance.execute"]) {
+    const copy = structuredClone(registry);
+    copy.endpoints.push({...copy.endpoints.find(endpoint => endpoint.id === ids[2]), id});
+    const root = await fixtureRepo(t, {"schemas/v1/endpoint-registry.json": `${JSON.stringify(copy)}\n`});
+    assert.ok((await verifyReadAPI(root)).codes.includes("READ_API_ENDPOINT_DRIFT"), id);
+  }
+});
