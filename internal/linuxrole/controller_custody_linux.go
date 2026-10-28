@@ -24,7 +24,7 @@ type controllerMetadata struct {
 }
 
 func metadataOf(s unix.Stat_t) controllerMetadata {
-	return controllerMetadata{uint64(s.Dev), s.Ino, s.Uid, s.Gid, s.Mode, s.Nlink}
+	return controllerMetadata{uint64(s.Dev), s.Ino, s.Uid, s.Gid, s.Mode, uint64(s.Nlink)}
 }
 func controllerCredentialPaths(in ControllerInstallInput) []string {
 	paths := []string{"/etc/vsk-labs/control", "/etc/vsk-labs/control/credentials"}
