@@ -78,14 +78,21 @@ func BuildGoImage(ctx context.Context, q GoImageRequest) (GoImageOutput, error) 
 	if settings["GOOS"] != "linux" || settings["GOARCH"] != arch || settings["CGO_ENABLED"] != "0" || settings["vcs"] != "git" || settings["vcs.revision"] != q.SourceRevision || settings["vcs.modified"] != "false" {
 		return empty, evidenceError()
 	}
-	modules := []*debug.Module{&info.Main}
-	modules = append(modules, info.Deps...)
 	seen := map[string]bool{}
-	for _, m := range modules {
+	validateModule := func(m *debug.Module) bool {
 		if m == nil || m.Replace != nil || !evidenceText(m.Path, 256) || seen[m.Path] || !evidenceText(m.Version, 256) {
-			return empty, evidenceError()
+			return false
 		}
 		seen[m.Path] = true
+		return true
+	}
+	if !validateModule(&info.Main) {
+		return empty, evidenceError()
+	}
+	for _, m := range info.Deps {
+		if !validateModule(m) {
+			return empty, evidenceError()
+		}
 	}
 	var layer bytes.Buffer
 	tw := tar.NewWriter(&layer)
@@ -124,12 +131,16 @@ func BuildGoImage(ctx context.Context, q GoImageRequest) (GoImageOutput, error) 
 		return map[string]string{"spdxElementId": from, "relationshipType": kind, "relatedSpdxElement": to}
 	}
 	relationships := []any{relationship("SPDXRef-DOCUMENT", "DESCRIBES", "SPDXRef-Image"), relationship("SPDXRef-Image", "CONTAINS", "SPDXRef-Binary"), relationship("SPDXRef-Binary", "DEPENDS_ON", "SPDXRef-GoStandardLibrary")}
-	for i, m := range modules {
+	appendModule := func(i int, m *debug.Module) {
 		id := "SPDXRef-Module-" + strconv.Itoa(i)
 		p := pkg(id, m.Path)
 		p["versionInfo"] = m.Version
 		packages = append(packages, p)
 		relationships = append(relationships, relationship("SPDXRef-Binary", "DEPENDS_ON", id))
+	}
+	appendModule(0, &info.Main)
+	for i, m := range info.Deps {
+		appendModule(i+1, m)
 	}
 	sbomDocument := map[string]any{"spdxVersion": "SPDX-2.3", "dataLicense": "CC0-1.0", "SPDXID": "SPDXRef-DOCUMENT", "name": "Go scratch image compiled-module inventory", "creationInfo": map[string]any{"created": start.Format(time.RFC3339), "creators": []string{"Tool: vsk-labs-go-scratch-packager-v1"}}, "documentComment": "Unsigned compiled Go-module inventory from compiler metadata; not a complete dependency, source, license or file SBOM. Supplied source/builder identities are not authenticated.", "packages": packages, "relationships": relationships}
 	sbomDocument["documentNamespace"] = "urn:sha256:" + strings.TrimPrefix(hashOCI(marshal(sbomDocument)), "sha256:")
