@@ -1,6 +1,6 @@
 # Phase 9 — SCM, managed CI and application delivery
 
-Status: implementation remains open. Source enrollment/observation, protected provider transports and supplied build-evidence verification/publication are delivered. The finite Docker runtime [#312](https://github.com/vegastack/vegastack-labs/issues/312) and controller integration [#313](https://github.com/vegastack/vegastack-labs/issues/313) pass their scoped native software tests. A real online GitHub job, image/evidence generation, protected deployment and combined operator acceptance remain outstanding. Phase8 supplies the existing hosting, registry, immutable deployment and recovery paths.
+Status: implementation remains open. Source enrollment/observation, protected provider transports, supplied build-evidence verification/publication and the finite Docker runtime/controller are implemented. The next batch adds current online-network inspection [#318](https://github.com/vegastack/vegastack-labs/issues/318), a reachable Go image/unsigned-evidence producer [#315](https://github.com/vegastack/vegastack-labs/issues/315), and actual deployment-job admission [#316](https://github.com/vegastack/vegastack-labs/issues/316). Real signing/publication orchestration, narrow external deployment credential handoff, a real GitHub job and combined operator acceptance [#317](https://github.com/vegastack/vegastack-labs/issues/317) remain outstanding. Phase8 supplies the existing central hosting, registry, immutable deployment and recovery paths.
 
 ## Outcome and approach
 
@@ -22,6 +22,16 @@ The Labs GitHub adapter is replaceable. GitHub outages cannot disable local cont
 | Combined operator acceptance | Pending | One isolated source-to-build-to-registry-to-approved-deployment demonstration, plus wrong identity/digest, untrusted job, race/replay, cancellation, outage, cleanup and credential-scope denials and matching human procedure. Required real runner/isolation evidence cannot be replaced with API fixtures. |
 
 The broader requirements remain in [Module 4 / #10](https://github.com/vegastack/vegastack-labs/issues/10). Each next batch gets grounded issue scope and acceptance before code. The table records remaining work; it does not declare it deferred or complete.
+
+## Parallel continuation on 28-10-2026
+
+The operator requested the entire remaining phase and separate parallel implementation threads, preserving simplicity and no optional reviewer rounds. Three GPT-6.1 Sol medium owners implemented independent source changes; the coordinator integrates them, performs focused native tests and one final exact-head affected proof. The three issue deliveries share one immutable integration candidate; their completion does not close #317 or the phase.
+
+- **#318:** the finite root helper now checks actual protected egress rules, daemon ancestry and current exact Docker network/payload facts through a private inherited channel before registration delivery. First profile: public HTTPS plus one public DNS resolver, IPv6 denied, one active container per daemon. Native private-LAN/owned-witness checks are software evidence; complete internal gateway/DNS/hostile-job qualification and actual provider execution remain outstanding.
+- **#315:** `release build-go-image` creates real static-Go OCI bytes and unsigned SPDX/SLSA statement payloads. Actual Linux ARM64 Docker loading/execution passes. The inventory is compiled Go modules only; provenance describes binary packaging, and source/builder metadata is unauthenticated. No compilation authenticity, signing, publication or arbitrary-application support claim.
+- **#316:** current exact deployment-class enrollment and actual numeric job/source/runner observations guard external lease claims, renewals and receipts. Existing external credential-plan denial is preserved. A working narrow hosting credential handoff and external deployment adapter are still missing.
+
+After the administrator's role grant and CLI OAuth refresh, authenticated GETs now list organization runner groups and runners. None of the current selected-repository groups includes this repository; selecting/preparing the dedicated group remains an explicit provider prerequisite. No registration, group write, real job, CI dispatch, physical-node change or provider publication was performed. The matching [human procedure](../../operator-ci.md) records preparation, verification, failure and cleanup. #264 separately tracks the website and its Cloudflare/controller prerequisites; it does not grant runner or deployment admission.
 
 ## First delivery contract
 

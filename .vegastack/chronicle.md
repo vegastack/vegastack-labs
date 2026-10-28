@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 28-10-2026 — Add measured CI networking, real Go image packaging and deployment-job checks ([#315](https://github.com/vegastack/vegastack-labs/issues/315), [#316](https://github.com/vegastack/vegastack-labs/issues/316), [#318](https://github.com/vegastack/vegastack-labs/issues/318))
+
+- **What:** Added the root helper's current network verifier, local static-Go OCI packaging with unsigned inventory/provenance statements, and exact deployment-job checks on external leases. Existing server, database, approval, credential and execution paths remain controlling.
+- **Why:** The previous runtime blocked every online launch; supplied evidence had no real producer; external deployment leases needed actual deployment-class job admission in addition to their existing identity and plan checks.
+- **How it went:** Three GPT-6.1 Sol medium implementation owners worked in parallel. Actual Linux tests exposed a connected host-route parsing case, corrected without relaxing the private-range requirement. The produced image loaded and ran in rootless Docker. Actual parent/worker online verification, invalid synthetic token handling, lifecycle digest and cleanup passed in 11.53 seconds. A metadata-copy false positive was removed without weakening the CLI guard; exact native source seals retain changed-byte/sibling negatives. No optional independent reviewer round was run.
+- **Changed:** Private root verifier channel · current rules/daemon/payload observations · one-container online profile · generated local packaging command · explicit unsigned/partial inventory metadata · deployment-class source/job checks · matching human procedure.
+- **Decisions:** Existing architecture and earlier deferrals are unchanged. These are bounded software results, not G-006, fleet qualification or completed application delivery. Signing/publication orchestration, narrow external deployment credential handoff and the actual combined demonstration remain open under #317. Refreshed GitHub authorization now permits runner reads; a compatible repository-selected group still needs preparation. Website activation remains separately tracked by #264.
+
+— approved by (omkarmohanta09) · built by Codex with GPT-6.1 Sol medium implementation owners · branch feat/9.12-ci-online-delivery
+
 ## 27-10-2026 — Connect the finite Docker CI runtime to controller plans ([#312](https://github.com/vegastack/vegastack-labs/issues/312), [#313](https://github.com/vegastack/vegastack-labs/issues/313))
 
 - **What:** Implemented one rootless Docker stock-runner lifecycle and its existing controller draft/plan/acknowledgement/lease integration. The fixed hook holds user steps until a current numeric assignment and one-use admission; the same executable supplies the finite bootstrap, hook and non-root worker modes.
