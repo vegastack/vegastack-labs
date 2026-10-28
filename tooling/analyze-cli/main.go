@@ -382,6 +382,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 	}
 	standardNetworkPackages := standardNetworkClosure(listed)
 	result.LocalClientBoundary = true
+	sealedControllerComposition := controllerPrerequisiteComposition(inModule, modulePath)
 	restoreCLISeen, restoreCLIValid := false, false
 	restoreClientSeen, restoreClientValid := false, false
 	pilotPruning := ingressPilotDependencyPruning(inModule, modulePath)
@@ -468,6 +469,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 		if localClosure[candidate.ImportPath] && !reviewedLocalClientPackage(parsed, modulePath, localAPIImport, localTransportImport, sshTransportImport) {
 			result.LocalClientBoundary = false
 		}
+		sealedControllerCollector := sealedControllerComposition && controllerPrerequisitePackage(parsed, modulePath, "internal/controllerprerequisites")
 		isReleasePackage := candidate.ImportPath == releaseImport || strings.HasPrefix(candidate.ImportPath, releaseImport+"/")
 		isControlPackage := controlClosure[candidate.ImportPath]
 		// The native credential package is a byte-for-byte sealed Linux OS adapter.
@@ -492,7 +494,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 		isControlCapabilityPackage := isControlPackage && !(localClosure[candidate.ImportPath] && !result.LocalClientBoundary) && !sealedNativeCredential && !sealedRecoveryCustodian && !sealedHostAction && !sealedDebianAccess && !sealedHostingPlatform && !sealedCI && !sealedCIMain
 		// The custodian command imports recovery's fixed protected pin/receipt
 		// source. Only this exact reviewed source closure may carry those paths.
-		inspectControlPaths := isControlPackage && candidate.ImportPath != generatedImport && candidate.ImportPath != serverConfigImport && !sealedNativeCredential && !sealedRecoveryCustodian && !sealedHostAction && !sealedHostActionMain && !sealedDebianAccess && !sealedHostingPlatform && !sealedCI && !sealedCIMain
+		inspectControlPaths := isControlPackage && !sealedControllerCollector && candidate.ImportPath != generatedImport && candidate.ImportPath != serverConfigImport && !sealedNativeCredential && !sealedRecoveryCustodian && !sealedHostAction && !sealedHostActionMain && !sealedDebianAccess && !sealedHostingPlatform && !sealedCI && !sealedCIMain
 		for _, imported := range candidate.Imports {
 			if imported == "os/exec" && !isReleasePackage && !(candidate.ImportPath == sshTransportImport && reviewedSSHTransportPackage(parsed, localTransportImport)) && !reviewedNativeCredentialPackage(parsed, nativeCredentialImport, modulePath) && !reviewedBackupProcessPackage(parsed, backupImport) && !reviewedPhase228ReceiveProcess(parsed, serverImport) && !sealedDebianAccess && !sealedAccessAdapter && !sealedQualification && !sealedHostingPlatform && !sealedCI && !sealedCIMain {
 				result.ShellDispatch = true
@@ -536,14 +538,14 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 						result.ControlShellDispatch = true
 					}
 				case "crypto/tls", "syscall":
-					if !reviewedControlNetworkImport(parsed, imported, mainImport, localAPIImport, localTransportImport, sshTransportImport, serverConfigImport) {
+					if !reviewedControlNetworkImport(parsed, imported, mainImport, localAPIImport, localTransportImport, sshTransportImport, serverConfigImport) && !(sealedControllerCollector && (imported == "syscall" || imported == "crypto/x509")) {
 						result.ControlArbitraryHTTP = true
 					}
 				}
-				if standardNetworkPackages[imported] && !reviewedControlNetworkImport(parsed, imported, mainImport, localAPIImport, localTransportImport, sshTransportImport, serverConfigImport) {
+				if standardNetworkPackages[imported] && !reviewedControlNetworkImport(parsed, imported, mainImport, localAPIImport, localTransportImport, sshTransportImport, serverConfigImport) && !(sealedControllerCollector && (imported == "syscall" || imported == "crypto/x509")) {
 					result.ControlArbitraryHTTP = true
 				}
-				if !reviewedControlExternalImport(parsed, imported, standardPackages[imported], modulePath, localAPIImport, clientFileImport, serverConfigImport, releaseImport) {
+				if !reviewedControlExternalImport(parsed, imported, standardPackages[imported], modulePath, localAPIImport, clientFileImport, serverConfigImport, releaseImport) && !(sealedControllerCollector && imported == "golang.org/x/sys/unix") {
 					result.ControlProviderAccess = true
 				}
 				if strings.Contains(imported, "google.golang.org") || strings.Contains(imported, "/google") || strings.Contains(imported, "sheets") {
@@ -1975,7 +1977,7 @@ func inspectPackage(candidate checkedSourcePackage, generatedImport, stateExport
 					result.StateExportTrust = true
 				}
 			case *ast.CompositeLit:
-				if candidate.listed.ImportPath != generatedImport && !isAPIPackage && isDispatchCollection(candidate.info.TypeOf(typed), context) && !reviewedRecoveryGrantPredicates(candidate, file, typed, generatedImport) && !reviewedCIJobGrantPredicates(candidate, file, typed, generatedImport) && !reviewedOperationsDataNode(candidate, file, typed, generatedImport) {
+				if candidate.listed.ImportPath != generatedImport && !isAPIPackage && isDispatchCollection(candidate.info.TypeOf(typed), context) && !reviewedRecoveryGrantPredicates(candidate, file, typed, generatedImport) && !reviewedCIJobGrantPredicates(candidate, file, typed, generatedImport) && !reviewedOperationsDataNode(candidate, file, typed, generatedImport) && !reviewedControllerPrerequisiteData(candidate, file, typed, generatedImport) {
 					result.HandwrittenRegistry = true
 				}
 				if stateExportConfigProvidesTrust(typed, candidate.info, stateExportImport) {
