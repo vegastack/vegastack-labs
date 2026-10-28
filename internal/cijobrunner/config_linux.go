@@ -17,8 +17,9 @@ const ConfigPath = "/etc/vsk-labs/ci-job.json"
 const WorkerMode = "ci-job-worker"
 
 // NativeConfig is root-owned protected host configuration. No secret material.
-// No online verifier is currently installed by the production constructor.
+// Online policy is verified by the root parent through a private inherited channel.
 type NativeConfig struct {
+	Network            *NetworkPolicy `json:"network,omitempty"`
 	ProfileID          string         `json:"profileId"`
 	RuntimeDigest      string         `json:"runtimeDigest"`
 	HostID             string         `json:"hostId"`

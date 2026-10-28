@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"golang.org/x/sys/unix"
 	"io"
 	"os"
 	"os/exec"
@@ -57,7 +58,21 @@ func (h *nativeBridge) ExecuteCI(ctx context.Context, b generated.HostActionBund
 	if hash, e := fileDigest(h.executable); e != nil || hash != h.config.Profile.ExecutableDigest {
 		return result, ErrBlocked
 	}
+	var networkParent, networkChild *os.File
+	if !h.config.Profile.Offline {
+		pair, e := unix.Socketpair(unix.AF_UNIX, unix.SOCK_STREAM|unix.SOCK_CLOEXEC, 0)
+		if e != nil {
+			return result, ErrBlocked
+		}
+		networkParent = os.NewFile(uintptr(pair[0]), "root network verifier")
+		networkChild = os.NewFile(uintptr(pair[1]), "private network verifier")
+		defer networkParent.Close()
+		defer networkChild.Close()
+	}
 	cmd := exec.Command(h.executable, WorkerMode)
+	if networkChild != nil {
+		cmd.ExtraFiles = []*os.File{networkChild}
+	}
 	cmd.Env = []string{"PATH=/usr/bin:/bin", "HOME=/nonexistent"}
 	cmd.SysProcAttr = &syscall.SysProcAttr{Credential: &syscall.Credential{Uid: h.config.Profile.DaemonUID, Gid: h.config.DaemonGID, Groups: []uint32{}}, Pdeathsig: syscall.SIGTERM}
 	cmd.Stderr = io.Discard
@@ -77,6 +92,10 @@ func (h *nativeBridge) ExecuteCI(ctx context.Context, b generated.HostActionBund
 		return result, ErrBlocked
 	}
 	writer.Close()
+	if networkChild != nil {
+		networkChild.Close()
+		go serveNetwork(ctx, networkParent, h.config)
+	}
 	defer out.Close()
 	// TERM preserves the finite worker's cleanup defer. Its independent signed
 	// deadline remains authoritative; parent never kills only its held hook.
@@ -161,7 +180,17 @@ func RunWorker(ctx context.Context, input io.ReadCloser, output io.Writer) error
 	if uint32(os.Geteuid()) != c.Profile.DaemonUID || c.RuntimeDigest != ComputeRuntimeDigest(c.Profile) {
 		return ErrBlocked
 	}
-	d, e := NewDocker(c.Docker, c.Profile, nil)
+	var verifier NetworkVerifier
+	if !c.Profile.Offline {
+		unix.CloseOnExec(3)
+		f := os.NewFile(3, "private root network verifier")
+		if f == nil {
+			return ErrBlocked
+		}
+		defer f.Close()
+		verifier = &networkClient{file: f, reader: bufio.NewReader(f)}
+	}
+	d, e := NewDocker(c.Docker, c.Profile, verifier)
 	if e != nil {
 		return e
 	}

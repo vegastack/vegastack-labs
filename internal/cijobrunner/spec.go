@@ -52,6 +52,7 @@ type RuntimeProfile struct {
 	ImageIndexDigest      string
 	ExecutableDigest      string
 	HookDigest            string
+	DNSResolver           string `json:",omitempty"`
 	NetworkID             string
 	NetworkEvidenceDigest string
 	DaemonUID             uint32
@@ -64,8 +65,13 @@ type RuntimeProfile struct {
 
 // Check must inspect the actual current protected network for this daemon/profile.
 // A digest comparison or a caller's qualification Boolean cannot implement it.
+type NetworkCheck struct {
+	ContainerID string `json:"containerId"`
+	InitPID     int    `json:"initPid"`
+}
+
 type NetworkVerifier interface {
-	Check(context.Context, RuntimeProfile) error
+	Check(context.Context, RuntimeProfile, NetworkCheck) error
 }
 type LifecycleEvent struct {
 	Stage    string `json:"stage"`
