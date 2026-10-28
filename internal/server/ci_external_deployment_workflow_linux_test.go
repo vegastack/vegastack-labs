@@ -37,10 +37,12 @@ import (
 
 // This fixture uses the actual SQLite/controller/SSH/private stream/default
 // typed Coolify consumer. The peer models held PID1, not Docker qualification.
-// Independent-verifier prerequisites are intentionally incomplete: the real
-// composition must deny terminal success after the observed provider mutation.
+// Legacy handoff/revocation cases inject explicit synthetic destination admission
+// to isolate that boundary; independent terminal verification remains incomplete.
+// The destination-unadmitted case uses the production evaluator and must stop
+// before hosting credential resolution or provider requests. None qualifies a host.
 func TestCIExternalDeploymentConsumedPrivateStream(t *testing.T) {
-	for _, fault := range []string{"consumed", "resolve-revoked", "request-revoked", "controller-lease-revoked", "deployment-lease-revoked"} {
+	for _, fault := range []string{"destination-unadmitted", "consumed", "resolve-revoked", "request-revoked", "controller-lease-revoked", "deployment-lease-revoked"} {
 		t.Run(fault, func(t *testing.T) {
 			wire := &ciJobWireFixture{fault: fault, deployment: true}
 			hostActionAcceptance(t, "success", hostActionAcceptanceHooks{EnrollmentOnly: true, Peer: func(t *testing.T, k ssh.Signer, s ActionSigner, w *atomic.Int32, d string) int {
@@ -193,7 +195,13 @@ func (x *ciExternalWorkflowFixture) control(t *testing.T, s *store.Store, r *ada
 	if e != nil {
 		t.Fatal(e)
 	}
-	x.controlValue = &ciExternalDeploymentControl{authority: s, profile: x.profile, executors: ext, guard: guard, broker: ciDeploymentBroker{authority: s, jobs: jobs, registry: r, gates: g}}
+	var destination ciDeploymentApplicationAdmission = hostReplacementComposition{authority: s, gates: g, clock: time.Now}
+	if x.fault != "destination-unadmitted" {
+		// Isolate the pre-existing stream/lease/revocation cases with a synthetic
+		// destination verdict. This is deliberately not real application admission.
+		destination = &ciBrokerSyntheticDestination{snapshot: store.HostAdmissionSnapshot{Host: generated.ManagedHost{HostID: x.policy.Definition.HostID}, IdentityDigest: x.policy.Definition.HostIdentityDigest, Profile: generated.HostProfile{RoleID: "application"}, Revision: store.RevisionToken{RecoveryEpoch: 0}}}
+	}
+	x.controlValue = &ciExternalDeploymentControl{authority: s, profile: x.profile, executors: ext, guard: guard, broker: ciDeploymentBroker{authority: s, jobs: jobs, registry: r, gates: g, destination: destination}}
 	return x.controlValue
 }
 func (x *ciExternalWorkflowFixture) reserve(t *testing.T, ctx context.Context, plans *planengine.Service, ack *acknowledgement.Service, engine *runengine.Engine, parent generated.Plan) {
@@ -237,7 +245,11 @@ func (x *ciExternalWorkflowFixture) assert(t *testing.T, ctx context.Context, s 
 	if run.Status == "succeeded" || wire.allowed.Load() != 0 {
 		t.Fatal("unqualified application reached terminal success", run.Status, wire.allowed.Load())
 	}
-	if x.resolutions.Load() != 1 {
+	if x.fault == "destination-unadmitted" {
+		if x.resolutions.Load() != 0 || x.reads.Load() != 0 || x.writes.Load() != 0 {
+			t.Fatalf("unadmitted destination reached credential/provider: resolutions=%d reads=%d writes=%d", x.resolutions.Load(), x.reads.Load(), x.writes.Load())
+		}
+	} else if x.resolutions.Load() != 1 {
 		t.Fatalf("resolution count %d", x.resolutions.Load())
 	}
 	for _, b := range x.retained {
