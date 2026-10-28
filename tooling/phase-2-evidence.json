@@ -708,7 +708,7 @@
           "github.com/vegastack/vegastack-labs/internal/operations",
           "github.com/vegastack/vegastack-labs/internal/siteheartbeat"
         ],
-        "mutationBoundaryDigest": "sha256:ee78ae62901d33d41a7999b5d5a03727b3b1e3d74418793718a35dc46edd164a"
+        "mutationBoundaryDigest": "sha256:b45223e2f942947357065ac4325deb708a326d1818250cf8c41693fde7462dd7"
       }
     ]
   },

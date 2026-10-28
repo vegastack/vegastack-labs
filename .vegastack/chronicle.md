@@ -25,7 +25,7 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 
 - **What:** Added an exact acknowledged test for the configured GitHub and Slack routes, followed by server-owned G-011 evidence preparation and normal evidence apply. Actual provider acceptance receipts bind the selected recipients, channel, credential owners, reference versions and exact successful run.
 - **Why:** The earlier sender had an empty verifier and the wrong evidence lineage, so configuration alone could never make G-011 usable.
-- **How it went:** Reused the current engine, native references and gate lifecycle; added only a small four-receipt SQLite record. The source distinguishes provider acceptance from human reading and keeps external Worker-absence acceptance separate. No live send or independent review was run.
+- **How it went:** Reused the current engine, native references and gate lifecycle; added only a small four-receipt SQLite record. The source distinguishes provider acceptance from human reading and keeps external Worker-absence acceptance separate. The complete real SQLite/plan/acknowledgement/receipt/evidence workflow passed with synthetic OS, credential and HTTP boundaries; it caught and corrected a missing exact operation risk classification. Linux cross-compilation passed; no native run, live send or independent review was performed.
 - **Changed:** Fixed test/evidence preparation · exact applied-lineage evaluation · current-reference checks · shared notification/heartbeat G-011 helper · explicit activation/manual procedure.
 - **Decisions:** None; the coordinator recorded the bounded interpretation of the existing Phase 10 request. Protected inputs remain unselected and earlier Phase 6/Mac/recovery deferrals remain in force.
 
