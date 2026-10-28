@@ -107,3 +107,27 @@ func TestControllerPilotFreezesProtectedPolicy(t *testing.T) {
 		t.Fatal("protected source aliased caller mutation")
 	}
 }
+
+func TestControllerPilotConnectorMarkerRequiresExactPolicyWithoutHostSnapshot(t *testing.T) {
+	q, p, applied, health, now := controllerPilotFixture()
+	d := q.HostIdentityDigest
+	raw, _ := json.Marshal(map[string]string{"controllerSetupPilotDigest": hostaction.Digest(q)})
+	r := generated.HostActionRequest{Schema: generated.SchemaIDHostActionRequest, SchemaVersion: "1.0.0", ActionID: "cloudflare.connector.install", ActionVersion: "1.0.0", ActionInput: string(raw), ActionInputDigest: hostaction.BytesDigest(raw), HostID: q.HostID, TargetRevision: 1, TargetDigest: d, AutomationPrincipalID: "service-a", CallerUID: 1001, CredentialReferenceID: "key-a", CredentialMaterialVersion: "v1", ConsoleConfirmation: generated.HostActionConsoleConfirmation{Schema: generated.SchemaIDHostActionConsoleConfirmation, SchemaVersion: "1.0.0", Method: "administrator-verified-console", TargetDigest: d, HostIdentityDigest: d}, ExpectedStateRevision: 3, RecoveryEpoch: 0, IdempotencyKey: "connector-one"}
+	if e := hostaction.ValidateRequest(r); e != nil {
+		t.Fatal(e)
+	}
+	p.HostAction = &r
+	p.Operations[0].AdapterID = hostaction.AdapterID
+	p.Operations[0].OperationType = hostaction.OperationType
+	p.Operations[0].ArtifactDigest = hostaction.Digest(r)
+	if _, e := verifyControllerSetupPilot(q, p, applied, q.ControllerInstanceID, q.ControllerMachineIDDigest, health, now); e != nil {
+		t.Fatal("exact connector selection rejected", e)
+	}
+	raw = []byte(`{"controllerSetupPilotDigest":"sha256:` + strings.Repeat("b", 64) + `"}`)
+	r.ActionInput = string(raw)
+	r.ActionInputDigest = hostaction.BytesDigest(raw)
+	p.Operations[0].ArtifactDigest = hostaction.Digest(r)
+	if _, e := verifyControllerSetupPilot(q, p, applied, q.ControllerInstanceID, q.ControllerMachineIDDigest, health, now); e == nil {
+		t.Fatal("wrong explicit marker inherited local eligibility")
+	}
+}
