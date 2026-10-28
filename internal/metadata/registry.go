@@ -964,6 +964,7 @@ func currentSchemas() []SchemaDefinition {
 				{JSONName: "remoteRead", GoName: "RemoteRead", Kind: ValueObject, Required: true, Ref: remoteReadProfileSchemaID},
 				{JSONName: "hostActionSignerPath", GoName: "HostActionSignerPath", Kind: ValueString, Required: false, OmitEmpty: true, MinLength: intPointer(2), MaxLength: intPointer(4096), Pattern: `^/[^\x00]*$`},
 				{JSONName: "hostActionKeyId", GoName: "HostActionKeyID", Kind: ValueString, Required: false, OmitEmpty: true, Pattern: `^[a-z][a-z0-9._:-]{0,127}$`},
+				{JSONName: "controllerSetupPilot", GoName: "ControllerSetupPilot", Kind: ValueObject, Nullable: true, OmitEmpty: true, Ref: controllerSetupPilotPolicyID},
 				{JSONName: "ingressBootstrap", GoName: "IngressBootstrap", Kind: ValueObject, OmitEmpty: true, Nullable: true, Ref: "vegastack-labs.dev/ingress-bootstrap-policy"},
 				{JSONName: "ingressControllerReadPilot", GoName: "IngressControllerReadPilot", Kind: ValueObject, OmitEmpty: true, Nullable: true, Ref: ingressPilotPolicyID},
 				{JSONName: "notificationReadiness", GoName: "NotificationReadiness", Kind: ValueObject, Nullable: true, OmitEmpty: true, Ref: notificationPolicyID},
@@ -1031,6 +1032,7 @@ func currentSchemas() []SchemaDefinition {
 	schemas = append(schemas, hostDiscoverySchemas()...)
 	schemas = append(schemas, meshSchemas()...)
 	schemas = append(schemas, ingressSchemas()...)
+	schemas = append(schemas, controllerSetupPilotSchemas()...)
 	schemas = append(schemas, controllerPrerequisitesSchemas()...)
 	schemas = append(schemas, operationsSchemas()...)
 	schemas = append(schemas, siteHeartbeatSchemas()...)

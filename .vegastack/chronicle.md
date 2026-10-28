@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 28-10-2026 — Bind a controller-only setup policy without claiming host admission ([#333](https://github.com/vegastack/vegastack-labs/issues/333))
+
+- **What:** Protected selected-controller policy and a dedicated eligibility result bind actual local machine/database authority, current state and an exact applied capability. The initial controller does not need a fabricated managed-host or native-baseline record.
+- **Why:** The operator approved a limited controller-and-one-connector source path while keeping deferred native qualification and normal workload gates unchanged.
+- **How it went:** Source tracing exposed the initial unregistered-controller dependency. The policy now remains separate from ordinary role/admission; finite claim/execution and actual file/custody proof belong to the accompanying implementation slices and are required before a working bootstrap claim.
+- **Changed:** Explicit protected policy and dedicated account binding · complete-policy capability · default-disabled current-authority verification · operator procedure. No live change or qualification evidence.
+- **Decisions:** Exact operator limited-setup selection conveyed by coordinator; actual live setup remains separately scoped.
+
+— approved source scope by (omkarmohanta09), conveyed by coordinator · built by Codex · branch feat/333-controller-setup-pilot
+
 ## 28-10-2026 — Install one explicitly selected connector without exporting its token ([#332](https://github.com/vegastack/vegastack-labs/issues/332))
 
 - **What:** Added one fixed cloudflared host action using the existing human-acknowledged plan and pinned SSH boundary. The protected bootstrap receipt selects the tunnel; an operator supplies its root-owned token artifact.

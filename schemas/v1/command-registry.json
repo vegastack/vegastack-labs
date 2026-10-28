@@ -8740,6 +8740,16 @@
       "artifactPath": "schemas/v1/controller-prerequisites-data.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/controller-setup-pilot-eligibility",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/controller-setup-pilot-eligibility.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/controller-setup-pilot-policy",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/controller-setup-pilot-policy.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/coolify-service-binding",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/coolify-service-binding.schema.json"

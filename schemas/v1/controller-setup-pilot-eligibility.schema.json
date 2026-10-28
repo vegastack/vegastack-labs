@@ -1,0 +1,86 @@
+{
+  "$id": "vegastack-labs.dev/controller-setup-pilot-eligibility",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "administratorPrincipalId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "administratorUid": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "controllerInstanceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "controllerMachineIdDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "hostId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "hostIdentityDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "policyDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "recoveryImageDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/controller-setup-pilot-eligibility"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "serviceGid": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "serviceUid": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "stateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "hostId",
+    "hostIdentityDigest",
+    "controllerMachineIdDigest",
+    "controllerInstanceId",
+    "policyDigest",
+    "stateRevision",
+    "recoveryEpoch",
+    "administratorUid",
+    "administratorPrincipalId",
+    "serviceUid",
+    "serviceGid",
+    "recoveryImageDigest"
+  ],
+  "title": "VegaStack Labs controller setup pilot eligibility",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

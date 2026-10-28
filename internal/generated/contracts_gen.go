@@ -135,6 +135,8 @@ const (
 	SchemaIDControlRecoveryReceiveInput            = "vegastack-labs.dev/control-recovery-receive-input"
 	SchemaIDControllerPrerequisiteFact             = "vegastack-labs.dev/controller-prerequisite-fact"
 	SchemaIDControllerPrerequisitesData            = "vegastack-labs.dev/controller-prerequisites-data"
+	SchemaIDControllerSetupPilotEligibility        = "vegastack-labs.dev/controller-setup-pilot-eligibility"
+	SchemaIDControllerSetupPilotPolicy             = "vegastack-labs.dev/controller-setup-pilot-policy"
 	SchemaIDCoolifyServiceBinding                  = "vegastack-labs.dev/coolify-service-binding"
 	SchemaIDCredentialImportRequest                = "vegastack-labs.dev/credential-import-request"
 	SchemaIDCredentialImportSubmission             = "vegastack-labs.dev/credential-import-submission"
@@ -2120,6 +2122,41 @@ type ControllerPrerequisitesData struct {
 	IdentityMatched    bool                         `json:"identityMatched"`
 	AdmissionQualified bool                         `json:"admissionQualified"`
 	Facts              []ControllerPrerequisiteFact `json:"facts"`
+}
+
+type ControllerSetupPilotEligibility struct {
+	Schema                    string `json:"schema"`
+	SchemaVersion             string `json:"schemaVersion"`
+	HostID                    string `json:"hostId"`
+	HostIdentityDigest        string `json:"hostIdentityDigest"`
+	ControllerMachineIDDigest string `json:"controllerMachineIdDigest"`
+	ControllerInstanceID      string `json:"controllerInstanceId"`
+	PolicyDigest              string `json:"policyDigest"`
+	StateRevision             int64  `json:"stateRevision"`
+	RecoveryEpoch             int64  `json:"recoveryEpoch"`
+	AdministratorUID          int64  `json:"administratorUid"`
+	AdministratorPrincipalID  string `json:"administratorPrincipalId"`
+	ServiceUID                int64  `json:"serviceUid"`
+	ServiceGID                int64  `json:"serviceGid"`
+	RecoveryImageDigest       string `json:"recoveryImageDigest"`
+}
+
+type ControllerSetupPilotPolicy struct {
+	Schema                    string `json:"schema"`
+	SchemaVersion             string `json:"schemaVersion"`
+	HostID                    string `json:"hostId"`
+	HostIdentityDigest        string `json:"hostIdentityDigest"`
+	ControllerMachineIDDigest string `json:"controllerMachineIdDigest"`
+	ControllerInstanceID      string `json:"controllerInstanceId"`
+	AppliedProfileID          string `json:"appliedProfileId"`
+	RecoveryEpoch             int64  `json:"recoveryEpoch"`
+	RecoveryImageDigest       string `json:"recoveryImageDigest"`
+	AdministratorUID          int64  `json:"administratorUid"`
+	AdministratorPrincipalID  string `json:"administratorPrincipalId"`
+	ServiceUID                int64  `json:"serviceUid"`
+	ServiceGID                int64  `json:"serviceGid"`
+	ExecutableDigest          string `json:"executableDigest"`
+	ExpiresAt                 string `json:"expiresAt"`
 }
 
 type CoolifyServiceBinding struct {
@@ -5754,6 +5791,7 @@ type ServerProfile struct {
 	RemoteRead                       RemoteReadProfile                  `json:"remoteRead"`
 	HostActionSignerPath             string                             `json:"hostActionSignerPath,omitempty"`
 	HostActionKeyID                  string                             `json:"hostActionKeyId,omitempty"`
+	ControllerSetupPilot             *ControllerSetupPilotPolicy        `json:"controllerSetupPilot,omitempty"`
 	IngressBootstrap                 *IngressBootstrapPolicy            `json:"ingressBootstrap,omitempty"`
 	IngressControllerReadPilot       *IngressControllerReadPilot        `json:"ingressControllerReadPilot,omitempty"`
 	NotificationReadiness            *NotificationReadinessPolicy       `json:"notificationReadiness,omitempty"`
