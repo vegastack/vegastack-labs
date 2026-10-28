@@ -123,7 +123,7 @@ func TestEveryGeneratedCommandHasTruthfulRuntimeBehavior(t *testing.T) {
 			switch commandName(command.Path) {
 			case generated.CommandNameNetworkMeshDraft, generated.CommandNameNetworkMeshObserve, generated.CommandNameNetworkMeshStatus:
 				providerScope = "mesh-control"
-			case generated.CommandNameNetworkIngressDraft, generated.CommandNameNetworkIngressObserve, generated.CommandNameNetworkIngressStatus, generated.CommandNameNetworkIngressRolloutEvidence:
+			case generated.CommandNameNetworkIngressDraft, generated.CommandNameNetworkIngressObserve, generated.CommandNameNetworkIngressStatus, generated.CommandNameNetworkIngressRolloutEvidence, generated.CommandNameNetworkIngressPilotEvidence:
 				providerScope = "ingress-control"
 			}
 			if providerScope != "" {
