@@ -176,7 +176,7 @@ func InstallControllerFoundation(ctx context.Context, in ControllerInstallInput,
 		if e != nil {
 			return e
 		}
-		moved, e := moveControllerCredentialCustody(in)
+		moved, e := moveControllerCredentialCustody(ctx, in)
 		changed = changed || moved
 		if e != nil {
 			return e
@@ -218,6 +218,19 @@ func InstallControllerFoundation(ctx context.Context, in ControllerInstallInput,
 				gid = polkitGID
 			}
 			if !bytes.Equal(old, files[p]) {
+				if s == "executable" && readErr == nil {
+					backup := "var/lib/vsk-labs/access-rollback/controller-pilot-executable.before"
+					prior, be := readProtected(n.root, backup, 256<<20)
+					if be == nil && !bytes.Equal(prior, old) || be != nil && !os.IsNotExist(be) {
+						return errNative
+					}
+					if os.IsNotExist(be) {
+						if e = writeControllerArtifact(ctx, n.root, backup, old, 0600, 0, false); e != nil {
+							return e
+						}
+						changed = true
+					}
+				}
 				if e = writeControllerArtifact(ctx, n.root, p, files[p], mode, gid, s == "sudoers"); e != nil {
 					return e
 				}

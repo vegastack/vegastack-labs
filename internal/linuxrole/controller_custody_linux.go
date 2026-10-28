@@ -3,6 +3,9 @@
 package linuxrole
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
 	"os"
 	"slices"
 	"sort"
@@ -76,7 +79,7 @@ func controllerCredentialMetadata(in ControllerInstallInput) ([]controllerMetada
 	}
 	return facts, nil
 }
-func moveControllerCredentialCustody(in ControllerInstallInput) (bool, error) {
+func moveControllerCredentialCustody(ctx context.Context, in ControllerInstallInput) (bool, error) {
 	facts, e := controllerCredentialMetadata(in)
 	if e != nil || hostaction.Digest(facts) != in.CredentialCustodyDigest {
 		return false, errNative
@@ -98,7 +101,25 @@ func moveControllerCredentialCustody(in ControllerInstallInput) (bool, error) {
 			return false, errNative
 		}
 	}
+	// Preserve the exact finite metadata before changing custody. This record
+	// contains no plaintext, secret digest or authorization substitute.
+	record, _ := json.Marshal(struct {
+		InputDigest string
+		Paths       []string
+		Before      []controllerMetadata
+	}{hostaction.Digest(in), controllerCredentialPaths(in), facts})
+	recordPath := "var/lib/vsk-labs/access-rollback/controller-pilot-credentials.before.json"
+	prior, re := readProtected("/", recordPath, 65536)
+	if re == nil && !bytes.Equal(prior, record) || re != nil && !os.IsNotExist(re) {
+		return false, errNative
+	}
 	changed := false
+	if os.IsNotExist(re) {
+		if e = writeControllerArtifact(ctx, "/", recordPath, record, 0600, 0, false); e != nil {
+			return false, e
+		}
+		changed = true
+	}
 	for i, fd := range fds {
 		gid, mode := 0, uint32(0600)
 		if i == 0 {
