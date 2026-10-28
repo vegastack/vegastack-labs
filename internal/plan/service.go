@@ -380,6 +380,12 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 		}
 		risk = string(authorization.RiskControlPlane)
 	}
+	if notificationReadinessCandidate(declaration, operations) {
+		if !sealedNotificationReadiness(declaration, operations) || service.config.AuthorizationBranch != "human" || service.config.ExecutorMode != "central" {
+			return store.PlanCommitResult{}, planError(generated.ErrorCodeAuthorizationDenied)
+		}
+		risk = string(authorization.RiskControlPlane)
+	}
 	if credentialLifecyclePlanCandidate(declaration, operations) {
 		if !sealedSingleCredentialLifecycle(declaration, operations) || service.config.AuthorizationBranch != "human" || service.config.ExecutorMode != "central" {
 			return store.PlanCommitResult{}, planError(generated.ErrorCodeAuthorizationDenied)
