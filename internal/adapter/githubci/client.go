@@ -96,6 +96,7 @@ type run struct {
 	Branch         string     `json:"head_branch"`
 	Event          string     `json:"event"`
 	Status         string     `json:"status"`
+	Conclusion     string     `json:"conclusion"`
 	Repository     repository `json:"repository"`
 	HeadRepository repository `json:"head_repository"`
 }
@@ -106,14 +107,15 @@ func (r run) matches(t Target) bool {
 }
 
 type job struct {
-	ID       int64    `json:"id"`
-	RunID    int64    `json:"run_id"`
-	SHA      string   `json:"head_sha"`
-	Name     string   `json:"name"`
-	Status   string   `json:"status"`
-	RunnerID int64    `json:"runner_id"`
-	GroupID  int64    `json:"runner_group_id"`
-	Labels   []string `json:"labels"`
+	ID         int64    `json:"id"`
+	RunID      int64    `json:"run_id"`
+	SHA        string   `json:"head_sha"`
+	Name       string   `json:"name"`
+	Status     string   `json:"status"`
+	Conclusion string   `json:"conclusion"`
+	RunnerID   int64    `json:"runner_id"`
+	GroupID    int64    `json:"runner_group_id"`
+	Labels     []string `json:"labels"`
 }
 
 func (j job) matches(t Target) bool {
@@ -131,6 +133,9 @@ func (c *Client) Observe(ctx context.Context, t Target, v *credentialref.Value) 
 	return c.observe(ctx, t, v, nil)
 }
 func (c *Client) observe(ctx context.Context, t Target, v *credentialref.Value, check func() error) (ci.Observation, error) {
+	return c.observeState(ctx, t, v, check, false)
+}
+func (c *Client) observeState(ctx context.Context, t Target, v *credentialref.Value, check func() error, completed bool) (ci.Observation, error) {
 	empty := ci.Observation{}
 	b := t.Enrollment.Binding
 	if ctx == nil || c == nil || c.http == nil || ci.ValidateEnrollment(t.Enrollment) != nil || !repositoryName.MatchString(b.Repository) || !workflowPath.MatchString(b.WorkflowPath) || strings.Contains(b.WorkflowPath, "..") || t.Attempt == 0 {
@@ -164,7 +169,7 @@ func (c *Client) observe(ctx context.Context, t Target, v *credentialref.Value, 
 		if e := c.getChecked(ctx, path, v, &r, check); e != nil {
 			return e
 		}
-		if !r.matches(t) {
+		if (!completed && !r.matches(t)) || (completed && !r.matchesCompleted(t)) {
 			return ErrIdentity
 		}
 		return nil
@@ -176,7 +181,7 @@ func (c *Client) observe(ctx context.Context, t Target, v *credentialref.Value, 
 	if e := readRun(attempt); e != nil {
 		return empty, e
 	}
-	if e := c.jobsChecked(ctx, attempt+"/jobs", t, v, check); e != nil {
+	if e := c.jobsStateChecked(ctx, attempt+"/jobs", t, v, check, completed); e != nil {
 		return empty, e
 	}
 	if e := c.workflowChecked(ctx, prefix+"/contents/"+b.WorkflowPath+"?ref="+url.QueryEscape(b.Revision), b, v, check); e != nil {
@@ -187,12 +192,19 @@ func (c *Client) observe(ctx context.Context, t Target, v *credentialref.Value, 
 	}
 	// Return expected, verified values only, never arbitrary provider strings.
 	b.Labels = slices.Clone(b.Labels)
-	return ci.Observation{Binding: b, HeadRepositoryID: b.RepositoryID, RunID: t.RunID, JobID: t.JobID, Attempt: t.Attempt, RunStatus: "in_progress", JobStatus: "in_progress", ObservedAt: time.Now().UTC()}, nil
+	status := "in_progress"
+	if completed {
+		status = "completed"
+	}
+	return ci.Observation{Binding: b, HeadRepositoryID: b.RepositoryID, RunID: t.RunID, JobID: t.JobID, Attempt: t.Attempt, RunStatus: status, JobStatus: status, ObservedAt: time.Now().UTC()}, nil
 }
 func (c *Client) jobs(ctx context.Context, path string, t Target, v *credentialref.Value) error {
 	return c.jobsChecked(ctx, path, t, v, nil)
 }
 func (c *Client) jobsChecked(ctx context.Context, path string, t Target, v *credentialref.Value, check func() error) error {
+	return c.jobsStateChecked(ctx, path, t, v, check, false)
+}
+func (c *Client) jobsStateChecked(ctx context.Context, path string, t Target, v *credentialref.Value, check func() error, completed bool) error {
 	jobs, err := c.listJobs(ctx, path, t, v, check)
 	if err != nil {
 		return err
@@ -202,7 +214,7 @@ func (c *Client) jobsChecked(ctx context.Context, path string, t Target, v *cred
 		for _, j := range jobs {
 			if j.RunnerID == positiveID(t.Enrollment.Binding.RunnerID) {
 				owned++
-				if !j.matches(t) {
+				if (!completed && !j.matches(t)) || (completed && !j.matchesCompleted(t)) {
 					return ErrIdentity
 				}
 			}
@@ -213,7 +225,7 @@ func (c *Client) jobsChecked(ctx context.Context, path string, t Target, v *cred
 	}
 	for _, j := range jobs {
 		if j.ID == positiveID(t.JobID) {
-			if !j.matches(t) {
+			if (!completed && !j.matches(t)) || (completed && !j.matchesCompleted(t)) {
 				return ErrIdentity
 			}
 			return nil

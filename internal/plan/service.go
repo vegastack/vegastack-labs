@@ -252,6 +252,12 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 		risk = string(authorization.RiskInfrastructure)
 	}
 
+	if declaration.DeclarationType == store.CIPublicationOperation {
+		if !store.ValidCIPublicationDeclaration(declaration) || service.config.AuthorizationBranch != "human" || service.config.ExecutorMode != "central" {
+			return store.PlanCommitResult{}, planError(generated.ErrorCodeAuthorizationDenied)
+		}
+		risk = string(authorization.RiskControlPlane)
+	}
 	if declaration.CIJob != nil || declaration.CIEnrollment != nil || declaration.ServiceImport != nil || declaration.AuthorizationGrantBatch != nil || declaration.NetworkEndpoint != nil {
 		risk = string(authorization.RiskControlPlane)
 	}

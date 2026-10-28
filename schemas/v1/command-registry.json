@@ -1138,6 +1138,79 @@
     },
     {
       "path": [
+        "ci",
+        "publication",
+        "draft"
+      ],
+      "summary": "Draft verified OCI publication for exact human acknowledgement.",
+      "availability": "available",
+      "ownerPhase": "9",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected operator profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one exact publication draft request.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/ci-publication-draft-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/declaration-revision",
+      "examples": [
+        {
+          "summary": "Draft verified OCI publication for exact human acknowledgement.",
+          "arguments": [
+            "ci",
+            "publication",
+            "draft",
+            "--config",
+            "fixture/client.json",
+            "--file",
+            "fixture/publication.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
         "connect"
       ],
       "summary": "Authenticate and close one pinned managed-node SSH connection; no shell or forwarding.",
@@ -8036,6 +8109,16 @@
       "id": "vegastack-labs.dev/ci-job-request",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/ci-job-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/ci-publication-binding",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/ci-publication-binding.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/ci-publication-draft-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/ci-publication-draft-request.schema.json"
     },
     {
       "id": "vegastack-labs.dev/cloudflare-access-profile",

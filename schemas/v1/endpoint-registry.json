@@ -214,6 +214,19 @@
       ]
     },
     {
+      "id": "api.v1.ci.publications.drafts.create",
+      "method": "POST",
+      "path": "/api/v1/ci/publications/drafts",
+      "availability": "available",
+      "ownerPhase": "9",
+      "requestSchema": "vegastack-labs.dev/ci-publication-draft-request",
+      "dataSchema": "vegastack-labs.dev/declaration-revision",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
       "id": "api.v1.credential-lifecycle-drafts.create",
       "method": "POST",
       "path": "/api/v1/credential-lifecycle-drafts",

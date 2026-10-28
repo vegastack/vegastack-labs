@@ -32,6 +32,7 @@ type Profile struct {
 	HostingLifecycleProfiles         []generated.HostingLifecycleProfile
 	ServiceRecoveryProfiles          []generated.ServiceRecoveryProfile
 	CIJobBindings                    []generated.CiJobExecutionBinding
+	CIPublicationBindings            []generated.CiPublicationBinding
 	CIEnrollmentBindings             []generated.CiEnrollmentBinding
 	ServiceBindings                  []generated.ServiceProviderBinding
 	ServiceDeploymentBindings        []generated.ServiceDeploymentProviderBinding
@@ -261,6 +262,10 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 		}
 		scheduledRunner = &ScheduledRunner{UID: uid, PrincipalID: runner.PrincipalID, BinaryPath: runner.BinaryPath, ConfigPath: runner.ConfigPath}
 	}
+	ciPublications, err := FreezeCIPublicationBindings(input.CIPublicationBindings)
+	if err != nil {
+		return Profile{}, err
+	}
 	ciJobs, err := FreezeCIJobBindings(input.CIJobBindings)
 	if err != nil {
 		return invalid()
@@ -297,6 +302,7 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 	return Profile{
 		HostingLifecycleProfiles: hostingProfiles, ServiceRecoveryProfiles: recoveryProfiles,
 		CIJobBindings:                    ciJobs,
+		CIPublicationBindings:            ciPublications,
 		CIEnrollmentBindings:             ciBindings,
 		CIDeploymentJobs:                 ciDeployments,
 		ServiceBindings:                  serviceBindings,

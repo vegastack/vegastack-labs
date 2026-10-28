@@ -156,6 +156,7 @@ type Config struct {
 	HostingLifecycleProfiles      []hostinglifecycle.Profile
 	ServiceRecoveryPolicies       []servicerecovery.Policy
 	CIJobBindings                 []generated.CiJobExecutionBinding
+	CIPublicationBindings         []generated.CiPublicationBinding
 	CIEnrollmentPolicies          []CIEnrollmentPolicy
 	ServiceImportPolicies         []servicecatalog.Policy
 	ServiceDeploymentPolicies     []servicecatalog.DeploymentPolicy

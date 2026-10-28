@@ -250,6 +250,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/browser-scheduled-job-policy-list-data.schema.json",
 		"schemas/v1/browser-scheduled-job-policy.schema.json",
 		"schemas/v1/browser-scheduled-job.schema.json",
+		"schemas/v1/ci-deployment-job-binding.schema.json",
 		"schemas/v1/ci-enrollment-binding.schema.json",
 		"schemas/v1/ci-enrollment-definition.schema.json",
 		"schemas/v1/ci-enrollment-draft-request.schema.json",
@@ -259,6 +260,8 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/ci-job-draft-request.schema.json",
 		"schemas/v1/ci-job-execution-binding.schema.json",
 		"schemas/v1/ci-job-request.schema.json",
+		"schemas/v1/ci-publication-binding.schema.json",
+		"schemas/v1/ci-publication-draft-request.schema.json",
 		"schemas/v1/cloudflare-access-profile.schema.json",
 		"schemas/v1/control-handoff-input.schema.json",
 		"schemas/v1/control-recovery-receive-input.schema.json",
@@ -939,8 +942,8 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 			}
 		}
 	}
-	if available != 99 || planned != 13 {
-		t.Fatalf("command availability = (%d available, %d planned), want (99, 13)", available, planned)
+	if available != 100 || planned != 13 {
+		t.Fatalf("command availability = (%d available, %d planned), want (100, 13)", available, planned)
 	}
 	// #304 adds three exact CI enrollment commands.
 	// #286 adds four exact service list/show/observe/import-draft commands.

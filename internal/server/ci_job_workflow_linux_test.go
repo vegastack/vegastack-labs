@@ -109,10 +109,13 @@ func (f ciJobCredentialFixture) Resolve(_ context.Context, b credentialref.StepB
 }
 
 type ciJobWireFixture struct {
-	allowed    atomic.Int32
-	name       string
-	fault      string
-	beforeHeld func()
+	sourceCompleted bool
+	sourceFailed    bool
+	afterSuccess    func(*testing.T, hostActionEnrollmentFixture, *store.Store, generated.Run, store.CIEnrollmentPolicy, generated.CiJobExecutionBinding)
+	allowed         atomic.Int32
+	name            string
+	fault           string
+	beforeHeld      func()
 }
 
 func (f *ciJobWireFixture) Lookup(id, version string) (hostaction.Handler, bool) {
@@ -376,6 +379,9 @@ func testCIJobController(t *testing.T, f hostActionEnrollmentFixture, wire *ciJo
 		if e = jobs.ConsumeAdmission(ctx, adapter.Operation{}, adapter.ExactExecutionBinding{PlanID: p.PlanID, RunID: run.RunID, StepID: run.Steps[0].StepID, LeaseID: lease}, ciObservationFixture()); store.Code(e) != generated.ErrorCodeStateConflict {
 			t.Fatal("replayed admission accepted")
 		}
+		if wire.afterSuccess != nil {
+			wire.afterSuccess(t, f, authority, run, policy, binding)
+		}
 	} else {
 		if run.Status == "succeeded" {
 			t.Fatal("denied controller flow succeeded", wire.fault, run)
@@ -440,6 +446,24 @@ func ciJobProviderFixture(t *testing.T, wire *ciJobWireFixture) *githubci.Client
 			t.Error("unexpected provider route", r.Method, r.URL.String())
 			w.WriteHeader(404)
 			return
+		}
+		if wire.sourceCompleted {
+			if object, ok := body.(map[string]any); ok {
+				if strings.Contains(r.URL.Path, "/actions/runs/") && !strings.HasSuffix(r.URL.Path, "/jobs") {
+					object["status"] = "completed"
+					object["conclusion"] = "success"
+				}
+				if list, ok := object["jobs"].([]any); ok {
+					for _, item := range list {
+						job := item.(map[string]any)
+						job["status"] = "completed"
+						job["conclusion"] = "success"
+						if wire.sourceFailed {
+							job["conclusion"] = "failure"
+						}
+					}
+				}
+			}
 		}
 		if e := json.NewEncoder(w).Encode(body); e != nil {
 			t.Error(e)

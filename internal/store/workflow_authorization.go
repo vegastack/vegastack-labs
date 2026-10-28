@@ -159,6 +159,11 @@ func workflowDeclarationTargets(row discoveryRow, d generated.DeclarationRevisio
 			return deny()
 		}
 		add("service.deploy.prepare", "service.read", "service", d.ServiceDeployment.Definition.ServiceID)
+	case CIPublicationOperation:
+		if !ValidCIPublicationDeclaration(d) {
+			return deny()
+		}
+		add("ci.publication.prepare", "ci.publication.read", "ci-publication", op.TargetID)
 	case CIJobOperation:
 		if d.CIJob == nil || !ValidateCIJobDeclaration(d) {
 			return deny()

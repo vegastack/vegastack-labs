@@ -211,6 +211,19 @@ Owner phase: `9` · risk: `mutation` · availability: `available`
 
 - Draft one inert exact CI job for human plan acknowledgement.: `vsk-labs ci job draft --config fixture/client.json --file fixture/ci-job.json --output json`
 
+### `vsk-labs ci publication draft`
+
+Draft verified OCI publication for exact human acknowledgement.
+
+Owner phase: `9` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--file <path>` — Read one exact publication draft request.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Draft verified OCI publication for exact human acknowledgement.: `vsk-labs ci publication draft --config fixture/client.json --file fixture/publication.json --output json`
+
 ### `vsk-labs connect`
 
 Authenticate and close one pinned managed-node SSH connection; no shell or forwarding.

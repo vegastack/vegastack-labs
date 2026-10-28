@@ -186,7 +186,7 @@ func persistServiceImportActor(ctx context.Context, tx *sql.Tx, run generated.Ru
 	if json.Unmarshal(raw, &p) != nil {
 		return actionError(generated.ErrorCodeIntegrityFailure)
 	}
-	if p.CIJob == nil && p.CIEnrollment == nil && p.HostingLifecycle == nil && p.ServiceRecovery == nil && p.ServiceImport == nil && p.ServiceDeployment == nil {
+	if !IsCIPublication(p) && p.CIJob == nil && p.CIEnrollment == nil && p.HostingLifecycle == nil && p.ServiceRecovery == nil && p.ServiceImport == nil && p.ServiceDeployment == nil {
 		return nil
 	}
 	actor, err := serviceActor(ctx)
