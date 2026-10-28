@@ -39,14 +39,14 @@ func TestNetworkConnectSourceSealsRejectDrift(t *testing.T) {
 	// immutable historical source maps are left untouched.
 	for key := range current {
 		relative := strings.SplitN(key, "|", 2)[0]
-		for currentKey := range ciJobSourceSeals {
+		for currentKey := range currentCIJobFixtureSeals() {
 			if strings.HasPrefix(currentKey, relative+"|") {
 				delete(current, key)
 				break
 			}
 		}
 	}
-	for key, seal := range ciJobSourceSeals {
+	for key, seal := range currentCIJobFixtureSeals() {
 		current[key] = seal
 	}
 
