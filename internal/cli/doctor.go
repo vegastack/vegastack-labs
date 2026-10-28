@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/vegastack/vegastack-labs/internal/controllerprerequisites"
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/result"
@@ -98,4 +99,35 @@ func diagnoseSummary(data generated.ApiSummaryData) (string, string, string) {
 	default:
 		return generated.ErrorCodePrerequisiteBlocked, "source-unknown", "Collect current evidence through the owning approved observation workflow; do not infer health."
 	}
+}
+
+func (app *App) controllerPrerequisites(ctx context.Context, p parsedArguments) int {
+	data := controllerprerequisites.Collect(ctx, p.Value(generated.FlagExpectedMachineID))
+	if !data.IdentityMatched {
+		envelope, err := result.NewFactory(app.build, app.requestIDs).Failure(p.commandName(), generated.RunStatusBlocked, generated.ErrorCodePrerequisiteBlocked, "controller-identity", false, 0, 0, data)
+		if err != nil {
+			return app.fail(p.output, p.commandName(), generated.ErrorCodeIntegrityFailure, "controller-result", generated.RunStatusBlocked, false)
+		}
+		if p.output == outputJSON {
+			if result.Encode(app.stdout, envelope) != nil {
+				return generated.ErrorExitCodes[generated.ErrorCodeIntegrityFailure]
+			}
+		} else {
+			_, _ = fmt.Fprintln(app.stdout, "Controller prerequisites unavailable: unsupported platform or exact machine identity not matched.")
+		}
+		return generated.ErrorExitCodes[generated.ErrorCodePrerequisiteBlocked]
+	}
+	if p.output == outputJSON {
+		return app.succeedData(p.commandName(), data)
+	}
+	_, err := fmt.Fprintf(app.stdout, "Controller identity matched. Metadata only; admission is not qualified.\n")
+	for _, f := range data.Facts {
+		if err == nil {
+			_, err = fmt.Fprintf(app.stdout, "%s: %s\n", f.Selector, f.State)
+		}
+	}
+	if err != nil {
+		return generated.ErrorExitCodes[generated.ErrorCodeIntegrityFailure]
+	}
+	return 0
 }

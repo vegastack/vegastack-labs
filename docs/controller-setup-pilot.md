@@ -1,0 +1,38 @@
+# Selected controller setup pilot
+
+This optional setup path makes one explicitly selected controller and its one website connector usable without claiming ordinary host qualification. It preserves the existing database, human approval flow and current credential checks. Ordinary host hardening, workload admission and the deferred native recovery/reboot tests stay unchanged.
+
+## Selection and approval
+
+The protected `controllerSetupPilot` profile binds the machine and physical identity, database instance and recovery epoch, administrator principal and UID/GID, separate service UID/GID, executable digest, preserved recovery-image digest and expiry. It has no default target. The applied deployment policy must contain `controller.setup.pilot.<complete-policy-SHA256-hex>`. Eligibility expires within 24 hours and is rechecked against current authority at claim and receipt.
+
+An initial controller need not be a registered managed host. Its setup uses the distinct `core.controller-setup` / `controller.setup.bootstrap` central operation. `ArtifactDigest` binds the complete protected policy; `InputDigest` binds the canonical `ControllerInstallInput` JSON. It cannot carry a HostAction, HostRoleScope or access sequence. Typed pilot eligibility is never a fabricated HostAdmissionSnapshot or passed gate evidence.
+
+Review the canonical input beside the readable plan before acknowledging it. It names the stage, account IDs, resource limits, selected artifacts, exact preimages and recovery image. A hash alone does not explain those changes. Obtain the current plan's Slack acknowledgement before executing each stage. The finite executor claims that exact plan through the local API using the pinned administrator's real OS-peer identity, then submits its result for independent server verification. Root is never mapped to the human principal and never opens SQLite.
+
+## Three separate stages
+
+| Stage | Changes | Verification limit |
+| --- | --- | --- |
+| `foundation-native-authority` | Creates the dedicated service account and fixed executable, inert unit and narrow native authority rules. Transfers only metadata ownership of the existing Slack credential directory and three selected files. | Installation is recorded as awaiting native verification. The foreground controller remains the writer. |
+| `service-handoff` | Binds the foreground PID/start identity, executable, writer lock, socket and finite custody list; stops that writer, transfers the named artifacts and starts the canonical service. Preserves the before-config and recovery information. | Requires the same database instance/epoch and actual local service/API health. No second writer, setup or downgrade. |
+| `connector-install` | Reuses the pinned single-connector installer for the exact selected host, account, successful bootstrap tunnel receipt and origin CA choice. | Requires current native credential references and actual installed/loaded/denied-reader checks. Connector process health alone does not establish browser acceptance. |
+
+The service retains the three existing Slack references through systemd `LoadCredential`. Credential bytes are never copied into the request, plan, database, command arguments, environment or result. Credential custody observations hash metadata only. The local operator supplies the separate tunnel-scoped connector token through the existing hidden-input procedure.
+
+The socket remains local. Its explicit administrator group permits the existing administrator to reach it after the service UID changes; principal bindings and effective grants remain unchanged. The ordinary unmarked connector host-action path still requires its normal baseline. An explicitly marked host action uses the selected policy verifier; an unregistered initial controller uses the separate setup stage above.
+
+## Identical operator procedure
+
+These finite entries are Linux-only and are not a general shell or API client. They take no target, path or command flags. All files supplied on stdin below contain nonsecret typed requests.
+
+1. Collect current nonsecret prerequisites with `vsk-labs doctor controller-prerequisites --expected-machine-id <selected-machine-id> --output json`. Bind actual account/path/process preimages and refuse conflicts. Installation still needs its separate concrete infrastructure authorization.
+2. As the current initial administrator, prepare the one fixed consistent recovery image: `vsk-labs __controller-setup-recovery < recovery-request.json`. This generated request contains the expected state revision and epoch. The server uses its online snapshot implementation, verifies integrity and returns the actual digest/instance/revision. An existing destination is never overwritten.
+3. Prepare the protected selected policy and its applied capability, then each canonical stage input and ordinary declaration/plan. Obtain the responsible human's Slack acknowledgement for that exact plan. The input must match its immutable operation digest.
+4. In the authorized local administrator session, invoke the same verified executable with `sudo /usr/local/bin/vsk-labs __controller-setup-once < claim-request.json`. The generated claim request contains the exact `PlanReferenceRequest` and canonical `inputJson`. During first executable installation, use the separately authorized verified staging copy of that same build. The executor drops to the protected administrator UID/GID only for API calls, clears inherited groups/environment and accepts no caller identity headers or `SUDO_UID` authority.
+5. Read the recorded server run. A current one-use lease and stage deadline bound effects. The service handoff deadline cannot exceed the claim lease. A failed or unverified receipt stays failed/partial; do not blindly rerun it. Inspect the preserved configuration/custody records and recovery image through the authorized recovery procedure before preparing a new plan.
+6. Activate the real native ingress references through their existing import, stage, Slack approval and current-reader verification flow. Then follow the six-stage [ingress bootstrap](cloudflare-ingress-operations.md#first-controller-read-ingress-bootstrap), selected connector installation and separately approved listener/DNS cutover. Verify actual allowed and denied browser behavior before calling the website ready.
+
+The root-only handoff record preserves the before-config and exact custody metadata. A failure after stopping the old writer records recovery required; it does not automatically restart the former foreground process or claim rollback succeeded. Preserve the database recovery image and retained former executable. Unknown file changes, expired approval, policy drift or missing current credential facts deny execution.
+
+This path does not install passed baseline evidence, close G-012/G-016, admit workloads, qualify two connectors or claim full-site/native acceptance. It adds no backup authority, signing system, privileged background agent or general recovery framework. Nodes04/05 remain excluded. Source approval and fixture results do not authorize installation or establish native/live success.

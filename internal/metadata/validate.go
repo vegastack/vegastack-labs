@@ -111,6 +111,16 @@ func validateEndpoints(endpoints []EndpointDefinition, schemas map[string]struct
 			if endpoint.Method != "POST" || endpoint.Path != "/api/v1/qualification/native/producer" || endpoint.TransportScope != "local" || endpoint.MaxRequestBytes != 8192 || endpoint.RequestSchema != "vegastack-labs.dev/native-producer-lookup-request" || endpoint.DataSchema != "vegastack-labs.dev/native-producer-lookup-data" || endpoint.RequestEncoding != "" || len(endpoint.Audiences) != 1 || !seenAudiences[AudienceOperator] {
 				return validationError("METADATA_INVALID", location+".requestEncoding")
 			}
+		} else if endpoint.ID == "api.v1.controller-setup.claim" || endpoint.ID == "api.v1.controller-setup.receipt" || endpoint.ID == "api.v1.controller-setup.recovery" {
+			name, request, data := "claim", "vegastack-labs.dev/controller-setup-claim-request", "vegastack-labs.dev/controller-setup-claim"
+			if endpoint.ID == "api.v1.controller-setup.receipt" {
+				name, request, data = "receipt", "vegastack-labs.dev/controller-setup-receipt-request", "vegastack-labs.dev/run"
+			} else if endpoint.ID == "api.v1.controller-setup.recovery" {
+				name, request, data = "recovery", "vegastack-labs.dev/controller-setup-recovery-request", "vegastack-labs.dev/controller-setup-recovery-data"
+			}
+			if endpoint.Method != "POST" || endpoint.Path != "/api/v1/controller-setup/"+name || endpoint.TransportScope != "local" || endpoint.MaxRequestBytes != 65536 || endpoint.RequestSchema != request || endpoint.DataSchema != data || endpoint.RequestEncoding != "" || len(endpoint.Audiences) != 1 || !seenAudiences[AudienceOperator] {
+				return validationError("METADATA_INVALID", location+".requestEncoding")
+			}
 		} else if (endpoint.RequestEncoding != "" && endpoint.RequestEncoding != "json") || (endpoint.TransportScope != "" && endpoint.TransportScope != "any" && !((endpoint.ID == "api.v1.scheduled-occurrences.create" || endpoint.ID == "api.v1.scheduled-jobs.cancel") && endpoint.TransportScope == "local")) || endpoint.MaxRequestBytes != 0 {
 			return validationError("METADATA_INVALID", location+".requestEncoding")
 		}

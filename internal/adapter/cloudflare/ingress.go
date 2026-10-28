@@ -52,6 +52,9 @@ func (a *IngressAdapter) ExecuteBoundWithCredentials(ctx context.Context, op ada
 		return adapter.Effect{}, ingress.Error(generated.ErrorCodePrerequisiteBlocked)
 	}
 	q := d.Request.Change
+	if ingress.IsBootstrap(q) {
+		return a.executeBootstrap(ctx, op, b, d, values, read, write)
+	}
 	before, e := a.Backend.ObserveIngress(ctx, q, values[read])
 	if e != nil {
 		return adapter.Effect{}, e
@@ -125,7 +128,18 @@ func (a *IngressAdapter) Verify(ctx context.Context, op adapter.Operation, effec
 		return fail(e)
 	}
 	defer v.Close()
-	s, e := a.Backend.ObserveIngress(ctx, d.staged.Request.Change, v)
+	var s ingress.Snapshot
+	if ingress.IsBootstrap(d.staged.Request.Change) {
+		backend, ok := a.Backend.(IngressBootstrapBackend)
+		if !ok {
+			return fail(ingress.Error(generated.ErrorCodePrerequisiteBlocked))
+		}
+		q := d.staged.Request.Change
+		q.ResourceID = d.snapshot.ResourceID
+		s, e = backend.ObserveBootstrap(ctx, q, v)
+	} else {
+		s, e = a.Backend.ObserveIngress(ctx, d.staged.Request.Change, v)
+	}
 	if e != nil || s.Digest != d.snapshot.Digest {
 		return fail(ingress.Error(generated.ErrorCodeIntegrityFailure))
 	}

@@ -31,6 +31,27 @@ After evidence apply, observe/import the existing tunnel ownership and prepare o
 
 Finally verify real browser login and allowed scoped reads, signed-out/unauthorized denial, retained local access and the approved origin/connector behavior. JWKS reachability and a configured identity binding alone do not prove a real login. Ingress observation still does not claim browser acceptance, origin isolation, HA or full deployment qualification. Remove only the owned approved route and restore the prior protected remote-disabled profile through the same scoped recovery procedure if required; preserve SQLite and unrelated provider resources.
 
+## First controller-read ingress bootstrap
+
+The optional protected `ingressBootstrap` policy enables only the selected one-controller initial setup. It pins the exact account, zone, hostname, existing DNS record, administrator/device, native credential references, controller physical/machine/database identity and epoch, private HTTPS origin/certificate digest, resource name and single allowed email. Its template is a `bootstrap-tunnel` change with empty provider-assigned IDs and one controller mapping whose connector ID is empty. Include its `BootstrapScopeDigest` in `ingressScopeDigests` and explicitly apply `cloudflare.ingress.controller-bootstrap`, `cloudflare.ingress` and `credential.ingress.read`. This setup-only branch does not produce passed G-012/G-016 evidence or change ordinary ingress checks.
+
+Reuse `network ingress observe`, then `network ingress draft`, then the existing immutable plan, infrastructure-admin human acknowledgement and apply. Each row below is a separate plan; successful `network ingress status --profile-id <id>` returns the nonsecret `resourceId` and `runId`. Copy actual predecessor IDs into the next typed request, never guessed IDs. Every request has `resourceId: ""`, ownership revision zero and the same protected bootstrap parameters. Set `resourceKind` as shown. `bootstrap.name` also equals `policyName`; `bootstrap.allowedEmail` is exactly one email.
+
+| Action | Resource kind | Required successful source runs |
+| --- | --- | --- |
+| `bootstrap-tunnel` | `tunnel-configuration` | None |
+| `bootstrap-group` | `access-group` | None |
+| `bootstrap-app` | `access-application` | None |
+| `bootstrap-policy` | `access-policy` | Group and application |
+| `bootstrap-seed` | `tunnel-configuration` | Tunnel, group, application and policy |
+| `bootstrap-cutover` | `dns-record` | All five preceding stages |
+
+List those run IDs in `bootstrap.sourceRunIds`. Top-level `tunnelId`, `accessAppId`, `accessPolicyId` and the one `allowedGroupIds` entry must exactly match the required predecessor receipts; leave IDs absent from that stage's dependencies empty. Creation rejects conflicting names/hostnames and cannot adopt another resource. The seed writes only the exact hostname and final 404 catch-all. Its strict TLS rule sets `originServerName` and `noTLSVerify: false`. When the separately prepared connector uses a private CA, protect `bootstrap.originCaPool: "/etc/vsk-labs/ingress/origin-ca.pem"` in the policy and every request; only the public CA certificate belongs at that connector path. Otherwise omit the pool. Ordinary hostname updates retain this origin option.
+
+The first five stages leave DNS unchanged. Connector token retrieval, secure connector installation and permanent controller/native-systemd custody are separate implemented/authorized host prerequisites, never implicit provider effects. Before the final cutover, configure the exact private listener with its actual Access application audience, retain local recovery, and put the actual serving connector UUID into the single controller mapping. The server verifies its current controller/database/machine/epoch and native references before credential handoff and rechecks before mutation. Cutover additionally probes real origin TLS/certificate identity and signed-out API denial, then verifies actual Access app/group/policy, strict seeded route and serving connector. Unknown or stale facts deny. Only the same pinned existing CNAME is updated; its previous content/proxy state and before digest are retained, and unrelated record attributes survive.
+
+A stage is durably reserved before its provider write. Lost responses, changed authority or failed verification remain partial/pending; another plan cannot blindly repeat the create. Inspect the exact receipt and provider resource under separately authorized scoped reconciliation; this feature supplies no automatic deletion, retry or rollback. Recovery to the retained DNS target requires another exact approved operation; do not delete the old tunnel. After bootstrap, build the complete existing controller-read pilot policy from actual IDs and genuine browser identity, collect/apply its current evidence and verify allowed/denied browser behavior. Bootstrap alone establishes neither browser acceptance, host admission, HA nor full-site qualification.
+
 ## Connector failure and rotation
 
 Disconnect names one connector UUID. The adapter always sends `client_id` and never silently issues all-connector cleanup. Zero or one serving connector is reported without inventing route health. A disconnected connector may reconnect while its token remains valid.
@@ -40,3 +61,64 @@ Provider token rotation prevents future connections with the old token; existing
 The human fallback has the same exact target list, approval, credential references and recovery prerequisites. On each declared eligible connector, use the existing approved host secret-custody and configuration procedure to install the new referenced token, restart only its named service, and verify its provider reconnect and origin behavior before proceeding in the approved order. Do not paste an installation command containing the token or put a token in process arguments. If that secure host procedure is not implemented or authorized, stop at partial; this issue adds no host executor or privilege bypass.
 
 Submit non-secret references through `vsk-labs network ingress rollout-evidence --config <profile> --file <evidence>`. The request names the exact rotation run, material version and connector set. The server independently rereads current provider connections; a caller receipt cannot mark success. Missing replicas or retained old sessions remain partial. The current provider API cannot prove the installed credential generation, so even new sessions remain `verification-pending`. This workflow does not claim full rotation, origin isolation, G-012 qualification or compromise containment. Any tunnel-wide emergency containment requires its own separately approved boundary; it is not an automatic fallback.
+
+### Single connector installation
+
+The fixed `cloudflare.connector.install` host action installs only
+`/usr/local/bin/vsk-labs-cloudflared` and `vsk-labs-ingress.service`. It is an
+ordinary `host.action.execute` operation: prepare with `node action prepare`,
+create the immutable plan, obtain human acknowledgement and apply through the
+same engine. The selected controller identity and the successfully created
+bootstrap tunnel receipt must match the protected bootstrap profile. A live
+connector ID is observed after its first connection; it is not invented as an
+installation prerequisite.
+
+Installation additionally requires the existing actual `role-install`
+`host.hardening-baseline` evaluation. Registered/adopted status, an installed
+service, or the one-connector pilot choice does not satisfy that evaluation.
+Missing current baseline/native evidence blocks ordinary installation. The
+explicitly approved limited controller setup policy may instead authorize only
+the selected controller and this one connector through the shared actual
+controller-pilot verifier. Its complete protected policy digest must appear as
+`controllerSetupPilotDigest` in immutable ActionInput; a marker alone, a missing
+verifier, changed scope, or failed current checks still denies execution.
+An unregistered initial controller instead uses the distinct `connector-install` stage in the [selected controller setup procedure](controller-setup-pilot.md); it does not need a manufactured host record. That stage rechecks the successful bootstrap tunnel receipt and current native ingress custody. Unmarked plans retain the ordinary baseline path. This setup eligibility does
+not mark baseline passed, change ordinary host/workload admission or two-connector
+qualification, or pass G-012/G-016.
+
+The operator first supplies the tunnel-scoped token by hidden input into exactly
+`/etc/vsk-labs/ingress/tunnel-token`, owned by root with mode `0600`, one hard
+link and no symlink or writable ancestors. Token entry is an explicitly scoped
+operator preparation, not a credential-reveal command or an agent action.
+Never put the token in command arguments, environment, a plan, API response,
+SQLite or source. The installer reads and decodes the token only inside the local privileged effect, compares its public account/tunnel identifiers to the exact acknowledged scope, rejects malformed/unknown fields and alternate endpoints, and wipes its private buffers. It does not project, hash or transfer the token. This is scope validation, not provider acceptance or signature verification. The shape is grounded in the pinned [TunnelToken](https://github.com/cloudflare/cloudflared/blob/2026.10.5/connection/connection.go) and [ParseToken](https://github.com/cloudflare/cloudflared/blob/2026.10.5/cmd/cloudflared/tunnel/subcommands.go) implementations. Systemd delivers
+it to the DynamicUser service using `LoadCredential` and cloudflared's
+`--token-file`. Automated token retrieval/distribution is not implemented.
+
+For a private-CA HTTPS origin, prepare the actual public CA certificate(s) at
+`/etc/vsk-labs/ingress/origin-ca.pem`, root-owned mode `0644`, with protected
+ancestors which permit the service to traverse to the public certificate. The exact PEM digest is in the acknowledged action input; bootstrap
+must select that same fixed `caPool` path. The installer accepts current CA
+certificates only, never issuer private keys. `originServerName`, full TLS
+verification and the later origin leaf pin remain required. A valid configured
+origin certificate/key is an independent protected controller input; this
+installer does not issue certificates. Publicly trusted origins may omit caPool.
+Cloudflare documents [private-CA origin trust](https://developers.cloudflare.com/tunnel/troubleshooting/https-origins/)
+and the [CA pool parameter](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/origin-parameters/).
+
+The binary is pinned to the official [2026.10.5 release](https://github.com/cloudflare/cloudflared/releases/tag/2026.10.5),
+Linux AMD64 raw artifact SHA-256
+`e1bc0cf084fd9e590554fe769a86b1db46701c3f847a43d902f7b974a4e16298`.
+The acknowledged effect downloads only that fixed release URL, checks the hash,
+refuses replacement of unrelated files/units, and starts only the fixed unit.
+It disables cloudflared automatic updates. [Token-file support](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/run-parameters/)
+requires cloudflared 2025.4.0 or newer.
+
+Verification checks the fixed unit, active process and pinned executable;
+provider connection identity, origin TLS and Access allowed/denied behavior
+still require their actual observations. Partial installation never qualifies
+ingress. Preserve the partial result and inspect the fixed artifacts; retry only
+under a new current acknowledged plan after resolving the reported prerequisite.
+An unrelated existing unit, executable, token or CA artifact is never overwritten.
+Stopping/removing the service or replacing credential material requires a
+separately scoped supported operation or recorded operator emergency procedure.

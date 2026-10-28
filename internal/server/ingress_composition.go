@@ -20,6 +20,7 @@ import (
 )
 
 type ingressAuthority struct {
+	bootstrap   *ingressBootstrapComposition
 	pilot       *ingressPilotComposition
 	repository  *store.IngressRepository
 	gates       *store.GateRepository
@@ -37,6 +38,12 @@ func (c *ingressAuthority) check(ctx context.Context, d ingress.Staged) error {
 	scope, e := c.gates.GetAppliedProfileScope(ctx)
 	if e != nil || scope.RecoveryEpoch != d.Request.RecoveryEpoch || !slices.Contains(scope.Capabilities, "cloudflare.ingress") || !slices.Contains(scope.Capabilities, "credential.ingress.read") {
 		return ingress.Error(generated.ErrorCodePrerequisiteBlocked)
+	}
+	if ingress.IsBootstrap(d.Request.Change) {
+		if c.bootstrap == nil {
+			return ingress.Error(generated.ErrorCodePrerequisiteBlocked)
+		}
+		return c.bootstrap.check(ctx, d)
 	}
 	resolved := gate.ResolvedScope{ProfileID: scope.ProfileID, ProfileVersion: scope.ProfileVersion, PolicyID: scope.PolicyID, PolicyVersion: scope.PolicyVersion, Capabilities: scope.Capabilities, StateRevision: scope.StateRevision, RecoveryEpoch: scope.RecoveryEpoch}
 	if c.pilot != nil {
@@ -147,6 +154,9 @@ func (g ingressSecretGate) VerifySecretStep(ctx context.Context, p generated.Pla
 func registerIngress(ctx context.Context, app *api.Application, s *store.Store, registry *adapter.Registry, declarations *change.Service, factory *result.Factory, p serverconfig.Profile, build result.BuildInfo, databasePath string, identityClient *http.Client) (*ingressAuthority, error) {
 	repository := store.NewIngressRepository(s, p.IngressScopeDigests)
 	source := &ingressAuthority{repository: repository, gates: store.NewGateRepository(s), credentials: store.NewCredentialRepository(s), registry: registry, build: build, proofs: gate.NewProofRegistry(), backend: cloud.NewClient()}
+	if p.IngressBootstrap != nil {
+		source.bootstrap = &ingressBootstrapComposition{profile: p, store: s, source: source, machine: pilotMachineDigest, probe: probeBootstrapOrigin}
+	}
 	if p.IngressControllerReadPilot != nil {
 		source.pilot = &ingressPilotComposition{profile: p, store: s, source: source, identityClient: identityClient, probe: probePilotOrigin, machine: pilotMachineDigest}
 	}
@@ -163,7 +173,7 @@ func registerIngress(ctx context.Context, app *api.Application, s *store.Store, 
 }
 
 func (c *ingressAuthority) Observe(ctx context.Context, q generated.IngressDraftRequest) (generated.IngressStatusData, error) {
-	if c.pilot != nil && ingress.ValidatePilotChange(*c.pilot.profile.IngressControllerReadPilot, q.Change, q.RecoveryEpoch) != nil {
+	if !ingress.IsBootstrap(q.Change) && c.pilot != nil && ingress.ValidatePilotChange(*c.pilot.profile.IngressControllerReadPilot, q.Change, q.RecoveryEpoch) != nil {
 		return generated.IngressStatusData{}, ingress.Error(generated.ErrorCodeAuthorizationDenied)
 	}
 	d, e := c.repository.Preview(ctx, q)
@@ -173,6 +183,14 @@ func (c *ingressAuthority) Observe(ctx context.Context, q generated.IngressDraft
 	scope, e := c.gates.GetAppliedProfileScope(ctx)
 	if e != nil || scope.RecoveryEpoch != q.RecoveryEpoch || !slices.Contains(scope.Capabilities, "cloudflare.ingress") || !slices.Contains(scope.Capabilities, "credential.ingress.read") {
 		return generated.IngressStatusData{}, ingress.Error(generated.ErrorCodePrerequisiteBlocked)
+	}
+	if ingress.IsBootstrap(q.Change) {
+		if c.bootstrap == nil {
+			return generated.IngressStatusData{}, ingress.Error(generated.ErrorCodePrerequisiteBlocked)
+		}
+		if e = c.bootstrap.check(ctx, d); e != nil {
+			return generated.IngressStatusData{}, e
+		}
 	}
 	b := d.Bindings[0]
 	cap, e := c.registry.ResolveCredentialCapability(b.ResolverID, ingress.AdapterID, scope.ProfileID)
@@ -194,7 +212,16 @@ func (c *ingressAuthority) Observe(ctx context.Context, q generated.IngressDraft
 	if _, e = c.repository.Preview(ctx, q); e != nil {
 		return generated.IngressStatusData{}, e
 	}
-	observation, e := c.backend.ObserveIngress(ctx, q.Change, v)
+	var observation ingress.Snapshot
+	if ingress.IsBootstrap(q.Change) {
+		backend, ok := c.backend.(cloud.IngressBootstrapBackend)
+		if !ok {
+			return generated.IngressStatusData{}, ingress.Error(generated.ErrorCodePrerequisiteBlocked)
+		}
+		observation, e = backend.ObserveBootstrap(ctx, q.Change, v)
+	} else {
+		observation, e = c.backend.ObserveIngress(ctx, q.Change, v)
+	}
 	if e != nil {
 		return generated.IngressStatusData{}, e
 	}

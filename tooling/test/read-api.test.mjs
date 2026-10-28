@@ -492,3 +492,30 @@ test("combined Phase 10 routes retain exact read and inert draft contracts", asy
     assert.ok((await verifyReadAPI(root)).codes.includes("READ_API_ENDPOINT_DRIFT"), id);
   }
 });
+
+
+test("approved #333 controller setup endpoints retain exact local operator boundaries", async (t) => {
+  const registry = JSON.parse(await readFile(path.join(process.cwd(), "schemas/v1/endpoint-registry.json"), "utf8"));
+  const ids = ["api.v1.controller-setup.claim", "api.v1.controller-setup.receipt", "api.v1.controller-setup.recovery"];
+  assert.equal((await verifyReadAPI()).status, "pass");
+  for (const id of ids) {
+    assert.ok(registry.endpoints.find(endpoint => endpoint.id === id), id);
+    for (const change of ["remove", "duplicate", "browser", "method", "path", "ownerPhase", "requestSchema", "dataSchema", "stream", "transportScope", "maxRequestBytes", "availability", "extra-field", "extra-route", "planned-extra", "historical-route"]) {
+      const copy = structuredClone(registry);
+      const endpoint = copy.endpoints.find(endpoint => endpoint.id === id);
+      if (change === "remove") copy.endpoints = copy.endpoints.filter(endpoint => endpoint.id !== id);
+      else if (change === "duplicate") copy.endpoints.push({...endpoint});
+      else if (change === "browser") endpoint.audiences.push("browser");
+      else if (change === "method") endpoint.method = "GET";
+      else if (change === "path") endpoint.path += "/execute";
+      else if (change === "transportScope") endpoint.transportScope = "ssh";
+      else if (change === "maxRequestBytes") endpoint.maxRequestBytes = 65537;
+      else if (change === "extra-field") endpoint.allowDirectExecution = true;
+      else if (change === "extra-route" || change === "planned-extra") copy.endpoints.push({...endpoint, id: "api.v1.controller-setup.execute", path: "/api/v1/controller-setup/execute", availability: change === "planned-extra" ? "planned" : "available"});
+      else if (change === "historical-route") copy.endpoints = copy.endpoints.filter(endpoint => endpoint.id !== "api.v1.summary.get");
+      else endpoint[change] = "unreviewed";
+      const root = await fixtureRepo(t, {"schemas/v1/endpoint-registry.json": `${JSON.stringify(copy)}\n`});
+      assert.ok((await verifyReadAPI(root)).codes.includes("READ_API_ENDPOINT_DRIFT"), `${id}/${change}`);
+    }
+  }
+});

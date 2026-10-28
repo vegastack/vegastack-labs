@@ -1481,6 +1481,9 @@ export interface HostingOwnedResource {
 export interface IngressStatusData {
   readonly "schema": "vegastack-labs.dev/ingress-status-data";
   readonly "schemaVersion": "1.0.0";
+  readonly "resourceId"?: string;
+  readonly "resourceKind"?: string;
+  readonly "runId"?: string;
   readonly "profileId": string;
   readonly "status": "unknown" | "unavailable" | "observed" | "partial";
   readonly "reason": string;
@@ -11375,6 +11378,33 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "enum": [
           "1.0.0"
         ]
+      },
+      {
+        "name": "resourceId",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "minLength": 1,
+        "maxLength": 64
+      },
+      {
+        "name": "resourceKind",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "minLength": 1,
+        "maxLength": 64
+      },
+      {
+        "name": "runId",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "minLength": 1,
+        "maxLength": 128
       },
       {
         "name": "profileId",

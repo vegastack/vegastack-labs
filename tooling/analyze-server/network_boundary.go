@@ -24,6 +24,10 @@ func reviewedNetworkActorFile(relative string, content []byte) bool {
 	if relative == "internal/store/ingress_repository.go" && actual == "c1fe62ddcb7924866f2cef33bfef52232deab77b01bab8074baa1bef2982e1fa" {
 		return true
 	}
+	// #330 adds finite bootstrap receipts while preserving current actor restoration.
+	if relative == "internal/store/ingress_repository.go" && actual == "68d01b82eba0752f365188d31a19b8fd061763997323e136e7b49c80bf2da417" {
+		return true
+	}
 	return actual == expected
 }
 

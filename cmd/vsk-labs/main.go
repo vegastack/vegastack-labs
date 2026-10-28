@@ -23,6 +23,9 @@ var (
 )
 
 func main() {
+	if handled, code := runControllerSetupMode(context.Background(), os.Args[1:]); handled {
+		os.Exit(code)
+	}
 	if handled, code := runCIJobMode(context.Background(), os.Args[1:]); handled {
 		os.Exit(code)
 	}

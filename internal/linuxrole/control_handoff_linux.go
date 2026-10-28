@@ -408,8 +408,21 @@ func WriteControlHealth(ctx context.Context, w io.Writer) error {
 	if os.Getuid() == 0 || os.Getuid() != os.Geteuid() {
 		return errNative
 	}
+	return writeControlHealthPeer(ctx, w, uint32(os.Geteuid()), 0600)
+}
+
+// WriteControllerPilotHealth retains the administrator's existing OS-peer
+// identity while verifying the separately owned service's actual socket peer.
+func WriteControllerPilotHealth(ctx context.Context, in ControllerInstallInput, w io.Writer) error {
+	if ValidateControllerInstallInput(in) != nil || int64(os.Getuid()) != in.AdministratorUID || os.Getuid() != os.Geteuid() || int64(os.Getgid()) != in.AdministratorGID {
+		return errNative
+	}
+	return writeControlHealthPeer(ctx, w, uint32(in.ServiceUID), 0660)
+}
+
+func writeControlHealthPeer(ctx context.Context, w io.Writer, peerUID uint32, mode uint32) error {
 	var st unix.Stat_t
-	if unix.Lstat(controlSocket, &st) != nil || st.Mode&unix.S_IFMT != unix.S_IFSOCK || st.Uid != uint32(os.Geteuid()) || st.Mode&0077 != 0 {
+	if unix.Lstat(controlSocket, &st) != nil || st.Mode&unix.S_IFMT != unix.S_IFSOCK || st.Uid != peerUID || st.Mode&0777 != mode {
 		return errNative
 	}
 	var pid int64
@@ -431,7 +444,7 @@ func WriteControlHealth(ctx context.Context, w io.Writer) error {
 		var cred *unix.Ucred
 		var ce error
 		sc.Control(func(fd uintptr) { cred, ce = unix.GetsockoptUcred(int(fd), unix.SOL_SOCKET, unix.SO_PEERCRED) })
-		if ce != nil || cred == nil || cred.Uid != uint32(os.Geteuid()) {
+		if ce != nil || cred == nil || cred.Uid != peerUID {
 			c.Close()
 			return nil, errNative
 		}

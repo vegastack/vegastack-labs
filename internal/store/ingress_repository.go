@@ -45,6 +45,9 @@ func ingressOwner(row discoveryRow, c generated.IngressChange) error {
 	return nil
 }
 func ingressOwnership(row discoveryRow, c generated.IngressChange, epoch int64) error {
+	if ingress.IsBootstrap(c) {
+		return bootstrapDependencies(row, c, epoch)
+	}
 	var rev int64
 	var scope string
 	var oldEpoch int64
@@ -66,6 +69,11 @@ func (r *IngressRepository) Stage(ctx context.Context, q generated.IngressDraftR
 	raw, _ := json.Marshal(q)
 	if generated.ValidateContractJSON(generated.SchemaIDIngressDraftRequest, raw, generated.ContractExact) != nil || ingress.Validate(q.Change) != nil || !slices.Contains(r.allowed, ingress.ScopeDigest(q.Change)) {
 		return out, ingressError(generated.ErrorCodeInputInvalid)
+	}
+	if ingress.IsBootstrap(q.Change) {
+		if e := r.CheckBootstrapUnattempted(ctx, q.Change, q.RecoveryEpoch); e != nil {
+			return out, e
+		}
 	}
 	d := ingress.Digest(q)
 	out = ingress.Staged{ID: "ingress-" + d[7:39], Digest: d, Request: q}
@@ -219,6 +227,9 @@ func (r *IngressRepository) Record(ctx context.Context, d ingress.Staged, b adap
 				return e
 			}
 		}
+		if ingress.IsBootstrap(d.Request.Change) {
+			return recordBootstrapReceipt(ctx, tx, d, b, s, status)
+		}
 		if status == "observed" {
 			row := func(q string, args ...any) *sql.Row { return tx.QueryRowContext(ctx, q, args...) }
 			actor := identity.Principal{ID: d.ActorID, Method: d.ActorMethod, DeviceID: d.ActorDevice}
@@ -264,10 +275,40 @@ func (r *IngressRepository) Status(ctx context.Context, id string) (out generate
 			return e
 		}
 		out.OwnershipRevision = rev.Int64
-		e := row(`SELECT status,reason,observation_digest,observed_at FROM ingress_observations WHERE profile_id=? AND recovery_epoch=? ORDER BY rowid DESC LIMIT 1`, id, out.RecoveryEpoch).Scan(&out.Status, &out.Reason, &out.ObservationDigest, &out.ObservedAt)
+
+		// Compare authoritative source revisions, not unrelated table row IDs or
+		// clocks. A historical ordinary observation cannot overwrite a newer setup
+		// receipt; a later ordinary plan may still become the current observation.
+		bootstrap := out
+		var bootstrapKind, bootstrapStatus, bootstrapResult string
+		var bootstrapRevision, observationRevision int64
+		bootstrapErr := row(`SELECT b.action,b.resource_id,b.run_id,b.status,b.result_digest,json_extract(d.request_bytes,'$.expectedStateRevision') FROM ingress_bootstrap_receipts b JOIN ingress_drafts d ON d.draft_id=b.draft_id WHERE b.profile_id=? AND b.recovery_epoch=? ORDER BY b.rowid DESC LIMIT 1`, id, out.RecoveryEpoch).Scan(&bootstrapKind, &bootstrap.ResourceID, &bootstrap.RunID, &bootstrapStatus, &bootstrapResult, &bootstrapRevision)
+		if bootstrapErr == nil {
+			bootstrap.ResourceKind = ingress.BootstrapKind(bootstrapKind)
+			bootstrap.Status = "partial"
+			bootstrap.Reason = "bootstrap-" + bootstrapStatus
+			if bootstrapStatus == "observed" {
+				bootstrap.Status = "observed"
+			}
+			if bootstrapResult != "" {
+				bootstrap.ObservationDigest = bootstrapResult
+			}
+			out.ResourceKind, out.ResourceID, out.RunID = bootstrap.ResourceKind, bootstrap.ResourceID, bootstrap.RunID
+		} else if !errors.Is(bootstrapErr, sql.ErrNoRows) {
+			return bootstrapErr
+		}
+		e := row(`SELECT o.status,o.reason,o.observation_digest,o.observed_at,json_extract(d.request_bytes,'$.expectedStateRevision') FROM ingress_observations o JOIN ingress_drafts d ON d.draft_id=o.draft_id WHERE o.profile_id=? AND o.recovery_epoch=? ORDER BY o.rowid DESC LIMIT 1`, id, out.RecoveryEpoch).Scan(&out.Status, &out.Reason, &out.ObservationDigest, &out.ObservedAt, &observationRevision)
+		if e != nil && !errors.Is(e, sql.ErrNoRows) {
+			return e
+		}
+		if bootstrapErr == nil && (errors.Is(e, sql.ErrNoRows) || bootstrapRevision >= observationRevision) {
+			out = bootstrap
+			return nil
+		}
 		if errors.Is(e, sql.ErrNoRows) {
 			return nil
 		}
+		out.ResourceKind, out.ResourceID, out.RunID = "", "", ""
 		rotationReason := out.Reason
 		if e == nil {
 			at, pe := time.Parse(time.RFC3339, out.ObservedAt)

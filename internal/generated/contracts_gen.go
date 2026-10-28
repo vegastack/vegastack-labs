@@ -133,6 +133,15 @@ const (
 	SchemaIDContractExtension                      = "vegastack-labs.dev/contract-extension"
 	SchemaIDControlHandoffInput                    = "vegastack-labs.dev/control-handoff-input"
 	SchemaIDControlRecoveryReceiveInput            = "vegastack-labs.dev/control-recovery-receive-input"
+	SchemaIDControllerPrerequisiteFact             = "vegastack-labs.dev/controller-prerequisite-fact"
+	SchemaIDControllerPrerequisitesData            = "vegastack-labs.dev/controller-prerequisites-data"
+	SchemaIDControllerSetupClaim                   = "vegastack-labs.dev/controller-setup-claim"
+	SchemaIDControllerSetupClaimRequest            = "vegastack-labs.dev/controller-setup-claim-request"
+	SchemaIDControllerSetupPilotEligibility        = "vegastack-labs.dev/controller-setup-pilot-eligibility"
+	SchemaIDControllerSetupPilotPolicy             = "vegastack-labs.dev/controller-setup-pilot-policy"
+	SchemaIDControllerSetupReceiptRequest          = "vegastack-labs.dev/controller-setup-receipt-request"
+	SchemaIDControllerSetupRecoveryData            = "vegastack-labs.dev/controller-setup-recovery-data"
+	SchemaIDControllerSetupRecoveryRequest         = "vegastack-labs.dev/controller-setup-recovery-request"
 	SchemaIDCoolifyServiceBinding                  = "vegastack-labs.dev/coolify-service-binding"
 	SchemaIDCredentialImportRequest                = "vegastack-labs.dev/credential-import-request"
 	SchemaIDCredentialImportSubmission             = "vegastack-labs.dev/credential-import-submission"
@@ -222,6 +231,8 @@ const (
 	SchemaIDHostingLifecycleRecord                 = "vegastack-labs.dev/hosting-lifecycle-record"
 	SchemaIDHostingLifecycleRequest                = "vegastack-labs.dev/hosting-lifecycle-request"
 	SchemaIDHostingOwnedResource                   = "vegastack-labs.dev/hosting-owned-resource"
+	SchemaIDIngressBootstrap                       = "vegastack-labs.dev/ingress-bootstrap"
+	SchemaIDIngressBootstrapPolicy                 = "vegastack-labs.dev/ingress-bootstrap-policy"
 	SchemaIDIngressChange                          = "vegastack-labs.dev/ingress-change"
 	SchemaIDIngressConnectorTarget                 = "vegastack-labs.dev/ingress-connector-target"
 	SchemaIDIngressControllerReadPilot             = "vegastack-labs.dev/ingress-controller-read-pilot"
@@ -494,6 +505,8 @@ const (
 	CommandNameDeviceRequest                       = "device request"
 	CommandNameDeviceRevoke                        = "device revoke"
 	CommandNameDoctor                              = "doctor"
+	CommandNameDoctorControllerPrerequisites       = "doctor controller-prerequisites"
+	FlagExpectedMachineID                          = "--expected-machine-id"
 	CommandNameGateCheck                           = "gate check"
 	FlagGateID                                     = "--gate-id"
 	FlagSubjectID                                  = "--subject-id"
@@ -2094,6 +2107,112 @@ type ControlRecoveryReceiveInput struct {
 	RoleInput               LinuxRoleInput         `json:"roleInput"`
 }
 
+type ControllerPrerequisiteFact struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	Selector      string `json:"selector"`
+	State         string `json:"state"`
+	Digest        string `json:"digest,omitempty"`
+	Mode          string `json:"mode,omitempty"`
+	UID           string `json:"uid,omitempty"`
+	GID           string `json:"gid,omitempty"`
+	NotAfter      string `json:"notAfter,omitempty"`
+	DNSNames      string `json:"dnsNames,omitempty"`
+}
+
+type ControllerPrerequisitesData struct {
+	Schema             string                       `json:"schema"`
+	SchemaVersion      string                       `json:"schemaVersion"`
+	Platform           string                       `json:"platform"`
+	IdentityMatched    bool                         `json:"identityMatched"`
+	AdmissionQualified bool                         `json:"admissionQualified"`
+	Facts              []ControllerPrerequisiteFact `json:"facts"`
+}
+
+type ControllerSetupClaim struct {
+	Schema        string                     `json:"schema"`
+	SchemaVersion string                     `json:"schemaVersion"`
+	Plan          Plan                       `json:"plan"`
+	Run           Run                        `json:"run"`
+	Lease         ExecutorLease              `json:"lease"`
+	Policy        ControllerSetupPilotPolicy `json:"policy"`
+	InputJSON     string                     `json:"inputJson"`
+	ClaimDigest   string                     `json:"claimDigest"`
+	ExpiresAt     string                     `json:"expiresAt"`
+}
+
+type ControllerSetupClaimRequest struct {
+	Schema        string               `json:"schema"`
+	SchemaVersion string               `json:"schemaVersion"`
+	Reference     PlanReferenceRequest `json:"reference"`
+	InputJSON     string               `json:"inputJson"`
+}
+
+type ControllerSetupPilotEligibility struct {
+	Schema                    string `json:"schema"`
+	SchemaVersion             string `json:"schemaVersion"`
+	HostID                    string `json:"hostId"`
+	HostIdentityDigest        string `json:"hostIdentityDigest"`
+	ControllerMachineIDDigest string `json:"controllerMachineIdDigest"`
+	ControllerInstanceID      string `json:"controllerInstanceId"`
+	PolicyDigest              string `json:"policyDigest"`
+	StateRevision             int64  `json:"stateRevision"`
+	RecoveryEpoch             int64  `json:"recoveryEpoch"`
+	AdministratorUID          int64  `json:"administratorUid"`
+	AdministratorGID          int64  `json:"administratorGid"`
+	AdministratorPrincipalID  string `json:"administratorPrincipalId"`
+	ServiceUID                int64  `json:"serviceUid"`
+	ServiceGID                int64  `json:"serviceGid"`
+	RecoveryImageDigest       string `json:"recoveryImageDigest"`
+}
+
+type ControllerSetupPilotPolicy struct {
+	Schema                    string `json:"schema"`
+	SchemaVersion             string `json:"schemaVersion"`
+	HostID                    string `json:"hostId"`
+	HostIdentityDigest        string `json:"hostIdentityDigest"`
+	ControllerMachineIDDigest string `json:"controllerMachineIdDigest"`
+	ControllerInstanceID      string `json:"controllerInstanceId"`
+	AppliedProfileID          string `json:"appliedProfileId"`
+	RecoveryEpoch             int64  `json:"recoveryEpoch"`
+	RecoveryImageDigest       string `json:"recoveryImageDigest"`
+	AdministratorUID          int64  `json:"administratorUid"`
+	AdministratorGID          int64  `json:"administratorGid"`
+	AdministratorPrincipalID  string `json:"administratorPrincipalId"`
+	ServiceUID                int64  `json:"serviceUid"`
+	ServiceGID                int64  `json:"serviceGid"`
+	ExecutableDigest          string `json:"executableDigest"`
+	ExpiresAt                 string `json:"expiresAt"`
+}
+
+type ControllerSetupReceiptRequest struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	ClaimDigest   string `json:"claimDigest"`
+	RunID         string `json:"runId"`
+	LeaseID       string `json:"leaseId"`
+	RecoveryEpoch int64  `json:"recoveryEpoch"`
+	ResultDigest  string `json:"resultDigest"`
+	InputJSON     string `json:"inputJson"`
+	Status        string `json:"status"`
+}
+
+type ControllerSetupRecoveryData struct {
+	Schema               string `json:"schema"`
+	SchemaVersion        string `json:"schemaVersion"`
+	ImageDigest          string `json:"imageDigest"`
+	ControllerInstanceID string `json:"controllerInstanceId"`
+	StateRevision        int64  `json:"stateRevision"`
+	RecoveryEpoch        int64  `json:"recoveryEpoch"`
+}
+
+type ControllerSetupRecoveryRequest struct {
+	Schema                string `json:"schema"`
+	SchemaVersion         string `json:"schemaVersion"`
+	ExpectedStateRevision int64  `json:"expectedStateRevision"`
+	RecoveryEpoch         int64  `json:"recoveryEpoch"`
+}
+
 type CoolifyServiceBinding struct {
 	Schema                 string `json:"schema"`
 	SchemaVersion          string `json:"schemaVersion"`
@@ -3347,6 +3466,26 @@ type HostingOwnedResource struct {
 	ParentID      string `json:"parentId"`
 }
 
+type IngressBootstrap struct {
+	Schema        string   `json:"schema"`
+	SchemaVersion string   `json:"schemaVersion"`
+	Name          string   `json:"name"`
+	AllowedEmail  string   `json:"allowedEmail"`
+	OriginCAPool  string   `json:"originCaPool,omitempty"`
+	SourceRunIDs  []string `json:"sourceRunIds"`
+}
+
+type IngressBootstrapPolicy struct {
+	Schema                    string        `json:"schema"`
+	SchemaVersion             string        `json:"schemaVersion"`
+	Change                    IngressChange `json:"change"`
+	ControllerHostID          string        `json:"controllerHostId"`
+	ControllerIdentityDigest  string        `json:"controllerIdentityDigest"`
+	ControllerMachineIDDigest string        `json:"controllerMachineIdDigest"`
+	ControllerInstanceID      string        `json:"controllerInstanceId"`
+	RecoveryEpoch             int64         `json:"recoveryEpoch"`
+}
+
 type IngressChange struct {
 	Schema                    string                   `json:"schema"`
 	SchemaVersion             string                   `json:"schemaVersion"`
@@ -3376,6 +3515,7 @@ type IngressChange struct {
 	ObservationReferenceID    string                   `json:"observationReferenceId"`
 	MutationReferenceID       string                   `json:"mutationReferenceId"`
 	ReplacementReferenceID    string                   `json:"replacementReferenceId"`
+	Bootstrap                 *IngressBootstrap        `json:"bootstrap,omitempty"`
 }
 
 type IngressConnectorTarget struct {
@@ -3442,6 +3582,9 @@ type IngressRolloutEvidenceRequest struct {
 type IngressStatusData struct {
 	Schema            string `json:"schema"`
 	SchemaVersion     string `json:"schemaVersion"`
+	ResourceID        string `json:"resourceId,omitempty"`
+	ResourceKind      string `json:"resourceKind,omitempty"`
+	RunID             string `json:"runId,omitempty"`
 	ProfileID         string `json:"profileId"`
 	Status            string `json:"status"`
 	Reason            string `json:"reason"`
@@ -5702,6 +5845,8 @@ type ServerProfile struct {
 	RemoteRead                       RemoteReadProfile                  `json:"remoteRead"`
 	HostActionSignerPath             string                             `json:"hostActionSignerPath,omitempty"`
 	HostActionKeyID                  string                             `json:"hostActionKeyId,omitempty"`
+	ControllerSetupPilot             *ControllerSetupPilotPolicy        `json:"controllerSetupPilot,omitempty"`
+	IngressBootstrap                 *IngressBootstrapPolicy            `json:"ingressBootstrap,omitempty"`
 	IngressControllerReadPilot       *IngressControllerReadPilot        `json:"ingressControllerReadPilot,omitempty"`
 	NotificationReadiness            *NotificationReadinessPolicy       `json:"notificationReadiness,omitempty"`
 	OperationsBeszel                 []OperationsBeszelBinding          `json:"operationsBeszel,omitempty"`
@@ -6351,6 +6496,7 @@ var Commands = []Command{
 	{Path: []string{"device", "request"}, Summary: "Draft one device access change; exact-plan acknowledgement and apply remain separate.", Availability: "available", OwnerPhase: "7", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one grant batch JSON file (32 KiB max).", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/authorization-grant-batch-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/declaration-revision", Examples: []Example{{Summary: "Draft one explicit device and human binding.", Arguments: []string{"device", "request", "--config", "fixture/server-profile.json", "--file", "fixture/device.json", "--output", "json"}}}},
 	{Path: []string{"device", "revoke"}, Summary: "Draft one device access change; exact-plan acknowledgement and apply remain separate.", Availability: "available", OwnerPhase: "7", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one grant batch JSON file (32 KiB max).", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/authorization-grant-batch-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/declaration-revision", Examples: []Example{{Summary: "Draft one explicit device and human binding.", Arguments: []string{"device", "revoke", "--config", "fixture/server-profile.json", "--file", "fixture/device.json", "--output", "json"}}}},
 	{Path: []string{"doctor"}, Summary: "Diagnose the first failing control-summary invariant without mutation.", Availability: "available", OwnerPhase: "10", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/api-summary-data", Examples: []Example{{Summary: "Diagnose the first failing control-summary invariant without mutation.", Arguments: []string{"doctor", "--config", "fixture/server-profile.json", "--output", "json"}}}},
+	{Path: []string{"doctor", "controller-prerequisites"}, Summary: "Collect fixed local controller metadata without secrets, writes or admission.", Availability: "available", OwnerPhase: "10", Risk: "read-only", Flags: []Flag{{Name: "--expected-machine-id", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Require this exact Linux machine ID before reading controller metadata.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/controller-prerequisites-data", Examples: []Example{{Summary: "Collect fixed local controller metadata without secrets, writes or admission.", Arguments: []string{"doctor", "controller-prerequisites", "--expected-machine-id", "00000000000000000000000000000001", "--output", "json"}}}},
 	{Path: []string{"gate", "check"}, Summary: "Check one gate for one subject without changing state.", Availability: "available", OwnerPhase: "5", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--gate-id", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Select one generated gate ID.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}, {Name: "--subject-id", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Select one subject ID.", Enum: []string(nil)}}, RequestSchema: "vegastack-labs.dev/gate-check-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/gate-evaluation", Examples: []Example{{Summary: "Check one gate for one subject without changing state.", Arguments: []string{"gate", "check", "--config", "fixture/server-profile.json", "--gate-id", "G-008", "--subject-id", "site-a", "--output", "json"}}}},
 	{Path: []string{"gate", "evidence"}, Summary: "Submit a bounded typed proof as an inert change; no gate pass is set.", Availability: "available", OwnerPhase: "5", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one exact typed evidence-request JSON file (64 KiB max).", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/gate-evidence-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/gate-evidence-submission", Examples: []Example{{Summary: "Submit a bounded typed proof as an inert change; no gate pass is set.", Arguments: []string{"gate", "evidence", "--config", "fixture/server-profile.json", "--file", "fixture/gate-evidence-request.json", "--output", "json"}}}},
 	{Path: []string{"gate", "inspect"}, Summary: "Inspect one scoped gate and derived blocker.", Availability: "available", OwnerPhase: "5", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--gate-id", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Select one generated gate ID.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/gate-view", Examples: []Example{{Summary: "Inspect one scoped gate and derived blocker.", Arguments: []string{"gate", "inspect", "--config", "fixture/server-profile.json", "--gate-id", "G-008", "--output", "json"}}}},
@@ -6454,6 +6600,9 @@ var Endpoints = []Endpoint{
 	{ID: "api.v1.ci.enrollments.list", Method: "GET", Path: "/api/v1/ci/enrollments", Availability: "available", OwnerPhase: "9", QuerySchema: "vegastack-labs.dev/service-read-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/ci-enrollment-list", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.ci.jobs.drafts.create", Method: "POST", Path: "/api/v1/ci/jobs/drafts", Availability: "available", OwnerPhase: "9", QuerySchema: "", RequestSchema: "vegastack-labs.dev/ci-job-draft-request", DataSchema: "vegastack-labs.dev/declaration-revision", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.ci.publications.drafts.create", Method: "POST", Path: "/api/v1/ci/publications/drafts", Availability: "available", OwnerPhase: "9", QuerySchema: "", RequestSchema: "vegastack-labs.dev/ci-publication-draft-request", DataSchema: "vegastack-labs.dev/declaration-revision", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.controller-setup.claim", Method: "POST", Path: "/api/v1/controller-setup/claim", Availability: "available", OwnerPhase: "7", QuerySchema: "", RequestSchema: "vegastack-labs.dev/controller-setup-claim-request", DataSchema: "vegastack-labs.dev/controller-setup-claim", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "local", MaxRequestBytes: 65536},
+	{ID: "api.v1.controller-setup.receipt", Method: "POST", Path: "/api/v1/controller-setup/receipt", Availability: "available", OwnerPhase: "7", QuerySchema: "", RequestSchema: "vegastack-labs.dev/controller-setup-receipt-request", DataSchema: "vegastack-labs.dev/run", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "local", MaxRequestBytes: 65536},
+	{ID: "api.v1.controller-setup.recovery", Method: "POST", Path: "/api/v1/controller-setup/recovery", Availability: "available", OwnerPhase: "7", QuerySchema: "", RequestSchema: "vegastack-labs.dev/controller-setup-recovery-request", DataSchema: "vegastack-labs.dev/controller-setup-recovery-data", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "local", MaxRequestBytes: 65536},
 	{ID: "api.v1.credential-lifecycle-drafts.create", Method: "POST", Path: "/api/v1/credential-lifecycle-drafts", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/credential-lifecycle-request", DataSchema: "vegastack-labs.dev/credential-lifecycle-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.credential-references.get", Method: "GET", Path: "/api/v1/credential-references/{referenceId}", Availability: "planned", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/credential-reference", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.credential-references.import-stream", Method: "POST", Path: "/api/v1/credential-references/{referenceId}/import-stream", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/credential-import-request", DataSchema: "vegastack-labs.dev/credential-import-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "binary", TransportScope: "local", MaxRequestBytes: 4096},

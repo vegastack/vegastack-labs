@@ -52,7 +52,7 @@ func TestNetworkConnectSourceSealsRejectDrift(t *testing.T) {
 
 	for key, seal := range current {
 		relative, joined, _ := strings.Cut(key, "|")
-		if !isCurrentCIJobFixturePackage(relative) && relative != "internal/ci" && relative != "internal/localapi" && relative != "internal/networkconnect" && relative != "internal/serverconfig" && relative != "internal/servicecatalog" && relative != "internal/hostinglifecycle" && relative != "internal/servicerecovery" && relative != "cmd/vsk-labs" && relative != "internal/hostingplatform" && relative != "internal/adapter/harbor" {
+		if !isCurrentCIJobFixturePackage(relative) && relative != "internal/ci" && relative != "internal/localapi" && relative != "internal/networkconnect" && relative != "internal/serverconfig" && relative != "internal/servicecatalog" && relative != "internal/hostinglifecycle" && relative != "internal/servicerecovery" && relative != "cmd/vsk-labs" && relative != "internal/hostingplatform" && relative != "internal/adapter/harbor" && relative != "internal/ingressconnector" {
 			t.Fatalf("unexpected source seal %q", relative)
 		}
 		names := strings.Split(joined, ",")
@@ -99,7 +99,7 @@ func TestNetworkConnectSourceSealsRejectDrift(t *testing.T) {
 		}
 		checked++
 	}
-	if checked != 24+1+1 {
-		t.Fatal("all 24 existing platform/domain variants plus exact pilot and maintenance validators must be sealed")
+	if checked != 24+1+1+2 {
+		t.Fatal("all 24 existing platform/domain variants plus exact pilot/maintenance validators and connector runtime variants must be sealed")
 	}
 }

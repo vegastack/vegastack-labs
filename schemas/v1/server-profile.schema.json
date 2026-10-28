@@ -514,6 +514,98 @@
       ],
       "type": "object"
     },
+    "controller-setup-pilot-policy": {
+      "additionalProperties": false,
+      "properties": {
+        "administratorGid": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "administratorPrincipalId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "administratorUid": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "appliedProfileId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "controllerInstanceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "controllerMachineIdDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "executableDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "expiresAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "hostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "hostIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "recoveryImageDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/controller-setup-pilot-policy"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "serviceGid": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "serviceUid": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "hostId",
+        "hostIdentityDigest",
+        "controllerMachineIdDigest",
+        "controllerInstanceId",
+        "appliedProfileId",
+        "recoveryEpoch",
+        "recoveryImageDigest",
+        "administratorUid",
+        "administratorGid",
+        "administratorPrincipalId",
+        "serviceUid",
+        "serviceGid",
+        "executableDigest",
+        "expiresAt"
+      ],
+      "type": "object"
+    },
     "coolify-service-binding": {
       "additionalProperties": false,
       "properties": {
@@ -701,17 +793,115 @@
       ],
       "type": "object"
     },
+    "ingress-bootstrap": {
+      "additionalProperties": false,
+      "properties": {
+        "allowedEmail": {
+          "maxLength": 254,
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "originCaPool": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/ingress-bootstrap"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "sourceRunIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 8,
+          "type": "array"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "name",
+        "allowedEmail",
+        "sourceRunIds"
+      ],
+      "type": "object"
+    },
+    "ingress-bootstrap-policy": {
+      "additionalProperties": false,
+      "properties": {
+        "change": {
+          "$ref": "#/$defs/ingress-change"
+        },
+        "controllerHostId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "controllerIdentityDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "controllerInstanceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "controllerMachineIdDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/ingress-bootstrap-policy"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "change",
+        "controllerHostId",
+        "controllerIdentityDigest",
+        "controllerMachineIdDigest",
+        "controllerInstanceId",
+        "recoveryEpoch"
+      ],
+      "type": "object"
+    },
     "ingress-change": {
       "additionalProperties": false,
       "properties": {
         "accessAppId": {
           "maxLength": 36,
-          "minLength": 1,
+          "minLength": 0,
           "type": "string"
         },
         "accessPolicyId": {
           "maxLength": 36,
-          "minLength": 1,
+          "minLength": 0,
           "type": "string"
         },
         "accountId": {
@@ -726,7 +916,13 @@
             "access-policy-update",
             "dns-record-update",
             "connector-disconnect",
-            "token-rotate"
+            "token-rotate",
+            "bootstrap-tunnel",
+            "bootstrap-group",
+            "bootstrap-app",
+            "bootstrap-policy",
+            "bootstrap-seed",
+            "bootstrap-cutover"
           ],
           "type": "string"
         },
@@ -741,9 +937,19 @@
           "pattern": "^sha256:[a-f0-9]{64}$",
           "type": "string"
         },
+        "bootstrap": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ingress-bootstrap"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "connectorId": {
           "maxLength": 36,
-          "minLength": 1,
+          "minLength": 0,
           "type": "string"
         },
         "connectors": {
@@ -816,7 +1022,7 @@
         },
         "resourceId": {
           "maxLength": 64,
-          "minLength": 1,
+          "minLength": 0,
           "type": "string"
         },
         "resourceKind": {
@@ -825,7 +1031,9 @@
             "access-policy",
             "dns-record",
             "connector",
-            "tunnel-token"
+            "tunnel-token",
+            "access-group",
+            "access-application"
           ],
           "type": "string"
         },
@@ -843,7 +1051,7 @@
         },
         "tunnelId": {
           "maxLength": 36,
-          "minLength": 1,
+          "minLength": 0,
           "type": "string"
         },
         "zoneId": {
@@ -889,7 +1097,7 @@
       "properties": {
         "connectorId": {
           "maxLength": 36,
-          "minLength": 1,
+          "minLength": 0,
           "type": "string"
         },
         "hostId": {
@@ -2180,6 +2388,16 @@
       "maxItems": 128,
       "type": "array"
     },
+    "controllerSetupPilot": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/controller-setup-pilot-policy"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "criticalBackupRoot": {
       "maxLength": 4096,
       "minLength": 2,
@@ -2222,6 +2440,16 @@
       },
       "maxItems": 128,
       "type": "array"
+    },
+    "ingressBootstrap": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ingress-bootstrap-policy"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "ingressControllerReadPilot": {
       "anyOf": [

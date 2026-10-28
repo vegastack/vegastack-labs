@@ -57,6 +57,12 @@ func Listen(ctx context.Context, config ListenConfig) (Listener, error) {
 			_ = lock.Close()
 		}
 	}()
+	// A group socket must also be reachable through its explicitly protected
+	// parent. Acquire the existing listener lock before adjusting that parent;
+	// a second server must never alter a running writer's directory.
+	if err := prepareSocketParentGroup(config); err != nil {
+		return nil, err
+	}
 	if err := removeProvenStaleSocket(config); err != nil {
 		return nil, err
 	}
@@ -100,6 +106,34 @@ func Listen(ctx context.Context, config ListenConfig) (Listener, error) {
 	keepLock = true
 	keepListener = true
 	return guarded, nil
+}
+
+func prepareSocketParentGroup(config ListenConfig) error {
+	if config.Profile.SocketMode != 0o660 || config.Profile.SocketGroupGID == nil {
+		return nil
+	}
+	parent := filepath.Dir(config.Profile.SocketPath)
+	before, err := statIdentity(parent)
+	if err != nil || before.typeID != unix.S_IFDIR || before.owner != config.Profile.SocketOwnerUID || before.mode != 0750 {
+		return failure.New("INTEGRITY_FAILURE", "control-socket-parent", false)
+	}
+	fd, err := unix.Open(parent, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0)
+	if err != nil {
+		return failure.New("INTEGRITY_FAILURE", "control-socket-parent", false)
+	}
+	defer unix.Close(fd)
+	var opened unix.Stat_t
+	if unix.Fstat(fd, &opened) != nil || uint64(opened.Dev) != before.device || opened.Ino != before.inode || opened.Uid != before.owner || opened.Mode&0777 != 0750 {
+		return failure.New("INTEGRITY_FAILURE", "control-socket-parent", false)
+	}
+	if opened.Gid != *config.Profile.SocketGroupGID && unix.Fchown(fd, -1, int(*config.Profile.SocketGroupGID)) != nil {
+		return failure.New("INTEGRITY_FAILURE", "control-socket-parent", false)
+	}
+	after, err := statIdentity(parent)
+	if err != nil || after != before || unix.Fstat(fd, &opened) != nil || opened.Gid != *config.Profile.SocketGroupGID {
+		return failure.New("INTEGRITY_FAILURE", "control-socket-parent", false)
+	}
+	return nil
 }
 
 func validateSocketParent(config ListenConfig) error {

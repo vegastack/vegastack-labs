@@ -441,6 +441,18 @@ Owner phase: `10` · risk: `read-only` · availability: `available`
 
 - Diagnose the first failing control-summary invariant without mutation.: `vsk-labs doctor --config fixture/server-profile.json --output json`
 
+### `vsk-labs doctor controller-prerequisites`
+
+Collect fixed local controller metadata without secrets, writes or admission.
+
+Owner phase: `10` · risk: `read-only` · availability: `available`
+
+- `--expected-machine-id <id>` — Require this exact Linux machine ID before reading controller metadata.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Collect fixed local controller metadata without secrets, writes or admission.: `vsk-labs doctor controller-prerequisites --expected-machine-id 00000000000000000000000000000001 --output json`
+
 ### `vsk-labs gate check`
 
 Check one gate for one subject without changing state.
@@ -1704,6 +1716,18 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 - `planId`
 - `errors`
 - `data`
+
+### `vegastack-labs.dev/controller-setup-receipt-request`
+
+- `schema`: `vegastack-labs.dev/controller-setup-receipt-request`
+- `schemaVersion`: `1.0.0`
+- `claimDigest`
+- `runId`
+- `leaseId`
+- `recoveryEpoch`
+- `resultDigest`
+- `inputJson`
+- `status`: `installed-awaiting-native-verification`, `partial`, `failed`
 
 ### `vegastack-labs.dev/declaration-revision`
 

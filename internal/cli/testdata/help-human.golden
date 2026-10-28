@@ -173,6 +173,10 @@ Available commands:
     --config <path>        Read the protected server profile at this explicit path.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  doctor controller-prerequisites Collect fixed local controller metadata without secrets, writes or admission.
+    --expected-machine-id <id> Require this exact Linux machine ID before reading controller metadata.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   gate check               Check one gate for one subject without changing state.
     --config <path>        Read one protected server profile.
     --gate-id <id>         Select one generated gate ID.

@@ -75,7 +75,7 @@ func TestReviewedSetupProfileRejectsChangedAndAddedSource(t *testing.T) {
 		t.Run(platform, func(t *testing.T) {
 			directory := t.TempDir()
 			var names []string
-			for key := range phase10SourceSeals {
+			for key := range currentCIJobFixtureSeals() {
 				if strings.HasPrefix(key, "internal/serverconfig|") && strings.Contains(key, "profile_"+platform+".go") {
 					names = strings.Split(strings.SplitN(key, "|", 2)[1], ",")
 				}

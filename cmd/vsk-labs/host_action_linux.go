@@ -10,6 +10,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/debianbaseline"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"github.com/vegastack/vegastack-labs/internal/hostingplatform"
+	"github.com/vegastack/vegastack-labs/internal/ingressconnector"
 	"github.com/vegastack/vegastack-labs/internal/linuxrole"
 	"github.com/vegastack/vegastack-labs/internal/qualification"
 	"github.com/vegastack/vegastack-labs/internal/server"
@@ -78,6 +79,10 @@ func runHostActionOnce(ctx context.Context, args []string) (bool, int) {
 type nativeHostDispatcher struct{ access, baseline, role, recovery hostaction.Dispatcher }
 
 func (d nativeHostDispatcher) Lookup(id, version string) (hostaction.Handler, bool) {
+	if id == ingressconnector.Action && version == "1.0.0" {
+		h, e := ingressconnector.NewHandler(ingressconnector.NewNativeRuntime())
+		return h, e == nil
+	}
 	if id == hostaction.CIJobAction {
 		executable, e := os.Executable()
 		if e != nil {

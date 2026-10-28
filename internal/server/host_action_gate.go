@@ -6,6 +6,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/debianaccess"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
+	"github.com/vegastack/vegastack-labs/internal/ingressconnector"
 	"github.com/vegastack/vegastack-labs/internal/run"
 	"github.com/vegastack/vegastack-labs/internal/store"
 	"slices"
@@ -22,6 +23,7 @@ type hostActionLifecycleSource interface {
 // This routes only exact host-action use and its native credential activation.
 // Existing unrelated prerequisite checks retain their original fallback.
 type hostActionGate struct {
+	connector   func(context.Context, generated.Plan) error
 	jobs        *store.CIJobRepository
 	targets     hostActionConsoleSource
 	credentials hostActionLifecycleSource
@@ -80,6 +82,14 @@ func (g hostActionGate) VerifySecretStep(ctx context.Context, p generated.Plan, 
 		}
 		if r == nil || hostaction.ValidateRequest(*r) != nil || r.HostID != op.TargetID || hostaction.Digest(*r) != op.ArtifactDigest || r.RecoveryEpoch != p.Binding.RecoveryEpoch {
 			return actionFailure()
+		}
+		if r.ActionID == ingressconnector.Action {
+			if g.connector == nil {
+				return actionFailure()
+			}
+			if e := g.connector(ctx, p); e != nil {
+				return e
+			}
 		}
 		c = generated.HostActionCredentialConfirmation{Method: r.ConsoleConfirmation.Method, TargetDigest: r.TargetDigest, HostIdentityDigest: r.ConsoleConfirmation.HostIdentityDigest, TargetRevision: r.TargetRevision}
 	} else {

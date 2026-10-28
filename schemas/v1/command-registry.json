@@ -2475,6 +2475,65 @@
     },
     {
       "path": [
+        "doctor",
+        "controller-prerequisites"
+      ],
+      "summary": "Collect fixed local controller metadata without secrets, writes or admission.",
+      "availability": "available",
+      "ownerPhase": "10",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--expected-machine-id",
+          "kind": "value",
+          "valueName": "id",
+          "required": true,
+          "repeatable": false,
+          "summary": "Require this exact Linux machine ID before reading controller metadata.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/controller-prerequisites-data",
+      "examples": [
+        {
+          "summary": "Collect fixed local controller metadata without secrets, writes or admission.",
+          "arguments": [
+            "doctor",
+            "controller-prerequisites",
+            "--expected-machine-id",
+            "00000000000000000000000000000001",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
         "gate",
         "check"
       ],
@@ -8671,6 +8730,51 @@
       "artifactPath": "schemas/v1/control-recovery-receive-input.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/controller-prerequisite-fact",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/controller-prerequisite-fact.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/controller-prerequisites-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/controller-prerequisites-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/controller-setup-claim",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/controller-setup-claim.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/controller-setup-claim-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/controller-setup-claim-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/controller-setup-pilot-eligibility",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/controller-setup-pilot-eligibility.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/controller-setup-pilot-policy",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/controller-setup-pilot-policy.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/controller-setup-receipt-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/controller-setup-receipt-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/controller-setup-recovery-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/controller-setup-recovery-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/controller-setup-recovery-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/controller-setup-recovery-request.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/coolify-service-binding",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/coolify-service-binding.schema.json"
@@ -9113,6 +9217,16 @@
       "id": "vegastack-labs.dev/hosting-owned-resource",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/hosting-owned-resource.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/ingress-bootstrap",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/ingress-bootstrap.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/ingress-bootstrap-policy",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/ingress-bootstrap-policy.schema.json"
     },
     {
       "id": "vegastack-labs.dev/ingress-change",

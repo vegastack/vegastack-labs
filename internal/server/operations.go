@@ -588,7 +588,8 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 	}
 	secretGate = ingressSecretGate{source: ingressSource, fallback: secretGate}
 	secretGate = ciPublicationGate{source: ciPublication, fallback: secretGate}
-	secretGate = hostActionGate{jobs: ciJobs, targets: store.NewHostActionRepository(authority), credentials: credentialRepository, allowed: profile.HostActionIdentityDigests, fallback: secretGate}
+	setupVerifier := newControllerSetupPilotVerifier(authority, gateRepository, profile.ControllerSetupPilot, time.Now)
+	secretGate = hostActionGate{connector: ingressConnectorAuthorization(profile, authority, gateRepository, setupVerifier.Verify), jobs: ciJobs, targets: store.NewHostActionRepository(authority), credentials: credentialRepository, allowed: profile.HostActionIdentityDigests, fallback: secretGate}
 	lifecycleGate := hostActionGate{targets: store.NewHostActionRepository(authority), credentials: credentialRepository, allowed: profile.HostActionIdentityDigests, fallback: runengine.UnavailableGateVerifier{}}
 	credentialStep := &runengine.CredentialStep{Bindings: credentialRepository, Resolvers: adapters, Profiles: gateRepository, Plans: plans, ScheduledPlans: scheduledAdmission, Clock: time.Now}
 	credentialCore, err := runengine.NewCoreCredentialEffect(credentialRepository, store.NewAcknowledgementRepository(authority), lifecycleGate, composeNativeCredentialLifecycleVerifier(ctx, operations.databasePath, profile.SocketOwnerUID), runengine.UnavailableCredentialRecoveryVerifier{}, time.Now)
@@ -607,6 +608,11 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 		return err
 	}
 	if err := api.RegisterRunOperations(application, api.RunOperationConfig{Runs: runs, Plans: plans, Acknowledgements: acknowledgements, Results: factory, Authorization: effectiveConfig}); err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	setupClaims := newControllerSetupClaims(authority, runRepository, planRepository, setupVerifier, profile, time.Now, operations.databasePath)
+	if err := api.RegisterControllerSetupOperations(application, api.ControllerSetupOperations{Runs: api.RunOperationConfig{Runs: controllerSetupRuns{runs}, Plans: plans, Acknowledgements: acknowledgements, Results: factory, Authorization: effectiveConfig}, Lifecycle: setupClaims, Recovery: controllerSetupRecovery{authority: authority, profile: profile}}); err != nil {
 		_ = application.Shutdown(ctx)
 		return err
 	}

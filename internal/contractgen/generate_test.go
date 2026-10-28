@@ -266,6 +266,15 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/cloudflare-access-profile.schema.json",
 		"schemas/v1/control-handoff-input.schema.json",
 		"schemas/v1/control-recovery-receive-input.schema.json",
+		"schemas/v1/controller-prerequisite-fact.schema.json",
+		"schemas/v1/controller-prerequisites-data.schema.json",
+		"schemas/v1/controller-setup-claim-request.schema.json",
+		"schemas/v1/controller-setup-claim.schema.json",
+		"schemas/v1/controller-setup-pilot-eligibility.schema.json",
+		"schemas/v1/controller-setup-pilot-policy.schema.json",
+		"schemas/v1/controller-setup-receipt-request.schema.json",
+		"schemas/v1/controller-setup-recovery-data.schema.json",
+		"schemas/v1/controller-setup-recovery-request.schema.json",
 		"schemas/v1/coolify-service-binding.schema.json",
 		"schemas/v1/credential-import-request.schema.json",
 		"schemas/v1/credential-import-submission.schema.json",
@@ -354,6 +363,8 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/hosting-lifecycle-record.schema.json",
 		"schemas/v1/hosting-lifecycle-request.schema.json",
 		"schemas/v1/hosting-owned-resource.schema.json",
+		"schemas/v1/ingress-bootstrap-policy.schema.json",
+		"schemas/v1/ingress-bootstrap.schema.json",
 		"schemas/v1/ingress-change.schema.json",
 		"schemas/v1/ingress-connector-target.schema.json",
 		"schemas/v1/ingress-controller-read-pilot.schema.json",
@@ -959,8 +970,8 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 			}
 		}
 	}
-	if available != 108 || planned != 12 {
-		t.Fatalf("command availability = (%d available, %d planned), want (108, 12)", available, planned)
+	if available != 109 || planned != 12 {
+		t.Fatalf("command availability = (%d available, %d planned), want (109, 12)", available, planned)
 	}
 	// The current pilot/Phase10 wave adds seven commands and promotes doctor.
 	// #304 adds three exact CI enrollment commands.

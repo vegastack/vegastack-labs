@@ -11,7 +11,7 @@ import (
 func TestIngressPilotPureValidatorPrunesOnlyExactSealedEdge(t *testing.T) {
 	const module = "github.com/vegastack/vegastack-labs"
 	var names, imports []string
-	for key, seal := range ingressPilotSourceSeals {
+	for key, seal := range currentCIJobFixtureSeals() {
 		if strings.HasPrefix(key, "internal/networkingress|") {
 			names = strings.Split(strings.SplitN(key, "|", 2)[1], ",")
 			imports = slices.Clone(seal.imports)

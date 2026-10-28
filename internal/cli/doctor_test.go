@@ -65,3 +65,11 @@ func TestDoctorWithoutControlCannotGuessHealth(t *testing.T) {
 		t.Fatalf("%d %s %s", code, out, stderr)
 	}
 }
+
+func TestDoctorControllerPrerequisitesNeverCallsControl(t *testing.T) {
+	stub := &stubControlOperations{err: errors.New("must-not-contact-control")}
+	code, out, stderr := runTestAppWithOptions(t, context.Background(), []string{"doctor", "controller-prerequisites", "--expected-machine-id", "invalid", "--output", "json"}, nil, WithControlOperations(stub, nil))
+	if code != 6 || stderr != "" || !strings.Contains(out, `"identityMatched":false`) || !strings.Contains(out, `"facts":[]`) || strings.Contains(out, "must-not-contact-control") {
+		t.Fatalf("%d %s %s", code, out, stderr)
+	}
+}

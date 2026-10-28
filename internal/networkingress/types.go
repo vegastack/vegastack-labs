@@ -54,9 +54,15 @@ func OwnershipDigest(c generated.IngressChange) string {
 	return Digest([]any{ResourceKey(c), c.AccountID, c.ZoneID, c.TunnelID, c.Hostname, c.AccessAppID, c.AccessPolicyID, c.DNSRecordID, x})
 }
 func ScopeDigest(c generated.IngressChange) string {
+	if c.Bootstrap != nil {
+		return BootstrapScopeDigest(c)
+	}
 	return Digest([]any{OwnershipDigest(c), c.OriginService, c.OriginServerName, c.OriginIdentityDigest})
 }
 func Validate(c generated.IngressChange) error {
+	if c.Bootstrap != nil {
+		return ValidateBootstrap(c)
+	}
 	bad := func() error { return Error(generated.ErrorCodeInputInvalid) }
 	if !token.MatchString(c.ProfileID) || !token.MatchString(c.OwnerID) || !token.MatchString(c.DeviceID) || !account.MatchString(c.AccountID) || !account.MatchString(c.ZoneID) || !uuid.MatchString(c.TunnelID) || !digest.MatchString(c.BeforeDigest) || !hostname.MatchString(c.Hostname) || len(c.Hostname) > 253 || strings.Contains(c.Hostname, "*") || !uuid.MatchString(c.AccessAppID) || !uuid.MatchString(c.AccessPolicyID) || !account.MatchString(c.DNSRecordID) || len(c.Connectors) == 0 || len(c.Connectors) > 16 {
 		return bad()
@@ -131,6 +137,7 @@ type Connection struct {
 	OpenedAt                  time.Time
 }
 type Snapshot struct {
+	ResourceID                                string
 	StateDigest                               string
 	Config                                    map[string]json.RawMessage `json:"-"`
 	Policy                                    map[string]json.RawMessage `json:"-"`

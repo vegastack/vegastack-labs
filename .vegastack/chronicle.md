@@ -2,6 +2,53 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 28-10-2026 — Prepare the controller and website through one approved path ([#333](https://github.com/vegastack/vegastack-labs/issues/333))
+
+- **What:** The selected controller can prepare a consistent recovery image, claim a current Slack-approved plan, install its service foundation, hand off its existing database and install its one selected connector through the same executable. Each stage records an independently checked result; none establishes general host qualification.
+- **Why:** The first website needed a working service and credentials while the operator kept full native recovery and reboot qualification deferred.
+- **How it went:** The former handoff assumed the same UID, and Slack files belonged to the administrator. The bounded handoff now preserves those credentials and the before-configuration. Real SQLite/API/approval fixtures and Linux compilation passed; native installation and website acceptance remain unexecuted. A separately authorized Linux prerequisite read verified the selected controller and removed its temporary collector copy.
+- **Changed:** Three finite setup stages · one-use local administrator claim · preserved recovery image and custody records · current selected connector/native-reader checks · identical operator procedure. The six ingress bootstrap stages still require their individual plans and real readiness before DNS publication.
+- **Decisions:** Operator approved this limited source/policy path only. Actual installation, credential activation and public website changes remain separately authorized; ordinary admission and protected-host exclusions are unchanged.
+
+— approved source scope by (omkarmohanta09), conveyed by coordinator · built by Codex with parallel implementation agents · branch feat/330-website-delivery
+
+## 28-10-2026 — Bind a controller-only setup policy without claiming host admission ([#333](https://github.com/vegastack/vegastack-labs/issues/333))
+
+- **What:** Protected selected-controller policy and a dedicated eligibility result bind actual local machine/database authority, current state and an exact applied capability. The initial controller does not need a fabricated managed-host or native-baseline record.
+- **Why:** The operator approved a limited controller-and-one-connector source path while keeping deferred native qualification and normal workload gates unchanged.
+- **How it went:** Source tracing exposed the initial unregistered-controller dependency. The policy now remains separate from ordinary role/admission; finite claim/execution and actual file/custody proof belong to the accompanying implementation slices and are required before a working bootstrap claim.
+- **Changed:** Explicit protected policy and dedicated account binding · complete-policy capability · default-disabled current-authority verification · operator procedure. No live change or qualification evidence.
+- **Decisions:** Exact operator limited-setup selection conveyed by coordinator; actual live setup remains separately scoped.
+
+— approved source scope by (omkarmohanta09), conveyed by coordinator · built by Codex · branch feat/333-controller-setup-pilot
+
+## 28-10-2026 — Install one explicitly selected connector without exporting its token ([#332](https://github.com/vegastack/vegastack-labs/issues/332))
+
+- **What:** Added one fixed cloudflared host action using the existing human-acknowledged plan and pinned SSH boundary. The protected bootstrap receipt selects the tunnel; an operator supplies its root-owned token artifact.
+- **Why:** Existing role actions installed only the controller service or role slices, and putting a token in action JSON would expose it to plans and SQLite.
+- **How it went:** Reused current baseline evaluation and fixed systemd ownership. Synthetic local fixtures cover installation and scope/secret-path denials; Linux source compiled, with no live installation or native qualification claim.
+- **Lesson:** A service running is not ingress qualification. Actual baseline evidence, correct token scope, TLS/Access observations and later connector identity remain required.
+
+## 28-10-2026 — Prepare first Console ingress without borrowing another project's tunnel ([#330](https://github.com/vegastack/vegastack-labs/issues/330))
+
+- **What:** The existing ingress commands now support finite, separately acknowledged creation stages and a final same-record DNS cutover. New resource IDs come from retained server receipts rather than invented inputs; uncertain creation cannot be blindly repeated.
+- **Why:** The selected Console pilot required existing remote-managed resources, while the discovered tunnel was locally managed and had no active connector.
+- **How it went:** Reused the existing declaration, plan, acknowledgement, credential and adapter paths. Focused local fixtures cover provider effects, strict TLS, exact ownership and retry denial; The real API/SQLite/plan/ack workflow passed with synthetic filesystem, credential and provider boundaries; native Linux and live website acceptance remain unrun.
+- **Changed:** Optional exact controller bootstrap policy · six finite effects · durable nonsecret receipts · separate readiness-checked first DNS publication · equivalent operator procedure.
+- **Decisions:** None. Coordinator interpreted the ongoing selected-pilot implementation instruction as this bounded source scope; ordinary G-012/G-016 remain unchanged and host/custody work stays separate.
+
+— approved by (omkarmohanta09), under the coordinator's recorded instruction interpretation · built by Codex and coordinator · branch feat/330-ingress-bootstrap
+
+## 28-10-2026 — Inspect controller setup facts without a shell probe ([#331](https://github.com/vegastack/vegastack-labs/issues/331))
+
+- **What:** An operator-local doctor mode now checks an exact machine identity before collecting fixed controller account/path/unit metadata, custody presence and public TLS certificate facts. It emits versioned JSON and reports missing, unsafe or unavailable inputs without changing the machine.
+- **Why:** Preparing the persistent controller required nonsecret facts that summary diagnosis and inert service rendering did not collect.
+- **How it went:** Local fixtures exercised identity mismatch, secret non-disclosure, symlink and path denial, bounded reads and public TLS. Native Linux execution and live installation remain unperformed; source work does not establish admission or custody qualification.
+- **Changed:** Fixed local inspection command · generated result contract · equivalent operator-local procedure. No remote transport, service or dependency added.
+- **Decisions:** None. Coordinator conveyed the operator's explicit source implementation instruction; no separate review of subsequently authored issue text is claimed.
+
+— approved source scope by (omkarmohanta09), conveyed by coordinator · built by Codex · branch feat/331-controller-prerequisites
+
 ## 28-10-2026 — Check the application host before managed deployment credentials ([#328](https://github.com/vegastack/vegastack-labs/issues/328))
 
 - **What:** Managed external deployment now checks the exact application destination's current admission before credential handoff and each provider permission.
