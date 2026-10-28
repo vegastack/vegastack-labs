@@ -2,9 +2,12 @@ package store
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"github.com/vegastack/vegastack-labs/internal/adapter"
+	"github.com/vegastack/vegastack-labs/internal/credentialref"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	ingress "github.com/vegastack/vegastack-labs/internal/networkingress"
 	"slices"
@@ -46,11 +49,21 @@ func (r *IngressRepository) ReserveBootstrap(ctx context.Context, d ingress.Stag
 	if e := r.CheckCurrent(ctx, d); e != nil {
 		return e
 	}
+
+	op := adapter.Operation{OperationID: ingress.OperationID, OperationType: "network.ingress." + d.Request.Change.Action, AdapterID: ingress.AdapterID, TargetID: d.Request.Change.ProfileID, InputDigest: credentialref.OperationManifestDigest(d.Bindings, ingress.OperationID), ArtifactDigest: d.Digest}
+	current, e := r.Resolve(ctx, op, b)
+	if e != nil || current.Digest != d.Digest {
+		return ingressError(generated.ErrorCodeApprovalRequired)
+	}
+	var nonce [16]byte
+	if _, e = rand.Read(nonce[:]); e != nil {
+		return ingressError(generated.ErrorCodeIntegrityFailure)
+	}
 	a, e := r.store.HostAccessRunAttribution(ctx, b.RunID)
 	if e != nil {
 		return e
 	}
-	key := ingress.Digest([]string{b.RunID, b.StepID, "bootstrap-reserve"})
+	key := ingress.Digest([]string{b.RunID, b.StepID, "bootstrap-reserve", hex.EncodeToString(nonce[:])})
 	intent := discoveryIntent(a, "ingress.bootstrap-reserved", d.ID, key, d.Digest)
 	_, e = r.store.executeAuditIntent(ctx, intent, false, func(ctx context.Context, tx *sql.Tx) error {
 		row := func(s string, a ...any) *sql.Row { return tx.QueryRowContext(ctx, s, a...) }

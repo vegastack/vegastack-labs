@@ -13,7 +13,7 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 
 - **What:** The existing ingress commands now support finite, separately acknowledged creation stages and a final same-record DNS cutover. New resource IDs come from retained server receipts rather than invented inputs; uncertain creation cannot be blindly repeated.
 - **Why:** The selected Console pilot required existing remote-managed resources, while the discovered tunnel was locally managed and had no active connector.
-- **How it went:** Reused the existing declaration, plan, acknowledgement, credential and adapter paths. Focused local fixtures cover provider effects, strict TLS, exact ownership and retry denial; Linux API/SQLite workflow is compiled separately and no live website claim follows.
+- **How it went:** Reused the existing declaration, plan, acknowledgement, credential and adapter paths. Focused local fixtures cover provider effects, strict TLS, exact ownership and retry denial; The real API/SQLite/plan/ack workflow passed with synthetic filesystem, credential and provider boundaries; native Linux and live website acceptance remain unrun.
 - **Changed:** Optional exact controller bootstrap policy · six finite effects · durable nonsecret receipts · separate readiness-checked first DNS publication · equivalent operator procedure.
 - **Decisions:** None. Coordinator interpreted the ongoing selected-pilot implementation instruction as this bounded source scope; ordinary G-012/G-016 remain unchanged and host/custody work stays separate.
 

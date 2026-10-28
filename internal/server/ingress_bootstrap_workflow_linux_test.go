@@ -22,10 +22,13 @@ import (
 	planengine "github.com/vegastack/vegastack-labs/internal/plan"
 	"github.com/vegastack/vegastack-labs/internal/result"
 	runengine "github.com/vegastack/vegastack-labs/internal/run"
+	"github.com/vegastack/vegastack-labs/internal/serverconfig"
 	"github.com/vegastack/vegastack-labs/internal/store"
+	"net"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -64,12 +67,20 @@ func (b *ingressBootstrapAcceptanceBackend) MutateBootstrap(_ context.Context, c
 
 func TestIngressBootstrapAPIPlansAcknowledgementAndSameRecordCutover(t *testing.T) {
 	ctx := context.Background()
-	directory := t.TempDir()
+	directory, e := os.MkdirTemp("/var/tmp", "vsk330-fixture-")
+	if e != nil {
+		t.Fatal(e)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(directory) })
 	if e := os.Chmod(directory, 0700); e != nil {
 		t.Fatal(e)
 	}
 	path := filepath.Join(directory, "control.db")
-	s, e := store.Open(ctx, store.Config{DatabasePath: path, Mode: store.InitializeNew, ExpectedUID: uint32(os.Geteuid()), ToolVersion: "test", BuildVersion: "test", Clock: time.Now})
+	cfg := store.Config{DatabasePath: path, Mode: store.InitializeNew, ExpectedUID: uint32(os.Geteuid()), ToolVersion: "test", BuildVersion: "test", Clock: time.Now}
+	if runtime.GOOS != "linux" {
+		cfg.Filesystem = notificationWorkflowFS{}
+	}
+	s, e := store.Open(ctx, cfg)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -173,6 +184,33 @@ func TestIngressBootstrapAPIPlansAcknowledgementAndSameRecordCutover(t *testing.
 		t.Fatal(e)
 	}
 
+	// Production setup authority must reject fixture custody before the executor
+	// may resolve a credential. The positive engine below substitutes that native
+	// boundary explicitly; it does not claim systemd custody qualification.
+	caps, _ := json.Marshal([]string{"cloudflare.ingress", "credential.ingress.read", ingress.BootstrapCapability})
+	exec(`INSERT INTO gate_applied_profiles VALUES('bootstrap-profile','vegastack-labs','1.0.0','bootstrap-policy','1.0.0',?,1,0,'fixture-profile',1,'fixture-plan',?,'fixture-run','fixture-step','fixture-lease','operator-a','now')`, caps, ingress.Digest("fixture-plan"))
+	authorityState, e := s.CurrentAuthority(ctx)
+	if e != nil {
+		t.Fatal(e)
+	}
+	bootstrapPolicy := generated.IngressBootstrapPolicy{Change: c, ControllerHostID: c.Connectors[0].HostID, ControllerIdentityDigest: c.Connectors[0].IdentityDigest, ControllerInstanceID: authorityState.InstanceID, ControllerMachineIDDigest: ingress.Digest("machine")}
+	recoverySocket := filepath.Join(directory, "recovery.sock")
+	listener, e := net.Listen("unix", recoverySocket)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer listener.Close()
+	go func() {
+		for {
+			conn, e := listener.Accept()
+			if e != nil {
+				return
+			}
+			_ = conn.Close()
+		}
+	}()
+	production := &ingressAuthority{repository: repo, gates: store.NewGateRepository(s), credentials: refs, registry: registry}
+	production.bootstrap = &ingressBootstrapComposition{profile: serverconfig.Profile{SocketPath: recoverySocket, IngressBootstrap: &bootstrapPolicy}, store: s, source: production, machine: func() (string, error) { return ingress.Digest("machine"), nil }}
 	runs := map[string]string{}
 	ids := map[string]string{}
 	for stage, action := range ingress.BootstrapActions {
@@ -212,6 +250,14 @@ func TestIngressBootstrapAPIPlansAcknowledgementAndSameRecordCutover(t *testing.
 		if sdk.writes != stage {
 			t.Fatal("inert draft mutated provider")
 		}
+
+		if stage == 0 {
+			historical := q
+			historical.ExpectedStateRevision = 0
+			historyRaw, _ := json.Marshal(historical)
+			exec(`INSERT INTO ingress_drafts SELECT 'historical-draft',?, ?,bindings_bytes,actor_id,actor_method,actor_device,recovery_epoch FROM ingress_drafts WHERE draft_id=?`, ingress.Digest(historical), historyRaw, submission.DraftID)
+			exec(`INSERT INTO ingress_observations VALUES('historical-observation','bootstrap','historical-draft','historical-run','observed','historical-state',?,'2000-01-01T00:00:00Z',0)`, ingress.Digest("historical-observation"))
+		}
 		stored, e := store.NewDeclarationRepository(s).GetRevision(ctx, submission.DeclarationID, 1)
 		if e != nil {
 			t.Fatal(e)
@@ -223,6 +269,16 @@ func TestIngressBootstrapAPIPlansAcknowledgementAndSameRecordCutover(t *testing.
 		planned, e := plans.Create(ctx, planengine.AuthorScope{PrincipalID: principal.ID, PrincipalMethod: principal.Method, AgentSessionID: "ingress-fixture-session"}, generated.PlanCreateRequest{Schema: generated.SchemaIDPlanCreateRequest, SchemaVersion: "1.0.0", DeclarationID: stored.DeclarationID, DeclarationRevision: 1, ExpectedStateRevision: submission.StateRevision, RecoveryEpoch: submission.RecoveryEpoch, ObservationFingerprint: fingerprint, IdempotencyKey: fmt.Sprintf("ingress-plan-%d", stage), Extensions: stored.Extensions})
 		if e != nil {
 			t.Fatal(e)
+		}
+
+		if stage == 0 {
+			op := planned.Plan.Operations[0]
+			if e := (ingressSecretGate{source: production}).VerifySecretStep(ctx, planned.Plan, op); e == nil {
+				t.Fatal("production native-custody gate accepted fixture resolver")
+			}
+			if sdk.writes != 0 {
+				t.Fatal("failed custody reached provider mutation")
+			}
 		}
 		p := planned.Plan
 		ack, e := acknowledgement.NewService(acknowledgement.Config{Repository: store.NewAcknowledgementRepository(s), Plans: lifecycleAcceptancePlanReader{plans}, Authorizer: lifecycleAcceptanceAuthorizer{}, Clock: time.Now})
@@ -262,6 +318,18 @@ func TestIngressBootstrapAPIPlansAcknowledgementAndSameRecordCutover(t *testing.
 		if status.ResourceID == "" || status.RunID == "" || status.Status != "observed" {
 			t.Fatalf("missing durable receipt %+v", status)
 		}
+
+		oldDraft, e := repo.GetStaged(ctx, submission.DraftID)
+		if e != nil {
+			t.Fatal(e)
+		}
+		var oldStep string
+		if e = db.QueryRow(`SELECT step_id FROM plan_run_steps WHERE run_id=?`, status.RunID).Scan(&oldStep); e != nil {
+			t.Fatal(e)
+		}
+		if e = repo.ReserveBootstrap(ctx, oldDraft, adapter.ExactExecutionBinding{RunID: status.RunID, StepID: oldStep}, ingress.Snapshot{}); e == nil {
+			t.Fatal("completed run replay reserved a second provider write")
+		}
 		ids[action] = status.ResourceID
 		runs[action] = status.RunID
 		if sdk.writes != stage+1 || (action != "bootstrap-cutover" && sdk.dnsWrites != 0) {
@@ -274,6 +342,21 @@ func TestIngressBootstrapAPIPlansAcknowledgementAndSameRecordCutover(t *testing.
 		if w := request("POST", "/api/v1/network/ingress/draft", q); w.Code == 200 {
 			t.Fatal("completed resource stage accepted again")
 		}
+	}
+
+	current, _ := revisions.CurrentRevision(ctx)
+	later := generated.IngressDraftRequest{Schema: generated.SchemaIDIngressDraftRequest, SchemaVersion: "1.0.0", Change: c, ExpectedStateRevision: current.StateRevision, RecoveryEpoch: current.RecoveryEpoch, IdempotencyKey: "later-owned-observation"}
+	later.Change.Bootstrap = nil
+	later.Change.Action = "import"
+	later.Change.ResourceKind = "tunnel-configuration"
+	later.Change.ResourceID = later.Change.TunnelID
+	laterRaw, _ := json.Marshal(later)
+	exec(`INSERT INTO ingress_drafts SELECT 'later-owned-draft',?, ?,bindings_bytes,actor_id,actor_method,actor_device,recovery_epoch FROM ingress_drafts WHERE draft_id='historical-draft'`, ingress.Digest(later), laterRaw)
+	exec(`INSERT INTO ingress_observations VALUES('later-owned-observation','bootstrap','later-owned-draft','later-owned-run','observed','owned-route-observed',?,?,0)`, ingress.Digest("later-owned-observation"), time.Now().UTC().Format(time.RFC3339))
+	var laterStatus generated.IngressStatusData
+	decode(request("GET", "/api/v1/network/ingress/bootstrap", nil), &laterStatus)
+	if laterStatus.Status != "observed" || laterStatus.Reason != "owned-route-observed" || laterStatus.ObservationDigest != ingress.Digest("later-owned-observation") || laterStatus.RunID != "" || laterStatus.ResourceID != "" {
+		t.Fatalf("later ordinary observation lost or mixed with old bootstrap %+v", laterStatus)
 	}
 	if sdk.dnsWrites != 1 {
 		t.Fatal("cutover did not name exactly one existing DNS record")

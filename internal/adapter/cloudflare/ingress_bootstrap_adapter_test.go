@@ -6,6 +6,8 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	ingress "github.com/vegastack/vegastack-labs/internal/networkingress"
+	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -126,5 +128,38 @@ func TestBootstrapDeniedAuthorityAndStaleObservationNeverWrite(t *testing.T) {
 				t.Fatalf("denied operation wrote provider (%d)", b.writes)
 			}
 		})
+	}
+}
+
+func TestBootstrapSDKThroughBoundAdapterRecordsVerifiedCreatedID(t *testing.T) {
+	q := bootstrapTestChange("bootstrap-tunnel")
+	posts := 0
+	sdk := bootstrapTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			posts++
+			bootstrapReply(w, map[string]any{"id": testUUID, "name": q.Bootstrap.Name, "config_src": "cloudflare", "token": "discard-this-sensitive-value"})
+			return
+		}
+		if strings.HasSuffix(r.URL.Path, "/"+testUUID) {
+			bootstrapReply(w, map[string]any{"id": testUUID, "name": q.Bootstrap.Name, "config_src": "cloudflare"})
+			return
+		}
+		bootstrapReply(w, []any{})
+	})
+	before, e := sdk.ObserveBootstrap(context.Background(), q, testValue(t, "fixture-observer"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	q.BeforeDigest = before.Digest
+	a, authority, _, op, values := bootstrapAdapterFixture(t)
+	authority.d.Request.Change = q
+	a.Backend = sdk
+	effect, e := a.ExecuteBoundWithCredentials(context.Background(), op, adapter.ExactExecutionBinding{RunID: "run-sdk", StepID: "step-sdk"}, values)
+	if e != nil || effect.Status != "succeeded" || posts != 1 {
+		t.Fatalf("SDK adapter effect %+v %v posts%d", effect, e, posts)
+	}
+	verification, e := a.Verify(context.Background(), op, effect)
+	if e != nil || !verification.Verified || len(authority.records) != 1 || authority.records[0] != "observed" {
+		t.Fatalf("SDK adapter verification %+v %v", verification, e)
 	}
 }

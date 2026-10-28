@@ -7,7 +7,10 @@ import (
 	ingress "github.com/vegastack/vegastack-labs/internal/networkingress"
 	"github.com/vegastack/vegastack-labs/internal/serverconfig"
 	"github.com/vegastack/vegastack-labs/internal/store"
+	"net"
+	"os"
 	"slices"
+	"time"
 )
 
 // This finite initial-publication branch is distinct from ordinary G-012/G-016
@@ -40,6 +43,16 @@ func (p *ingressBootstrapComposition) check(ctx context.Context, d ingress.Stage
 	if e != nil || scope.ProfileID != "vegastack-labs" || scope.RecoveryEpoch != d.Request.RecoveryEpoch || !slices.Contains(scope.Capabilities, ingress.BootstrapCapability) || !slices.Contains(scope.Capabilities, "credential.ingress.read") || p.profile.SocketPath == "" {
 		return deny()
 	}
+
+	socket, e := os.Lstat(p.profile.SocketPath)
+	if e != nil || socket.Mode()&os.ModeSocket == 0 {
+		return deny()
+	}
+	local, e := net.DialTimeout("unix", p.profile.SocketPath, time.Second)
+	if e != nil {
+		return deny()
+	}
+	_ = local.Close()
 	health, e := p.store.Health(ctx)
 	if e != nil || health.Mode != store.DatabaseReady || health.RecoveryPending {
 		return deny()
