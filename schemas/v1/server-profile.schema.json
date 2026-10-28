@@ -215,6 +215,63 @@
       ],
       "type": "object"
     },
+    "ci-external-deployment-binding": {
+      "additionalProperties": false,
+      "properties": {
+        "artifactId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "bindingId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "executionBindingId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "executorId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "materialVersion": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "resolverId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/ci-external-deployment-binding"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "serviceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "bindingId",
+        "executionBindingId",
+        "serviceId",
+        "artifactId",
+        "executorId",
+        "materialVersion",
+        "resolverId"
+      ],
+      "type": "object"
+    },
     "ci-job-execution-binding": {
       "additionalProperties": false,
       "properties": {
@@ -1496,6 +1553,13 @@
         "$ref": "#/$defs/ci-enrollment-binding"
       },
       "maxItems": 128,
+      "type": "array"
+    },
+    "ciExternalDeployments": {
+      "items": {
+        "$ref": "#/$defs/ci-external-deployment-binding"
+      },
+      "maxItems": 64,
       "type": "array"
     },
     "ciJobBindings": {

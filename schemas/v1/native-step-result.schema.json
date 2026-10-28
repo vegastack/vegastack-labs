@@ -1408,6 +1408,10 @@
         "definition": {
           "$ref": "#/$defs/ci-enrollment-definition"
         },
+        "deploymentDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
         "executionBindingDigest": {
           "pattern": "^sha256:[a-f0-9]{64}$",
           "type": "string"

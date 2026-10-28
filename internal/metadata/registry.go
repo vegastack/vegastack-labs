@@ -947,6 +947,7 @@ func currentSchemas() []SchemaDefinition {
 				{JSONName: "serviceDeploymentBindings", GoName: "ServiceDeploymentBindings", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/service-deployment-provider-binding", MaxItems: intPointer(128)},
 				{JSONName: "hostingLifecycleProfiles", GoName: "HostingLifecycleProfiles", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/hosting-lifecycle-profile", MaxItems: intPointer(128)},
 				{JSONName: "serviceRecoveryProfiles", GoName: "ServiceRecoveryProfiles", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/service-recovery-profile", MaxItems: intPointer(128)},
+				{JSONName: "ciExternalDeployments", GoName: "CIExternalDeployments", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/ci-external-deployment-binding", MaxItems: intPointer(64)},
 				{JSONName: "ciJobBindings", GoName: "CIJobBindings", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/ci-job-execution-binding", MaxItems: intPointer(128)},
 				{JSONName: "ciPublicationBindings", GoName: "CIPublicationBindings", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/ci-publication-binding", MaxItems: intPointer(128)},
 				{JSONName: "ciDeploymentJobs", GoName: "CIDeploymentJobs", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/ci-deployment-job-binding", MaxItems: intPointer(64)},
@@ -1033,6 +1034,7 @@ func currentSchemas() []SchemaDefinition {
 	schemas = append(schemas, goImageSchema())
 	schemas = append(schemas, ciJobSchemas()...)
 	schemas = append(schemas, ciPublicationSchemas()...)
+	schemas = append(schemas, ciExternalDeploymentSchemas()...)
 	schemas = append(schemas, serviceCatalogSchemas()...)
 	schemas = append(schemas, serviceDeploymentSchemas()...)
 	schemas = append(schemas, serviceConfigurationSchemas()...)

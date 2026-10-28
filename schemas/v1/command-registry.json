@@ -8096,6 +8096,11 @@
       "artifactPath": "schemas/v1/ci-enrollment-request.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/ci-external-deployment-binding",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/ci-external-deployment-binding.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/ci-job-draft-request",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/ci-job-draft-request.schema.json"

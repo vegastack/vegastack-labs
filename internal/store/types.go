@@ -153,6 +153,7 @@ type IntentStore interface {
 }
 
 type Config struct {
+	CIExternalDeploymentPolicies  []CIExternalDeploymentPolicy
 	HostingLifecycleProfiles      []hostinglifecycle.Profile
 	ServiceRecoveryPolicies       []servicerecovery.Policy
 	CIJobBindings                 []generated.CiJobExecutionBinding

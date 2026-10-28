@@ -34,11 +34,12 @@ type RestorePlanQualification struct {
 }
 
 type PlanCommitResult struct {
-	Plan      generated.Plan
-	Canonical []byte
-	Readable  string
-	Commit    Commit
-	Created   bool
+	CompanionPlanID, CompanionPlanDigest string
+	Plan                                 generated.Plan
+	Canonical                            []byte
+	Readable                             string
+	Commit                               Commit
+	Created                              bool
 }
 
 type OperationalPlanCommitRequest struct {

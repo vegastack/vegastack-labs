@@ -738,6 +738,7 @@ export interface CiEnrollmentRequest {
 export interface CiJobRequest {
   readonly "schema": "vegastack-labs.dev/ci-job-request";
   readonly "schemaVersion": "1.0.0";
+  readonly "deploymentDigest"?: string;
   readonly "definition": CiEnrollmentDefinition;
   readonly "executionBindingId": string;
   readonly "executionBindingDigest": string;
@@ -1948,6 +1949,8 @@ export interface PlanPresentation {
   readonly "plan": Plan;
   readonly "readablePlan": string;
   readonly "canonicalPlan": string;
+  readonly "companionPlanId"?: string;
+  readonly "companionPlanDigest"?: string;
 }
 
 export interface PlanReferenceRequest {
@@ -6522,6 +6525,14 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "enum": [
           "1.0.0"
         ]
+      },
+      {
+        "name": "deploymentDigest",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "pattern": "^sha256:[a-f0-9]{64}$"
       },
       {
         "name": "definition",
@@ -14343,6 +14354,22 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "nullable": false,
         "minLength": 2,
         "maxLength": 4194304
+      },
+      {
+        "name": "companionPlanId",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "pattern": "^plan-[a-f0-9]{32}$"
+      },
+      {
+        "name": "companionPlanDigest",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "pattern": "^sha256:[a-f0-9]{64}$"
       }
     ]
   },

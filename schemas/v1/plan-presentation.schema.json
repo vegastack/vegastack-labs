@@ -374,6 +374,10 @@
         "definition": {
           "$ref": "#/$defs/ci-enrollment-definition"
         },
+        "deploymentDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
         "executionBindingDigest": {
           "pattern": "^sha256:[a-f0-9]{64}$",
           "type": "string"
@@ -3226,6 +3230,14 @@
     "canonicalPlan": {
       "maxLength": 4194304,
       "minLength": 2,
+      "type": "string"
+    },
+    "companionPlanDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "companionPlanId": {
+      "pattern": "^plan-[a-f0-9]{32}$",
       "type": "string"
     },
     "plan": {

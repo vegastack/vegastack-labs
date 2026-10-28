@@ -123,6 +123,7 @@ const (
 	SchemaIDCiEnrollmentList                       = "vegastack-labs.dev/ci-enrollment-list"
 	SchemaIDCiEnrollmentRecord                     = "vegastack-labs.dev/ci-enrollment-record"
 	SchemaIDCiEnrollmentRequest                    = "vegastack-labs.dev/ci-enrollment-request"
+	SchemaIDCiExternalDeploymentBinding            = "vegastack-labs.dev/ci-external-deployment-binding"
 	SchemaIDCiJobDraftRequest                      = "vegastack-labs.dev/ci-job-draft-request"
 	SchemaIDCiJobExecutionBinding                  = "vegastack-labs.dev/ci-job-execution-binding"
 	SchemaIDCiJobRequest                           = "vegastack-labs.dev/ci-job-request"
@@ -1929,6 +1930,18 @@ type CiEnrollmentRequest struct {
 	ReasonDigest                string                 `json:"reasonDigest"`
 }
 
+type CiExternalDeploymentBinding struct {
+	Schema             string `json:"schema"`
+	SchemaVersion      string `json:"schemaVersion"`
+	BindingID          string `json:"bindingId"`
+	ExecutionBindingID string `json:"executionBindingId"`
+	ServiceID          string `json:"serviceId"`
+	ArtifactID         string `json:"artifactId"`
+	ExecutorID         string `json:"executorId"`
+	MaterialVersion    string `json:"materialVersion"`
+	ResolverID         string `json:"resolverId"`
+}
+
 type CiJobDraftRequest struct {
 	Schema                string `json:"schema"`
 	SchemaVersion         string `json:"schemaVersion"`
@@ -1967,6 +1980,7 @@ type CiJobExecutionBinding struct {
 type CiJobRequest struct {
 	Schema                 string                 `json:"schema"`
 	SchemaVersion          string                 `json:"schemaVersion"`
+	DeploymentDigest       string                 `json:"deploymentDigest,omitempty"`
 	Definition             CiEnrollmentDefinition `json:"definition"`
 	ExecutionBindingID     string                 `json:"executionBindingId"`
 	ExecutionBindingDigest string                 `json:"executionBindingDigest"`
@@ -4775,9 +4789,11 @@ type PlanPreparation struct {
 }
 
 type PlanPresentation struct {
-	Plan          Plan   `json:"plan"`
-	ReadablePlan  string `json:"readablePlan"`
-	CanonicalPlan string `json:"canonicalPlan"`
+	Plan                Plan   `json:"plan"`
+	ReadablePlan        string `json:"readablePlan"`
+	CanonicalPlan       string `json:"canonicalPlan"`
+	CompanionPlanID     string `json:"companionPlanId,omitempty"`
+	CompanionPlanDigest string `json:"companionPlanDigest,omitempty"`
 }
 
 type PlanReferenceRequest struct {
@@ -5452,6 +5468,7 @@ type ServerProfile struct {
 	ServiceDeploymentBindings        []ServiceDeploymentProviderBinding `json:"serviceDeploymentBindings,omitempty"`
 	HostingLifecycleProfiles         []HostingLifecycleProfile          `json:"hostingLifecycleProfiles,omitempty"`
 	ServiceRecoveryProfiles          []ServiceRecoveryProfile           `json:"serviceRecoveryProfiles,omitempty"`
+	CIExternalDeployments            []CiExternalDeploymentBinding      `json:"ciExternalDeployments,omitempty"`
 	CIJobBindings                    []CiJobExecutionBinding            `json:"ciJobBindings,omitempty"`
 	CIPublicationBindings            []CiPublicationBinding             `json:"ciPublicationBindings,omitempty"`
 	CIDeploymentJobs                 []CiDeploymentJobBinding           `json:"ciDeploymentJobs,omitempty"`

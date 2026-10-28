@@ -142,6 +142,11 @@ func TestNativeProtectedNetwork(t *testing.T) {
 	if e := (rootNetworkVerifier{c}).Check(context.Background(), c.Profile, check); e != nil {
 		t.Fatal("current native policy denied", e)
 	}
+	if origin := os.Getenv("VSK_CI_NETWORK_DEPLOYMENT_ORIGIN"); origin != "" {
+		if e := (rootNetworkVerifier{c}).CheckDeployment(context.Background(), c.Profile, check, origin); e != nil {
+			t.Fatal("current exact deployment origin denied", e)
+		}
+	}
 }
 
 func TestConnectedPublicLANBlocks(t *testing.T) {

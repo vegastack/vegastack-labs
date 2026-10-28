@@ -255,7 +255,7 @@ func (r *CIJobRepository) mutate(ctx context.Context, op adapter.Operation, b ad
 		}
 		return fn(ctx, tx, x)
 	})
-	if e == nil && !result.Created && (stage == "started" || stage == "admitted" || stage == "configured") {
+	if e == nil && !result.Created && (stage == "started" || stage == "admitted" || stage == "configured" || ciHandoffStage(stage)) {
 		return actionError(generated.ErrorCodeStateConflict)
 	}
 	return e
@@ -379,4 +379,10 @@ func (r *CIJobRepository) RecordRegistrationStage(ctx context.Context, op adapte
 		_, e := tx.ExecContext(ctx, `UPDATE ci_job_executions SET registration_stage=? WHERE run_id=? AND step_id=? AND lease_id=? AND admission_consumed=0`, stage, b.RunID, b.StepID, b.LeaseID)
 		return e
 	})
+}
+
+// ExecutionReadContext restores the original server-owned run actor and device
+// for current-authority readback; it grants no new execution authority.
+func (r *CIJobRepository) ExecutionReadContext(ctx context.Context, runID string) (context.Context, error) {
+	return r.executionContext(ctx, runID)
 }

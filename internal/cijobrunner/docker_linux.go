@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/cijobguard"
+	"github.com/vegastack/vegastack-labs/internal/credentialref"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"golang.org/x/sys/unix"
 )
@@ -357,6 +358,25 @@ func (d *Docker) Run(ctx context.Context, s Spec, session Session) (receipt Rece
 			receipt.Stage = "held"
 			if emit("held", 0) != nil {
 				return receipt, ErrProtocol
+			}
+			if outer, ok := session.(*Stream); ok {
+				outer.deploymentPrepare = func(ctx context.Context, command DeploymentCommand) error {
+					verifier, ok := d.network.(DeploymentNetworkVerifier)
+					if !ok || verifier.CheckDeployment(ctx, d.profile, NetworkCheck{ContainerID: id, InitPID: group.initPID}, command.Origin) != nil {
+						return ErrBlocked
+					}
+					if stream.write(ctx, frame{Kind: "deployment-offer", Deployment: &command}) != nil {
+						return ErrProtocol
+					}
+					ready, e := stream.read(ctx)
+					if e != nil || ready.Kind != "deployment-ready" || ready.DeploymentCheck == nil || ready.DeploymentCheck.CommandDigest != hostaction.Digest(command) || ready.DeploymentCheck.Sequence != 0 {
+						return ErrProtocol
+					}
+					return nil
+				}
+				outer.deploymentConsumer = func(ctx context.Context, command DeploymentCommand, value *credentialref.Value, check func(context.Context) error) (DeploymentResult, error) {
+					return relayDeployment(ctx, stream, command, value, check)
+				}
 			}
 			decision, e := session.Held(ctx)
 			if e != nil || ValidateDecision(s.Binding, decision) != nil {

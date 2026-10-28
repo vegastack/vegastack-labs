@@ -70,6 +70,13 @@ type NetworkCheck struct {
 	InitPID     int    `json:"initPid"`
 }
 
+// DeploymentNetworkVerifier additionally proves this exact provider origin is
+// reachable under the current protected network policy. Ordinary public-only
+// qualification never implies private hosting access.
+type DeploymentNetworkVerifier interface {
+	CheckDeployment(context.Context, RuntimeProfile, NetworkCheck, string) error
+}
+
 type NetworkVerifier interface {
 	Check(context.Context, RuntimeProfile, NetworkCheck) error
 }

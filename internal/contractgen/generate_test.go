@@ -251,6 +251,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/browser-scheduled-job-policy.schema.json",
 		"schemas/v1/browser-scheduled-job.schema.json",
 		"schemas/v1/ci-deployment-job-binding.schema.json",
+		"schemas/v1/ci-external-deployment-binding.schema.json",
 		"schemas/v1/ci-enrollment-binding.schema.json",
 		"schemas/v1/ci-enrollment-definition.schema.json",
 		"schemas/v1/ci-enrollment-draft-request.schema.json",

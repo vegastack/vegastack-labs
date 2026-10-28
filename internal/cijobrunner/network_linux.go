@@ -5,10 +5,12 @@ package cijobrunner
 import (
 	"bufio"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"io"
 	"net"
 	"net/netip"
+	"net/url"
 	"os"
 	"os/exec"
 	"runtime"
@@ -411,8 +413,9 @@ type networkClient struct {
 	next   int
 }
 type networkRequest struct {
-	Sequence int          `json:"sequence"`
-	Check    NetworkCheck `json:"check"`
+	Sequence         int          `json:"sequence"`
+	Check            NetworkCheck `json:"check"`
+	DeploymentOrigin string       `json:"deploymentOrigin,omitempty"`
 }
 type networkResponse struct {
 	Sequence int  `json:"sequence"`
@@ -420,12 +423,18 @@ type networkResponse struct {
 }
 
 func (c *networkClient) Check(ctx context.Context, _ RuntimeProfile, check NetworkCheck) error {
+	return c.check(ctx, check, "")
+}
+func (c *networkClient) CheckDeployment(ctx context.Context, _ RuntimeProfile, check NetworkCheck, origin string) error {
+	return c.check(ctx, check, origin)
+}
+func (c *networkClient) check(ctx context.Context, check NetworkCheck, origin string) error {
 	c.next++
-	if c.next > 2 {
+	if c.next > 3 || (c.next < 3 && origin != "") || (c.next == 3 && origin == "") {
 		return ErrBlocked
 	}
 	_ = c.file.SetDeadline(time.Now().Add(35 * time.Second))
-	if hostaction.WriteFrame(c.file, networkRequest{c.next, check}, 4096) != nil {
+	if hostaction.WriteFrame(c.file, networkRequest{Sequence: c.next, Check: check, DeploymentOrigin: origin}, 4096) != nil {
 		return ErrBlocked
 	}
 	raw, e := hostaction.ReadFrame(c.reader, 4096)
@@ -439,16 +448,98 @@ func serveNetwork(ctx context.Context, f *os.File, c NativeConfig) {
 	defer f.Close()
 	r := bufio.NewReader(f)
 	v := rootNetworkVerifier{c}
-	for seq := 1; seq <= 2; seq++ {
+	for seq := 1; seq <= 3; seq++ {
 		_ = f.SetDeadline(time.Now().Add(time.Hour))
 		raw, e := hostaction.ReadFrame(r, 4096)
 		var q networkRequest
-		if e != nil || decodeFrame(ctx, raw, &q) != nil || q.Sequence != seq || (seq == 1 && q.Check.ContainerID != "") || (seq == 2 && q.Check.ContainerID == "") {
+		if e != nil || decodeFrame(ctx, raw, &q) != nil || q.Sequence != seq || (seq == 1 && q.Check.ContainerID != "") || (seq >= 2 && q.Check.ContainerID == "") || (seq < 3 && q.DeploymentOrigin != "") || (seq == 3 && q.DeploymentOrigin == "") {
 			return
 		}
-		passed := v.Check(ctx, c.Profile, q.Check) == nil
+		var checkErr error
+		if seq == 3 {
+			checkErr = v.CheckDeployment(ctx, c.Profile, q.Check, q.DeploymentOrigin)
+		} else {
+			checkErr = v.Check(ctx, c.Profile, q.Check)
+		}
+		passed := checkErr == nil
 		if hostaction.WriteFrame(f, networkResponse{seq, passed}, 4096) != nil || !passed {
 			return
 		}
 	}
+}
+
+// CheckDeployment qualifies the selected public HTTPS endpoint in the actual
+// payload namespace before any token crosses the existing private stream.
+// It does not add an egress rule or permit private/LAN/Mesh destinations.
+func (v rootNetworkVerifier) CheckDeployment(ctx context.Context, p RuntimeProfile, c NetworkCheck, origin string) error {
+	if c.ContainerID == "" || v.Check(ctx, p, c) != nil {
+		return ErrBlocked
+	}
+	u, e := url.Parse(origin)
+	if e != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/" && u.Path != "/api/v1") || (u.Port() != "" && u.Port() != "443") {
+		return ErrBlocked
+	}
+	resolver := &net.Resolver{PreferGo: true, Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+		return (&net.Dialer{Timeout: time.Second}).DialContext(ctx, "udp4", net.JoinHostPort(p.DNSResolver, "53"))
+	}}
+	ips, e := resolver.LookupNetIP(ctx, "ip4", u.Hostname())
+	if e != nil || len(ips) == 0 || len(ips) > 16 {
+		return ErrBlocked
+	}
+	for _, ip := range ips {
+		if deniedAddress(ip) {
+			return ErrBlocked
+		}
+	}
+	target, e := os.Open("/proc/" + strconv.Itoa(c.InitPID) + "/ns/net")
+	if e != nil {
+		return ErrBlocked
+	}
+	defer target.Close()
+	done := make(chan error, 1)
+	go func() {
+		runtime.LockOSThread()
+		restored := false
+		defer func() {
+			if restored {
+				runtime.UnlockOSThread()
+			}
+		}()
+		original, e := os.Open("/proc/thread-self/ns/net")
+		if e != nil {
+			done <- ErrBlocked
+			return
+		}
+		defer original.Close()
+		if unix.Setns(int(target.Fd()), unix.CLONE_NEWNET) != nil {
+			restored = true
+			done <- ErrBlocked
+			return
+		}
+		result := error(nil)
+		for _, ip := range ips {
+			d := tls.Dialer{NetDialer: &net.Dialer{Timeout: 5 * time.Second}, Config: &tls.Config{MinVersion: tls.VersionTLS12, ServerName: u.Hostname()}}
+			conn, e := d.DialContext(ctx, "tcp4", net.JoinHostPort(ip.String(), "443"))
+			if e != nil {
+				result = ErrBlocked
+				break
+			}
+			conn.Close()
+		}
+		if unix.Setns(int(original.Fd()), unix.CLONE_NEWNET) != nil {
+			done <- ErrBlocked
+			return
+		}
+		restored = true
+		done <- result
+	}()
+	select {
+	case e := <-done:
+		if e != nil {
+			return e
+		}
+	case <-ctx.Done():
+		return ErrBlocked
+	}
+	return v.checkRules(ctx, p)
 }

@@ -27,11 +27,11 @@ func NewAdmissionGate(source AcknowledgementSource, clock func() time.Time) *Adm
 	return &AdmissionGate{acknowledgements: source, clock: clock}
 }
 
-func (gate *AdmissionGate) Verify(_ context.Context, plan generated.Plan, decision generated.AuthorizationDecision, acknowledgement *generated.Acknowledgement) error {
-	return gate.verify(plan, decision, acknowledgement, true)
+func (gate *AdmissionGate) Verify(ctx context.Context, plan generated.Plan, decision generated.AuthorizationDecision, acknowledgement *generated.Acknowledgement) error {
+	return gate.verify(ctx, plan, decision, acknowledgement, true)
 }
 
-func (gate *AdmissionGate) verify(plan generated.Plan, decision generated.AuthorizationDecision, acknowledgement *generated.Acknowledgement, requireFreshProof bool) error {
+func (gate *AdmissionGate) verify(ctx context.Context, plan generated.Plan, decision generated.AuthorizationDecision, acknowledgement *generated.Acknowledgement, requireFreshProof bool) error {
 	if gate == nil || !exactContract(generated.SchemaIDPlan, plan) || len(plan.Operations) == 0 || !exactContract(generated.SchemaIDAuthorizationDecision, decision) || !decision.Allowed || decision.Action != string(authorization.ActionExecute) || !authorization.FirstExecutionTarget(plan, decision.TargetID) || decision.PlanDigest != plan.PlanDigest || decision.RecoveryEpoch != plan.Binding.RecoveryEpoch || decision.Branch == nil || *decision.Branch != plan.AuthorizationBranch {
 		return runError(generated.ErrorCodeAuthorizationDenied, "run-admission")
 	}
@@ -43,7 +43,7 @@ func (gate *AdmissionGate) verify(plan generated.Plan, decision generated.Author
 			return runError(generated.ErrorCodeAuthorizationDenied, "credential-lifecycle-human-admission")
 		}
 	}
-	if credentialPlanDigest(plan) != "" && (plan.AuthorizationBranch != string(authorization.BranchHuman) && !scheduledCredentialPlan(plan) || plan.ExecutorMode != "central") {
+	if credentialPlanDigest(plan) != "" && !credentialExternalAdmitted(ctx, plan) && (plan.AuthorizationBranch != string(authorization.BranchHuman) && !scheduledCredentialPlan(plan) || plan.ExecutorMode != "central") {
 		return runError(generated.ErrorCodeAuthorizationDenied, "credential-human-central-admission")
 	}
 	if plan.AuthorizationBranch == string(authorization.BranchPreauthorized) {
@@ -59,7 +59,7 @@ func (gate *AdmissionGate) verify(plan generated.Plan, decision generated.Author
 }
 
 func (gate *AdmissionGate) Activate(ctx context.Context, plan generated.Plan, decision generated.AuthorizationDecision, current generated.Run, acknowledgement *generated.Acknowledgement) error {
-	if err := gate.verify(plan, decision, acknowledgement, plan.AuthorizationBranch == string(authorization.BranchPreauthorized)); err != nil {
+	if err := gate.verify(ctx, plan, decision, acknowledgement, plan.AuthorizationBranch == string(authorization.BranchPreauthorized)); err != nil {
 		return err
 	}
 	if current.Status != "queued" || current.PlanID != plan.PlanID || current.PlanDigest != plan.PlanDigest || current.RecoveryEpoch != plan.Binding.RecoveryEpoch {
@@ -81,11 +81,11 @@ func (gate *AdmissionGate) Activate(ctx context.Context, plan generated.Plan, de
 	if verified.AcknowledgementID != acknowledgement.AcknowledgementID {
 		return runError(generated.ErrorCodeAuthorizationDenied, "acknowledgement")
 	}
-	return gate.verify(plan, decision, &verified, false)
+	return gate.verify(ctx, plan, decision, &verified, false)
 }
 
 func (gate *AdmissionGate) VerifyRun(ctx context.Context, plan generated.Plan, current generated.Run) error {
-	if credentialPlanDigest(plan) != "" && (plan.AuthorizationBranch != string(authorization.BranchHuman) && !scheduledCredentialPlan(plan) || plan.ExecutorMode != "central") {
+	if credentialPlanDigest(plan) != "" && !credentialExternalAdmitted(ctx, plan) && (plan.AuthorizationBranch != string(authorization.BranchHuman) && !scheduledCredentialPlan(plan) || plan.ExecutorMode != "central") {
 		return runError(generated.ErrorCodeAuthorizationDenied, "credential-human-central-admission")
 	}
 	if current.PlanID != plan.PlanID || current.PlanDigest != plan.PlanDigest || current.RecoveryEpoch != plan.Binding.RecoveryEpoch || current.PolicyVersion != plan.Binding.PolicyVersion {
