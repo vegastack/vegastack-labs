@@ -145,10 +145,10 @@ func TestNativeProtectedNetwork(t *testing.T) {
 }
 
 func TestConnectedPublicLANBlocks(t *testing.T) {
-	if !connectedRoutesDenied(`[{"dst":"default","gateway":"192.168.5.2"},{"dst":"192.168.5.0/24","scope":"link"},{"dst":"198.18.0.0/24","scope":"link"}]`) {
+	if !connectedRoutesDenied(`[{"dst":"default","gateway":"192.168.5.2"},{"dst":"192.168.5.0/24","scope":"link"},{"dst":"192.168.5.2","scope":"link"},{"dst":"198.18.0.0/24","scope":"link"}]`) {
 		t.Fatal("private/test LAN denied")
 	}
-	for _, raw := range []string{`[{"dst":"8.8.8.0/24","scope":"link"}]`, `[{"dst":"default","scope":"link"}]`, `[]`, `garbage`, `[{"dst":"0.0.0.0/0","scope":"link"}]`} {
+	for _, raw := range []string{`[{"dst":"8.8.8.8","scope":"link"}]`, `[{"dst":"8.8.8.0/24","scope":"link"}]`, `[{"dst":"default","scope":"link"}]`, `[]`, `garbage`, `[{"dst":"0.0.0.0/0","scope":"link"}]`} {
 		if connectedRoutesDenied(raw) {
 			t.Fatal("uncovered connected route accepted", raw)
 		}

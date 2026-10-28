@@ -300,7 +300,14 @@ func connectedRoutesDenied(raw string) bool {
 			continue
 		}
 		p, e := netip.ParsePrefix(r.Dst)
-		if e != nil || !p.Addr().Is4() {
+		if e != nil {
+			a, ae := netip.ParseAddr(r.Dst)
+			if ae != nil || !a.Is4() {
+				return false
+			}
+			p = netip.PrefixFrom(a, 32)
+		}
+		if !p.Addr().Is4() {
 			return false
 		}
 		covered := false
