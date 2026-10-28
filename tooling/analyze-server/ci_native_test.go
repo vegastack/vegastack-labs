@@ -7,16 +7,19 @@ import (
 )
 
 func TestCINativeUnixScopeRequiresExactFiles(t *testing.T) {
-	for _, relative := range []string{"internal/runnerbootstrap/config_linux.go", "internal/cijobguard/cgroup_linux.go", "internal/cijobrunner/config_linux.go", "internal/cijobrunner/docker_linux.go", "internal/cijobrunner/pid1_linux.go"} {
+	for _, relative := range []string{"internal/runnerbootstrap/config_linux.go", "internal/cijobguard/cgroup_linux.go", "internal/cijobrunner/config_linux.go", "internal/cijobrunner/docker_linux.go", "internal/cijobrunner/pid1_linux.go", "internal/cijobrunner/bridge_linux.go", "internal/cijobrunner/network_linux.go"} {
 		content, err := os.ReadFile(filepath.Join("..", "..", relative))
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, variant := range []string{"accepted", "changed", "sibling"} {
+		for _, variant := range []string{"accepted", "changed", "sibling", "renamed"} {
 			t.Run(relative+"/"+variant, func(t *testing.T) {
 				target, source := relative, append([]byte(nil), content...)
 				if variant == "changed" {
 					source = append(source, []byte("\n// altered native scope\n")...)
+				}
+				if variant == "renamed" {
+					target = "internal/other/" + filepath.Base(relative)
 				}
 				if variant == "sibling" {
 					target = filepath.ToSlash(filepath.Join(filepath.Dir(relative), "extra_linux.go"))
