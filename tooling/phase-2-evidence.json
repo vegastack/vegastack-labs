@@ -720,7 +720,7 @@
           "github.com/vegastack/vegastack-labs/internal/controllerprerequisites",
           "github.com/vegastack/vegastack-labs/internal/ingressconnector"
         ],
-        "mutationBoundaryDigest": "sha256:016d2df9d5a5a4b44ca1a13fad17d1707dbde06e2a7870381145aeb1ceb296da"
+        "mutationBoundaryDigest": "sha256:c38d049d595ae488e6570af1151121025a6b76b60553e287c25d97312a38968d"
       }
     ]
   },

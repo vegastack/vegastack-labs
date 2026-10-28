@@ -14,6 +14,9 @@ func controllerSetupClaimEndpoints() []EndpointDefinition {
 	for i := range r {
 		r[i].OwnerPhase = "7"
 		r[i].Availability = AvailabilityAvailable
+		r[i].Audiences = []EndpointAudience{AudienceOperator}
+		r[i].TransportScope = "local"
+		r[i].MaxRequestBytes = 65536
 	}
 	return r
 }

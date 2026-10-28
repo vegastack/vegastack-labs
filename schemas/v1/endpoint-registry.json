@@ -236,9 +236,10 @@
       "dataSchema": "vegastack-labs.dev/controller-setup-claim",
       "stream": "finite",
       "audiences": [
-        "browser",
         "operator"
-      ]
+      ],
+      "transportScope": "local",
+      "maxRequestBytes": 65536
     },
     {
       "id": "api.v1.controller-setup.receipt",
@@ -250,9 +251,10 @@
       "dataSchema": "vegastack-labs.dev/run",
       "stream": "finite",
       "audiences": [
-        "browser",
         "operator"
-      ]
+      ],
+      "transportScope": "local",
+      "maxRequestBytes": 65536
     },
     {
       "id": "api.v1.controller-setup.recovery",
@@ -264,9 +266,10 @@
       "dataSchema": "vegastack-labs.dev/controller-setup-recovery-data",
       "stream": "finite",
       "audiences": [
-        "browser",
         "operator"
-      ]
+      ],
+      "transportScope": "local",
+      "maxRequestBytes": 65536
     },
     {
       "id": "api.v1.credential-lifecycle-drafts.create",
