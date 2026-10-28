@@ -21,7 +21,7 @@ func TestIngressConnectorGateRejectsUnselectedScopeAndMissingBaseline(t *testing
 	baseline := func(context.Context, string) (store.HostAdmissionSnapshot, error) {
 		return store.HostAdmissionSnapshot{Host: generated.ManagedHost{HostID: in.HostID}, IdentityDigest: d, Revision: store.RevisionToken{StateRevision: 7, RecoveryEpoch: 2}}, nil
 	}
-	if e := verifyIngressConnector(context.Background(), base, selected, baseline); e != nil {
+	if e := verifyIngressConnector(context.Background(), base, selected, baseline, nil); e != nil {
 		t.Fatal("exact selection", e)
 	}
 	for _, fault := range []string{"no-baseline", "baseline-denied", "account", "host", "identity", "tunnel", "epoch", "ca", "unconfigured", "nonhuman", "mixed", "idempotent", "baseline-stale"} {
@@ -64,7 +64,7 @@ func TestIngressConnectorGateRejectsUnselectedScopeAndMissingBaseline(t *testing
 					return v, e
 				}
 			}
-			if e := verifyIngressConnector(context.Background(), p, s, b); e == nil {
+			if e := verifyIngressConnector(context.Background(), p, s, b, nil); e == nil {
 				t.Fatal("unqualified scope accepted")
 			}
 		})
@@ -92,7 +92,47 @@ func TestConnectorActionCannotInheritOrdinaryHostGateWithoutScope(t *testing.T) 
 	if e := g.VerifySecretStep(context.Background(), p, op); e != nil || calls != 2 || source.calls != 1 {
 		t.Fatal("current target confirmation skipped", e, calls, source.calls)
 	}
-	if e := ingressConnectorAuthorization(serverconfig.Profile{}, nil, nil)(context.Background(), p); e == nil {
+	if e := ingressConnectorAuthorization(serverconfig.Profile{}, nil, nil, nil)(context.Background(), p); e == nil {
 		t.Fatal("unconfigured production source accepted")
+	}
+}
+
+func TestConnectorPilotMarkerUsesOnlySharedActualEligibility(t *testing.T) {
+	d := hostaction.Digest("identity")
+	marker := hostaction.Digest("approved complete policy")
+	in := ingressconnector.Input{HostID: "host-a", AccountID: strings.Repeat("a", 32), HostIdentityDigest: d, TunnelID: "11111111-1111-1111-1111-111111111111", ControllerSetupPilotDigest: marker}
+	raw, _ := json.Marshal(in)
+	p := generated.Plan{AuthorizationBranch: "human", ExecutorMode: "central", Binding: generated.PlanBinding{StateRevision: 4, RecoveryEpoch: 2}, HostAction: &generated.HostActionRequest{ActionID: ingressconnector.Action, ActionVersion: "1.0.0", HostID: in.HostID, ActionInput: string(raw), ConsoleConfirmation: generated.HostActionConsoleConfirmation{HostIdentityDigest: d}}, Operations: []generated.PlanOperation{{AdapterID: hostaction.AdapterID, OperationType: hostaction.OperationType}}}
+	selected := connectorSelection{HostID: in.HostID, IdentityDigest: d, AccountID: in.AccountID, TunnelID: in.TunnelID, RecoveryEpoch: 2}
+	baselineCalls, pilotCalls := 0, 0
+	baseline := func(context.Context, string) (store.HostAdmissionSnapshot, error) {
+		baselineCalls++
+		return store.HostAdmissionSnapshot{}, actionFailure()
+	}
+	pilot := func(_ context.Context, plan generated.Plan) (store.HostAdmissionSnapshot, error) {
+		pilotCalls++
+		actual, e := ingressconnector.Decode([]byte(plan.HostAction.ActionInput))
+		if e != nil || actual.ControllerSetupPilotDigest != marker {
+			return store.HostAdmissionSnapshot{}, actionFailure()
+		}
+		return store.HostAdmissionSnapshot{Host: generated.ManagedHost{HostID: in.HostID}, IdentityDigest: d, Revision: store.RevisionToken{StateRevision: 4, RecoveryEpoch: 2}}, nil
+	}
+	if e := verifyIngressConnector(context.Background(), p, selected, baseline, nil); e == nil {
+		t.Fatal("marker alone became eligibility")
+	}
+	if e := verifyIngressConnector(context.Background(), p, selected, baseline, pilot); e != nil || baselineCalls != 0 || pilotCalls != 1 {
+		t.Fatal("wrong shared eligibility dispatch", e, baselineCalls, pilotCalls)
+	}
+	in.ControllerSetupPilotDigest = hostaction.Digest("different policy")
+	raw, _ = json.Marshal(in)
+	p.HostAction.ActionInput = string(raw)
+	if e := verifyIngressConnector(context.Background(), p, selected, baseline, pilot); e == nil {
+		t.Fatal("mismatched policy accepted")
+	}
+	in.ControllerSetupPilotDigest = ""
+	raw, _ = json.Marshal(in)
+	p.HostAction.ActionInput = string(raw)
+	if e := verifyIngressConnector(context.Background(), p, selected, baseline, pilot); e == nil || baselineCalls != 1 || pilotCalls != 2 {
+		t.Fatal("unmarked plan bypassed ordinary baseline", e, baselineCalls, pilotCalls)
 	}
 }

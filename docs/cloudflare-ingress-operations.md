@@ -76,8 +76,15 @@ installation prerequisite.
 Installation additionally requires the existing actual `role-install`
 `host.hardening-baseline` evaluation. Registered/adopted status, an installed
 service, or the one-connector pilot choice does not satisfy that evaluation.
-Missing current baseline/native evidence blocks this installer. This does not
-change ordinary two-connector qualification or pass G-012/G-016.
+Missing current baseline/native evidence blocks ordinary installation. The
+explicitly approved limited controller setup policy may instead authorize only
+the selected controller and this one connector through the shared actual
+controller-pilot verifier. Its complete protected policy digest must appear as
+`controllerSetupPilotDigest` in immutable ActionInput; a marker alone, a missing
+verifier, changed scope, or failed current checks still denies execution.
+Unmarked plans retain the ordinary baseline path. This setup eligibility does
+not mark baseline passed, change ordinary host/workload admission or two-connector
+qualification, or pass G-012/G-016.
 
 The operator first supplies the tunnel-scoped token by hidden input into exactly
 `/etc/vsk-labs/ingress/tunnel-token`, owned by root with mode `0600`, one hard

@@ -29,18 +29,19 @@ var uuid = regexp.MustCompile(`^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-
 var digest = regexp.MustCompile(`^sha256:[a-f0-9]{64}$`)
 
 type Input struct {
-	HostID             string `json:"hostId"`
-	AccountID          string `json:"accountId"`
-	HostIdentityDigest string `json:"hostIdentityDigest"`
-	TunnelID           string `json:"tunnelId"`
-	OriginCADigest     string `json:"originCaDigest,omitempty"`
+	HostID                     string `json:"hostId"`
+	AccountID                  string `json:"accountId"`
+	HostIdentityDigest         string `json:"hostIdentityDigest"`
+	TunnelID                   string `json:"tunnelId"`
+	OriginCADigest             string `json:"originCaDigest,omitempty"`
+	ControllerSetupPilotDigest string `json:"controllerSetupPilotDigest,omitempty"`
 }
 
 func Decode(raw []byte) (Input, error) {
 	var in Input
 	d := json.NewDecoder(strings.NewReader(string(raw)))
 	d.DisallowUnknownFields()
-	if len(raw) > 4096 || strictjson.Scan(context.Background(), raw, strictjson.Limits{MaxDepth: 4}) != nil || d.Decode(&in) != nil || d.Decode(new(any)) != io.EOF || in.HostID == "" || debianaccess.ProtectedName(in.HostID) || !account.MatchString(in.AccountID) || !digest.MatchString(in.HostIdentityDigest) || !uuid.MatchString(in.TunnelID) || (in.OriginCADigest != "" && !digest.MatchString(in.OriginCADigest)) {
+	if len(raw) > 4096 || strictjson.Scan(context.Background(), raw, strictjson.Limits{MaxDepth: 4}) != nil || d.Decode(&in) != nil || d.Decode(new(any)) != io.EOF || in.HostID == "" || debianaccess.ProtectedName(in.HostID) || !account.MatchString(in.AccountID) || !digest.MatchString(in.HostIdentityDigest) || !uuid.MatchString(in.TunnelID) || (in.OriginCADigest != "" && !digest.MatchString(in.OriginCADigest)) || (in.ControllerSetupPilotDigest != "" && !digest.MatchString(in.ControllerSetupPilotDigest)) {
 		return Input{}, denied()
 	}
 	return in, nil

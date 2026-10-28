@@ -12,7 +12,7 @@ import (
 
 // Initial installation binds the successful bootstrap receipt; it must not
 // depend on a connector ID which exists only after the first connection.
-func ingressConnectorAuthorization(profile serverconfig.Profile, s *store.Store, gates *store.GateRepository) func(context.Context, generated.Plan) error {
+func ingressConnectorAuthorization(profile serverconfig.Profile, s *store.Store, gates *store.GateRepository, pilot connectorPilot) func(context.Context, generated.Plan) error {
 	return func(ctx context.Context, p generated.Plan) error {
 		policy := profile.IngressBootstrap
 		if policy == nil || policy.Change.Bootstrap == nil || s == nil || gates == nil || policy.RecoveryEpoch != p.Binding.RecoveryEpoch {
@@ -36,6 +36,6 @@ func ingressConnectorAuthorization(profile serverconfig.Profile, s *store.Store,
 		}
 		selected := connectorSelection{HostID: policy.ControllerHostID, AccountID: policy.Change.AccountID, IdentityDigest: policy.ControllerIdentityDigest, TunnelID: tunnel, OriginCAPool: policy.Change.Bootstrap.OriginCAPool, RecoveryEpoch: policy.RecoveryEpoch}
 		baseline := hostRoleComposition{gates: gates, clock: time.Now}
-		return verifyIngressConnector(ctx, p, selected, baseline.baseline)
+		return verifyIngressConnector(ctx, p, selected, baseline.baseline, pilot)
 	}
 }
