@@ -64,6 +64,8 @@ After apply, independent provider reads verify the intended result. Outage or an
 
 The selected Labs website is `labs.vegastack.dev`. Actual account/zone permission, tunnel/Access/DNS ownership, origin TLS, audience/subject mapping, complete connector identities and applicable placement/ownership gates are required before a live change. A DNS permission alone is not evidence that these are available.
 
+An explicitly selected single-controller read pilot uses the protected `ingressControllerReadPilot` profile and separate `ingress.controller-read-pilot` evidence; it leaves normal two-connector G-012 qualification unresolved. Its new `network ingress pilot-evidence` command derives an inert evidence draft from actual bounded server/provider/TLS/identity observations. Existing plan/Slack acknowledgement/apply remains mandatory. It can import/update only the one pinned tunnel hostname and requires already correct Access/DNS resources and a connector. Follow the [controller-read pilot procedure](cloudflare-ingress-operations.md#explicit-controller-read-pilot); it provides no failover, host qualification or workload permission.
+
 Use the ingress commands with the protected operator profile and their generated request types:
 
 ```sh

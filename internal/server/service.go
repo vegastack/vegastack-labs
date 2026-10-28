@@ -256,6 +256,9 @@ func (service *service) startRemote(ctx context.Context) (net.Listener, *http.Se
 		service.setRemote(RemoteReadUnavailable, RemoteReadReasonListenerUnavailable)
 		return nil, nil, nil
 	}
+	if service.config.Profile.IngressControllerReadPilot != nil {
+		handler = controllerReadPilotHandler(handler)
+	}
 	httpServer := &http.Server{Handler: newRemoteAdmissionHandler(handler, remoteRequestLimit), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 * 1024}
 	done := make(chan error, 1)
 	go func() { done <- httpServer.Serve(listener) }()

@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 28-10-2026 — Prepare a truthful one-connector Console pilot ([#322](https://github.com/vegastack/vegastack-labs/issues/322))
+
+- **What:** Added an explicit protected policy and a server observation command for a single-controller read-only Console route. Collected evidence still needs the existing plan and Slack acknowledgement before apply. The live website remains blocked until its actual resources, credentials and approved setup exist.
+- **Why:** The operator selected one connector for the pilot. The existing ingress executor required full site gates while its production proof registry had no ingress evidence producer; changing only the connector count would have hidden that gap.
+- **How it went:** Exact scope, gate proof and real isolated TLS denial tests passed after the missing schema/compiler seams were connected. The pilot was limited to one tunnel hostname import/update; creating resources and configuring credential custody stayed outside this source change. No independent review round or native/live qualification was run.
+- **Changed:** Private controller/identity/resource pins · server-derived current evidence drafts · separate pilot-only gate results · unchanged ordinary two-connector requirements · exact plan approvals and fail-closed unknown facts retained.
+- **Decisions:** The operator's one-connector pilot selection is recorded in the issue; no full-site or host qualification is implied.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/322-controller-read-ingress-pilot
+
 ## 28-10-2026 — Connect CI image packaging, publication and private deployment ([#315](https://github.com/vegastack/vegastack-labs/issues/315), [#316](https://github.com/vegastack/vegastack-labs/issues/316), [#318](https://github.com/vegastack/vegastack-labs/issues/318), [#319](https://github.com/vegastack/vegastack-labs/issues/319), [#320](https://github.com/vegastack/vegastack-labs/issues/320))
 
 - **What:** Added current rootless-network verification, actual static-Go OCI packaging, acknowledged verified publication and a private deployment handoff bound to the consumed CI job and two approved plans/leases. The existing executable, server, database, credential adapters and approval engine remain controlling.

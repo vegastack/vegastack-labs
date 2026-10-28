@@ -319,7 +319,11 @@ func (r *IngressRepository) CheckCurrent(ctx context.Context, d ingress.Staged) 
 }
 
 // Preview checks a read-only observation scope without writing desired state or ownership.
-func (r *IngressRepository) Preview(ctx context.Context, q generated.IngressDraftRequest) (out ingress.Staged, err error) {
+func (r *IngressRepository) Preview(ctx context.Context, q generated.IngressDraftRequest) (out ingress.Staged, err error) { return r.preview(ctx,q,true) }
+// PreviewPilotEvidence checks current authority and credential custody without
+// requiring an ownership import which the evidence must precede.
+func (r *IngressRepository) PreviewPilotEvidence(ctx context.Context,q generated.IngressDraftRequest) (ingress.Staged,error) { return r.preview(ctx,q,false) }
+func (r *IngressRepository) preview(ctx context.Context, q generated.IngressDraftRequest, ownership bool) (out ingress.Staged, err error) {
 	if ingress.Validate(q.Change) != nil || !slices.Contains(r.allowed, ingress.ScopeDigest(q.Change)) {
 		return out, ingressError(generated.ErrorCodeAuthorizationDenied)
 	}
@@ -332,9 +336,7 @@ func (r *IngressRepository) Preview(ctx context.Context, q generated.IngressDraf
 		if e = ingressOwner(row, q.Change); e != nil {
 			return e
 		}
-		if e = ingressOwnership(row, q.Change, q.RecoveryEpoch); e != nil {
-			return e
-		}
+		if ownership { if e = ingressOwnership(row, q.Change, q.RecoveryEpoch); e != nil { return e } }
 		var revision, epoch int64
 		if row(`SELECT state_revision,recovery_epoch FROM system_meta WHERE id=1`).Scan(&revision, &epoch) != nil || epoch != q.RecoveryEpoch || revision != q.ExpectedStateRevision {
 			return ingressError(generated.ErrorCodeStateConflict)

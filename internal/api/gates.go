@@ -25,12 +25,13 @@ import (
 // GateOperations only drafts source-generated, bounded input. It deliberately
 // has no setter for an applied profile or a gate result.
 type GateOperations struct {
-	Gates        *store.GateRepository
-	Revisions    *store.PlanRepository
-	Declarations *change.Service
-	Results      *result.Factory
-	Build        result.BuildInfo
-	Clock        func() time.Time
+	EvaluatePilot func(context.Context, gate.ResolvedScope, string, string, time.Time) (generated.GateEvaluation, bool, error)
+	Gates         *store.GateRepository
+	Revisions     *store.PlanRepository
+	Declarations  *change.Service
+	Results       *result.Factory
+	Build         result.BuildInfo
+	Clock         func() time.Time
 }
 
 func RegisterGateOperations(app *Application, config GateOperations) error {
@@ -184,11 +185,20 @@ func gateResult(ctx context.Context, config GateOperations, def generated.GateDe
 				// in #104. Caller-supplied digest claims and evidence rows cannot fill
 				// those bindings. Preserve derived applicability/evidence inspection,
 				// but never expose a positive live result through this unbound read.
-				evaluation, err = gate.Evaluate(ctx, config.Gates, scope, gate.Subject{ID: subjectID, Kind: def.SubjectKinds[0], ReleaseBuildID: config.Build.ReleaseBuildID, ToolVersion: config.Build.ToolVersion, StateRevision: token.StateRevision}, def.GateID, at, gate.NewProofRegistry())
-				if err != nil {
-					return generated.GateView{}, err
+				handled := false
+				if config.EvaluatePilot != nil {
+					evaluation, handled, err = config.EvaluatePilot(ctx, scope, subjectID, def.GateID, at)
+					if err != nil {
+						return generated.GateView{}, err
+					}
 				}
-				evaluation = gateUnboundProjection(evaluation, applicable, reason)
+				if !handled {
+					evaluation, err = gate.Evaluate(ctx, config.Gates, scope, gate.Subject{ID: subjectID, Kind: def.SubjectKinds[0], ReleaseBuildID: config.Build.ReleaseBuildID, ToolVersion: config.Build.ToolVersion, StateRevision: token.StateRevision}, def.GateID, at, gate.NewProofRegistry())
+					if err != nil {
+						return generated.GateView{}, err
+					}
+					evaluation = gateUnboundProjection(evaluation, applicable, reason)
+				}
 			}
 		}
 	}

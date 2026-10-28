@@ -6,6 +6,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/change"
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
+	"github.com/vegastack/vegastack-labs/internal/gate"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostdiscovery"
 	"github.com/vegastack/vegastack-labs/internal/identity"
@@ -16,21 +17,23 @@ import (
 )
 
 type IngressOperations struct {
-	Rollout      func(context.Context, generated.IngressRolloutEvidenceRequest) (generated.IngressStatusData, error)
-	Repository   *store.IngressRepository
-	Declarations *change.Service
-	Credentials  *store.CredentialRepository
-	Results      *result.Factory
-	Observe      func(context.Context, generated.IngressDraftRequest) (generated.IngressStatusData, error)
+	PilotEvidence func(context.Context, generated.IngressPilotEvidenceRequest) (store.GateDraft, error)
+	Revisions     *store.PlanRepository
+	Rollout       func(context.Context, generated.IngressRolloutEvidenceRequest) (generated.IngressStatusData, error)
+	Repository    *store.IngressRepository
+	Declarations  *change.Service
+	Credentials   *store.CredentialRepository
+	Results       *result.Factory
+	Observe       func(context.Context, generated.IngressDraftRequest) (generated.IngressStatusData, error)
 }
 
 func RegisterIngressOperations(app *Application, c IngressOperations) error {
 	if app == nil || c.Repository == nil || c.Declarations == nil || c.Credentials == nil || c.Results != app.config.Results {
 		return apiFailure(generated.ErrorCodeInputInvalid, "ingress-config")
 	}
-	app.routes = append(app.routes, route{id: "api.v1.network.ingress.rollout-evidence", method: http.MethodPost, pattern: "/api/v1/network/ingress/rollout-evidence", deferredAuthorization: true, handler: app.ingressRollout(c)}, route{id: "api.v1.network.ingress.observe", method: http.MethodPost, pattern: "/api/v1/network/ingress/observe", deferredAuthorization: true, handler: app.ingressObserve(c)}, route{id: "api.v1.network.ingress.draft", method: http.MethodPost, pattern: "/api/v1/network/ingress/draft", deferredAuthorization: true, handler: app.ingressDraft(c)}, route{id: "api.v1.network.ingress.status", method: http.MethodGet, pattern: "/api/v1/network/ingress/{profileID}", deferredAuthorization: true, handler: app.ingressStatus(c)})
+	app.routes = append(app.routes, route{id: "api.v1.network.ingress.pilot-evidence", method: http.MethodPost, pattern: "/api/v1/network/ingress/pilot-evidence", deferredAuthorization: true, handler: app.ingressPilotEvidence(c)}, route{id: "api.v1.network.ingress.rollout-evidence", method: http.MethodPost, pattern: "/api/v1/network/ingress/rollout-evidence", deferredAuthorization: true, handler: app.ingressRollout(c)}, route{id: "api.v1.network.ingress.observe", method: http.MethodPost, pattern: "/api/v1/network/ingress/observe", deferredAuthorization: true, handler: app.ingressObserve(c)}, route{id: "api.v1.network.ingress.draft", method: http.MethodPost, pattern: "/api/v1/network/ingress/draft", deferredAuthorization: true, handler: app.ingressDraft(c)}, route{id: "api.v1.network.ingress.status", method: http.MethodGet, pattern: "/api/v1/network/ingress/{profileID}", deferredAuthorization: true, handler: app.ingressStatus(c)})
 	if !routesAreGeneratedSubset(app.routes) {
-		app.routes = app.routes[:len(app.routes)-4]
+		app.routes = app.routes[:len(app.routes)-5]
 		return apiFailure(generated.ErrorCodeIntegrityFailure, "endpoint-registry")
 	}
 	return nil
@@ -161,5 +164,63 @@ func (app *Application) ingressRollout(c IngressOperations) func(http.ResponseWr
 			return
 		}
 		app.success(w, op, d.StateRevision, d.RecoveryEpoch, d)
+	}
+}
+
+func (app *Application) ingressPilotEvidence(c IngressOperations) func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string) {
+	return func(w http.ResponseWriter, r *http.Request, _ authorization.ReadScope, _ map[string]string) {
+		const op = "api.v1.network.ingress.pilot-evidence"
+		var q generated.IngressPilotEvidenceRequest
+		if e := decodeOperationRequest(r, 65536, []string{"schema", "schemaVersion", "request", "gateId", "evidenceId"}, &q); e != nil {
+			app.failure(w, op, e)
+			return
+		}
+		raw, _ := json.Marshal(q)
+		if generated.ValidateContractJSON(generated.SchemaIDIngressPilotEvidenceRequest, raw, generated.ContractExact) != nil {
+			app.failure(w, op, apiFailure(generated.ErrorCodeInputInvalid, "pilot-evidence"))
+			return
+		}
+		for _, target := range []authorization.Target{{Capability: "network.ingress.prepare", ResourceKind: "ingress-profile", ResourceID: q.Request.Change.ProfileID}, {Capability: "gate.evidence.author", ResourceKind: "gate", ResourceID: q.GateID}} {
+			if _, e := app.authorizeAction(r, authorization.ActionAuthor, target); e != nil {
+				app.failure(w, op, e)
+				return
+			}
+		}
+		if c.PilotEvidence == nil || c.Revisions == nil {
+			app.failure(w, op, apiFailure(generated.ErrorCodePrerequisiteBlocked, "pilot-evidence"))
+			return
+		}
+		id, e := c.Results.RequestID()
+		if e != nil {
+			app.failure(w, op, e)
+			return
+		}
+		_, author, e := gateAuthor(r, id)
+		if e != nil {
+			app.failure(w, op, e)
+			return
+		}
+		draft, e := c.PilotEvidence(r.Context(), q)
+		if e != nil {
+			app.failure(w, op, e)
+			return
+		}
+		current, e := c.Revisions.CurrentRevision(r.Context())
+		if e != nil {
+			app.failure(w, op, e)
+			return
+		}
+		declaration, e := gate.BuildEvidenceChange(draft, current)
+		if e != nil {
+			app.failure(w, op, e)
+			return
+		}
+		revised, e := c.Declarations.Revise(r.Context(), author, declaration)
+		if e != nil {
+			app.failure(w, op, e)
+			return
+		}
+		data := generated.GateEvidenceSubmission{Schema: generated.SchemaIDGateEvidenceSubmission, SchemaVersion: "1.1.0", DraftID: draft.DraftID, ChangeID: revised.Document.DeclarationID, EvidenceID: q.EvidenceID, Status: "draft", StateRevision: revised.Document.StateRevision, RecoveryEpoch: revised.Document.RecoveryEpoch}
+		app.operationSuccess(w, op, id, true, data.StateRevision, data.RecoveryEpoch, data)
 	}
 }

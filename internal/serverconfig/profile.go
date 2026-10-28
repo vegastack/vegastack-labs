@@ -12,12 +12,14 @@ import (
 	"net/url"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/backupidentity"
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	ingress "github.com/vegastack/vegastack-labs/internal/networkingress"
 	"github.com/vegastack/vegastack-labs/internal/principal"
 )
 
@@ -28,6 +30,7 @@ var offsiteBucketName = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]{1,62}$`)
 var scheduledRunnerPath = regexp.MustCompile(`^/[A-Za-z0-9._/-]+$`)
 
 type Profile struct {
+	IngressControllerReadPilot       *generated.IngressControllerReadPilot
 	CIDeploymentJobs                 []generated.CiDeploymentJobBinding
 	HostingLifecycleProfiles         []generated.HostingLifecycleProfile
 	ServiceRecoveryProfiles          []generated.ServiceRecoveryProfile
@@ -202,6 +205,11 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 		// instead of preventing the protected local Unix service from starting.
 		remoteRead = RemoteRead{Enabled: true}
 	}
+	if pilot := input.IngressControllerReadPilot; pilot != nil {
+		if ingress.ValidatePilot(*pilot) != nil || !remoteRead.Enabled || !remoteRead.ConfigurationValid || remoteRead.PublicOrigin != "https://"+pilot.Change.Hostname || pilot.Change.OriginService != "https://"+remoteRead.BindAddress || !slices.Contains(input.IngressScopeDigests, ingress.ScopeDigest(pilot.Change)) {
+			return invalid()
+		}
+	}
 	if (input.HostActionSignerPath == "") != (input.HostActionKeyID == "") || (input.HostActionSignerPath != "" && (len(input.HostActionIdentityDigests) == 0 || !filepath.IsAbs(input.HostActionSignerPath) || filepath.Clean(input.HostActionSignerPath) != input.HostActionSignerPath)) || (input.HostActionSignerPath == "" && len(input.HostActionIdentityDigests) > 0) {
 		return invalid()
 	}
@@ -324,6 +332,7 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 		PrincipalBindings:                append([]principal.Binding(nil), bindings...),
 		RemoteRead:                       remoteRead,
 		AcknowledgementAdapterConfigPath: adapterConfigPath,
+		IngressControllerReadPilot:       input.IngressControllerReadPilot,
 		IngressScopeDigests:              append([]string(nil), input.IngressScopeDigests...),
 		MeshScopeDigests:                 append([]string(nil), input.MeshScopeDigests...),
 		HostActionSignerPath:             input.HostActionSignerPath, HostActionKeyID: input.HostActionKeyID, HostActionIdentityDigests: append([]string(nil), input.HostActionIdentityDigests...),

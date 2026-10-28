@@ -7,8 +7,13 @@ const ingressStatusID = "vegastack-labs.dev/ingress-status-data"
 const ingressConnectorID = "vegastack-labs.dev/ingress-connector-target"
 const ingressRolloutID = "vegastack-labs.dev/ingress-rollout-evidence-request"
 
+const ingressPilotPolicyID = "vegastack-labs.dev/ingress-controller-read-pilot"
+const ingressPilotRequestID = "vegastack-labs.dev/ingress-pilot-evidence-request"
+
 func ingressSchemas() []SchemaDefinition {
 	return []SchemaDefinition{
+		phase5Schema(ingressPilotPolicyID, discoveryRef("change", "Change", ingressChangeID), phase5ID("controllerHostId", "ControllerHostID"), phase5Digest("controllerIdentityDigest", "ControllerIdentityDigest"), phase5Digest("controllerMachineIdDigest", "ControllerMachineIDDigest"), phase5ID("controllerInstanceId", "ControllerInstanceID"), discoveryRef("identityBinding", "IdentityBinding", "vegastack-labs.dev/browser-identity-binding-change"), phase5Digest("identityBindingDigest", "IdentityBindingDigest"), phase5Digest("identityProfileDigest", "IdentityProfileDigest"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch")),
+		phase5Schema(ingressPilotRequestID, discoveryRef("request", "Request", ingressDraftID), phase5Enum("gateId", "GateID", "platform-safety", "ingress.controller-read-pilot", "G-016"), phase5ID("evidenceId", "EvidenceID")),
 		phase5Schema(ingressConnectorID, discoveryText("connectorId", "ConnectorID", 36), phase5ID("hostId", "HostID"), phase5Digest("identityDigest", "IdentityDigest")),
 		phase5Schema(ingressChangeID, phase5ID("profileId", "ProfileID"), discoveryText("accountId", "AccountID", 32), discoveryText("zoneId", "ZoneID", 32), discoveryText("tunnelId", "TunnelID", 36),
 			phase5Enum("action", "Action", "import", "tunnel-config-update", "access-policy-update", "dns-record-update", "connector-disconnect", "token-rotate"), phase5Enum("resourceKind", "ResourceKind", "tunnel-configuration", "access-policy", "dns-record", "connector", "tunnel-token"), discoveryText("resourceId", "ResourceID", 64), phase5ID("ownerId", "OwnerID"), phase5ID("deviceId", "DeviceID"), phase5Nonnegative("expectedOwnershipRevision", "ExpectedOwnershipRevision"), phase5Digest("beforeDigest", "BeforeDigest"),
@@ -21,7 +26,7 @@ func ingressSchemas() []SchemaDefinition {
 	}
 }
 func ingressEndpoints() []EndpointDefinition {
-	r := []EndpointDefinition{phase5Endpoint("api.v1.network.ingress.draft", "POST", "/api/v1/network/ingress/draft", ingressDraftID, ingressSubmissionID, true), phase5Endpoint("api.v1.network.ingress.observe", "POST", "/api/v1/network/ingress/observe", ingressDraftID, ingressStatusID, true), phase5Endpoint("api.v1.network.ingress.status", "GET", "/api/v1/network/ingress/{profileID}", "", ingressStatusID, true), phase5Endpoint("api.v1.network.ingress.rollout-evidence", "POST", "/api/v1/network/ingress/rollout-evidence", ingressRolloutID, ingressStatusID, true)}
+	r := []EndpointDefinition{phase5Endpoint("api.v1.network.ingress.pilot-evidence", "POST", "/api/v1/network/ingress/pilot-evidence", ingressPilotRequestID, gateEvidenceSubmissionSchemaID, true), phase5Endpoint("api.v1.network.ingress.draft", "POST", "/api/v1/network/ingress/draft", ingressDraftID, ingressSubmissionID, true), phase5Endpoint("api.v1.network.ingress.observe", "POST", "/api/v1/network/ingress/observe", ingressDraftID, ingressStatusID, true), phase5Endpoint("api.v1.network.ingress.status", "GET", "/api/v1/network/ingress/{profileID}", "", ingressStatusID, true), phase5Endpoint("api.v1.network.ingress.rollout-evidence", "POST", "/api/v1/network/ingress/rollout-evidence", ingressRolloutID, ingressStatusID, true)}
 	for i := range r {
 		r[i].OwnerPhase = "7"
 		r[i].Availability = AvailabilityAvailable
@@ -30,7 +35,7 @@ func ingressEndpoints() []EndpointDefinition {
 }
 func ingressCommands() []CommandDefinition {
 	r := []CommandDefinition{}
-	for _, action := range []string{"status", "observe", "draft", "rollout-evidence"} {
+	for _, action := range []string{"status", "observe", "draft", "rollout-evidence", "pilot-evidence"} {
 		flags := []FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected operator profile."}}
 		args := []string{"network", "ingress", action, "--config", "fixture/client.json"}
 		req, data, risk := "", ingressStatusID, RiskReadOnly
@@ -42,6 +47,9 @@ func ingressCommands() []CommandDefinition {
 			if action == "draft" {
 				data = ingressSubmissionID
 				risk = RiskMutation
+			}
+			if action == "pilot-evidence" {
+				req, data, risk = ingressPilotRequestID, gateEvidenceSubmissionSchemaID, RiskMutation
 			}
 			if action == "rollout-evidence" {
 				req = ingressRolloutID
