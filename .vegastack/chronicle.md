@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 28-10-2026 — Connect heartbeat publication to exact applied server policy ([#326](https://github.com/vegastack/vegastack-labs/issues/326))
+
+- **What:** The optional protected heartbeat binding now composes the producer, current authority snapshot and existing native credential resolver inside the current server lifecycle. Browser/read requests cannot start writes.
+- **Why:** A standalone producer/artifact did not provide the required production composition.
+- **How it went:** Focused fixtures proved exact policy/capability, destination, epoch, material, custody and G-011 denials before remote writes. A busy notification dispatch did not block heartbeat publication. No live operation ran while machines were being relocated.
+- **Changed:** Complete destination-bound capability · five-minute attempts on the existing ticker · current authority/UTC source · native purpose-bound resolver · protected optional profile and operator documentation.
+- **Decisions:** None. The default gate remains fail-closed and root connects the shared qualified G-011 verifier at integration. Native/provider evidence, actual credential setup and deployment remain unavailable.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/10.4-heartbeat-composition
+
 ## 28-10-2026 — Give site silence an independent, bounded signal path ([#326](https://github.com/vegastack/vegastack-labs/issues/326))
 
 - **What:** A closed heartbeat producer and exact R2 writer now share a tested contract with versioned Cloudflare Worker source. Local fixtures prove stale-site issue creation, verified recovery, deduplication and independent Slack notification attempts during primary delivery failure.

@@ -33,6 +33,7 @@ type Profile struct {
 	IngressControllerReadPilot       *generated.IngressControllerReadPilot
 	OperationsBeszel                 []generated.OperationsBeszelBinding
 	OperationsGithub                 *generated.OperationsGithubDestination
+	OperationsHeartbeat              *generated.OperationsHeartbeatBinding
 	CIDeploymentJobs                 []generated.CiDeploymentJobBinding
 	HostingLifecycleProfiles         []generated.HostingLifecycleProfile
 	ServiceRecoveryProfiles          []generated.ServiceRecoveryProfile
@@ -260,6 +261,11 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 	if err != nil {
 		return invalid()
 	}
+	heartbeat, heartbeatErr := FreezeSiteHeartbeat(input.OperationsHeartbeat, offsiteBackup)
+	if heartbeatErr != nil {
+		return invalid()
+	}
+
 	var scheduledRunner *ScheduledRunner
 	if input.ScheduledRunner != nil {
 		runner := input.ScheduledRunner
@@ -340,7 +346,7 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 		AcknowledgementAdapterConfigPath: adapterConfigPath,
 		IngressControllerReadPilot:       input.IngressControllerReadPilot,
 		IngressScopeDigests:              append([]string(nil), input.IngressScopeDigests...),
-		OperationsBeszel:                 operationsBeszel, OperationsGithub: operationsGithub,
+		OperationsBeszel:                 operationsBeszel, OperationsGithub: operationsGithub, OperationsHeartbeat: heartbeat,
 		MeshScopeDigests:     append([]string(nil), input.MeshScopeDigests...),
 		HostActionSignerPath: input.HostActionSignerPath, HostActionKeyID: input.HostActionKeyID, HostActionIdentityDigests: append([]string(nil), input.HostActionIdentityDigests...),
 		LocalBackup:     localBackup,

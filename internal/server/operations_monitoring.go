@@ -28,14 +28,15 @@ import (
 const operationsDestination audit.DestinationID = "operations-github-alerts"
 
 type operationsMonitoring struct {
-	s        *store.Store
-	p        serverconfig.Profile
-	registry *adapter.Registry
-	build    result.BuildInfo
-	clock    func() time.Time
-	github   *githubalerts.Client
-	beszel   map[string]*beszel.Client
-	mu       sync.Mutex
+	s         *store.Store
+	p         serverconfig.Profile
+	registry  *adapter.Registry
+	build     result.BuildInfo
+	clock     func() time.Time
+	github    *githubalerts.Client
+	beszel    map[string]*beszel.Client
+	heartbeat *siteHeartbeatControl
+	mu        sync.Mutex
 }
 
 func (m *operationsMonitoring) borrow(ctx context.Context, consumer, purpose, target, reference, material, capability string) (*credentialref.Value, error) {
@@ -252,11 +253,17 @@ func registerOperationsMonitoring(ctx context.Context, app *api.Application, s *
 		}
 		m.github = c
 	}
+	heartbeat, heartbeatErr := composeSiteHeartbeat(ctx, p, s, registry, databasePath, build)
+	if heartbeatErr != nil {
+		return heartbeatErr
+	}
+	m.heartbeat = heartbeat
 	if e := api.RegisterOperationsMonitoring(app, api.OperationsMonitoring{Status: m.status, Observe: m.observe}); e != nil {
 		return e
 	}
-	if m.github != nil {
+	if m.github != nil || m.heartbeat != nil {
 		go func() {
+			notificationBusy := make(chan struct{}, 1)
 			timer := time.NewTicker(30 * time.Second)
 			defer timer.Stop()
 			for {
@@ -264,7 +271,7 @@ func registerOperationsMonitoring(ctx context.Context, app *api.Application, s *
 				case <-ctx.Done():
 					return
 				case <-timer.C:
-					m.dispatch(ctx)
+					m.lifecycleTick(ctx, notificationBusy)
 				}
 			}
 		}()
@@ -277,4 +284,23 @@ func (o *Operations) OperationsStatus(ctx context.Context, path string, observe 
 		return localapi.TypedResponse[generated.OperationsStatusData]{}, e
 	}
 	return c.OperationsStatus(ctx, p, observe)
+}
+
+// One existing ticker drives both fixed notification consumers. Only one
+// notification dispatch may be in flight; its outages cannot hold up heartbeat.
+func (m *operationsMonitoring) lifecycleTick(ctx context.Context, notificationBusy chan struct{}) {
+	if ctx.Err() != nil {
+		return
+	}
+	if m.heartbeat != nil {
+		m.heartbeat.publish(ctx)
+	}
+	if m.github == nil {
+		return
+	}
+	select {
+	case notificationBusy <- struct{}{}:
+		go func() { defer func() { <-notificationBusy }(); m.dispatch(ctx) }()
+	default:
+	}
 }
