@@ -325,3 +325,27 @@ func TestBootstrapRejectsInvalidObservationIDBeforeHTTP(t *testing.T) {
 		t.Fatal("unvalidated observation ID reached provider")
 	}
 }
+
+func TestBootstrapRetainsKnownCreatedIDWhenObservationFails(t *testing.T) {
+	q := bootstrapTestChange("bootstrap-tunnel")
+	posts := 0
+	c := bootstrapTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			posts++
+			bootstrapReply(w, map[string]any{"id": testUUID, "token": "must-not-escape"})
+			return
+		}
+		if strings.HasSuffix(r.URL.Path, "/"+testUUID) {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		bootstrapReply(w, []any{})
+	})
+	before, _ := c.ObserveBootstrap(context.Background(), q, testValue(t, "fixture-observer"))
+	q.BeforeDigest = before.Digest
+	partial, err := c.MutateBootstrap(context.Background(), q, testValue(t, "fixture-observer"), testValue(t, "fixture-mutator"))
+	encoded, _ := json.Marshal(partial)
+	if err == nil || posts != 1 || partial.Present || partial.ResourceID != testUUID || strings.Contains(string(encoded), "must-not-escape") {
+		t.Fatalf("known partial effect lost or falsely verified: %+v %v posts=%d", partial, err, posts)
+	}
+}

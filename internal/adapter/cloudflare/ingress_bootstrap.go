@@ -474,5 +474,16 @@ func (c *SDKClient) MutateBootstrap(ctx context.Context, q generated.IngressChan
 		return out, ingress.Error(generated.ErrorCodeIntegrityFailure)
 	}
 	q.ResourceID = id
-	return c.ObserveBootstrap(ctx, q, read)
+	if e := bootstrapInput(q); e != nil {
+		return out, e
+	}
+	out, err = c.ObserveBootstrap(ctx, q, read)
+	if err != nil {
+		// A successful creation already returned this nonsecret ID. Preserve it
+		// for reconciliation when subsequent observation is unavailable, without
+		// claiming presence or accepting an unverified effect as successful.
+		out.ResourceID = id
+		out.Present = false
+	}
+	return out, err
 }

@@ -356,6 +356,8 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/hosting-lifecycle-record.schema.json",
 		"schemas/v1/hosting-lifecycle-request.schema.json",
 		"schemas/v1/hosting-owned-resource.schema.json",
+		"schemas/v1/ingress-bootstrap-policy.schema.json",
+		"schemas/v1/ingress-bootstrap.schema.json",
 		"schemas/v1/ingress-change.schema.json",
 		"schemas/v1/ingress-connector-target.schema.json",
 		"schemas/v1/ingress-controller-read-pilot.schema.json",
