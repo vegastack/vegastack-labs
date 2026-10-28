@@ -666,6 +666,18 @@
           "github.com/vegastack/vegastack-labs/internal/runnerbootstrap"
         ],
         "mutationBoundaryDigest": "sha256:15da20482845da8acc14e265c5928f11189483471cdda1ea53b7921b6585d8b9"
+      },
+      {
+        "id": "phase9-delivery-issues315-316-318-319-320-v1",
+        "issue": 320,
+        "commands": [
+          "ci publication draft",
+          "release build-go-image"
+        ],
+        "imports": [
+          "github.com/vegastack/vegastack-labs/internal/adapter/ociregistry"
+        ],
+        "mutationBoundaryDigest": "sha256:4a3f5ae39b78e4daf6ab30f07c0abfb0a17651e5783771fc4b5d519db4e05815"
       }
     ]
   },
