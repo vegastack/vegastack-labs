@@ -11,7 +11,7 @@ Use for incident response requests. Accept the explicit protected client profile
 
 ## Prerequisites
 
-Assign the responsible human and exact incident targets; preserve original evidence and timestamps. Phase 10 incident reconciliation constructors are pending integration. No agent receives break-glass credentials.
+Assign the responsible human and exact incident targets; preserve original evidence and timestamps. Use the integrated `maintenance draft` constructor with action `incident-reconciliation` to record an inert reconciliation declaration. It does not execute an incident repair, authorize break-glass access or establish recovery. No agent receives break-glass credentials.
 
 Authenticate through the existing protected API. The server owns SQLite; the skill and operator client never open it. Check current grants, revision, recovery epoch, identity, required evidence and operation-specific authorization.
 
@@ -31,6 +31,13 @@ vsk-labs audit verify --config <protected-profile> --output json
 ```text
 vsk-labs run inspect --config <protected-profile> --run-id <run-id> --output json
 ```
+
+<!-- vsk-command: ["maintenance","draft","--config","<protected-profile>","--file","<incident-reconciliation-request.json>","--output","json"] -->
+```text
+vsk-labs maintenance draft --config <protected-profile> --file <incident-reconciliation-request.json> --output json
+```
+
+The request must follow the generated MaintenanceDraftRequest schema with action `incident-reconciliation`, exact declared targets, current revisions/epoch and bounded sanitized incident/evidence digests. Preserve the actual responsible-human and agent attribution; never put raw emergency commands, logs or secret material in the request. The returned record remains inert. Any supported corrective action uses its existing domain constructor and a separate exact plan, protected Slack acknowledgement and apply.
 
 Before planning, take the declaration ID and revision from the validated change response; never invent or widen them. The plan transition commits intent only and performs no infrastructure mutation.
 
