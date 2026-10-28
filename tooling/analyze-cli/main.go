@@ -386,6 +386,9 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 	restoreCLISeen, restoreCLIValid := false, false
 	restoreClientSeen, restoreClientValid := false, false
 	pilotPruning := ingressPilotDependencyPruning(inModule, modulePath)
+	for edge, allowed := range websiteDeliveryDependencyPruning(inModule, modulePath) {
+		pilotPruning[edge] = allowed
+	}
 	for key, value := range phase10DependencyPruning(inModule, modulePath) {
 		pilotPruning[key] = value
 	}
@@ -408,6 +411,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 	sealedNativeMode := false
 	sealedMainMode := false
 	sealedCIMainMode, sealedCIRuntimeMode := false, false
+	connectorPrivateEdge := websiteDeliveryPrivateMainEdge(inModule, modulePath)
 	for _, candidate := range inModule {
 		current := checkedSourcePackage{listed: candidate}
 		sealedNativeMode = sealedNativeMode || reviewedPhase228Package(current, modulePath, "internal/qualification")
@@ -422,6 +426,9 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 		for _, imported := range candidate.Imports {
 			// Only the exact finite CI executable and complete runtime source/import pair
 			// may prune this main edge. A portable-client import still receives checks.
+			if imported == modulePath+"/internal/ingressconnector" && connectorPrivateEdge {
+				continue
+			}
 			if imported == modulePath+"/internal/cijobrunner" && sealedCIMainMode && sealedCIRuntimeMode {
 				continue
 			}
@@ -496,7 +503,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 		// source. Only this exact reviewed source closure may carry those paths.
 		inspectControlPaths := isControlPackage && !sealedControllerCollector && candidate.ImportPath != generatedImport && candidate.ImportPath != serverConfigImport && !sealedNativeCredential && !sealedRecoveryCustodian && !sealedHostAction && !sealedHostActionMain && !sealedDebianAccess && !sealedHostingPlatform && !sealedCI && !sealedCIMain
 		for _, imported := range candidate.Imports {
-			if imported == "os/exec" && !isReleasePackage && !(candidate.ImportPath == sshTransportImport && reviewedSSHTransportPackage(parsed, localTransportImport)) && !reviewedNativeCredentialPackage(parsed, nativeCredentialImport, modulePath) && !reviewedBackupProcessPackage(parsed, backupImport) && !reviewedPhase228ReceiveProcess(parsed, serverImport) && !sealedDebianAccess && !sealedAccessAdapter && !sealedQualification && !sealedHostingPlatform && !sealedCI && !sealedCIMain {
+			if imported == "os/exec" && !isReleasePackage && !(candidate.ImportPath == sshTransportImport && reviewedSSHTransportPackage(parsed, localTransportImport)) && !reviewedNativeCredentialPackage(parsed, nativeCredentialImport, modulePath) && !reviewedBackupProcessPackage(parsed, backupImport) && !reviewedPhase228ReceiveProcess(parsed, serverImport) && !sealedDebianAccess && !sealedAccessAdapter && !sealedQualification && !sealedHostingPlatform && !sealedCI && !sealedCIMain && !approvedNetworkConnectPackage(parsed, modulePath, "internal/ingressconnector") {
 				result.ShellDispatch = true
 			}
 			switch imported {
@@ -629,6 +636,9 @@ var phase228SourceSeals = map[string]hostActionSourceSeal{
 }
 
 func reviewedPhase228Package(c checkedSourcePackage, module, relative string) bool {
+	if relative == "internal/linuxrole" && approvedNetworkConnectPackage(c, module, relative) {
+		return true
+	}
 	if c.listed.ImportPath != module+"/"+relative || len(c.listed.CgoFiles) != 0 {
 		return false
 	}
@@ -730,6 +740,10 @@ func reviewedControlNetworkImport(candidate checkedSourcePackage, imported, main
 	module := strings.TrimSuffix(localAPIImport, "/internal/localapi")
 	if approvedNetworkConnectPackage(candidate, module, "internal/networkconnect") {
 		return slices.Contains([]string{"net", "net/http", "net/netip", "net/url", "crypto/tls"}, imported)
+	}
+
+	if imported == "net/mail" && approvedNetworkConnectPackage(candidate, module, "internal/networkingress") {
+		return true
 	}
 
 	switch candidate.listed.ImportPath {
@@ -866,6 +880,9 @@ func moduleDependencyClosurePruned(packages []listedPackage, root string, stop m
 			continue
 		}
 		for _, imported := range byImport[current].Imports {
+			if stop[current+"->"+imported] {
+				continue
+			}
 			if _, ok := byImport[imported]; ok {
 				pending = append(pending, imported)
 			}

@@ -132,7 +132,7 @@ func analyze(root string) (analysis, error) {
 			// to exact files; other Debian helpers remain outside this permission.
 			approvedAccessFile := relative == "internal/debianaccess/rollback_unix.go" || relative == "internal/debianaccess/observations_unix.go" || relative == "internal/debianaccess/source_probe_linux.go" || relative == "internal/debianaccess/sessions_linux.go"
 			approvedBaselineFile := relative == "internal/debianbaseline/volume_files_unix.go" || relative == "internal/debianbaseline/volume_recovery_linux.go" || relative == "internal/debianbaseline/volume_linux.go"
-			if importPath == "golang.org/x/sys/unix" && !(approvedClientFile || approvedLinuxFile || approvedBackupAdapterFile || approvedHostActionFile || approvedAccessFile || approvedBaselineFile || acceptedCINativeUnixFile(relative, content) || reviewedQualificationUnixFile(relative) || reviewedNativeQualificationUnixFile(relative, content) || isReviewedRecoverySource || reviewedLinuxRoleUnixFile(relative, content) || reviewedNetworkPrivateKeyFile(relative, content) || reviewedControllerPrerequisiteUnixFile(relative, content)) {
+			if importPath == "golang.org/x/sys/unix" && !(approvedClientFile || approvedLinuxFile || approvedBackupAdapterFile || approvedHostActionFile || approvedAccessFile || approvedBaselineFile || acceptedCINativeUnixFile(relative, content) || reviewedQualificationUnixFile(relative) || reviewedNativeQualificationUnixFile(relative, content) || isReviewedRecoverySource || reviewedLinuxRoleUnixFile(relative, content) || reviewedNetworkPrivateKeyFile(relative, content) || reviewedControllerPrerequisiteUnixFile(relative, content) || reviewedWebsiteDeliveryUnixFile(relative, content)) {
 				result.XSysOutsideScope = true
 			}
 		}

@@ -150,6 +150,29 @@ func TestHostActionSourceSealRejectsChangedAddedOrImportedAuthority(t *testing.T
 		currentSeals[key] = seal
 	}
 
+	// Today's fixtures use additive website-delivery closures.
+	for key := range currentSeals {
+		relative := strings.SplitN(key, "|", 2)[0]
+		if isCurrentCIJobFixturePackage(relative) {
+			delete(currentSeals, key)
+		}
+	}
+	for key, seal := range currentCIJobFixtureSeals() {
+		currentSeals[key] = seal
+	}
+
+	// The installer extends only the Linux role source closure.
+	for key := range currentSeals {
+		if strings.HasPrefix(key, "internal/linuxrole|") {
+			delete(currentSeals, key)
+		}
+	}
+	for key, seal := range websiteDeliverySourceSeals {
+		if strings.HasPrefix(key, "internal/linuxrole|") {
+			currentSeals[key] = seal
+		}
+	}
+
 	for key, seal := range currentSeals {
 		t.Run(key, func(t *testing.T) {
 			parts := strings.SplitN(key, "|", 2)

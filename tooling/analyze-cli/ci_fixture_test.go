@@ -40,7 +40,7 @@ func isCurrentCIJobFixturePackage(relative string) bool {
 // they never rewrite or reinterpret historical production seal maps.
 func currentCIJobFixtureSeals() map[string]hostActionSourceSeal {
 	result := map[string]hostActionSourceSeal{}
-	for _, wave := range []map[string]hostActionSourceSeal{ciJobSourceSeals, ciNetworkSourceSeals, ciDeliverySourceSeals, ingressPilotSourceSeals, phase10SourceSeals} {
+	for _, wave := range []map[string]hostActionSourceSeal{ciJobSourceSeals, ciNetworkSourceSeals, ciDeliverySourceSeals, ingressPilotSourceSeals, phase10SourceSeals, websiteDeliverySourceSeals} {
 		for key := range result {
 			relative := strings.SplitN(key, "|", 2)[0]
 			for current := range wave {
@@ -51,6 +51,9 @@ func currentCIJobFixtureSeals() map[string]hostActionSourceSeal {
 			}
 		}
 		for key, seal := range wave {
+			if strings.HasPrefix(key, "internal/linuxrole|") {
+				continue
+			}
 			result[key] = seal
 		}
 	}

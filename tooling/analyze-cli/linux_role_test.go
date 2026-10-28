@@ -11,7 +11,7 @@ import (
 func TestLinuxRoleSourceSealRejectsDrift(t *testing.T) {
 	const module = "github.com/vegastack/vegastack-labs"
 	checked := 0
-	for key, seal := range phase228SourceSeals {
+	for key, seal := range websiteDeliverySourceSeals {
 		relative, joined, _ := strings.Cut(key, "|")
 		if relative != "internal/linuxrole" {
 			continue
@@ -40,6 +40,16 @@ func TestLinuxRoleSourceSealRejectsDrift(t *testing.T) {
 			t.Fatal("widened imports accepted")
 		}
 		c.listed.Imports = slices.Clone(seal.imports)
+		c.listed.GoFiles = append(slices.Clone(names), "unreviewed.go")
+		if reviewedPhase228Package(c, module, relative) {
+			t.Fatal("new source file inherited Linux role authority")
+		}
+		c.listed.GoFiles = names
+		c.listed.CgoFiles = []string{"unreviewed_cgo.go"}
+		if reviewedPhase228Package(c, module, relative) {
+			t.Fatal("Cgo source inherited Linux role authority")
+		}
+		c.listed.CgoFiles = nil
 		p := filepath.Join(dir, names[0])
 		f, e := os.OpenFile(p, os.O_APPEND|os.O_WRONLY, 0600)
 		if e != nil {

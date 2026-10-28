@@ -13,7 +13,7 @@ func TestReviewedCredentialImportAndAuditLocalClientWavesRejectChangedAndAddedSo
 			name  string
 			files []string
 		}{name: platform}
-		for key := range phase10SourceSeals {
+		for key := range currentCIJobFixtureSeals() {
 			if strings.HasPrefix(key, "internal/localapi|") && strings.Contains(key, "listener_"+platform+".go") {
 				testCase.files = strings.Split(strings.SplitN(key, "|", 2)[1], ",")
 			}

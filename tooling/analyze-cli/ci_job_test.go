@@ -61,6 +61,17 @@ func TestCIJobCurrentSourceSealsRejectDrift(t *testing.T) {
 		current[key] = seal
 	}
 
+	// Today's fixtures use additive website-delivery closures.
+	for key := range current {
+		relative := strings.SplitN(key, "|", 2)[0]
+		if isCurrentCIJobFixturePackage(relative) {
+			delete(current, key)
+		}
+	}
+	for key, seal := range currentCIJobFixtureSeals() {
+		current[key] = seal
+	}
+
 	for key, seal := range current {
 		t.Run(key, func(t *testing.T) {
 			parts := strings.SplitN(key, "|", 2)
