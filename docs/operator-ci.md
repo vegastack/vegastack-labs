@@ -18,7 +18,15 @@ Configure only the fixed public HTTPS/public-resolver profile through separately
 
 External application-deployment claims, renewals and receipts require a protected `ciDeploymentJobs` binding, an explicitly `deployment`-class enrollment and a matching plan-sealed `x-executor-deployment-job` digest. The server rechecks current enrollment, observer authority and actual numeric GitHub job/source/runner facts. A build enrollment cannot acquire a deployment lease. Job admission is additional to the existing exact plan, executor identity and independent receipt verification.
 
-This guard delivers no hosting credential. Existing external credential-plan rejection remains in force; the narrow credential handoff/external deployment adapter and publication orchestration still need implementation before the complete application-delivery workflow can pass. The [service procedure](operator-services.md) remains the implemented central deployment path.
+The managed deployment extension links a CI plan to one companion external deployment plan at the same database revision. Read both plans and obtain each required human acknowledgement before starting them. The existing plan response includes the companion ID and digest. The job remains held while the controller checks the actual consumed job identity, both execution leases and the exact protected hosting credential version. The initial supported network scope is public HTTPS Coolify with no application environment-secret or settings change. Private LAN/Mesh provider origins require a separately implemented network profile.
+
+The hosting credential travels on the existing private controller-to-container channel. The typed consumer runs inside the admitted container, rechecks authority before provider requests and clears its in-memory credential afterward. An external result still requires independent provider/runtime observation before completion. The [service procedure](operator-services.md) describes the existing central deployment path.
+
+## Publish a completed build
+
+`vsk-labs ci publication draft --config <profile> --file <request> --output json` prepares a publication plan from one protected binding. The controller checks an actually completed successful GitHub run and exact job, verifies the supplied image and real Sigstore evidence against the protected source/builder policy, and uses a separate repository-scoped publication credential. The ordinary plan, human acknowledgement and apply commands perform the write. An unsigned packaging output cannot pass this publisher.
+
+The publication attempt is bound to its immutable plan. Cancellation, credential revocation and uncertain registry writes require investigation through the recorded result; creating another run does not authorize repeating that attempt. The final combined live demonstration remains tracked by #317.
 
 ## Verify and recover
 

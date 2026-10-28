@@ -184,7 +184,7 @@ func (executor *ExternalExecutor) Claim(ctx context.Context, principal identity.
 				ClaimedAt: now.Format(time.RFC3339), RenewAfter: now.Add(time.Duration(generated.ExecutorCheckInSeconds) * time.Second).Format(time.RFC3339),
 				LeaseExpiresAt:   now.Add(time.Duration(generated.ExecutorLeaseSeconds) * time.Second).Format(time.RFC3339),
 				MaximumExpiresAt: now.Add(time.Duration(generated.ExecutorLeaseSeconds) * time.Second).Format(time.RFC3339),
-				Status:           "active", Extensions: append([]generated.ContractExtension(nil), request.Extensions...),
+				Status:           "active", Extensions: append(make([]generated.ContractExtension, 0, len(request.Extensions)), request.Extensions...),
 			}
 			attribution, attributionErr := externalAttribution(principal)
 			if attributionErr != nil {
