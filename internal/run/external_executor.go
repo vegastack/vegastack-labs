@@ -96,6 +96,9 @@ func (executor *ExternalExecutor) Claim(ctx context.Context, principal identity.
 	if executor == nil || !exactContract(generated.SchemaIDExecutorClaimRequest, request) {
 		return generated.ExecutorLease{}, runError(generated.ErrorCodeInputInvalid, "executor-claim")
 	}
+	if !managedPrincipalContext(ctx, principal) {
+		return generated.ExecutorLease{}, runError(generated.ErrorCodeAuthorizationDenied, "managed-executor-context")
+	}
 	if err := executor.Reconcile(ctx); err != nil {
 		return generated.ExecutorLease{}, err
 	}
@@ -123,6 +126,9 @@ func (executor *ExternalExecutor) Claim(ctx context.Context, principal identity.
 		}
 	}
 	for _, current := range runs {
+		if proof, ok := ctx.Value(managedDeploymentContextKey{}).(managedDeploymentContext); ok && current.PlanID != proof.planID {
+			continue
+		}
 		if current.Status != "running" || current.ExecutorMode != "external" || current.ExecutorID != request.ExecutorID || current.CancellationRequested {
 			continue
 		}
@@ -131,7 +137,9 @@ func (executor *ExternalExecutor) Claim(ctx context.Context, principal identity.
 			return generated.ExecutorLease{}, getErr
 		}
 		plan := stored.Plan
-		if credentialPlanDigest(plan) != "" {
+		proof, managed := ctx.Value(managedDeploymentContextKey{}).(managedDeploymentContext)
+		managed = managed && proof.planID == plan.PlanID && proof.planDigest == plan.PlanDigest && proof.principal == principal
+		if credentialPlanDigest(plan) != "" && !managed {
 			return generated.ExecutorLease{}, runError(generated.ErrorCodePrerequisiteBlocked, "external-credential-handoff")
 		}
 		if err := executor.admission.VerifyRun(ctx, plan, current); err != nil {
@@ -336,6 +344,9 @@ func (executor *ExternalExecutor) Reconcile(ctx context.Context) error {
 }
 
 func (executor *ExternalExecutor) boundLease(ctx context.Context, principal identity.Principal, leaseID string, evidence []generated.ContractExtension) (generated.ExecutorLease, generated.Run, generated.Plan, generated.RunStep, error) {
+	if !managedPrincipalContext(ctx, principal) {
+		return generated.ExecutorLease{}, generated.Run{}, generated.Plan{}, generated.RunStep{}, runError(generated.ErrorCodeAuthorizationDenied, "managed-executor-context")
+	}
 	lease, err := executor.leases.Get(ctx, leaseID)
 	if err != nil {
 		return generated.ExecutorLease{}, generated.Run{}, generated.Plan{}, generated.RunStep{}, err
@@ -446,7 +457,27 @@ func (executor *ExternalExecutor) verifyDeploymentJob(ctx context.Context, p ide
 	if executor.deploymentAdmission == nil {
 		return executor.authorizationDenied(ctx, p, "deployment-job-unconfigured", step.TargetID)
 	}
-	if err := executor.deploymentAdmission.VerifyDeploymentJob(ctx, p, plan, step); err != nil {
+	verify := func() error {
+		if proof, ok := ctx.Value(managedDeploymentContextKey{}).(managedDeploymentContext); ok {
+			guard, ok := executor.deploymentAdmission.(ExternalManagedDeploymentAdmission)
+			if !ok || proof.planID != plan.PlanID || proof.planDigest != plan.PlanDigest || proof.principal != p {
+				return runError(generated.ErrorCodeAuthorizationDenied, "managed-deployment-binding")
+			}
+			actual, err := guard.VerifyManagedDeploymentJob(ctx, proof.controller, plan, step)
+			if err != nil {
+				return err
+			}
+			if actual != p {
+				return runError(generated.ErrorCodeAuthorizationDenied, "managed-deployment-principal")
+			}
+			return nil
+		}
+		if p.Method == identity.ManagedCIControllerMethod {
+			return runError(generated.ErrorCodeAuthorizationDenied, "managed-executor-context")
+		}
+		return executor.deploymentAdmission.VerifyDeploymentJob(ctx, p, plan, step)
+	}
+	if err := verify(); err != nil {
 		return executor.authorizationDenied(ctx, p, "deployment-job-denied", step.TargetID)
 	}
 	fresh, err := executor.runs.GetRun(ctx, current.RunID)

@@ -23,6 +23,9 @@ type externalDeploymentAdmission struct {
 	observer  interface {
 		Observe(context.Context, githubci.Target, *credentialref.Value) (ci.Observation, error)
 	}
+	managed interface {
+		ManagedDeploymentAdmission(context.Context, adapter.ExactExecutionBinding, generated.Plan, generated.RunStep) (store.CIManagedDeploymentAdmission, error)
+	}
 	clock func() time.Time
 }
 
@@ -35,7 +38,7 @@ func newExternalDeploymentAdmission(p serverconfig.Profile, s *store.Store, regi
 	if e != nil {
 		return nil, e
 	}
-	return &externalDeploymentAdmission{authority: s, registry: registry, jobs: jobs, execution: append([]generated.CiJobExecutionBinding(nil), p.CIJobBindings...), observer: client, clock: time.Now}, nil
+	return &externalDeploymentAdmission{authority: s, registry: registry, jobs: jobs, execution: append([]generated.CiJobExecutionBinding(nil), p.CIJobBindings...), observer: client, clock: time.Now, managed: newCIJobRepository(s, store.NewGateRepository(s))}, nil
 }
 func deploymentJobMatches(b generated.CiDeploymentJobBinding, principal identity.Principal, p generated.Plan, step generated.RunStep) bool {
 	if !identity.ValidPrincipal(principal) || identity.EffectivePrincipalKind(principal) != identity.PrincipalPolicy || p.ExecutorMode != "external" || p.ExecutorID == nil || *p.ExecutorID != principal.ID || b.ExecutorID != principal.ID || b.PlanID != p.PlanID || b.PlanDigest != p.PlanDigest || b.TargetID != step.TargetID || b.ArtifactDigest != step.ArtifactDigest || step.ExecutorID != principal.ID {
@@ -76,11 +79,21 @@ func (c *externalDeploymentAdmission) VerifyDeploymentJob(ctx context.Context, p
 			execution = b
 		}
 	}
+	return c.verifySelectedDeploymentJob(ctx, selected, execution, p, step, nil)
+}
+
+func (c *externalDeploymentAdmission) verifySelectedDeploymentJob(ctx context.Context, selected generated.CiDeploymentJobBinding, execution generated.CiJobExecutionBinding, p generated.Plan, step generated.RunStep, managedPolicy func() (store.CIEnrollmentPolicy, error)) error {
 	if execution.ObserverReferenceID == "" {
 		return actionFailure()
 	}
 	current := func() (store.CIEnrollmentPolicy, generated.CredentialReference, store.GateAppliedProfile, error) {
-		policy, e := store.NewCIEnrollmentRepository(c.authority).ExecutionPolicy(ctx, selected.EnrollmentID, store.RevisionToken{StateRevision: p.Binding.StateRevision, RecoveryEpoch: p.Binding.RecoveryEpoch})
+		var policy store.CIEnrollmentPolicy
+		var e error
+		if managedPolicy != nil {
+			policy, e = managedPolicy()
+		} else {
+			policy, e = store.NewCIEnrollmentRepository(c.authority).ExecutionPolicy(ctx, selected.EnrollmentID, store.RevisionToken{StateRevision: p.Binding.StateRevision, RecoveryEpoch: p.Binding.RecoveryEpoch})
+		}
 		if e != nil {
 			return policy, generated.CredentialReference{}, store.GateAppliedProfile{}, e
 		}
