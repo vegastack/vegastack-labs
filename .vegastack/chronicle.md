@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 28-10-2026 — Prepare the controller and website through one approved path ([#333](https://github.com/vegastack/vegastack-labs/issues/333))
+
+- **What:** The selected controller can prepare a consistent recovery image, claim a current Slack-approved plan, install its service foundation, hand off its existing database and install its one selected connector through the same executable. Each stage records an independently checked result; none establishes general host qualification.
+- **Why:** The first website needed a working service and credentials while the operator kept full native recovery and reboot qualification deferred.
+- **How it went:** The former handoff assumed the same UID, and Slack files belonged to the administrator. The bounded handoff now preserves those credentials and the before-configuration. Real SQLite/API/approval fixtures and Linux compilation passed; native installation and website acceptance remain unexecuted. A separately authorized Linux prerequisite read verified the selected controller and removed its temporary collector copy.
+- **Changed:** Three finite setup stages · one-use local administrator claim · preserved recovery image and custody records · current selected connector/native-reader checks · identical operator procedure. The six ingress bootstrap stages still require their individual plans and real readiness before DNS publication.
+- **Decisions:** Operator approved this limited source/policy path only. Actual installation, credential activation and public website changes remain separately authorized; ordinary admission and protected-host exclusions are unchanged.
+
+— approved source scope by (omkarmohanta09), conveyed by coordinator · built by Codex with parallel implementation agents · branch feat/330-website-delivery
+
 ## 28-10-2026 — Bind a controller-only setup policy without claiming host admission ([#333](https://github.com/vegastack/vegastack-labs/issues/333))
 
 - **What:** Protected selected-controller policy and a dedicated eligibility result bind actual local machine/database authority, current state and an exact applied capability. The initial controller does not need a fabricated managed-host or native-baseline record.

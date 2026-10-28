@@ -709,6 +709,18 @@
           "github.com/vegastack/vegastack-labs/internal/siteheartbeat"
         ],
         "mutationBoundaryDigest": "sha256:f4eade03640b8cba61e54bd529b3cd93ea9db8383e4aa722f3a12c0f48b0f19e"
+      },
+      {
+        "id": "website-bootstrap-issues330-331-332-333-v1",
+        "issue": 330,
+        "commands": [
+          "doctor controller-prerequisites"
+        ],
+        "imports": [
+          "github.com/vegastack/vegastack-labs/internal/controllerprerequisites",
+          "github.com/vegastack/vegastack-labs/internal/ingressconnector"
+        ],
+        "mutationBoundaryDigest": "sha256:016d2df9d5a5a4b44ca1a13fad17d1707dbde06e2a7870381145aeb1ceb296da"
       }
     ]
   },
