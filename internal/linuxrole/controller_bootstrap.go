@@ -169,10 +169,12 @@ func ValidateControllerInstallInput(in ControllerInstallInput) error {
 	return nil
 }
 
-// systemd owns the runtime directory as the service UID/GID. Search permission
-// lets the distinct administrator reach its 0660 group-restricted socket without
-// granting directory listing or write access to other users.
-const controllerRuntimeDirectoryMode = 0751
+// systemd owns the runtime directory as the service UID/GID. At startup the
+// listener re-chowns this directory's group to the socket group (the
+// administrator GID) and requires mode 0750, so the distinct administrator
+// reaches its 0660 group-restricted socket through the group search bit without
+// granting any world access or directory listing/write beyond the service owner.
+const controllerRuntimeDirectoryMode = 0750
 
 // ControllerFoundationFiles reuses the canonical role service renderer. The
 // machine ID is observed locally, never accepted as an authority claim.
