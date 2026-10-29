@@ -2,6 +2,8 @@ package linuxrole
 
 import (
 	"encoding/json"
+	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -143,5 +145,116 @@ func TestControllerFoundationRejectsExpandedOrUnboundInputs(t *testing.T) {
 	b = []byte(`{"stage":"foundation-native-authority","stage":"foundation-native-authority"}`)
 	if _, e := DecodeControllerInstallInput(b); e == nil {
 		t.Fatal("duplicate key accepted")
+	}
+}
+
+func TestControllerPreservesExplicitAdditionalPreloadedCredentials(t *testing.T) {
+	in := controllerInstallFixture()
+	raw, _ := json.Marshal(in)
+	var fields map[string]json.RawMessage
+	json.Unmarshal(raw, &fields)
+	name := "credential-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	fields["additionalPreloadedCredentialNames"], _ = json.Marshal([]string{name})
+	raw, _ = json.Marshal(fields)
+	got, err := DecodeControllerInstallInput(raw)
+	if err != nil {
+		t.Fatal("explicit preloaded credential rejected", err)
+	}
+	files, err := ControllerFoundationFiles(got, strings.Repeat("a", 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	unit := string(files[controllerArtifacts["unit"]])
+	for _, credential := range append([]string{name}, in.SlackCredentialNames...) {
+		line := "LoadCredential=" + credential + ":/etc/vsk-labs/control/credentials/" + credential + "\n"
+		if strings.Count(unit, line) != 1 {
+			t.Fatal("credential not retained exactly once", credential)
+		}
+	}
+	if hostaction.Digest(got) == hostaction.Digest(in) {
+		t.Fatal("additional credential did not change exact input digest")
+	}
+	if strings.Join(got.SlackCredentialNames, ",") != strings.Join(in.SlackCredentialNames, ",") {
+		t.Fatal("Slack references changed")
+	}
+}
+
+func TestControllerAdditionalCredentialNamesAreBoundedAndExact(t *testing.T) {
+	a := "credential-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	b := "credential-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	for name, additional := range map[string][]string{
+		"duplicate": {a, a}, "unsorted": {b, a}, "path": {"../" + a},
+		"short": {"credential-aaaa"}, "uppercase": {"credential-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"},
+		"slack": {"slack-bot-token"}, "empty": {""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			in := controllerInstallFixture()
+			in.AdditionalPreloadedCredentialNames = additional
+			raw, _ := json.Marshal(in)
+			if _, err := DecodeControllerInstallInput(raw); err == nil {
+				t.Fatal("unapproved credential names accepted")
+			}
+		})
+	}
+	in := controllerInstallFixture()
+	in.SlackCredentialNames = []string{a, "slack-app-token", "slack-bot-token"}
+	in.AdditionalPreloadedCredentialNames = []string{a}
+	if ValidateControllerInstallInput(in) == nil {
+		t.Fatal("Slack/additional overlap accepted")
+	}
+	in = controllerInstallFixture()
+	for n := 0; n < 14; n++ {
+		in.AdditionalPreloadedCredentialNames = append(in.AdditionalPreloadedCredentialNames, fmt.Sprintf("credential-%032x", n))
+	}
+	if ValidateControllerInstallInput(in) == nil {
+		t.Fatal("credential bound exceeded")
+	}
+	in.AdditionalPreloadedCredentialNames = in.AdditionalPreloadedCredentialNames[:13]
+	if ValidateControllerInstallInput(in) != nil {
+		t.Fatal("bounded credential set denied")
+	}
+}
+
+func TestControllerCredentialCustodyPathsUseOnlyDeclaredNames(t *testing.T) {
+	in := controllerInstallFixture()
+	baseline := controllerCredentialPaths(in)
+	if len(baseline) != 5 {
+		t.Fatal("legacy three-credential scope changed")
+	}
+	a := "credential-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	b := "credential-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	in.AdditionalPreloadedCredentialNames = []string{a, b}
+	want := []string{"/etc/vsk-labs/control", "/etc/vsk-labs/control/credentials"}
+	for _, name := range append([]string{a, b}, in.SlackCredentialNames...) {
+		want = append(want, "/etc/vsk-labs/control/credentials/"+name)
+	}
+	if !slices.Equal(controllerCredentialPaths(in), want) {
+		t.Fatal("custody paths omitted or widened declared credentials")
+	}
+	actual := controllerCredentialNames(in)
+	if slices.Contains(actual, "credential-cccccccccccccccccccccccccccccccc") || len(actual) != 5 {
+		t.Fatal("undeclared name inherited custody")
+	}
+	// Renderer/custody collection must not mutate the Slack-only configuration set.
+	if !slices.Equal(in.SlackCredentialNames, controllerInstallFixture().SlackCredentialNames) {
+		t.Fatal("Slack names mutated")
+	}
+}
+
+func TestControllerCredentialDirectoryRejectsUndeclaredOrMissingFiles(t *testing.T) {
+	in := controllerInstallFixture()
+	extra := "credential-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	observed := append([]string{extra}, in.SlackCredentialNames...)
+	if controllerCredentialDirectoryMatches(in, observed) {
+		t.Fatal("undeclared preloaded file accepted")
+	}
+	in.AdditionalPreloadedCredentialNames = []string{extra}
+	if !controllerCredentialDirectoryMatches(in, observed) {
+		t.Fatal("declared complete directory rejected")
+	}
+	for _, names := range [][]string{in.SlackCredentialNames, observed[:len(observed)-1], append(slices.Clone(observed), extra), append(slices.Clone(observed), "unapproved")} {
+		if controllerCredentialDirectoryMatches(in, names) {
+			t.Fatal("missing, duplicate or undeclared file accepted")
+		}
 	}
 }

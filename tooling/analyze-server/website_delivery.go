@@ -13,7 +13,7 @@ func reviewedWebsiteDeliveryUnixFile(relative string, content []byte) bool {
 	case "internal/linuxrole/controller_bootstrap_linux.go":
 		expected = "b533aff0f1840707ca36c613c05ba44a3d7fb635500e16ce68391305bbeb0e1c"
 	case "internal/linuxrole/controller_custody_linux.go":
-		expected = "1b44d57004b56c468f446fac2325612ccc41d0f3dc51f2c14914202055351971"
+		expected = "66be9bf70bbeed1bc4968c381581b7ae39c905f0f17d04a22e8f66847a988880"
 	case "internal/linuxrole/controller_service_linux.go":
 		expected = "13c43d64b7e694230d31a76fe514974bbd29aec58a73682cf8b74570d6a1db09"
 	case "internal/linuxrole/control_handoff_linux.go":

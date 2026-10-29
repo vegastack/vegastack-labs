@@ -7,8 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"os"
-	"slices"
-	"sort"
 
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"golang.org/x/sys/unix"
@@ -25,13 +23,6 @@ type controllerMetadata struct {
 
 func metadataOf(s unix.Stat_t) controllerMetadata {
 	return controllerMetadata{uint64(s.Dev), s.Ino, s.Uid, s.Gid, s.Mode, uint64(s.Nlink)}
-}
-func controllerCredentialPaths(in ControllerInstallInput) []string {
-	paths := []string{"/etc/vsk-labs/control", "/etc/vsk-labs/control/credentials"}
-	for _, name := range in.SlackCredentialNames {
-		paths = append(paths, "/etc/vsk-labs/control/credentials/"+name)
-	}
-	return paths
 }
 
 // ObserveControllerCredentialCustody returns only fixed artifact metadata. It
@@ -73,8 +64,7 @@ func controllerCredentialMetadata(in ControllerInstallInput) ([]controllerMetada
 	for _, entry := range entries {
 		names = append(names, entry.Name())
 	}
-	sort.Strings(names)
-	if !slices.Equal(names, in.SlackCredentialNames) {
+	if !controllerCredentialDirectoryMatches(in, names) {
 		return nil, errNative
 	}
 	return facts, nil
