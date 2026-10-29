@@ -144,6 +144,20 @@ func workflowDeclarationTargets(row discoveryRow, d generated.DeclarationRevisio
 	var raw []byte
 	var digest string
 	switch d.DeclarationType {
+	case "controller.setup":
+		// The fixed local setup workflow has no managed-host record. Its sole
+		// stored operation supplies the exact controller owner for navigation;
+		// declaration creation and acknowledged execution remain separate grants.
+		if len(d.Operations) != 1 || op.Sequence != 1 || !authorization.ValidIdentifier(op.OperationID) ||
+			op.AdapterID != "core.controller-setup" || op.OperationType != "controller.setup.bootstrap" ||
+			!authorization.ValidIdentifier(op.TargetID) || op.Idempotent || op.OffsiteRunSpec != nil ||
+			!validBackupDigest(op.InputDigest) || !validBackupDigest(op.ArtifactDigest) ||
+			d.Maintenance != nil || d.HostingLifecycle != nil || d.ServiceRecovery != nil || d.ServiceDeployment != nil ||
+			d.CIJob != nil || d.CIEnrollment != nil || d.ServiceImport != nil || d.NetworkEndpoint != nil ||
+			d.AuthorizationGrantBatch != nil || d.HostAliasClaim != nil {
+			return deny()
+		}
+		add("controller.setup.prepare", "controller.setup.read", "controller-setup", op.TargetID)
 	case "hosting.lifecycle":
 		if d.HostingLifecycle == nil || !ValidateHostingLifecycleDeclaration(d) {
 			return deny()

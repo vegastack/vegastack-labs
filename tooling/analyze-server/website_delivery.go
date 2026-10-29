@@ -11,11 +11,11 @@ func reviewedWebsiteDeliveryUnixFile(relative string, content []byte) bool {
 	var expected string
 	switch relative {
 	case "internal/linuxrole/controller_bootstrap_linux.go":
-		expected = "b533aff0f1840707ca36c613c05ba44a3d7fb635500e16ce68391305bbeb0e1c"
+		expected = "eefa2b5d3624c311588768e8027e2bece31446405afa40f3b789f11813a4cd31"
 	case "internal/linuxrole/controller_custody_linux.go":
-		expected = "1b44d57004b56c468f446fac2325612ccc41d0f3dc51f2c14914202055351971"
+		expected = "66be9bf70bbeed1bc4968c381581b7ae39c905f0f17d04a22e8f66847a988880"
 	case "internal/linuxrole/controller_service_linux.go":
-		expected = "13c43d64b7e694230d31a76fe514974bbd29aec58a73682cf8b74570d6a1db09"
+		expected = "d7a410ddd56365c3d05607162a98a31f41cbe2fb7ce8f5f8754d7168e7a3f6a2"
 	case "internal/linuxrole/control_handoff_linux.go":
 		expected = "9b01a24b69cf93d38e29ad4f4035ae9ac79cc2df0e14ffb007d050eb4b0c3565"
 	case "internal/server/controller_setup_client_linux.go":

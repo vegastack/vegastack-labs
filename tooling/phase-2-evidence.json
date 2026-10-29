@@ -721,6 +721,13 @@
           "github.com/vegastack/vegastack-labs/internal/ingressconnector"
         ],
         "mutationBoundaryDigest": "sha256:e12c05528976858c9796bfaf73ee5226407c78d88e11b0c8e51d688d45b299e5"
+      },
+      {
+        "id": "controller-install-continuity-issue333-v1",
+        "issue": 333,
+        "commands": [],
+        "imports": [],
+        "mutationBoundaryDigest": "sha256:55a1e0b81933ce383ca7f582481368493cde8008508dfcf94b7dbb3839a7e5b3"
       }
     ]
   },

@@ -50,6 +50,10 @@ func VerifyControllerInstallPreconditions(ctx context.Context, in ControllerInst
 }
 
 func (n *nativeRuntime) controllerFoundationPreflight(ctx context.Context, in ControllerInstallInput) (map[string][]byte, error) {
+	credentialDigest, e := ObserveControllerCredentialCustody(in)
+	if e != nil || credentialDigest != in.CredentialCustodyDigest {
+		return nil, errNative
+	}
 	machine, e := controllerMachine(n.root)
 	if e != nil {
 		return nil, e
@@ -133,7 +137,8 @@ func (n *nativeRuntime) controllerFoundationPreflight(ctx context.Context, in Co
 
 // InstallControllerFoundation is invoked only after the local API returned the
 // exact current acknowledged one-use claim. It never opens SQLite, changes its
-// ownership, stops the foreground writer or starts the new service.
+// ownership, changes credential custody, stops the foreground writer or starts
+// the new service. The administrator must retain Slack acknowledgement access.
 func InstallControllerFoundation(ctx context.Context, in ControllerInstallInput, version string) (bool, error) {
 	if os.Getuid() != 0 || os.Geteuid() != 0 || ValidateControllerInstallInput(in) != nil {
 		return false, errNative
@@ -182,13 +187,8 @@ func InstallControllerFoundation(ctx context.Context, in ControllerInstallInput,
 		if e != nil {
 			return e
 		}
-		moved, e := moveControllerCredentialCustody(ctx, in)
-		changed = changed || moved
-		if e != nil {
-			return e
-		}
-		// The exact config parent and three credential artifacts have moved
-		// metadata custody; their content and the running database are untouched.
+		// Leave the administrator's credential custody intact while the old
+		// foreground writer still publishes Slack approval requests.
 		if _, e = protectedInfo(n.root, "etc/vsk-labs"); e != nil {
 			return e
 		}
@@ -358,6 +358,12 @@ func verifyControllerFoundation(ctx context.Context, in ControllerInstallInput) 
 	polkitGID, e := controllerPolkitGID(ctx, n.run)
 	if e != nil {
 		return "", e
+	}
+	if in.Stage == ControllerInstallStage {
+		credentialDigest, e := ObserveControllerCredentialCustody(in)
+		if e != nil || credentialDigest != in.CredentialCustodyDigest {
+			return "", errNative
+		}
 	}
 	facts := map[string]any{"inputDigest": hostaction.Digest(in), "stage": "installed-awaiting-native-verification", "serviceUID": in.ServiceUID, "serviceGID": in.ServiceGID}
 	for s, p := range controllerArtifacts {

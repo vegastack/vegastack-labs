@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -22,27 +23,28 @@ const ControllerRecoveryImage = "/var/lib/vsk-labs/control/controller-pilot-reco
 // ControllerInstallInput is the closed, non-secret payload of the initial local
 // administrator effect. It does not grant permission to execute that effect.
 type ControllerInstallInput struct {
-	Stage                      string                       `json:"stage"`
-	ControllerSetupPilotDigest string                       `json:"controllerSetupPilotDigest"`
-	ControllerInstanceID       string                       `json:"controllerInstanceId"`
-	ControllerMachineIDDigest  string                       `json:"controllerMachineIdDigest"`
-	RecoveryEpoch              int64                        `json:"recoveryEpoch"`
-	StateRevision              int64                        `json:"stateRevision"`
-	RecoveryImageDigest        string                       `json:"recoveryImageDigest"`
-	ServiceUID                 int64                        `json:"serviceUid"`
-	ServiceGID                 int64                        `json:"serviceGid"`
-	AdministratorUID           int64                        `json:"administratorUid"`
-	AdministratorGID           int64                        `json:"administratorGid"`
-	ExecutableDigest           string                       `json:"executableDigest"`
-	ConfigDigest               string                       `json:"configDigest"`
-	SlackProfileDigest         string                       `json:"slackProfileDigest"`
-	SlackCredentialNames       []string                     `json:"slackCredentialNames"`
-	CredentialCustodyDigest    string                       `json:"credentialCustodyDigest"`
-	Handoff                    *ControllerServiceHandoff    `json:"handoff,omitempty"`
-	Connector                  *ingressconnector.Input      `json:"connector,omitempty"`
-	Resources                  generated.LinuxRoleResources `json:"resources"`
-	Probes                     []ControllerNativeProbe      `json:"probes"`
-	Preimages                  map[string]string            `json:"preimages"`
+	Stage                              string                       `json:"stage"`
+	ControllerSetupPilotDigest         string                       `json:"controllerSetupPilotDigest"`
+	ControllerInstanceID               string                       `json:"controllerInstanceId"`
+	ControllerMachineIDDigest          string                       `json:"controllerMachineIdDigest"`
+	RecoveryEpoch                      int64                        `json:"recoveryEpoch"`
+	StateRevision                      int64                        `json:"stateRevision"`
+	RecoveryImageDigest                string                       `json:"recoveryImageDigest"`
+	ServiceUID                         int64                        `json:"serviceUid"`
+	ServiceGID                         int64                        `json:"serviceGid"`
+	AdministratorUID                   int64                        `json:"administratorUid"`
+	AdministratorGID                   int64                        `json:"administratorGid"`
+	ExecutableDigest                   string                       `json:"executableDigest"`
+	ConfigDigest                       string                       `json:"configDigest"`
+	SlackProfileDigest                 string                       `json:"slackProfileDigest"`
+	SlackCredentialNames               []string                     `json:"slackCredentialNames"`
+	AdditionalPreloadedCredentialNames []string                     `json:"additionalPreloadedCredentialNames,omitempty"`
+	CredentialCustodyDigest            string                       `json:"credentialCustodyDigest"`
+	Handoff                            *ControllerServiceHandoff    `json:"handoff,omitempty"`
+	Connector                          *ingressconnector.Input      `json:"connector,omitempty"`
+	Resources                          generated.LinuxRoleResources `json:"resources"`
+	Probes                             []ControllerNativeProbe      `json:"probes"`
+	Preimages                          map[string]string            `json:"preimages"`
 }
 
 type ControllerServiceHandoff struct {
@@ -61,6 +63,8 @@ type ControllerNativeProbe struct {
 	UID            int64  `json:"uid"`
 	GID            int64  `json:"gid"`
 }
+
+var controllerPreloadedCredentialName = regexp.MustCompile(`^credential-[0-9a-f]{32}$`)
 
 var controllerDigest = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
 var controllerArtifacts = map[string]string{
@@ -143,6 +147,17 @@ func ValidateControllerInstallInput(in ControllerInstallInput) error {
 		}
 		lastName = name
 	}
+	// Keep the existing role renderer's total bound of sixteen credentials.
+	if len(in.AdditionalPreloadedCredentialNames) > 13 {
+		return errInput
+	}
+	lastName = ""
+	for _, name := range in.AdditionalPreloadedCredentialNames {
+		if !controllerPreloadedCredentialName.MatchString(name) || name <= lastName || slices.Contains(in.SlackCredentialNames, name) {
+			return errInput
+		}
+		lastName = name
+	}
 	last := ""
 	for _, p := range in.Probes {
 		key := fmt.Sprintf("%s\x00%010d\x00%010d", p.CredentialName, p.UID, p.GID)
@@ -160,7 +175,7 @@ func ControllerFoundationFiles(in ControllerInstallInput, machineID string) (map
 	if ValidateControllerInstallInput(in) != nil || !regexp.MustCompile(`^[0-9a-f]{32}$`).MatchString(machineID) || hostaction.BytesDigest([]byte(machineID)) != in.ControllerMachineIDDigest {
 		return nil, errInput
 	}
-	files := DesiredFiles(generated.LinuxRoleInput{RoleID: "control", Accounts: []generated.LinuxRoleAccount{{Selector: "control", UID: in.ServiceUID, GID: in.ServiceGID}}, Resources: in.Resources, ControlPlainCredentials: in.SlackCredentialNames})
+	files := DesiredFiles(generated.LinuxRoleInput{RoleID: "control", Accounts: []generated.LinuxRoleAccount{{Selector: "control", UID: in.ServiceUID, GID: in.ServiceGID}}, Resources: in.Resources, ControlPlainCredentials: controllerCredentialNames(in)})
 	unit := controllerArtifacts["unit"]
 	files[unit] = []byte(strings.Replace(string(files[unit]), "RuntimeDirectoryMode=0700\n", fmt.Sprintf("RuntimeDirectoryMode=0750\nSupplementaryGroups=%d\n", in.AdministratorGID), 1))
 	// The finite installed sudo policy/access probes need privilege elevation,
@@ -221,3 +236,26 @@ polkit.addRule(function(action, subject) {
     return polkit.Result.NO;
 });
 `
+
+// Only explicitly declared names join metadata custody and systemd loading.
+// Slack profile references remain their independent exact three-name set.
+func controllerCredentialNames(in ControllerInstallInput) []string {
+	names := append([]string(nil), in.SlackCredentialNames...)
+	names = append(names, in.AdditionalPreloadedCredentialNames...)
+	slices.Sort(names)
+	return names
+}
+
+func controllerCredentialPaths(in ControllerInstallInput) []string {
+	paths := []string{"/etc/vsk-labs/control", "/etc/vsk-labs/control/credentials"}
+	for _, name := range controllerCredentialNames(in) {
+		paths = append(paths, "/etc/vsk-labs/control/credentials/"+name)
+	}
+	return paths
+}
+
+func controllerCredentialDirectoryMatches(in ControllerInstallInput, names []string) bool {
+	observed := slices.Clone(names)
+	slices.Sort(observed)
+	return slices.Equal(observed, controllerCredentialNames(in))
+}
