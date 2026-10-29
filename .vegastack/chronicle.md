@@ -2,12 +2,12 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
-## 29-10-2026 — Keep existing discovery access during controller installation ([#333](https://github.com/vegastack/vegastack-labs/issues/333))
+## 29-10-2026 — Keep existing access during controller installation ([#333](https://github.com/vegastack/vegastack-labs/issues/333))
 
-- **What:** Controller setup can retain explicitly named preloaded discovery credentials alongside its three Slack files. The service loads the same declared files after handoff; unrelated files remain blocked.
+- **What:** Controller setup can retain explicitly named preloaded discovery credentials alongside its three Slack files. The service loads the same declared files after handoff; unrelated files remain blocked. Exact controller-target grants also support its plan and approval navigation.
 - **Why:** Actual nonsecret installation preparation found an existing discovery key that the three-file-only assumption would reject or leave unavailable to the new service.
-- **How it went:** A focused regression reproduced rejection of the explicit additional credential. The correction reuses the existing installer input, metadata custody and service renderer; it adds no service or secret-copying helper. Native handoff remains unexecuted.
-- **Changed:** Optional bounded credential-name list · exact plan binding and directory checks · preserved service loading · updated operator procedure.
+- **How it went:** A focused regression reproduced rejection of the explicit additional credential. The correction reuses the existing installer input, metadata custody and service renderer. Credential ownership stays with the running administrator until the acknowledged handoff stops that writer; otherwise the next Slack approval could not be sent. No service or secret-copying helper was added. Native handoff remains unexecuted.
+- **Changed:** Optional bounded credential-name list · exact plan binding and directory checks · retained Slack access until handoff · target-based workflow navigation · updated operator procedure.
 - **Decisions:** None. This corrects preservation within the approved selected-controller source scope. Live installation and ordinary workload admission remain separately controlled.
 
 — approved source scope by (omkarmohanta09), conveyed by coordinator · built by Codex with a parallel implementation agent · branch fix/333-controller-install-continuity

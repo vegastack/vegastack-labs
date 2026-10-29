@@ -10,6 +10,8 @@ An initial controller need not be a registered managed host. Its setup uses the 
 
 Review the canonical input beside the readable plan before acknowledging it. It names the stage, account IDs, resource limits, selected artifacts, exact preimages and recovery image. A hash alone does not explain those changes. Obtain the current plan's Slack acknowledgement before executing each stage. The finite executor claims that exact plan through the local API using the pinned administrator's real OS-peer identity, then submits its result for independent server verification. Root is never mapped to the human principal and never opens SQLite.
 
+For the exact selected controller target, ordinary workflow navigation uses `author` / `controller.setup.prepare` and `read` / `controller.setup.read` grants on the `controller-setup` resource. These permit preparing and reading its stored plans, runs and approval requests. They do not create a generic declaration, supply a human acknowledgement or grant `controller.setup.bootstrap` execution; those remain separately authorized.
+
 ## Three separate stages
 
 | Stage | Changes | Verification limit |
