@@ -18,7 +18,7 @@ test("the original Phase 2 baseline stays immutable while later waves have exact
   assert.equal(manifest.contract.postPhase2MutationBoundaryDigest, "sha256:ec30a4cc9d4a6e5a3fc9817a55a5b0a1697adcae57b950325edd563637d308a8");
   assert.equal(manifest.contract.productionDependencyDigest, "sha256:a9e8788558fa5c3347b5b8464d8d5e4a67dcc9357e5ae07478b606a806f78133");
   assert.equal(manifest.contract.mutationAvailable, false);
-  assert.equal(manifest.contract.reviewedWaves?.length, 65 + 1);
+  assert.equal(manifest.contract.reviewedWaves?.length, 66 + 1);
   assert.equal(manifest.contract.reviewedWaves.slice(0, 62).length, 62);
   assert.deepEqual(manifest.contract.reviewedWaves.find(wave => wave.issue === 269), {"id":"phase7-issue269-v1","issue":269,"commands":["user offboard","user onboard","user resume","user suspend"],"imports":[],"mutationBoundaryDigest":"sha256:5e96ac023243311b523932fede76f010dacb3d42b020d140e9c4b694468bd4c8"});
   assert.deepEqual(manifest.contract.reviewedWaves.find(wave => wave.issue === 270), {"id":"phase7-issue270-v1","issue":270,"commands":["device approve","device request","device revoke"],"imports":[],"mutationBoundaryDigest":"sha256:0169a3072c212b8288df2c957bd5843e42637296dd1a02a802251b340ebecf0d"});
@@ -743,9 +743,9 @@ test("selected website setup appends one finite wave without changing historical
 test("controller continuity appends an exact closure without rewriting historical waves", async () => {
  const manifest = await loadManifest();
  const facts = await collectIntegratedFacts(ROOT);
- assert.equal(manifest.contract.reviewedWaves.length,66);
- assert.deepEqual(manifest.contract.reviewedWaves.at(-2), {id:"website-bootstrap-issues330-331-332-333-v1",issue:330,commands:["doctor controller-prerequisites"],imports:["github.com/vegastack/vegastack-labs/internal/controllerprerequisites","github.com/vegastack/vegastack-labs/internal/ingressconnector"],mutationBoundaryDigest:"sha256:e12c05528976858c9796bfaf73ee5226407c78d88e11b0c8e51d688d45b299e5"});
- assert.deepEqual(manifest.contract.reviewedWaves.at(-1), {"id":"controller-install-continuity-issue333-v1","issue":333,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:55a1e0b81933ce383ca7f582481368493cde8008508dfcf94b7dbb3839a7e5b3"});
+ assert.equal(manifest.contract.reviewedWaves.slice(0,66).length,66);
+ assert.deepEqual(manifest.contract.reviewedWaves.slice(0,66).at(-2), {id:"website-bootstrap-issues330-331-332-333-v1",issue:330,commands:["doctor controller-prerequisites"],imports:["github.com/vegastack/vegastack-labs/internal/controllerprerequisites","github.com/vegastack/vegastack-labs/internal/ingressconnector"],mutationBoundaryDigest:"sha256:e12c05528976858c9796bfaf73ee5226407c78d88e11b0c8e51d688d45b299e5"});
+ assert.deepEqual(manifest.contract.reviewedWaves.slice(0,66).at(-1), {"id":"controller-install-continuity-issue333-v1","issue":333,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:55a1e0b81933ce383ca7f582481368493cde8008508dfcf94b7dbb3839a7e5b3"});
  assert.equal(validateEvidence(manifest,facts).status,"pass");
  for (const mutate of [
   m => m.contract.reviewedWaves.at(-1).commands.push("controller arbitrary"),
@@ -761,4 +761,12 @@ test("controller continuity appends an exact closure without rewriting historica
  }
  const changed=structuredClone(facts);changed.postPhase2MutationBoundaryDigest=`sha256:${"0".repeat(64)}`;
  assert.ok(validateEvidence(manifest,changed).codes.includes("PHASE2_MUTATION_AVAILABLE"));
+});
+
+
+test("controller plan classification appends its exact closure and preserves continuity history", async () => {
+ const manifest=await loadManifest();
+ assert.equal(manifest.contract.reviewedWaves.length,67);
+ assert.deepEqual(manifest.contract.reviewedWaves.at(-2), {id:"controller-install-continuity-issue333-v1",issue:333,commands:[],imports:[],mutationBoundaryDigest:"sha256:55a1e0b81933ce383ca7f582481368493cde8008508dfcf94b7dbb3839a7e5b3"});
+ assert.deepEqual(manifest.contract.reviewedWaves.at(-1), {"id":"controller-plan-risk-issue333-v2","issue":333,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:06a465971e3210069c363cc18a0e735b7a7514d6b62579ef5718d0bfbb0c7116"});
 });

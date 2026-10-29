@@ -728,6 +728,13 @@
         "commands": [],
         "imports": [],
         "mutationBoundaryDigest": "sha256:55a1e0b81933ce383ca7f582481368493cde8008508dfcf94b7dbb3839a7e5b3"
+      },
+      {
+        "id": "controller-plan-risk-issue333-v2",
+        "issue": 333,
+        "commands": [],
+        "imports": [],
+        "mutationBoundaryDigest": "sha256:06a465971e3210069c363cc18a0e735b7a7514d6b62579ef5718d0bfbb0c7116"
       }
     ]
   },
