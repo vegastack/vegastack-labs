@@ -19,23 +19,65 @@ import (
 type IngressRepository struct {
 	store   *Store
 	allowed []string
+	pilot   *IngressControllerPilot
+}
+
+// IngressControllerPilot is the one local administrator and device identifier the
+// selected limited controller setup already pins in the protected profile (the
+// bootstrap scope digest binds both). Only that principal, arriving over the
+// local OS-peer transport, may use the pinned identifier without a separately
+// approved operator device. Every other principal still needs an approved device.
+type IngressControllerPilot struct {
+	PrincipalID string
+	DeviceID    string
+}
+
+// WithControllerPilot enables the pinned single-controller exception. A nil
+// value leaves the ordinary approved-device requirement unchanged.
+func (r *IngressRepository) WithControllerPilot(p *IngressControllerPilot) *IngressRepository {
+	if p != nil && p.PrincipalID != "" && p.DeviceID != "" {
+		r.pilot = &IngressControllerPilot{PrincipalID: p.PrincipalID, DeviceID: p.DeviceID}
+	}
+	return r
+}
+
+func (r *IngressRepository) pilotPrincipal(p identity.Principal) bool {
+	return r != nil && r.pilot != nil && p.DeviceID == "" && p.ID == r.pilot.PrincipalID && p.Method == identity.LocalOSPeerMethod
 }
 
 func NewIngressRepository(s *Store, allowed []string) *IngressRepository {
-	return &IngressRepository{s, slices.Clone(allowed)}
+	return &IngressRepository{store: s, allowed: slices.Clone(allowed)}
 }
 func ingressError(code string) error { return newStoreError(code, "network-ingress", false, nil) }
 func ingressGrant(ctx context.Context, row discoveryRow, profile, action string) (identity.Principal, error) {
+	return (*IngressRepository)(nil).grant(ctx, row, profile, action)
+}
+func (r *IngressRepository) grant(ctx context.Context, row discoveryRow, profile, action string) (identity.Principal, error) {
 	p, ok := identity.PrincipalFromContext(ctx)
-	if !ok || !identity.ValidPrincipal(p) || p.DeviceID == "" {
+	viaPilot := ok && r.pilotPrincipal(p)
+	if !ok || !identity.ValidPrincipal(p) || p.DeviceID == "" && !viaPilot {
 		return p, ingressError(generated.ErrorCodeAuthenticationRequired)
 	}
+	device, args := ` JOIN operator_devices d ON d.principal_id=p.principal_id AND d.device_id=? AND d.status='approved'`, []any{p.DeviceID}
+	if viaPilot {
+		device, args = "", nil
+	}
 	var n int
-	err := row(`SELECT COUNT(*) FROM effective_authorization_principals p JOIN effective_authorization_grants g ON g.principal_id=p.principal_id AND g.grant_revision=p.grant_revision JOIN operator_devices d ON d.principal_id=p.principal_id AND d.device_id=? AND d.status='approved' WHERE p.principal_id=? AND p.status='active' AND g.status='active' AND g.action=? AND g.capability=? AND g.resource_kind='ingress-profile' AND g.resource_id=? AND g.role_id IN ('infrastructure-admin','control-plane-admin')`, p.DeviceID, p.ID, action, "network.ingress."+map[string]string{"author": "prepare", "read": "read"}[action], profile).Scan(&n)
+	err := row(`SELECT COUNT(*) FROM effective_authorization_principals p JOIN effective_authorization_grants g ON g.principal_id=p.principal_id AND g.grant_revision=p.grant_revision`+device+` WHERE p.principal_id=? AND p.status='active' AND g.status='active' AND g.action=? AND g.capability=? AND g.resource_kind='ingress-profile' AND g.resource_id=? AND g.role_id IN ('infrastructure-admin','control-plane-admin')`, append(args, p.ID, action, "network.ingress."+map[string]string{"author": "prepare", "read": "read"}[action], profile)...).Scan(&n)
 	if err != nil || n == 0 {
 		return p, ingressError(generated.ErrorCodeAuthorizationDenied)
 	}
 	return p, nil
+}
+func (r *IngressRepository) owner(row discoveryRow, c generated.IngressChange) error {
+	if r != nil && r.pilot != nil && c.OwnerID == r.pilot.PrincipalID && c.DeviceID == r.pilot.DeviceID {
+		var n int
+		if row(`SELECT COUNT(*) FROM effective_authorization_principals WHERE principal_id=? AND status='active'`, c.OwnerID).Scan(&n) != nil || n != 1 {
+			return ingressError(generated.ErrorCodeAuthorizationDenied)
+		}
+		return nil
+	}
+	return ingressOwner(row, c)
 }
 func ingressOwner(row discoveryRow, c generated.IngressChange) error {
 	var n int
@@ -103,14 +145,14 @@ func (r *IngressRepository) Stage(ctx context.Context, q generated.IngressDraftR
 	intent.Expected = &RevisionToken{StateRevision: q.ExpectedStateRevision, RecoveryEpoch: q.RecoveryEpoch}
 	_, err := r.store.executeAuditIntent(ctx, intent, false, func(ctx context.Context, tx *sql.Tx) error {
 		row := func(s string, a ...any) *sql.Row { return tx.QueryRowContext(ctx, s, a...) }
-		p, e := ingressGrant(ctx, row, q.Change.ProfileID, "author")
+		p, e := r.grant(ctx, row, q.Change.ProfileID, "author")
 		if e != nil {
 			return e
 		}
 		if p.ID != a.AuthenticatedPrincipalID {
 			return ingressError(generated.ErrorCodeAuthorizationDenied)
 		}
-		if e = ingressOwner(row, q.Change); e != nil {
+		if e = r.owner(row, q.Change); e != nil {
 			return e
 		}
 		if e = ingressOwnership(row, q.Change, q.RecoveryEpoch); e != nil {
@@ -175,10 +217,10 @@ func (r *IngressRepository) Resolve(ctx context.Context, op adapter.Operation, b
 			return ingressError(generated.ErrorCodeIntegrityFailure)
 		}
 		actor := identity.Principal{ID: out.ActorID, Method: out.ActorMethod, DeviceID: out.ActorDevice}
-		if _, e = ingressGrant(identity.WithVerifiedPrincipal(ctx, actor), row, c.ProfileID, "author"); e != nil {
+		if _, e = r.grant(identity.WithVerifiedPrincipal(ctx, actor), row, c.ProfileID, "author"); e != nil {
 			return e
 		}
-		if e = ingressOwner(row, c); e != nil {
+		if e = r.owner(row, c); e != nil {
 			return e
 		}
 		if e = ingressOwnership(row, c, q.RecoveryEpoch); e != nil {
@@ -233,10 +275,10 @@ func (r *IngressRepository) Record(ctx context.Context, d ingress.Staged, b adap
 		if status == "observed" {
 			row := func(q string, args ...any) *sql.Row { return tx.QueryRowContext(ctx, q, args...) }
 			actor := identity.Principal{ID: d.ActorID, Method: d.ActorMethod, DeviceID: d.ActorDevice}
-			if _, e := ingressGrant(identity.WithVerifiedPrincipal(ctx, actor), row, d.Request.Change.ProfileID, "author"); e != nil {
+			if _, e := r.grant(identity.WithVerifiedPrincipal(ctx, actor), row, d.Request.Change.ProfileID, "author"); e != nil {
 				return e
 			}
-			if e := ingressOwner(row, d.Request.Change); e != nil {
+			if e := r.owner(row, d.Request.Change); e != nil {
 				return e
 			}
 			if e := ingressOwnership(row, d.Request.Change, b.RecoveryEpoch); e != nil {
@@ -264,7 +306,7 @@ func (r *IngressRepository) Status(ctx context.Context, id string) (out generate
 	out = generated.IngressStatusData{Schema: generated.SchemaIDIngressStatusData, SchemaVersion: "1.0.0", ProfileID: id, RotationStage: "not-requested", Connectivity: "unknown", OriginIsolation: "unknown", Status: "unknown", Reason: "no-provider-observation", ObservationDigest: ingress.Digest(nil)}
 	err = r.store.Read(ctx, func(tx ReadTx) error {
 		row := func(s string, a ...any) *sql.Row { return tx.queryRow(ctx, s, a...) }
-		if _, e := ingressGrant(ctx, row, id, "read"); e != nil {
+		if _, e := r.grant(ctx, row, id, "read"); e != nil {
 			return e
 		}
 		if e := row(`SELECT state_revision,recovery_epoch FROM system_meta WHERE id=1`).Scan(&out.StateRevision, &out.RecoveryEpoch); e != nil {
@@ -349,10 +391,10 @@ func (r *IngressRepository) CheckCurrent(ctx context.Context, d ingress.Staged) 
 			return ingressError(generated.ErrorCodeAuthorizationDenied)
 		}
 		actor := identity.Principal{ID: d.ActorID, Method: d.ActorMethod, DeviceID: d.ActorDevice}
-		if _, e := ingressGrant(identity.WithVerifiedPrincipal(ctx, actor), row, c.ProfileID, "author"); e != nil {
+		if _, e := r.grant(identity.WithVerifiedPrincipal(ctx, actor), row, c.ProfileID, "author"); e != nil {
 			return e
 		}
-		if e := ingressOwner(row, c); e != nil {
+		if e := r.owner(row, c); e != nil {
 			return e
 		}
 		return ingressOwnership(row, c, q.RecoveryEpoch)
@@ -375,11 +417,11 @@ func (r *IngressRepository) preview(ctx context.Context, q generated.IngressDraf
 	}
 	err = r.store.Read(ctx, func(tx ReadTx) error {
 		row := func(s string, a ...any) *sql.Row { return tx.queryRow(ctx, s, a...) }
-		p, e := ingressGrant(ctx, row, q.Change.ProfileID, "read")
+		p, e := r.grant(ctx, row, q.Change.ProfileID, "read")
 		if e != nil {
 			return e
 		}
-		if e = ingressOwner(row, q.Change); e != nil {
+		if e = r.owner(row, q.Change); e != nil {
 			return e
 		}
 		if ownership {
@@ -408,7 +450,7 @@ func (r *IngressRepository) preview(ctx context.Context, q generated.IngressDraf
 func (r *IngressRepository) Rotation(ctx context.Context, q generated.IngressRolloutEvidenceRequest) (d ingress.Staged, state ingress.RotationState, err error) {
 	err = r.store.Read(ctx, func(tx ReadTx) error {
 		row := func(s string, a ...any) *sql.Row { return tx.queryRow(ctx, s, a...) }
-		if _, e := ingressGrant(ctx, row, q.ProfileID, "read"); e != nil {
+		if _, e := r.grant(ctx, row, q.ProfileID, "read"); e != nil {
 			return e
 		}
 		var draft, version string
@@ -451,7 +493,7 @@ func (r *IngressRepository) RecordRollout(ctx context.Context, q generated.Ingre
 	in := discoveryIntent(a, "ingress.rollout-observed", q.ProfileID, ingress.Digest(q.IdempotencyKey), ingress.Digest(q))
 	_, e = r.store.executeAuditIntent(ctx, in, false, func(ctx context.Context, tx *sql.Tx) error {
 		row := func(s string, a ...any) *sql.Row { return tx.QueryRowContext(ctx, s, a...) }
-		if _, e := ingressGrant(ctx, row, q.ProfileID, "read"); e != nil {
+		if _, e := r.grant(ctx, row, q.ProfileID, "read"); e != nil {
 			return e
 		}
 		var revision, epoch int64

@@ -123,7 +123,7 @@ func (r *IngressRepository) CheckBootstrapUnattempted(ctx context.Context, c gen
 func (r *IngressRepository) BootstrapResource(ctx context.Context, profile, action string, epoch int64) (id string, err error) {
 	err = r.store.Read(ctx, func(tx ReadTx) error {
 		row := func(s string, a ...any) *sql.Row { return tx.queryRow(ctx, s, a...) }
-		if _, e := ingressGrant(ctx, row, profile, "read"); e != nil {
+		if _, e := r.grant(ctx, row, profile, "read"); e != nil {
 			return e
 		}
 		var scope string

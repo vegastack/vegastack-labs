@@ -30,7 +30,7 @@ func ingressConnectorAuthorization(profile serverconfig.Profile, s *store.Store,
 		if e != nil || machine != policy.ControllerMachineIDDigest {
 			return actionFailure()
 		}
-		tunnel, e := store.NewIngressRepository(s, []string{ingress.BootstrapScopeDigest(policy.Change)}).BootstrapResource(ctx, policy.Change.ProfileID, "bootstrap-tunnel", p.Binding.RecoveryEpoch)
+		tunnel, e := store.NewIngressRepository(s, []string{ingress.BootstrapScopeDigest(policy.Change)}).WithControllerPilot(ingressControllerPilot(profile)).BootstrapResource(ctx, policy.Change.ProfileID, "bootstrap-tunnel", p.Binding.RecoveryEpoch)
 		if e != nil {
 			return e
 		}
