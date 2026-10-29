@@ -260,8 +260,10 @@ func TestControllerCredentialDirectoryRejectsUndeclaredOrMissingFiles(t *testing
 	}
 }
 
-// systemd owns RuntimeDirectory with the unit User/Group. SupplementaryGroups
-// does not put the administrator in the service group or change this ownership.
+// systemd owns RuntimeDirectory with the unit User/Group. At startup the listener
+// re-chowns the directory's group to the socket group (the administrator GID) and
+// requires mode 0750, so the administrator traverses via the group search bit
+// rather than any world-execute bit.
 func TestControllerRuntimePermitsAdministratorTraversalAfterServiceCustody(t *testing.T) {
 	in := controllerInstallFixture()
 	files, err := ControllerFoundationFiles(in, strings.Repeat("a", 32))
@@ -282,11 +284,11 @@ func TestControllerRuntimePermitsAdministratorTraversalAfterServiceCustody(t *te
 	if in.AdministratorUID == in.ServiceUID || in.AdministratorGID == in.ServiceGID {
 		t.Fatal("fixture lacks distinct identities")
 	}
-	if runtimeMode&0001 == 0 {
-		t.Fatalf("administrator cannot traverse service-owned runtime directory mode %04o", runtimeMode)
+	if runtimeMode&0010 == 0 {
+		t.Fatalf("administrator cannot traverse runtime directory via the socket group: mode %04o", runtimeMode)
 	}
-	if runtimeMode&0006 != 0 || runtimeMode&0022 != 0 {
-		t.Fatalf("runtime directory grants listing or write beyond service owner: %04o", runtimeMode)
+	if runtimeMode&0007 != 0 || runtimeMode&0022 != 0 {
+		t.Fatalf("runtime directory grants world access or group/other write beyond service owner: %04o", runtimeMode)
 	}
 	// The socket remains the group-restricted connection boundary.
 	source := []byte(`{"socketOwnerUid":1000,"socketPath":"/run/vsk-labs-control/control.sock","socketMode":"0600","acknowledgementAdapterConfigPath":"/etc/vsk-labs/control/slack.json","inventoryExportRoot":"/var/lib/vsk-labs/control/exports","principalBindings":[{"uid":1000,"principalId":"operator-a"}]}`)
