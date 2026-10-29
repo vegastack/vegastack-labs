@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 29-10-2026 — Let exact controller setup plans reach approval ([#333](https://github.com/vegastack/vegastack-labs/issues/333))
+
+- **What:** The planner now gives the fixed controller setup operation its existing control-plane risk classification, allowing authorization to assess the same plan consistently.
+- **Why:** Production used the destructive planner default; the prior workflow fixture supplied control-plane risk directly and concealed the mismatch before approval publication.
+- **How it went:** A production-default regression failed with destructive risk, then passed with the bounded classifier. Focused planner tests and vet passed locally. The Linux acknowledgement fixture now uses the production default; its Linux-only execution remains pending on this macOS workstation. No live effect or native acceptance is claimed.
+- **Changed:** Exact single setup operation only · human acknowledgement and central execution retained · malformed or mixed declarations rejected.
+- **Decisions:** None; this corrects classification within the approved setup scope.
+
+— approved source correction by (omkarmohanta09), conveyed by coordinator · built by Codex · branch fix/333-controller-plan-risk
+
 ## 29-10-2026 — Keep existing access during controller installation ([#333](https://github.com/vegastack/vegastack-labs/issues/333))
 
 - **What:** Controller setup can retain explicitly named preloaded discovery credentials alongside its three Slack files. The service loads the same declared files after handoff; unrelated files remain blocked. Exact controller-target grants also support its plan and approval navigation.
