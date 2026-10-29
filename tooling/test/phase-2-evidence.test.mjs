@@ -704,7 +704,7 @@ test("the #322 pilot wave rejects command, import, source and historical widenin
 test("the combined Phase 10 wave rejects command, import, source and historical widening", async () => {
   const manifest = await loadManifest();
   const facts = await collectIntegratedFacts(ROOT);
-  assert.equal(manifest.contract.reviewedWaves.length, 66);
+  assert.equal(manifest.contract.reviewedWaves.length, 67);
   assert.equal(manifest.contract.reviewedWaves.slice(0, 63).at(-1).issue, 322);
   assert.deepEqual(manifest.contract.reviewedWaves.slice(0, 64).at(-1), {"id":"phase10-issues323-324-325-326-328-v1","issue":323,"commands":["doctor","maintenance diagnose","maintenance draft","maintenance repair","operations notification-readiness","operations observe","operations status"],"imports":["github.com/vegastack/vegastack-labs/internal/adapter/beszel","github.com/vegastack/vegastack-labs/internal/adapter/githubalerts","github.com/vegastack/vegastack-labs/internal/adapter/slackalerts","github.com/vegastack/vegastack-labs/internal/maintenance","github.com/vegastack/vegastack-labs/internal/operations","github.com/vegastack/vegastack-labs/internal/siteheartbeat"],"mutationBoundaryDigest":"sha256:f4eade03640b8cba61e54bd529b3cd93ea9db8383e4aa722f3a12c0f48b0f19e"});
   assert.equal(validateEvidence(manifest, facts).status, "pass");
