@@ -151,8 +151,35 @@ func (g ingressSecretGate) VerifySecretStep(ctx context.Context, p generated.Pla
 	}
 	return g.source.check(ctx, d)
 }
+
+// ingressControllerPilot derives the single-controller pilot identity from the
+// protected profile. It exists only when the limited controller setup is selected
+// and its pinned administrator owns the bootstrap (or read-pilot) change; the
+// device identifier is the one the scope digest already binds. Conflicting pins
+// fail closed.
+func ingressControllerPilot(p serverconfig.Profile) *store.IngressControllerPilot {
+	if p.ControllerSetupPilot == nil {
+		return nil
+	}
+	var pins []generated.IngressChange
+	if p.IngressBootstrap != nil {
+		pins = append(pins, p.IngressBootstrap.Change)
+	}
+	if p.IngressControllerReadPilot != nil {
+		pins = append(pins, p.IngressControllerReadPilot.Change)
+	}
+	if len(pins) == 0 {
+		return nil
+	}
+	for _, c := range pins {
+		if c.OwnerID != p.ControllerSetupPilot.AdministratorPrincipalID || c.OwnerID != pins[0].OwnerID || c.DeviceID != pins[0].DeviceID {
+			return nil
+		}
+	}
+	return &store.IngressControllerPilot{PrincipalID: pins[0].OwnerID, DeviceID: pins[0].DeviceID}
+}
 func registerIngress(ctx context.Context, app *api.Application, s *store.Store, registry *adapter.Registry, declarations *change.Service, factory *result.Factory, p serverconfig.Profile, build result.BuildInfo, databasePath string, identityClient *http.Client) (*ingressAuthority, error) {
-	repository := store.NewIngressRepository(s, p.IngressScopeDigests)
+	repository := store.NewIngressRepository(s, p.IngressScopeDigests).WithControllerPilot(ingressControllerPilot(p))
 	source := &ingressAuthority{repository: repository, gates: store.NewGateRepository(s), credentials: store.NewCredentialRepository(s), registry: registry, build: build, proofs: gate.NewProofRegistry(), backend: cloud.NewClient()}
 	if p.IngressBootstrap != nil {
 		source.bootstrap = &ingressBootstrapComposition{profile: p, store: s, source: source, machine: pilotMachineDigest, probe: probeBootstrapOrigin}

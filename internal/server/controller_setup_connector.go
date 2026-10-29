@@ -39,7 +39,7 @@ func verifyControllerConnectorStage(ctx context.Context, p generated.Plan, raw s
 	if e != nil || scope.ProfileID != "vegastack-labs" || scope.RecoveryEpoch != p.Binding.RecoveryEpoch || !slices.Contains(scope.Capabilities, ingress.BootstrapCapability) || !slices.Contains(scope.Capabilities, "cloudflare.ingress") || !slices.Contains(scope.Capabilities, "credential.ingress.read") {
 		return actionFailure()
 	}
-	tunnel, e := store.NewIngressRepository(s, []string{ingress.BootstrapScopeDigest(policy.Change)}).BootstrapResource(ctx, policy.Change.ProfileID, "bootstrap-tunnel", p.Binding.RecoveryEpoch)
+	tunnel, e := store.NewIngressRepository(s, []string{ingress.BootstrapScopeDigest(policy.Change)}).WithControllerPilot(ingressControllerPilot(profile)).BootstrapResource(ctx, policy.Change.ProfileID, "bootstrap-tunnel", p.Binding.RecoveryEpoch)
 	if e != nil {
 		return e
 	}

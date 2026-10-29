@@ -15,7 +15,7 @@ func reviewedNetworkActorFile(relative string, content []byte) bool {
 	case "internal/store/mesh_repository.go":
 		expected = "dad3870e42f47867e26ec70aa8883f248e549e2e66ebf09d1c11a77fd0ba8027"
 	case "internal/store/ingress_repository.go":
-		expected = "550c1308621dff7b41756c15566c440fc03b8c76b98dc285063f185072734866"
+		expected = "d7063db17e86b42dcefaba2867efdb8dceb1b3a958865eec8bd0bbd79eadf2b0"
 	default:
 		return false
 	}
@@ -26,6 +26,11 @@ func reviewedNetworkActorFile(relative string, content []byte) bool {
 	}
 	// #330 adds finite bootstrap receipts while preserving current actor restoration.
 	if relative == "internal/store/ingress_repository.go" && actual == "68d01b82eba0752f365188d31a19b8fd061763997323e136e7b49c80bf2da417" {
+		return true
+	}
+	// #264 lets the pinned controller administrator use ingress without a separate device;
+	// the prior reviewed source stays valid.
+	if relative == "internal/store/ingress_repository.go" && actual == "550c1308621dff7b41756c15566c440fc03b8c76b98dc285063f185072734866" {
 		return true
 	}
 	return actual == expected
