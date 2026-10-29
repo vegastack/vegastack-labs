@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -256,5 +257,52 @@ func TestControllerCredentialDirectoryRejectsUndeclaredOrMissingFiles(t *testing
 		if controllerCredentialDirectoryMatches(in, names) {
 			t.Fatal("missing, duplicate or undeclared file accepted")
 		}
+	}
+}
+
+// systemd owns RuntimeDirectory with the unit User/Group. SupplementaryGroups
+// does not put the administrator in the service group or change this ownership.
+func TestControllerRuntimePermitsAdministratorTraversalAfterServiceCustody(t *testing.T) {
+	in := controllerInstallFixture()
+	files, err := ControllerFoundationFiles(in, strings.Repeat("a", 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	unit := string(files[controllerArtifacts["unit"]])
+	var runtimeMode uint64
+	for _, line := range strings.Split(unit, "\n") {
+		if value, ok := strings.CutPrefix(line, "RuntimeDirectoryMode="); ok {
+			runtimeMode, err = strconv.ParseUint(value, 8, 32)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	// The distinct administrator is neither the service owner nor its group.
+	if in.AdministratorUID == in.ServiceUID || in.AdministratorGID == in.ServiceGID {
+		t.Fatal("fixture lacks distinct identities")
+	}
+	if runtimeMode&0001 == 0 {
+		t.Fatalf("administrator cannot traverse service-owned runtime directory mode %04o", runtimeMode)
+	}
+	if runtimeMode&0006 != 0 || runtimeMode&0022 != 0 {
+		t.Fatalf("runtime directory grants listing or write beyond service owner: %04o", runtimeMode)
+	}
+	// The socket remains the group-restricted connection boundary.
+	source := []byte(`{"socketOwnerUid":1000,"socketPath":"/run/vsk-labs-control/control.sock","socketMode":"0600","acknowledgementAdapterConfigPath":"/etc/vsk-labs/control/slack.json","inventoryExportRoot":"/var/lib/vsk-labs/control/exports","principalBindings":[{"uid":1000,"principalId":"operator-a"}]}`)
+	in.Stage = ControllerHandoffStage
+	in.ConfigDigest = hostaction.BytesDigest(source)
+	d := hostaction.BytesDigest([]byte("fixture"))
+	in.Handoff = &ControllerServiceHandoff{ForegroundPID: 123, ForegroundStartIdentity: d, ForegroundExecutableDigest: d, WriterLockDigest: d, SocketIdentityDigest: d, CustodyDigest: d, DesiredConfigDigest: d, ExpiresAt: time.Now().Add(time.Minute).UTC().Format(time.RFC3339)}
+	config, err := PrepareControllerServiceConfig(in, source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fields map[string]json.RawMessage
+	if err = json.Unmarshal(config, &fields); err != nil {
+		t.Fatal(err)
+	}
+	if string(fields["socketMode"]) != `"0660"` || string(fields["socketGroupGid"]) != "1000" {
+		t.Fatalf("socket permission boundary changed: %s", config)
 	}
 }

@@ -169,6 +169,11 @@ func ValidateControllerInstallInput(in ControllerInstallInput) error {
 	return nil
 }
 
+// systemd owns the runtime directory as the service UID/GID. Search permission
+// lets the distinct administrator reach its 0660 group-restricted socket without
+// granting directory listing or write access to other users.
+const controllerRuntimeDirectoryMode = 0751
+
 // ControllerFoundationFiles reuses the canonical role service renderer. The
 // machine ID is observed locally, never accepted as an authority claim.
 func ControllerFoundationFiles(in ControllerInstallInput, machineID string) (map[string][]byte, error) {
@@ -177,7 +182,7 @@ func ControllerFoundationFiles(in ControllerInstallInput, machineID string) (map
 	}
 	files := DesiredFiles(generated.LinuxRoleInput{RoleID: "control", Accounts: []generated.LinuxRoleAccount{{Selector: "control", UID: in.ServiceUID, GID: in.ServiceGID}}, Resources: in.Resources, ControlPlainCredentials: controllerCredentialNames(in)})
 	unit := controllerArtifacts["unit"]
-	files[unit] = []byte(strings.Replace(string(files[unit]), "RuntimeDirectoryMode=0700\n", fmt.Sprintf("RuntimeDirectoryMode=0750\nSupplementaryGroups=%d\n", in.AdministratorGID), 1))
+	files[unit] = []byte(strings.Replace(string(files[unit]), "RuntimeDirectoryMode=0700\n", fmt.Sprintf("RuntimeDirectoryMode=%04o\nSupplementaryGroups=%d\n", controllerRuntimeDirectoryMode, in.AdministratorGID), 1))
 	// The finite installed sudo policy/access probes need privilege elevation,
 	// as in the ordinary role renderer when native encrypted refs are present.
 	files[unit] = []byte(strings.Replace(string(files[unit]), "NoNewPrivileges=yes\n", "NoNewPrivileges=no\n", 1))

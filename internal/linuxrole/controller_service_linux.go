@@ -276,7 +276,7 @@ func installControllerService(ctx context.Context, in ControllerInstallInput, ve
 				mode = 0640
 			}
 			if p == "/run/vsk-labs-control" {
-				mode = 0750
+				mode = controllerRuntimeDirectoryMode
 			}
 			e = unix.Fchown(fd, int(in.ServiceUID), gid)
 			if e == nil {
