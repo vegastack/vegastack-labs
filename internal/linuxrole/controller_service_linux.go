@@ -118,6 +118,10 @@ func controllerHandoffPreconditions(ctx context.Context, in ControllerInstallInp
 	if e != nil || !time.Now().Before(expires) {
 		return errNative
 	}
+	credentialDigest, e := ObserveControllerCredentialCustody(in)
+	if e != nil || credentialDigest != in.CredentialCustodyDigest {
+		return errNative
+	}
 	if _, e = verifyControllerFoundation(ctx, in); e != nil {
 		return e
 	}
@@ -232,6 +236,12 @@ func installControllerService(ctx context.Context, in ControllerInstallInput, ve
 			return fail()
 		}
 		defer unix.Flock(int(lock.Fd()), unix.LOCK_UN)
+		// The acknowledged handoff has stopped the administrator writer and
+		// holds its exact lock. Only now may root take the declared credential
+		// custody; Slack remains available for requesting this handoff first.
+		if _, e = moveControllerCredentialCustody(ctx, in); e != nil {
+			return fail()
+		}
 		for _, entry := range custody {
 			p := entry.Path
 			var st unix.Stat_t
@@ -280,7 +290,7 @@ func installControllerService(ctx context.Context, in ControllerInstallInput, ve
 				return fail()
 			}
 		}
-		// The parent is root-owned from the foundation stage; replace only the
+		// The parent is root-owned after the credential custody transfer; replace only the
 		// exact acknowledged config, preserving every unrelated JSON declaration.
 		currentConfig, e := ownedFile(controlConfig, in.ServiceUID, 65536)
 		if e != nil || hostaction.BytesDigest(currentConfig) != in.ConfigDigest {
