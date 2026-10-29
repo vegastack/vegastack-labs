@@ -85,3 +85,50 @@ func TestWorkflowOwnerCannotReplaceExecutionAuthorization(t *testing.T) {
 		t.Fatal("owner navigation substituted execution authority", err, resolver.calls)
 	}
 }
+
+// These are navigation grants, not controller mutation or human acknowledgement authority.
+func TestControllerSetupNavigationUsesExactPrepareAndReadGrants(t *testing.T) {
+	for _, nav := range []struct {
+		action authorization.Action
+		target authorization.Target
+	}{
+		{authorization.ActionAuthor, authorization.Target{Capability: "plan.author", ResourceKind: "declaration", ResourceID: "foundation"}},
+		{authorization.ActionRead, authorization.Target{Capability: "declaration.read", ResourceKind: "declaration", ResourceID: "foundation:1"}},
+		{authorization.ActionAuthor, authorization.Target{Capability: "plan.acknowledgement.request", ResourceKind: "plan", ResourceID: "foundation-plan"}},
+		{authorization.ActionRead, authorization.Target{Capability: "plan.acknowledgement.read", ResourceKind: "plan", ResourceID: "foundation-plan"}},
+		{authorization.ActionRead, authorization.Target{Capability: "run.read", ResourceKind: "run", ResourceID: "foundation-run"}},
+	} {
+		t.Run(nav.target.Capability, func(t *testing.T) {
+			owner := authorization.Target{Capability: "controller.setup.read", ResourceKind: "controller-setup", ResourceID: "selected-controller"}
+			if nav.action == authorization.ActionAuthor {
+				owner.Capability = "controller.setup.prepare"
+			}
+			app := newAuthorizationTestApplication(t, authorization.NewEvaluator(apiPolicyRepository{snapshot: authorization.EffectivePolicySnapshot{PrincipalKind: identity.PrincipalHuman, Status: authorization.EffectiveActive, GrantRevision: 3, StateRevision: 21, Grants: []authorization.EffectiveGrant{{Role: authorization.RoleControlPlaneAdmin, AllowedAction: nav.action, Capability: owner.Capability, ResourceKind: owner.ResourceKind, ResourceID: owner.ResourceID}}}}), &authorizationRecorderStub{})
+			resolver := &workflowOwnerFixture{owners: []authorization.Target{owner}}
+			app.effective.WorkflowOwners = resolver
+			principal := identity.Principal{ID: "operator", Kind: identity.PrincipalHuman, Method: identity.LocalOSPeerMethod}
+			request := authorization.Request{Action: nav.action, Target: nav.target, DeclarationRevision: 1}
+			got, err := app.authorizePrincipal(context.Background(), principal, request)
+			if err != nil || got.Scope.ResourceID != owner.ResourceID {
+				t.Fatalf("exact navigation denied: %v %v", got, err)
+			}
+			resolver.owners[0].ResourceID = "another-controller"
+			if _, err = app.authorizePrincipal(context.Background(), principal, request); err == nil {
+				t.Fatal("unrelated controller inherited navigation")
+			}
+			resolver.calls = 0
+			for _, isolated := range []authorization.Request{
+				{Action: authorization.ActionAuthor, Target: authorization.Target{Capability: "declaration.author", ResourceKind: "declaration", ResourceID: "foundation"}},
+				{Action: authorization.ActionExecute, Target: authorization.Target{Capability: "controller.setup.bootstrap", ResourceKind: "execution-target", ResourceID: "selected-controller"}},
+				{Action: authorization.ActionAcknowledge, Target: authorization.Target{Capability: "controller.setup.bootstrap", ResourceKind: "execution-target", ResourceID: "selected-controller"}},
+			} {
+				if _, e := app.authorizePrincipal(context.Background(), principal, isolated); e == nil {
+					t.Fatal("navigation replaced separate authority", isolated)
+				}
+			}
+			if resolver.calls != 0 {
+				t.Fatal("navigation resolver used for creation/execution/acknowledgement")
+			}
+		})
+	}
+}
