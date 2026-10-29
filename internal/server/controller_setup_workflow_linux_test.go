@@ -92,7 +92,7 @@ func TestControllerSetupCurrentAcknowledgementClaimAndReceipt(t *testing.T) {
 			if e != nil {
 				t.Fatal(e)
 			}
-			plans, e := planengine.NewService(planengine.Config{Repository: revisions, Observations: observations, Clock: clock, PolicyVersion: "1.0.0", ToolVersion: "1.0.0", ContractVersion: "1.0.0", Risk: "control-plane", AuthorizationBranch: "human", ExecutorMode: "central", OperationExecutorID: "executor-central"})
+			plans, e := planengine.NewService(planengine.Config{Repository: revisions, Observations: observations, Clock: clock, PolicyVersion: "1.0.0", ToolVersion: "1.0.0", ContractVersion: "1.0.0", Risk: "destructive", AuthorizationBranch: "human", ExecutorMode: "central", OperationExecutorID: "executor-central"})
 			if e != nil {
 				t.Fatal(e)
 			}
@@ -110,6 +110,9 @@ func TestControllerSetupCurrentAcknowledgementClaimAndReceipt(t *testing.T) {
 				t.Fatal(e)
 			}
 			p := planned.Plan
+			if risk, err := authorization.ClassifyPlan(p); err != nil || risk != authorization.RiskControlPlane {
+				t.Fatalf("production-default controller plan classification = %q, %v", risk, err)
+			}
 			ack, e := acknowledgement.NewService(acknowledgement.Config{Repository: store.NewAcknowledgementRepository(s), Plans: lifecycleAcceptancePlanReader{plans}, Authorizer: lifecycleAcceptanceAuthorizer{}, Clock: clock})
 			if e != nil {
 				t.Fatal(e)

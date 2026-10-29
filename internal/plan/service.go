@@ -216,6 +216,12 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 		operations[index] = generated.PlanOperation{Sequence: operation.Sequence, OperationID: operation.OperationID, OperationType: operation.OperationType, AdapterID: operation.AdapterID, ExecutorID: service.config.OperationExecutorID, TargetID: operation.TargetID, InputDigest: operation.InputDigest, ArtifactDigest: operation.ArtifactDigest, Idempotent: operation.Idempotent}
 	}
 	risk := service.config.Risk
+	if controllerSetupPlanCandidate(declaration, operations) {
+		if !sealedSingleControllerSetup(declaration, operations) || service.config.AuthorizationBranch != "human" || service.config.ExecutorMode != "central" {
+			return store.PlanCommitResult{}, planError(generated.ErrorCodeAuthorizationDenied)
+		}
+		risk = string(authorization.RiskControlPlane)
+	}
 	for _, op := range operations {
 		if op.AdapterID != networkmesh.AdapterID && !strings.HasPrefix(op.OperationType, "network.mesh.") {
 			continue
