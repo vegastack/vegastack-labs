@@ -36,6 +36,7 @@ type NativeLifecycleVerifier struct {
 	CiphertextOwnerUID uint32
 	policy             func(credentialref.LifecycleBinding) error
 	observe            func(context.Context, credentialref.LifecycleBinding, credentialref.NativeConsumerBinding) (NativeInvocationProof, error)
+	observeLoaded      func(context.Context, credentialref.LifecycleBinding, credentialref.NativeConsumerBinding) (NativeInvocationProof, error)
 	process            func(context.Context, AppliedUnitSnapshot, credentialref.NativeConsumerBinding) (ProcessIdentity, error)
 	current            func(context.Context, credentialref.LifecycleBinding, credentialref.NativeConsumerBinding) (NativeInvocationProof, error)
 	recheck            func(context.Context, credentialref.LifecycleBinding, credentialref.NativeConsumerBinding, NativeInvocationProof) error
@@ -58,6 +59,7 @@ func NewNativeLifecycleVerifier(authority *LocalNativeAuthority, units AppliedUn
 	observer := invocationObserver{units: units, authority: authority, root: ciphertextRoot, ownerUID: ownerUID,
 		inspect: InspectEncrypted, process: observeProcessIdentity}
 	v.observe = observer.observe
+	v.observeLoaded = observer.observeLoaded
 	v.recheck = v.recheckProof
 	v.current = v.currentNativeProof
 	return v, nil
@@ -98,8 +100,26 @@ func NewInstalledNativeLifecycleVerifier(ctx context.Context, ciphertextRoot str
 	return NewNativeLifecycleVerifier(authority, SystemdUnitReader{}, ciphertextRoot, ownerUID)
 }
 
+// VerifyNative proves delivery by restarting the consumer unit.
 func (v *NativeLifecycleVerifier) VerifyNative(ctx context.Context, step NativeVerificationStep, binding credentialref.LifecycleBinding) ([]credentialref.ConsumerVerification, error) {
-	if ctx == nil || ctx.Err() != nil || v == nil || v.Authority == nil || v.policy == nil || v.observe == nil || v.recheck == nil ||
+	if v == nil {
+		return nil, errNativeLifecycle
+	}
+	return v.verifyNative(ctx, step, binding, v.observe)
+}
+
+// VerifyNativeLoaded verifies a consumer that is the running controller itself,
+// which cannot restart its own unit mid-run. The credential must already be loaded
+// by the running invocation from the exact sealed ciphertext source.
+func (v *NativeLifecycleVerifier) VerifyNativeLoaded(ctx context.Context, step NativeVerificationStep, binding credentialref.LifecycleBinding) ([]credentialref.ConsumerVerification, error) {
+	if v == nil || v.observeLoaded == nil || len(binding.NativeConsumers) != 1 {
+		return nil, errNativeLifecycle
+	}
+	return v.verifyNative(ctx, step, binding, v.observeLoaded)
+}
+
+func (v *NativeLifecycleVerifier) verifyNative(ctx context.Context, step NativeVerificationStep, binding credentialref.LifecycleBinding, observe func(context.Context, credentialref.LifecycleBinding, credentialref.NativeConsumerBinding) (NativeInvocationProof, error)) ([]credentialref.ConsumerVerification, error) {
+	if ctx == nil || ctx.Err() != nil || v == nil || v.Authority == nil || v.policy == nil || observe == nil || v.recheck == nil ||
 		!credentialref.ValidLifecycleBinding(binding) || binding.ResolverID != "native-systemd" ||
 		step.OperationID != binding.OperationID || step.OperationType != string(binding.Action) ||
 		step.TargetID != binding.TargetID || step.ArtifactDigest != binding.CiphertextFingerprint || v.policy(binding) != nil {
@@ -110,7 +130,7 @@ func (v *NativeLifecycleVerifier) VerifyNative(ctx context.Context, step NativeV
 	proofs := make(map[string]NativeInvocationProof, len(positive))
 	results := make([]credentialref.ConsumerVerification, 0, len(positive)+len(binding.NativeDeniedReaders))
 	for _, reader := range positive {
-		proof, err := v.observe(ctx, binding, reader)
+		proof, err := observe(ctx, binding, reader)
 		if err != nil || !validNativeProof(proof, reader, binding) {
 			return nil, errNativeLifecycle
 		}

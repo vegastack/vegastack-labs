@@ -7,6 +7,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"github.com/vegastack/vegastack-labs/internal/ingressconnector"
+	ingress "github.com/vegastack/vegastack-labs/internal/networkingress"
 	"github.com/vegastack/vegastack-labs/internal/run"
 	"github.com/vegastack/vegastack-labs/internal/store"
 	"slices"
@@ -40,6 +41,9 @@ func (g hostActionGate) VerifySecretStep(ctx context.Context, p generated.Plan, 
 	}
 	action := op.AdapterID == hostaction.AdapterID && (op.OperationType == hostaction.OperationType || op.OperationType == debianaccess.LocalProbeOperation)
 	lifecycle := p.HostActionConsole != nil && (op.OperationType == string(credentialref.ActionActivate) || op.OperationType == string(credentialref.ActionRotate))
+	if !action && !lifecycle && g.ingressLifecycle(ctx, p, op) {
+		return nil
+	}
 	if !action && !lifecycle {
 		if g.fallback == nil {
 			return actionFailure()
@@ -119,4 +123,25 @@ func (g hostActionGate) VerifySecretStep(ctx context.Context, p generated.Plan, 
 		return actionFailure()
 	}
 	return g.targets.VerifyHostActionConsole(ctx, op.TargetID, c, p.Binding.RecoveryEpoch)
+}
+
+// ingressLifecycle admits exactly one native activation of the Cloudflare ingress
+// observe/mutate credential on its declared target. It carries no host-action
+// console: the controller is its own consumer, so delivery is proven against the
+// already-loaded credential instead of a restart (see VerifyNativeLoaded).
+func (g hostActionGate) ingressLifecycle(ctx context.Context, p generated.Plan, op generated.PlanOperation) bool {
+	if g.credentials == nil || p.HostActionConsole != nil || op.OperationType != string(credentialref.ActionActivate) || p.AuthorizationBranch != "human" || p.ExecutorMode != "central" || len(p.Operations) != 1 || p.Operations[0] != op {
+		return false
+	}
+	b, err := g.credentials.GetLifecycleBinding(ctx, p, op.OperationID)
+	if err != nil || !credentialref.ValidLifecycleBinding(b) || !ingressNativeLifecycle(b) || b.TargetID != op.TargetID || b.RecoveryEpoch != p.Binding.RecoveryEpoch || string(b.Action) != op.OperationType {
+		return false
+	}
+	ref, err := g.credentials.GetCredentialVersion(ctx, b.ReferenceID, b.MaterialVersion)
+	return err == nil && ref.ConsumerID == ingress.AdapterID && (ref.PurposeID == ingress.PurposeRead || ref.PurposeID == ingress.PurposeWrite) && ref.TargetID == b.TargetID && ref.ResolverID == "native-systemd" && ref.MaterialVersion == b.MaterialVersion && ref.RecoveryEpoch == b.RecoveryEpoch
+}
+
+// ingressNativeLifecycle is the one binding shape verified without a restart.
+func ingressNativeLifecycle(b credentialref.LifecycleBinding) bool {
+	return b.HostActionConsole == nil && b.Action == credentialref.ActionActivate && b.ResolverID == "native-systemd" && len(b.ConsumerIDs) == 1 && b.ConsumerIDs[0] == ingress.AdapterID && len(b.NativeConsumers) == 1
 }
