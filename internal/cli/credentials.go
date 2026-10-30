@@ -28,7 +28,7 @@ func (app *App) runCredentialImport(ctx context.Context, parsed parsedArguments)
 	expectedRevision, _ := strconv.ParseInt(parsed.Value(generated.FlagExpectedStateRevision), 10, 64)
 	recoveryEpoch, _ := strconv.ParseInt(parsed.Value(generated.FlagRecoveryEpoch), 10, 64)
 	input := generated.CredentialImportRequest{
-		Schema: generated.SchemaIDCredentialImportRequest, SchemaVersion: generated.RegistrySchemaVersion,
+		Schema: generated.SchemaIDCredentialImportRequest, SchemaVersion: credentialImportRequestVersion,
 		ExpectedStateRevision: expectedRevision, RecoveryEpoch: recoveryEpoch,
 		IdempotencyKey: parsed.Value(generated.FlagIdempotencyKey),
 		ReferenceID:    parsed.Value(generated.FlagReferenceID), ConsumerID: parsed.Value(generated.FlagConsumerID),
@@ -62,3 +62,7 @@ func (app *App) runCredentialImport(ctx context.Context, parsed parsedArguments)
 	}
 	return renderHumanCredentialImport(app.stdout, response.Data)
 }
+
+// credentialImportRequestVersion is the credential-import-request contract's own schema
+// version. It is deliberately not the global registry version, which the contract rejects.
+const credentialImportRequestVersion = "1.1.0"

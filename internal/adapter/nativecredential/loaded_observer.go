@@ -74,3 +74,16 @@ func loadedCredentialProtected(owner uint32, mode uint32, serviceUID uint32) boo
 	}
 	return owner == 0 && (permissions == 0o400 || permissions == 0o440)
 }
+
+// loadedCredentialDirectoryProtected decides whether the directory holding delivered
+// credentials is protected enough to read from. It is either owned by the service account
+// with no group or other access, or, as systemd creates it when it grants the service user
+// access through an ACL, owned by root with mode exactly 0500 or 0550. Any other owner, or a
+// mode that grants anyone else access or write, is refused.
+func loadedCredentialDirectoryProtected(owner uint32, mode uint32, serviceUID uint32) bool {
+	permissions := mode & 0o777
+	if owner == serviceUID {
+		return permissions&0o077 == 0
+	}
+	return owner == 0 && (permissions == 0o500 || permissions == 0o550)
+}
