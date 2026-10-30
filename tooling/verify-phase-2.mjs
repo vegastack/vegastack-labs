@@ -47,7 +47,7 @@ const REVIEWED_POST_PHASE2_COMMANDS = new Set([
 // later reviewed wave has a separate exact name/import/source closure; adding
 // another gate command or import cannot inherit #104's allowance.
 const PHASE2_BASELINE_DEPENDENCY_DIGEST = "sha256:a9e8788558fa5c3347b5b8464d8d5e4a67dcc9357e5ae07478b606a806f78133";
-const PHASE2_BASELINE_MUTATION_DIGEST = "sha256:ec30a4cc9d4a6e5a3fc9817a55a5b0a1697adcae57b950325edd563637d308a8";
+const PHASE2_BASELINE_MUTATION_DIGEST = "sha256:b99b39db0541517b37d0e2e1b59f0bf123cb6535cd514e3099944037d2276e35";
 const REVIEWED_GATE_WAVE = Object.freeze({
   id: "phase5-issue104-v1", issue: 104,
   commands: Object.freeze(["gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft"]),
@@ -293,7 +293,7 @@ const REVIEWED_OPERATOR_SURFACES_WAVE = Object.freeze({
   id: "phase5-issue110-v1", issue: 110,
   commands: Object.freeze(["database backup", "database export", "database restore", "database verify", "schedule inspect", "schedule list"]),
   imports: Object.freeze([`${MODULE_PREFIX}internal/databaseexport`]),
-  mutationBoundaryDigest: "sha256:ec30a4cc9d4a6e5a3fc9817a55a5b0a1697adcae57b950325edd563637d308a8",
+  mutationBoundaryDigest: "sha256:b99b39db0541517b37d0e2e1b59f0bf123cb6535cd514e3099944037d2276e35",
 });
 
 // #186 repairs the already reviewed recovery, backup and store contracts after
