@@ -23,6 +23,9 @@ import (
 
 var errNativeLifecycle = errors.New("native credential lifecycle verification unavailable")
 
+// nativeLifecycleStep names the failed prerequisite without any path or secret.
+func nativeLifecycleStep(step string) error { return fmt.Errorf("%w: %s", errNativeLifecycle, step) }
+
 // NativeLifecycleVerifier owns only local, metadata-only evidence. Construction
 // does not grant production authority; Verify requalifies the installed OS
 // policy against the plan-sealed map before and after every effect.
@@ -65,31 +68,31 @@ func NewNativeLifecycleVerifier(authority *LocalNativeAuthority, units AppliedUn
 // unavailable sentinel; the sealed binding is checked again at Verify time.
 func NewInstalledNativeLifecycleVerifier(ctx context.Context, ciphertextRoot string, ownerUID uint32) (*NativeLifecycleVerifier, error) {
 	if ctx == nil || ctx.Err() != nil {
-		return nil, errNativeLifecycle
+		return nil, nativeLifecycleStep("context")
 	}
 	root, err := os.Lstat(ciphertextRoot)
 	if err != nil || !root.IsDir() || root.Mode().Perm() != 0o700 {
-		return nil, errNativeLifecycle
+		return nil, nativeLifecycleStep("ciphertext-root")
 	}
 	rootStat, ok := root.Sys().(*syscall.Stat_t)
 	if !ok || rootStat.Uid != ownerUID {
-		return nil, errNativeLifecycle
+		return nil, nativeLifecycleStep("ciphertext-owner")
 	}
 	policy, err := readProbePolicy(probePolicyPath)
 	if err != nil {
-		return nil, errNativeLifecycle
+		return nil, nativeLifecycleStep("enrollment-policy")
 	}
 	machine, err := os.ReadFile("/etc/machine-id")
 	if err != nil || strings.TrimSpace(string(machine)) != policy.MachineID {
-		return nil, errNativeLifecycle
+		return nil, nativeLifecycleStep("machine-id")
 	}
 	authority, err := NewNativeAuthority(policy.Units)
 	if err != nil {
-		return nil, errNativeLifecycle
+		return nil, nativeLifecycleStep("authority")
 	}
 	for _, unit := range policy.Units {
 		if !authority.qualified(ctx, unit) {
-			return nil, errNativeLifecycle
+			return nil, nativeLifecycleStep("unit-qualification")
 		}
 	}
 	return NewNativeLifecycleVerifier(authority, SystemdUnitReader{}, ciphertextRoot, ownerUID)
