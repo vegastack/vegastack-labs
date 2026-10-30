@@ -34,6 +34,7 @@ func NewNativeLifecycleVerifierWithObservation(authority NativeAuthority, units 
 	}
 	observer := invocationObserver{units: units, authority: authority, root: root, ownerUID: owner, inspect: InspectEncrypted, process: observation.Process}
 	v.observe = observer.observe
+	v.observeLoaded = observer.observeLoaded
 	v.recheck = v.recheckProof
 	v.current = v.currentNativeProof
 	return v, nil

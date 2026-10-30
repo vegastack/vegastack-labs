@@ -5,6 +5,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
+	ingress "github.com/vegastack/vegastack-labs/internal/networkingress"
 	"strings"
 	"testing"
 )
@@ -106,5 +107,40 @@ func TestHostActionLifecycleGateRequiresExactConsumerReference(t *testing.T) {
 	p.HostActionConsole.TargetRevision++
 	if err := g.VerifySecretStep(context.Background(), p, op); err == nil {
 		t.Fatal("changed console accepted")
+	}
+}
+
+func TestIngressLifecycleGateAdmitsOnlyTheExactIngressActivation(t *testing.T) {
+	d := hostaction.Digest("synthetic metadata")
+	machine := strings.Repeat("a", 32)
+	b := credentialref.LifecycleBinding{OperationID: "activate-a", Action: credentialref.ActionActivate, ReferenceID: "ingress.observe", MaterialVersion: "initial", ResolverID: "native-systemd", TargetID: "profile-a", CiphertextFingerprint: d, StateRevision: 1, ConsumerIDs: []string{ingress.AdapterID}, RequiredDeniedConsumerIDs: []string{"denied-a"}, NativeArtifactConsumerID: ingress.AdapterID}
+	b.NativeConsumers = []credentialref.NativeConsumerBinding{{ConsumerID: ingress.AdapterID, TargetID: b.TargetID, HostMachineID: machine, UnitName: "synthetic.service", ServiceUID: 1001, ServiceGID: 1001, ProfileID: "profile-a", RoleID: "role-a", LoadedName: credentialref.LoadedNameForVersion(ingress.AdapterID, b.ReferenceID, b.MaterialVersion)}}
+	b.NativeDeniedReaders = []credentialref.NativeDeniedReaderBinding{{ConsumerID: "denied-a", TargetID: b.TargetID, HostMachineID: machine, ReaderUID: 1002, ReaderGID: 1002, ProfileID: "profile-a", RoleID: "role-denied"}}
+	if !credentialref.ValidLifecycleBinding(b) || !ingressNativeLifecycle(b) {
+		t.Fatal("invalid synthetic ingress lifecycle fixture")
+	}
+	op := generated.PlanOperation{OperationID: b.OperationID, OperationType: string(b.Action), TargetID: b.TargetID}
+	p := generated.Plan{AuthorizationBranch: "human", ExecutorMode: "central", Operations: []generated.PlanOperation{op}}
+	ref := generated.CredentialReference{ReferenceID: b.ReferenceID, ConsumerID: ingress.AdapterID, PurposeID: ingress.PurposeRead, TargetID: b.TargetID, ResolverID: b.ResolverID, MaterialVersion: b.MaterialVersion}
+	fallback := &actionFallbackFixture{}
+	g := hostActionGate{credentials: actionLifecycleFixture{binding: b, reference: ref}, fallback: fallback}
+	if err := g.VerifySecretStep(context.Background(), p, op); err != nil || fallback.calls != 0 {
+		t.Fatalf("exact ingress activation refused: %v", err)
+	}
+	for name, change := range map[string]func(*generated.Plan, *generated.CredentialReference){
+		"preauthorized branch": func(p *generated.Plan, _ *generated.CredentialReference) { p.AuthorizationBranch = "preauthorized" },
+		"unrelated purpose":    func(_ *generated.Plan, r *generated.CredentialReference) { r.PurposeID = "unrelated" },
+		"other consumer":       func(_ *generated.Plan, r *generated.CredentialReference) { r.ConsumerID = hostaction.AdapterID },
+		"other target":         func(_ *generated.Plan, r *generated.CredentialReference) { r.TargetID = "elsewhere" },
+		"host console present": func(p *generated.Plan, _ *generated.CredentialReference) {
+			p.HostActionConsole = &generated.HostActionCredentialConfirmation{}
+		},
+	} {
+		pp, rr := p, ref
+		change(&pp, &rr)
+		gg := hostActionGate{credentials: actionLifecycleFixture{binding: b, reference: rr}, fallback: &actionFallbackFixture{}}
+		if err := gg.VerifySecretStep(context.Background(), pp, op); err == nil {
+			t.Fatalf("%s was admitted", name)
+		}
 	}
 }

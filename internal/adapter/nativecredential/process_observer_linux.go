@@ -102,6 +102,50 @@ func (o invocationObserver) observe(ctx context.Context, binding credentialref.L
 		SourceDevice: before.Device, SourceInode: before.Inode, SourceFingerprint: before.Fingerprint}, nil
 }
 
+// observeLoaded is observe without the restart: the running invocation already
+// loaded the credential from the sealed ciphertext source, so it is checked in
+// place and the source must be unchanged across the whole observation.
+func (o invocationObserver) observeLoaded(ctx context.Context, binding credentialref.LifecycleBinding, reader credentialref.NativeConsumerBinding) (NativeInvocationProof, error) {
+	if ctx == nil || ctx.Err() != nil || o.units == nil || o.authority == nil || o.inspect == nil || o.process == nil ||
+		!filepath.IsAbs(o.root) || filepath.Clean(o.root) != o.root || reader.HostMachineID == "" {
+		return NativeInvocationProof{}, fmt.Errorf("%w: input", errNativeInvocation)
+	}
+	path := filepath.Join(o.root, reader.LoadedName)
+	after, err := o.units.ObserveAppliedUnit(ctx, reader.UnitName)
+	if err != nil || after.MachineID != reader.HostMachineID || after.BootID == "" || after.UnitName != reader.UnitName || validateAppliedSource(after, binding, reader, path) != nil ||
+		after.InvocationID == "" || after.MainPID <= 1 || !unitIdentityMatches(after, reader) {
+		return NativeInvocationProof{}, fmt.Errorf("%w: applied-loaded", errNativeInvocation)
+	}
+	before, err := o.inspect(ctx, InspectRequest{Name: reader.LoadedName, CiphertextDirectory: o.root, ExpectedUID: o.ownerUID})
+	if err != nil || before.State != "present" || before.Fingerprint != binding.CiphertextFingerprint || before.Device == 0 || before.Inode == 0 {
+		return NativeInvocationProof{}, fmt.Errorf("%w: source-before", errNativeInvocation)
+	}
+	process, err := o.process(ctx, after, reader)
+	if err != nil || process.MainPID != after.MainPID || process.StartTicks == 0 || process.UID != reader.ServiceUID || process.GID != reader.ServiceGID {
+		return NativeInvocationProof{}, fmt.Errorf("%w: process-identity", errNativeInvocation)
+	}
+	request := AccessProbeRequest{UID: reader.ServiceUID, GID: reader.ServiceGID, UnitName: reader.UnitName, CredentialName: reader.LoadedName,
+		MainPID: int(after.MainPID), ProcessStartTicks: process.StartTicks, BootID: after.BootID}
+	loaded, err := o.authority.Probe(ctx, request)
+	if err != nil || !validProbeResult(loaded) || loaded.Status != AccessProbeOpened ||
+		(loaded.OwnerUID != 0 && loaded.OwnerUID != reader.ServiceUID) || (loaded.OwnerGID != 0 && loaded.OwnerGID != reader.ServiceGID) ||
+		loaded.Mode&unix.S_IFMT != unix.S_IFREG || loaded.Mode&0o022 != 0 || loaded.NamespaceInode == 0 {
+		return NativeInvocationProof{}, fmt.Errorf("%w: positive-open", errNativeInvocation)
+	}
+	rechecked, err := o.units.ObserveAppliedUnit(ctx, reader.UnitName)
+	if err != nil || !sameInvocation(after, rechecked) || validateAppliedSource(rechecked, binding, reader, path) != nil {
+		return NativeInvocationProof{}, fmt.Errorf("%w: applied-recheck", errNativeInvocation)
+	}
+	last, err := o.inspect(ctx, InspectRequest{Name: reader.LoadedName, CiphertextDirectory: o.root, ExpectedUID: o.ownerUID})
+	if err != nil || last != before || ctx.Err() != nil {
+		return NativeInvocationProof{}, fmt.Errorf("%w: source-recheck", errNativeInvocation)
+	}
+	return NativeInvocationProof{BootID: after.BootID, InvocationID: after.InvocationID, MainPID: after.MainPID, ProcessStartTicks: process.StartTicks,
+		NamespaceDevice: loaded.NamespaceDevice, NamespaceInode: loaded.NamespaceInode,
+		CredentialDevice: loaded.Device, CredentialInode: loaded.Inode, CredentialUID: loaded.OwnerUID, CredentialGID: loaded.OwnerGID, CredentialMode: loaded.Mode,
+		SourceDevice: before.Device, SourceInode: before.Inode, SourceFingerprint: before.Fingerprint}, nil
+}
+
 func sameInvocation(a, b AppliedUnitSnapshot) bool {
 	return a.UnitName == b.UnitName && a.MachineID == b.MachineID && a.BootID == b.BootID && a.InvocationID == b.InvocationID &&
 		a.MainPID == b.MainPID && a.ExecMainStartMonotonicUSec == b.ExecMainStartMonotonicUSec && a.User == b.User && a.Group == b.Group &&

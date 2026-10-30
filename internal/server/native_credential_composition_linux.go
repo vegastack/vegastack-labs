@@ -18,6 +18,9 @@ type nativeLifecycleRunVerifier struct {
 }
 
 func (v nativeLifecycleRunVerifier) Verify(ctx context.Context, step run.ExactStepBinding, binding credentialref.LifecycleBinding) ([]credentialref.ConsumerVerification, error) {
+	if ingressNativeLifecycle(binding) {
+		return v.native.VerifyNativeLoaded(ctx, nativeRestartStep(step), binding)
+	}
 	return v.native.VerifyNative(ctx, nativecredential.NativeVerificationStep{
 		OperationID: step.Step.OperationID, OperationType: step.Step.OperationType, TargetID: step.Step.TargetID, ArtifactDigest: step.Step.ArtifactDigest,
 		PlanID: step.Plan.PlanID, LeaseID: step.Lease.LeaseID, PlanDigest: step.Plan.PlanDigest, RunID: step.Run.RunID, StepID: step.Step.StepID,
