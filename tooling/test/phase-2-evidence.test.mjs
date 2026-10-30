@@ -768,5 +768,5 @@ test("controller plan classification appends its exact closure and preserves con
  const manifest=await loadManifest();
  assert.equal(manifest.contract.reviewedWaves.length,67);
  assert.deepEqual(manifest.contract.reviewedWaves.at(-2), {id:"controller-install-continuity-issue333-v1",issue:333,commands:[],imports:[],mutationBoundaryDigest:"sha256:55a1e0b81933ce383ca7f582481368493cde8008508dfcf94b7dbb3839a7e5b3"});
- assert.deepEqual(manifest.contract.reviewedWaves.at(-1), {"id":"controller-plan-risk-issue333-v2","issue":333,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:eaf210bceaa68928e32b33e45db54a61b951fefd1e5594e7a2131a534f84884f"});
+ assert.deepEqual(manifest.contract.reviewedWaves.at(-1), {"id":"controller-plan-risk-issue333-v2","issue":333,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:1fad963a4b23cda7006117a144d040288127051c7985390baad37f1b92adf850"});
 });
