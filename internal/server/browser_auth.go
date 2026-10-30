@@ -2,8 +2,10 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -67,6 +69,7 @@ func (authenticator *BrowserAuthenticator) Start(ctx context.Context) error {
 func (authenticator *BrowserAuthenticator) Wrap(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		if next == nil || !authenticator.browserOriginAllowed(request) {
+			logBrowserAuthReason("api-origin-or-fetch-metadata")
 			authenticator.writeFailure(writer, generated.ErrorCodeAuthenticationRequired)
 			return
 		}
@@ -81,12 +84,14 @@ func (authenticator *BrowserAuthenticator) Wrap(next http.Handler) http.Handler 
 		}
 		raw, ok := exactSessionCookie(request)
 		if !ok {
+			logBrowserAuthReason("session-cookie-missing")
 			authenticator.auditSessionDenial(ctx, bindingDigest)
 			authenticator.writeFailure(writer, generated.ErrorCodeAuthenticationRequired)
 			return
 		}
 		session, err := authenticator.config.Sessions.ValidateAndTouchBrowserSession(ctx, raw, bindingDigest, verified.ExpiresAt)
 		if err != nil {
+			logBrowserAuthReason("session-invalid")
 			authenticator.auditSessionDenial(ctx, bindingDigest)
 			authenticator.writeFailure(writer, generated.ErrorCodeAuthenticationRequired)
 			return
@@ -104,6 +109,7 @@ func (authenticator *BrowserAuthenticator) Wrap(next http.Handler) http.Handler 
 func (authenticator *BrowserAuthenticator) WrapAssets(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		if next == nil || !authenticator.browserAssetRequestAllowed(request) {
+			logBrowserAuthReason("asset-fetch-metadata")
 			authenticator.writeFailure(writer, generated.ErrorCodeAuthenticationRequired)
 			return
 		}
@@ -118,22 +124,31 @@ func (authenticator *BrowserAuthenticator) WrapAssets(next http.Handler) http.Ha
 
 func (authenticator *BrowserAuthenticator) verifyExternalRequest(request *http.Request) (context.Context, identity.VerifiedIdentity, string, bool) {
 	if request.TLS == nil || request.Host != authenticator.config.ExactHost {
+		logBrowserAuthReason("tls-or-host")
 		return nil, identity.VerifiedIdentity{}, "", false
 	}
 	assertions := request.Header.Values("Cf-Access-Jwt-Assertion")
 	if len(assertions) != 1 || assertions[0] == "" || strings.Contains(assertions[0], ",") {
+		logBrowserAuthReason("assertion-header")
 		return nil, identity.VerifiedIdentity{}, "", false
 	}
 	verified, err := authenticator.config.Identities.Verify(request.Context(), assertions[0])
 	if err != nil {
+		if stable, ok := failure.As(err); ok {
+			logBrowserAuthReason("assertion-verify:" + stable.Code + ":" + stable.Target)
+		} else {
+			logBrowserAuthReason(fmt.Sprintf("assertion-verify:unclassified:%T", err))
+		}
 		return nil, identity.VerifiedIdentity{}, "", false
 	}
 	bindingDigest, err := identity.BindingDigest(verified)
 	if err != nil {
+		logBrowserAuthReason("binding-digest")
 		return nil, identity.VerifiedIdentity{}, "", false
 	}
 	ctx, err := identity.WithVerifiedRemoteIdentity(request.Context(), verified)
 	if err != nil {
+		logBrowserAuthReason("remote-identity")
 		return nil, identity.VerifiedIdentity{}, "", false
 	}
 	return ctx, verified, bindingDigest, true
@@ -332,3 +347,9 @@ func asBrowserFailure(err error) error {
 }
 
 var _ api.BrowserSessionService = (*browserSessionManager)(nil)
+
+// logBrowserAuthReason writes a fixed step name (never headers, tokens or paths) to
+// the service log so a browser denial can be diagnosed.
+func logBrowserAuthReason(step string) {
+	fmt.Fprintf(os.Stderr, "browser-auth denied: step=%s\n", step)
+}
