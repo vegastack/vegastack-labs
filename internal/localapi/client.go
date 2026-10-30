@@ -215,7 +215,24 @@ func (client *client) Plan(ctx context.Context, profile serverconfig.Profile, de
 	if err != nil {
 		return zero, err
 	}
-	input := generated.PlanCreateRequest{Schema: generated.SchemaIDPlanCreateRequest, SchemaVersion: "1.0.0", DeclarationID: declarationID, DeclarationRevision: revision, ExpectedStateRevision: prepared.Data.ExpectedStateRevision, RecoveryEpoch: prepared.Data.RecoveryEpoch, ObservationFingerprint: prepared.Data.ObservationFingerprint, IdempotencyKey: key, Extensions: []generated.ContractExtension{}}
+	// The server requires a plan to carry its declaration's sealed extension digests
+	// (credential lifecycle, ingress change, ...) unchanged, so read them from the
+	// declaration over the local socket. A remote constrained-SSH profile keeps the
+	// empty list: it has no declaration-read command.
+	extensions := []generated.ContractExtension{}
+	if profile.ConstrainedSSH == nil {
+		declared, err := requestTyped(client, ctx, profile, requestSpec{localtransport.MethodGet, base, "api.v1.declarations.get", maxOperationResponseBodyBytes, operationTimeout, false}, nil, func(value generated.BrowserDeclarationRevision, envelope generated.RunResult) bool {
+			return value.DeclarationID == declarationID && value.Revision == revision && value.RecoveryEpoch == envelope.RecoveryEpoch
+		})
+		if err != nil {
+			return zero, err
+		}
+		if declared.ExitCode != 0 {
+			return remapResponse[generated.Plan](declared), nil
+		}
+		extensions = append(extensions, declared.Data.Extensions...)
+	}
+	input := generated.PlanCreateRequest{Schema: generated.SchemaIDPlanCreateRequest, SchemaVersion: "1.0.0", DeclarationID: declarationID, DeclarationRevision: revision, ExpectedStateRevision: prepared.Data.ExpectedStateRevision, RecoveryEpoch: prepared.Data.RecoveryEpoch, ObservationFingerprint: prepared.Data.ObservationFingerprint, IdempotencyKey: key, Extensions: extensions}
 	presented, err := requestTyped(client, ctx, profile, requestSpec{localtransport.MethodPost, "/api/v1/declarations/" + declarationID + "/plans", "api.v1.plans.create", maxOperationResponseBodyBytes, operationTimeout, true}, input, validPlanPresentation)
 	if err != nil {
 		return zero, err
