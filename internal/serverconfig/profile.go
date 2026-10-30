@@ -510,3 +510,23 @@ func DecodeProfile(raw []byte, expectedOwnerUID uint32) (Profile, error) {
 	}
 	return convertGeneratedProfile(input, expectedOwnerUID)
 }
+
+// ProfileFileFacts are the stat facts the client trust decision uses.
+type ProfileFileFacts struct{ UID, GID, Mode uint32 }
+
+// serviceOwnedClientProfile decides whether a local client may read a profile that
+// belongs to a service running under its own account. The file must be owned by a
+// non-root account other than the caller, be exactly 0640 so the caller reads it only
+// through that file's group, and the caller must be a member of that group. Its
+// directory must be root- or service-owned and not writable by group or others. The
+// profile itself still has to name that same account as the socket owner.
+func serviceOwnedClientProfile(file, parent ProfileFileFacts, callerUID uint32, callerGroups []uint32) bool {
+	if file.UID == 0 || file.UID == callerUID || file.Mode&0o777 != 0o640 {
+		return false
+	}
+	member := false
+	for _, group := range callerGroups {
+		member = member || group == file.GID
+	}
+	return member && parent.Mode&0o022 == 0 && (parent.UID == 0 || parent.UID == file.UID)
+}

@@ -137,3 +137,58 @@ func TestVerifyLocalBackupRejectsUnsafeRootsAndBinary(t *testing.T) {
 		t.Fatal("absent restic binary accepted")
 	}
 }
+
+// The test account stands in for the service account; a caller one uid higher is the
+// "other" administrator account that must read the service-owned profile through its group.
+func TestClientLoaderReadsServiceOwnedProfileOnlyThroughTheTrustRule(t *testing.T) {
+	service := uint32(os.Geteuid())
+	if service == 0 {
+		t.Skip("the rule rejects root-owned profiles")
+	}
+	caller := service + 1
+	directory := t.TempDir()
+	profile := validGeneratedProfile()
+	profile.SocketOwnerUID = int64(service)
+	profile.InventoryExportRoot = filepath.Join(directory, "exports-only-the-service-can-open")
+	body, err := json.Marshal(profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(directory, "profile.json")
+	write := func(mode os.FileMode) {
+		t.Helper()
+		if err := os.WriteFile(path, body, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chmod(path, mode); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ctx := context.Background()
+
+	write(0o640)
+	got, err := NewClientLoader(caller).Load(ctx, path)
+	if err != nil || got.SocketOwnerUID != service {
+		t.Fatalf("client load of a service-owned profile = %#v, %v", got, err)
+	}
+	if _, err := NewLoader(caller).Load(ctx, path); err == nil {
+		t.Fatal("the strict loader accepted another account's profile")
+	}
+	// The owner's own load still demands the protected export root, which this one lacks.
+	if _, err := NewClientLoader(service).Load(ctx, path); err == nil {
+		t.Fatal("the owner's load skipped the export root check")
+	}
+	for _, mode := range []os.FileMode{0o600, 0o644, 0o660} {
+		write(mode)
+		if _, err := NewClientLoader(caller).Load(ctx, path); err == nil {
+			t.Fatalf("mode %04o was trusted for another account", mode)
+		}
+	}
+	write(0o640)
+	if err := os.Chmod(directory, 0o770); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewClientLoader(caller).Load(ctx, path); err == nil {
+		t.Fatal("a group-writable directory was trusted")
+	}
+}

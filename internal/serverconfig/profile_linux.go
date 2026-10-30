@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"io"
 	"os"
+	"path/filepath"
 	"runtime"
 
 	"github.com/vegastack/vegastack-labs/internal/backupidentity"
@@ -75,10 +76,37 @@ func verifyResticExecutable(path string, expectedUID uint32) error {
 
 type protectedLoader struct {
 	expectedOwnerUID uint32
+	serviceOwned     bool
 }
 
 func NewLoader(expectedOwnerUID uint32) Loader {
 	return &protectedLoader{expectedOwnerUID: expectedOwnerUID}
+}
+
+// NewClientLoader is for a local client of a service that runs under its own
+// account: besides the caller's own profile it accepts one that
+// serviceOwnedClientProfile trusts. The server itself keeps using NewLoader.
+func NewClientLoader(callerUID uint32) Loader {
+	return &protectedLoader{expectedOwnerUID: callerUID, serviceOwned: true}
+}
+
+func (loader *protectedLoader) trustServiceOwned(profilePath string, stat unix.Stat_t) bool {
+	if !loader.serviceOwned {
+		return false
+	}
+	var parent unix.Stat_t
+	if unix.Stat(filepath.Dir(profilePath), &parent) != nil || parent.Mode&unix.S_IFMT != unix.S_IFDIR {
+		return false
+	}
+	groups := []uint32{uint32(os.Getegid())}
+	supplementary, err := os.Getgroups()
+	if err != nil {
+		return false
+	}
+	for _, group := range supplementary {
+		groups = append(groups, uint32(group))
+	}
+	return serviceOwnedClientProfile(ProfileFileFacts{UID: stat.Uid, GID: stat.Gid, Mode: stat.Mode}, ProfileFileFacts{UID: parent.Uid, GID: parent.Gid, Mode: parent.Mode}, loader.expectedOwnerUID, groups)
 }
 
 func (loader *protectedLoader) Load(ctx context.Context, profilePath string) (Profile, error) {
@@ -101,8 +129,15 @@ func (loader *protectedLoader) Load(ctx context.Context, profilePath string) (Pr
 	defer file.Close()
 
 	var stat unix.Stat_t
-	if err := unix.Fstat(descriptor, &stat); err != nil || stat.Mode&unix.S_IFMT != unix.S_IFREG || stat.Nlink != 1 || stat.Uid != loader.expectedOwnerUID {
+	if err := unix.Fstat(descriptor, &stat); err != nil || stat.Mode&unix.S_IFMT != unix.S_IFREG || stat.Nlink != 1 {
 		return Profile{}, failure.New("INTEGRITY_FAILURE", "server-config", false)
+	}
+	owner := loader.expectedOwnerUID
+	if stat.Uid != owner {
+		if !loader.trustServiceOwned(profilePath, stat) {
+			return Profile{}, failure.New("INTEGRITY_FAILURE", "server-config", false)
+		}
+		owner = stat.Uid
 	}
 	permissions := stat.Mode & 0o777
 	if permissions != 0o600 && permissions != 0o640 {
@@ -115,12 +150,16 @@ func (loader *protectedLoader) Load(ctx context.Context, profilePath string) (Pr
 	if err := ctx.Err(); err != nil {
 		return Profile{}, failure.New("INTERRUPTED", "server-config", false)
 	}
-	profile, err := convertGeneratedProfile(generatedProfile, loader.expectedOwnerUID)
+	profile, err := convertGeneratedProfile(generatedProfile, owner)
 	if err != nil {
 		return Profile{}, err
 	}
-	if err := validateInventoryExportRoot(profile.InventoryExportRoot, loader.expectedOwnerUID); err != nil {
-		return Profile{}, failure.New("INTEGRITY_FAILURE", "server-config", false)
+	// A client of a service-owned profile never touches the service's export root,
+	// which only that account can open.
+	if owner == loader.expectedOwnerUID {
+		if err := validateInventoryExportRoot(profile.InventoryExportRoot, owner); err != nil {
+			return Profile{}, failure.New("INTEGRITY_FAILURE", "server-config", false)
+		}
 	}
 	return profile, nil
 }

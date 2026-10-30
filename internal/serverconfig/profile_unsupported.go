@@ -14,6 +14,10 @@ func NewLoader(uint32) Loader {
 	return unsupportedLoader{}
 }
 
+func NewClientLoader(uint32) Loader {
+	return unsupportedLoader{}
+}
+
 func (unsupportedLoader) Load(context.Context, string) (Profile, error) {
 	return Profile{}, failure.New("UNSUPPORTED_PLATFORM", "server-config", false)
 }
