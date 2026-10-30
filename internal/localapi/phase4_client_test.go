@@ -20,23 +20,31 @@ import (
 func TestPlanReadsServerPreparationBeforeExactCreate(t *testing.T) {
 	plan := clientPhase4Plan()
 	preparation := generated.PlanPreparation{Schema: generated.SchemaIDPlanPreparation, SchemaVersion: "1.0.0", DeclarationID: plan.DeclarationID, DeclarationRevision: 1, ExpectedStateRevision: 6, RecoveryEpoch: 2, ObservationFingerprint: plan.Binding.ObservationFingerprint}
+	sealed := generated.ContractExtension{Name: "x-credential-lifecycle", ValueDigest: "sha256:" + strings.Repeat("a", 64)}
+	declaration := generated.BrowserDeclarationRevision{Schema: generated.SchemaIDBrowserDeclarationRevision, SchemaVersion: "1.0.0", DeclarationID: plan.DeclarationID, DeclarationType: "credential.lifecycle", Revision: 1, StateRevision: 5, RecoveryEpoch: 2, ContentDigest: "sha256:" + strings.Repeat("b", 64), Status: "draft", Operations: []generated.BrowserDeclarationOperation{}, CreatedAt: "2026-10-30T00:00:00Z", Extensions: []generated.ContractExtension{sealed}}
 	var requests []capturedRequest
 	profile := servePhase4(t, func(writer http.ResponseWriter, request *http.Request) {
 		body, _ := io.ReadAll(request.Body)
 		requests = append(requests, capturedRequest{method: request.Method, path: request.URL.Path, body: body})
-		if len(requests) == 1 {
+		switch len(requests) {
+		case 1:
 			writePhase4Envelope(t, writer, "api.v1.declarations.plan-preparation.get", false, 2, 6, preparation)
-			return
+		case 2:
+			writePhase4Envelope(t, writer, "api.v1.declarations.get", false, 2, 5, declaration)
+		default:
+			writePhase4Envelope(t, writer, "api.v1.plans.create", true, 2, 7, clientPlanPresentation(plan))
 		}
-		writePhase4Envelope(t, writer, "api.v1.plans.create", true, 2, 7, clientPlanPresentation(plan))
 	})
 	response, err := NewClient(clientTestFactory()).Plan(context.Background(), profile, plan.DeclarationID, 1)
-	if err != nil || response.Data.PlanDigest != plan.PlanDigest || len(requests) != 2 || requests[0].method != http.MethodGet || requests[0].path != "/api/v1/declarations/declaration-1/revisions/1/plan-preparation" || requests[1].method != http.MethodPost || requests[1].path != "/api/v1/declarations/declaration-1/plans" {
+	if err != nil || response.Data.PlanDigest != plan.PlanDigest || len(requests) != 3 || requests[0].method != http.MethodGet || requests[0].path != "/api/v1/declarations/declaration-1/revisions/1/plan-preparation" || requests[1].method != http.MethodGet || requests[1].path != "/api/v1/declarations/declaration-1/revisions/1" || requests[2].method != http.MethodPost || requests[2].path != "/api/v1/declarations/declaration-1/plans" {
 		t.Fatalf("Plan() response=%#v requests=%#v err=%v", response, requests, err)
 	}
 	var input generated.PlanCreateRequest
-	if json.Unmarshal(requests[1].body, &input) != nil || input.ExpectedStateRevision != 6 || input.RecoveryEpoch != 2 || input.ObservationFingerprint != preparation.ObservationFingerprint || input.IdempotencyKey != "request-local" {
-		t.Fatalf("plan create input = %s", requests[1].body)
+	if json.Unmarshal(requests[2].body, &input) != nil || input.ExpectedStateRevision != 6 || input.RecoveryEpoch != 2 || input.ObservationFingerprint != preparation.ObservationFingerprint || input.IdempotencyKey != "request-local" {
+		t.Fatalf("plan create input = %s", requests[2].body)
+	}
+	if len(input.Extensions) != 1 || input.Extensions[0] != sealed {
+		t.Fatalf("plan create did not carry the declaration's sealed extension: %s", requests[2].body)
 	}
 }
 
