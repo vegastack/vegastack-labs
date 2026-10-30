@@ -113,11 +113,12 @@ func (authenticator *BrowserAuthenticator) WrapAssets(next http.Handler) http.Ha
 			authenticator.writeFailure(writer, generated.ErrorCodeAuthenticationRequired)
 			return
 		}
-		ctx, _, _, ok := authenticator.verifyExternalRequest(request)
+		ctx, verified, bindingDigest, ok := authenticator.verifyExternalRequest(request)
 		if !ok {
 			authenticator.writeFailure(writer, generated.ErrorCodeAuthenticationRequired)
 			return
 		}
+		authenticator.bootstrapSession(writer, request, ctx, verified, bindingDigest)
 		next.ServeHTTP(writer, request.WithContext(ctx))
 	})
 }
@@ -365,4 +366,26 @@ func logBrowserSessionReason(step string, err error) {
 		code = coded.Code()
 	}
 	fmt.Fprintf(os.Stderr, "browser-session failed: step=%s code=%s target=%s type=%T\n", step, code, target, err)
+}
+
+// bootstrapSession gives a verified browser its local, revocable session when it
+// opens the Console document. The shipped Console never calls POST /api/v1/session,
+// so without this every API read would be unauthenticated. It uses the same verified
+// identity and the same session manager as that endpoint, and only runs for a safe
+// top-level document navigation that already passed the Fetch Metadata gate.
+func (authenticator *BrowserAuthenticator) bootstrapSession(writer http.ResponseWriter, request *http.Request, ctx context.Context, verified identity.VerifiedIdentity, bindingDigest string) {
+	if !exactHeaderValue(request, "Sec-Fetch-Mode", "navigate") || !exactHeaderValue(request, "Sec-Fetch-Dest", "document") {
+		return
+	}
+	if raw, ok := exactSessionCookie(request); ok {
+		if _, err := authenticator.config.Sessions.ValidateAndTouchBrowserSession(ctx, raw, bindingDigest, verified.ExpiresAt); err == nil {
+			return
+		}
+	}
+	created, err := authenticator.manager.Create(ctx)
+	if err != nil || created.Cookie == nil {
+		logBrowserSessionReason("document-bootstrap", err)
+		return
+	}
+	http.SetCookie(writer, created.Cookie)
 }
