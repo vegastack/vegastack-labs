@@ -1290,7 +1290,7 @@ func (operations *Operations) controlClient(ctx context.Context, configPath stri
 	if err != nil {
 		return nil, serverconfig.Profile{}, failure.New(generated.ErrorCodeUnsupportedPlatform, "server-platform", false)
 	}
-	profile, err := serverconfig.NewLoader(ownerUID).Load(ctx, configPath)
+	profile, err := serverconfig.NewClientLoader(ownerUID).Load(ctx, configPath)
 	if err != nil {
 		return nil, serverconfig.Profile{}, err
 	}
