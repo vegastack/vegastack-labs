@@ -194,6 +194,14 @@ func workflowDeclarationTargets(row discoveryRow, d generated.DeclarationRevisio
 			return deny()
 		}
 		add("service.import.prepare", "service.read", "service", d.ServiceImport.Definition.ServiceID)
+	case "network.ingress":
+		// The stored draft (ID = declaration ID) names the one owned ingress profile.
+		var profile string
+		if len(d.Operations) != 1 || op.AdapterID != "cloudflare.ingress" || row(`SELECT json_extract(request_bytes,'$.change.profileId') FROM ingress_drafts WHERE draft_id=?`, d.DeclarationID).Scan(&profile) != nil ||
+			!authorization.ValidIdentifier(profile) || op.TargetID != profile {
+			return deny()
+		}
+		add("network.ingress.prepare", "network.ingress.read", "ingress-profile", profile)
 	case "network.endpoint":
 		if d.NetworkEndpoint == nil || !ValidateNetworkEndpointDeclaration(d) {
 			return deny()
