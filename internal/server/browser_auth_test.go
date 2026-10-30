@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -260,3 +261,36 @@ func TestBrowserAuthDoesNotAffectIndependentLocalPrincipalContext(t *testing.T) 
 
 var _ store.BrowserSessionStore = (*browserSessionStore)(nil)
 var _ = generated.ErrorCodeAuthenticationRequired
+
+func TestBrowserAuthenticatorCreatesSessionOnlyForDocumentNavigationWithoutValidSession(t *testing.T) {
+	authenticator, _, sessions := newBrowserAuthFixture(t)
+	serve := func(mode, destination string, cookie bool, validationErr error) *httptest.ResponseRecorder {
+		sessions.validationErr = validationErr
+		request := httptest.NewRequest(http.MethodGet, "https://console.example/", nil)
+		request.Host = "console.example"
+		request.Header.Set("Sec-Fetch-Site", "none")
+		request.Header.Set("Sec-Fetch-Mode", mode)
+		request.Header.Set("Sec-Fetch-Dest", destination)
+		request.Header.Set("Cf-Access-Jwt-Assertion", "verified-provider-assertion")
+		if cookie {
+			request.AddCookie(&http.Cookie{Name: BrowserSessionCookieName, Value: sessions.raw})
+		}
+		response := httptest.NewRecorder()
+		authenticator.WrapAssets(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })).ServeHTTP(response, request)
+		return response
+	}
+	response := serve("navigate", "document", false, nil)
+	setCookie := response.Header().Get("Set-Cookie")
+	if response.Code != http.StatusNoContent || sessions.creates.Load() != 1 || !strings.Contains(setCookie, BrowserSessionCookieName+"="+sessions.raw) || !strings.Contains(setCookie, "HttpOnly") || !strings.Contains(setCookie, "Secure") || !strings.Contains(setCookie, "SameSite=Strict") {
+		t.Fatalf("first document load: status=%d creates=%d cookie=%q", response.Code, sessions.creates.Load(), setCookie)
+	}
+	if response := serve("navigate", "document", true, nil); response.Header().Get("Set-Cookie") != "" || sessions.creates.Load() != 1 {
+		t.Fatal("a valid existing session was replaced")
+	}
+	if response := serve("navigate", "document", true, errors.New("expired")); response.Header().Get("Set-Cookie") == "" || sessions.creates.Load() != 2 {
+		t.Fatal("an invalid session was not replaced")
+	}
+	if response := serve("no-cors", "script", false, nil); response.Header().Get("Set-Cookie") != "" || sessions.creates.Load() != 2 {
+		t.Fatal("a subresource request created a session")
+	}
+}
