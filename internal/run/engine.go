@@ -865,6 +865,7 @@ func invokeCredentialEffect(ctx context.Context, implementation any, operation a
 		return adapter.Effect{}, runError(generated.ErrorCodePrerequisiteBlocked, "credential-adapter-unavailable")
 	}
 	if err != nil {
+		diagnoseRefusal("adapter", operation.OperationType, err)
 		// Adapter errors can contain provider/credential text. Never relay it.
 		return effect, runError(generated.ErrorCodeExecutionFailed, "credential-effect")
 	}
