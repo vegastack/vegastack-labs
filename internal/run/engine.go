@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -802,10 +804,12 @@ func (engine *Engine) executeSecretStep(ctx context.Context, plan generated.Plan
 		return adapter.Effect{}, runError(generated.ErrorCodePrerequisiteBlocked, "credential-adapter-unavailable")
 	}
 	if err := engine.secretGate.VerifySecretStep(ctx, plan, *plannedOperation); err != nil {
+		diagnoseRefusal("secret-gate", plannedOperation.OperationType, err)
 		return adapter.Effect{}, runError(generated.ErrorCodePrerequisiteBlocked, "credential-gate-not-ready")
 	}
 	values, err := engine.credentialStep.Resolve(ctx, plan, *plannedOperation, lease)
 	if err != nil {
+		diagnoseRefusal("credential-resolve", plannedOperation.OperationType, err)
 		if Code(err) == generated.ErrorCodeRecoveryRequired {
 			return adapter.Effect{EffectObserved: true}, err
 		}
@@ -1005,4 +1009,10 @@ func storedOperationError(operation, code string) error {
 func systemAttribution() audit.Attribution {
 	value, _ := audit.NewAttribution(identity.Principal{ID: "system-run-engine", Method: "local-system", Kind: identity.PrincipalPolicy}, nil, nil)
 	return value
+}
+
+// diagnoseRefusal writes only the stable error code and operation type to the
+// service log, so a fail-closed run that reports no reason can be diagnosed.
+func diagnoseRefusal(stage, operationType string, err error) {
+	fmt.Fprintf(os.Stderr, "run refusal: stage=%s operation=%s code=%s\n", stage, operationType, Code(err))
 }
