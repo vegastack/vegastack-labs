@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -90,7 +91,7 @@ func TestCredentialImportReadsStdinAndRendersOnlySanitizedFields(t *testing.T) {
 	if operations.calls != 1 || operations.config != "profile.json" || string(operations.private) != privateCredentialCanary {
 		t.Fatalf("credential operation = calls %d config %q private %q", operations.calls, operations.config, operations.private)
 	}
-	if operations.request.Schema != generated.SchemaIDCredentialImportRequest || operations.request.SchemaVersion != generated.RegistrySchemaVersion || operations.request.ExpectedStateRevision != 7 || operations.request.RecoveryEpoch != 2 || operations.request.TargetDigest != credentialref.ImportTargetDigest(operations.request) {
+	if operations.request.Schema != generated.SchemaIDCredentialImportRequest || operations.request.SchemaVersion != "1.1.0" || operations.request.ExpectedStateRevision != 7 || operations.request.RecoveryEpoch != 2 || operations.request.TargetDigest != credentialref.ImportTargetDigest(operations.request) {
 		t.Fatalf("credential request = %#v", operations.request)
 	}
 	if strings.Contains(stdout+stderr, privateCredentialCanary) {
@@ -195,5 +196,29 @@ func TestCredentialImportDoesNotReadPrivateEnvironment(t *testing.T) {
 		WithInput(strings.NewReader("encrypted-fixture")), WithCredentialControlOperations(operations))
 	if code != 0 || stderr != "" || strings.Contains(stdout+stderr, privateCredentialCanary) || string(operations.private) != "encrypted-fixture" {
 		t.Fatalf("environment isolation = code %d stdout %q stderr %q private %q", code, stdout, stderr, operations.private)
+	}
+}
+
+// The CLI-built request must satisfy the credential-import-request contract itself, not only
+// carry plausible field values: it once used the global registry schema version, which the
+// contract rejects, so every real import failed before any byte was sent.
+func TestCredentialImportBuildsAContractValidRequest(t *testing.T) {
+	operations := successfulCredentialOperations(t)
+	code, _, stderr := runTestAppWithOptions(t, context.Background(), credentialImportArguments(), nil,
+		WithInput(strings.NewReader(privateCredentialCanary)),
+		WithCredentialControlOperations(operations),
+	)
+	if code != 0 || stderr != "" || operations.calls != 1 {
+		t.Fatalf("credential import = code %d stderr %q calls %d", code, stderr, operations.calls)
+	}
+	raw, err := json.Marshal(operations.request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := generated.ValidateContractJSON(generated.SchemaIDCredentialImportRequest, raw, generated.ContractExact); err != nil {
+		t.Fatalf("CLI-built import request violates its contract: %v", err)
+	}
+	if operations.request.TargetDigest != credentialref.ImportTargetDigest(operations.request) {
+		t.Fatal("target digest does not match the request")
 	}
 }

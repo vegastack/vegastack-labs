@@ -56,7 +56,7 @@ func NewResolver(directoryPath string, ownerUID uint32, inspector ReferenceInspe
 		return nil, nativeError(generated.ErrorCodePrerequisiteBlocked, "native-credential-directory")
 	}
 	var stat unix.Stat_t
-	if unix.Fstat(fd, &stat) != nil || stat.Mode&unix.S_IFMT != unix.S_IFDIR || stat.Uid != ownerUID || stat.Mode&0o077 != 0 {
+	if unix.Fstat(fd, &stat) != nil || stat.Mode&unix.S_IFMT != unix.S_IFDIR || !loadedCredentialDirectoryProtected(stat.Uid, stat.Mode, ownerUID) {
 		_ = unix.Close(fd)
 		return nil, nativeError(generated.ErrorCodeAuthorizationDenied, "native-credential-directory")
 	}
