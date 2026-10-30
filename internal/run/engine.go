@@ -13,6 +13,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
+	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/identity"
 	"github.com/vegastack/vegastack-labs/internal/store"
@@ -1015,5 +1016,13 @@ func systemAttribution() audit.Attribution {
 // diagnoseRefusal writes only the stable error code and operation type to the
 // service log, so a fail-closed run that reports no reason can be diagnosed.
 func diagnoseRefusal(stage, operationType string, err error) {
-	fmt.Fprintf(os.Stderr, "run refusal: stage=%s operation=%s code=%s\n", stage, operationType, Code(err))
+	code, target := Code(err), ""
+	if stable, ok := failure.As(err); ok {
+		code, target = stable.Code, stable.Target
+	}
+	if code == "" {
+		// An unclassified error: its type name is safe, its text may not be.
+		code = fmt.Sprintf("unclassified:%T", err)
+	}
+	fmt.Fprintf(os.Stderr, "run refusal: stage=%s operation=%s code=%s target=%s\n", stage, operationType, code, target)
 }
