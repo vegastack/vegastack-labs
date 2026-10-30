@@ -276,10 +276,12 @@ func (manager *browserSessionManager) Create(ctx context.Context) (api.BrowserSe
 	}
 	principal, err := manager.sessions.ResolveRemoteIdentity(ctx, binding)
 	if err != nil {
+		logBrowserSessionReason("create:resolve-identity", err)
 		return api.BrowserSessionResult{}, asBrowserFailure(err)
 	}
 	session, raw, err := manager.sessions.CreateBrowserSession(ctx, store.BrowserSessionCreate{Principal: principal, BindingDigest: binding, ExternalExpiresAt: verified.ExpiresAt})
 	if err != nil {
+		logBrowserSessionReason("create:store", err)
 		return api.BrowserSessionResult{}, asBrowserFailure(err)
 	}
 	return browserSessionResult(session, sessionCookie(raw)), nil
@@ -352,4 +354,15 @@ var _ api.BrowserSessionService = (*browserSessionManager)(nil)
 // the service log so a browser denial can be diagnosed.
 func logBrowserAuthReason(step string) {
 	fmt.Fprintf(os.Stderr, "browser-auth denied: step=%s\n", step)
+}
+
+// logBrowserSessionReason writes only the step and the stable failure code and target.
+func logBrowserSessionReason(step string, err error) {
+	code, target := "unclassified", ""
+	if stable, ok := failure.As(err); ok {
+		code, target = stable.Code, stable.Target
+	} else if coded, ok := err.(interface{ Code() string }); ok {
+		code = coded.Code()
+	}
+	fmt.Fprintf(os.Stderr, "browser-session failed: step=%s code=%s target=%s type=%T\n", step, code, target, err)
 }
