@@ -61,3 +61,16 @@ func (o *installedLoadedObserver) ObserveLoaded(ctx context.Context, b credentia
 	}
 	return LoadedCredential{Name: reader.LoadedName, MaterialVersion: r.Binding.MaterialVersion, CiphertextFingerprint: r.Proof.SourceFingerprint, RestartObserved: true, Device: proof.CredentialDevice, Inode: proof.CredentialInode, UID: proof.CredentialUID, GID: proof.CredentialGID, Mode: proof.CredentialMode}, nil
 }
+
+// loadedCredentialProtected decides whether a credential file delivered to the service
+// is protected enough to read. It is either owned by the service account with no group
+// or other access, or, as systemd delivers it when it grants the service user access
+// through an ACL, owned by root with mode exactly 0400 or 0440. Anything else, including
+// a file owned by another account or one readable by others, is refused.
+func loadedCredentialProtected(owner uint32, mode uint32, serviceUID uint32) bool {
+	permissions := mode & 0o777
+	if owner == serviceUID {
+		return permissions&0o077 == 0
+	}
+	return owner == 0 && (permissions == 0o400 || permissions == 0o440)
+}

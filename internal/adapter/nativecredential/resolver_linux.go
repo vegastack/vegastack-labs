@@ -135,7 +135,7 @@ func readLoadedBytes(ctx context.Context, directory *os.File, name string, owner
 	file := os.NewFile(uintptr(fd), "loaded-credential")
 	defer file.Close()
 	var stat unix.Stat_t
-	if unix.Fstat(fd, &stat) != nil || stat.Mode&unix.S_IFMT != unix.S_IFREG || stat.Uid != ownerUID || stat.Mode&0o077 != 0 || stat.Size < 8 || stat.Size > 4096 {
+	if unix.Fstat(fd, &stat) != nil || stat.Mode&unix.S_IFMT != unix.S_IFREG || !loadedCredentialProtected(stat.Uid, stat.Mode, ownerUID) || stat.Size < 8 || stat.Size > 4096 {
 		return nil, nativeError(generated.ErrorCodeAuthorizationDenied, "loaded-credential-file")
 	}
 	if expected != nil && (expected.Device == 0 || expected.Inode == 0 || uint64(stat.Dev) != expected.Device || stat.Ino != expected.Inode || stat.Uid != expected.UID || stat.Gid != expected.GID || stat.Mode != expected.Mode) {
