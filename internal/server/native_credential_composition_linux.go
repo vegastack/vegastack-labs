@@ -4,6 +4,8 @@ package server
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/vegastack/vegastack-labs/internal/adapter/nativecredential"
@@ -26,6 +28,7 @@ func composeNativeCredentialLifecycleVerifier(ctx context.Context, databasePath 
 	root := filepath.Join(filepath.Dir(databasePath), "credential-drafts")
 	verifier, err := nativecredential.NewInstalledNativeLifecycleVerifier(ctx, root, ownerUID)
 	if err != nil {
+		fmt.Fprintln(os.Stderr, "native credential lifecycle verifier unavailable:", err)
 		return run.UnavailableCredentialLifecycleVerifier{}
 	}
 	return nativeLifecycleRunVerifier{native: verifier}
