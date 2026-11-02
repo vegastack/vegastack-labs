@@ -14,6 +14,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/result"
 	"github.com/vegastack/vegastack-labs/internal/store"
 	"net/http"
+	"strings"
 )
 
 type IngressOperations struct {
@@ -180,7 +181,7 @@ func (app *Application) ingressPilotEvidence(c IngressOperations) func(http.Resp
 			app.failure(w, op, apiFailure(generated.ErrorCodeInputInvalid, "pilot-evidence"))
 			return
 		}
-		for _, target := range []authorization.Target{{Capability: "network.ingress.prepare", ResourceKind: "ingress-profile", ResourceID: q.Request.Change.ProfileID}, {Capability: "gate.evidence.author", ResourceKind: "gate", ResourceID: q.GateID}} {
+		for _, target := range []authorization.Target{{Capability: "network.ingress.prepare", ResourceKind: "ingress-profile", ResourceID: q.Request.Change.ProfileID}, {Capability: "gate.evidence.author", ResourceKind: "gate", ResourceID: strings.ToLower(q.GateID)}} {
 			if _, e := app.authorizeAction(r, authorization.ActionAuthor, target); e != nil {
 				app.failure(w, op, e)
 				return
