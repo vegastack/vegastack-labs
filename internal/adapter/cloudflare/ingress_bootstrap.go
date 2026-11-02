@@ -97,7 +97,8 @@ func bootstrapPolicy(raw map[string]json.RawMessage, group string) bool {
 	_ = json.Unmarshal(raw["precedence"], &precedence)
 	_ = json.Unmarshal(raw["reusable"], &reusable)
 	_ = json.Unmarshal(raw["app_count"], &appCount)
-	return precedence == 0 && !reusable && appCount <= 1
+	// The create request sends precedence 0; Cloudflare stores and returns 1 for an app's first policy.
+	return (precedence == 0 || precedence == 1) && !reusable && appCount <= 1
 }
 
 func bootstrapRules(q generated.IngressChange) []map[string]any {
