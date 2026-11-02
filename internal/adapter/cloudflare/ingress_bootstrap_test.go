@@ -349,3 +349,23 @@ func TestBootstrapRetainsKnownCreatedIDWhenObservationFails(t *testing.T) {
 		t.Fatalf("known partial effect lost or falsely verified: %+v %v posts=%d", partial, err, posts)
 	}
 }
+
+func TestBootstrapPolicyAcceptsStoredPrecedence(t *testing.T) {
+	const group = "bcb90e31-eb2e-4e5b-9a37-fb13e0d6f37d"
+	body := func(precedence string) map[string]json.RawMessage {
+		var raw map[string]json.RawMessage
+		text := `{"decision":"allow","precedence":` + precedence + `,"reusable":false,"app_count":1,"include":[{"group":{"id":"` + group + `"}}],"exclude":[],"require":[]}`
+		if err := json.Unmarshal([]byte(text), &raw); err != nil {
+			t.Fatal(err)
+		}
+		return raw
+	}
+	for _, precedence := range []string{"0", "1"} {
+		if !bootstrapPolicy(body(precedence), group) {
+			t.Fatalf("precedence %s must verify", precedence)
+		}
+	}
+	if bootstrapPolicy(body("2"), group) {
+		t.Fatal("precedence 2 must not verify")
+	}
+}
