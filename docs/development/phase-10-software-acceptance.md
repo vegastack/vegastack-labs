@@ -50,10 +50,44 @@ These stay **open**. A software test does not close them, and a missing provider
 
 - **Actual maintenance execution, patch, reboot, drain and failed-canary stopping during real execution.** No executor exists by design (`maintenance-execution-unsupported`); issue #324 lists it out of scope. Needs a live allowed host and its own approval.
 - **Aggregate maintenance execution** is documented as unavailable.
-- **Live delivery:** GitHub Issues credential and owner; a selected independent secondary route and its webhook; the R2 write-only identity and status bucket; the deployed Worker and its five-minute schedule; Beszel enrollment.
+- **Live delivery:** GitHub Issues credential and owner; a selected independent secondary route and its webhook; the R2 write-only identity and status bucket; the deployed Worker and its five-minute schedule; Beszel enrollment. `SiteWatchdog()` supplies an inert artifact; a supported provisioning/execution owner for the Worker, bindings, secrets and schedule was not found in the generated command surface. Resource names alone do not close this gap. Narrow temporary heartbeat-credential issuance/renewal also remains unverified; do not substitute a broad account credential.
 - **Independent detection of a fully stopped Worker or a Cloudflare-wide outage** (no independent observer asserted).
 - **Human read of a notification.** Only provider acceptance is covered.
-- **Native Codex, Claude and Hermes loading, trust and precedence.** Generated-text hashes are not native runtime proof.
-- **Manual-parity** is covered only by the generator's identical-text test; no separate test runs a manual procedure against the same outcome.
-- **Operations end-to-end through the server** (induced source failure, alert, delivery, recovery in one test) is not proven by a single server-level test; rows 1-3 prove the pieces.
+- **Native agent activation, trust and precedence:** installed Codex discovery is now checked below, but Codex execution/precedence, Claude runtime behavior and Hermes remain unproven. Generated-text hashes do not supply this evidence.
+- **Full manual-procedure acceptance:** the CLI/API command rehearsal below compares human and JSON status through the same isolated failure/recovery scenario. Standalone executable, protected-profile loading, OS-peer authentication and live/manual rehearsal remain unqualified.
+- **Standalone executable and live/provider/native credential composition** remain unproven. The connected workflow below covers the CLI parser, local HTTP client and API/server path with explicitly injected profile and peer identity.
 - Phase 9's blocked real delivery demonstration (#317) is neither bypassed nor declared passed.
+
+## Connected server workflow — 02-11-2026 continuation
+
+`TestNotificationReadinessCompleteAcknowledgedWorkflow/source_failure_delivery_retry_and_recovery` extends the existing acknowledged readiness fixture with `internal/server/operations_workflow_linux_test.go`. After the real declaration, plan, acknowledgement, execution and G-011 evidence application, it calls the ordinary server collection and dispatch methods with real SQLite and concrete Beszel/GitHub clients. HTTP responses and credential material are synthetic; no provider or host is contacted.
+
+The connected scenario proves one alert/outbox entry for repeated source failure; destination outage retaining the local alert and scheduling a bounded retry; no delivery before the retry is due; one issue after delivery recovers; stale "up" data leaving the alert open; fresh verified recovery closing the same issue once; persisted delivery outcomes; sanitized output; target-read denial before credential borrow/network; and recipient revocation blocking delivery of a new pending alert through the actual readiness evaluator.
+
+On Linux the focused command is:
+
+```text
+go test ./internal/server -run '^TestNotificationReadinessCompleteAcknowledgedWorkflow$' -count=1 -v
+```
+
+Development execution on macOS uses a temporary, uncommitted Go overlay to include the three Linux test files and enable SQLite opening with the existing synthetic filesystem inspector. This exercises the application workflow; it is **not native Linux, filesystem, credential-custody, standalone executable or live acceptance**. Production platform checks are unchanged. Mutating the target authorization check or the Beszel stale-sample check in temporary overlays must fail this scenario; neither mutation is a source change.
+
+## Manual command rehearsal and Codex discovery — 02-11-2026
+
+The same connected scenario now invokes the real CLI parser with the documented operations commands, through the real local API client, a test-local Unix HTTP listener, API authorization and the server collector. `operations_cli_workflow_linux_test.go` supplies only the selected fixture profile and authenticated peer identity; it does not bypass route or target grants. Every collection is read back in both JSON and human form, checking equal persisted data, matching per-alert state and no credential/provider calls from status reads. An absent operations route grant denies collection before provider access; the existing revoked-target check also runs through the command path.
+
+The exercised command forms are the ones in `docs/security-and-operations.md`:
+
+```text
+vsk-labs operations observe --config <protected-client-profile> --output json
+vsk-labs operations status --config <protected-client-profile> --output json
+vsk-labs operations status --config <protected-client-profile>
+```
+
+Only the fixture substitute `fixture/profile.json` is used by the test. No installed service or real profile is selected. This establishes command/API parity for the isolated scenario, not native installation, profile-file trust, kernel peer authentication, a human-operated fleet rehearsal or broader manual-runbook acceptance.
+
+The installed `codex-cli 0.159.0` was queried through its native stdio `skills/list` method with `forceReload=true`, once for this repository root and once for `web/`. Both returned all nine `vegastack-labs-*` skills enabled, with zero discovery errors. No model turn, agent task, provider call or global configuration change was used. A temporary protocol process was closed after the metadata request; no daemon was installed. This result is native discovery only. It does not establish skill activation, nested instruction precedence or agent authorization behavior. Claude Code `2.1.316` is installed but its runtime behavior was not exercised; Hermes was not found on PATH.
+
+Codex documents repository discovery from `.agents/skills` between the working directory and repository root. The actual runtime observations above, rather than that documentation alone, support this narrow result. [Official Codex skill discovery](https://learn.chatgpt.com/docs/build-skills#where-codex-loads-local-skills)
+
+The focused race-instrumented overlay check initially exposed an existing fixture timestamp problem: a later acknowledgement reused the test-start timestamp and could exceed the unchanged five-second decision-skew bound. The fixture now supplies its current clock at the decision. The focused `go test -race` scenario then passed; no production acknowledgement policy was relaxed.

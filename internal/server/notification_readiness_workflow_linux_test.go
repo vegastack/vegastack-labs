@@ -103,7 +103,8 @@ func (f notificationWorkflowTransport) RoundTrip(r *http.Request) (*http.Respons
 func TestNotificationReadinessCompleteAcknowledgedWorkflow(t *testing.T) {
 	ctx := identity.WithVerifiedPrincipal(context.Background(), identity.Principal{ID: "operator-a", Kind: identity.PrincipalHuman, Method: identity.LocalOSPeerMethod})
 	now := time.Now().UTC().Truncate(time.Second)
-	clock := time.Now
+	var clockOffset time.Duration
+	clock := func() time.Time { return time.Now().Add(clockOffset) }
 	directory, e := os.MkdirTemp("/var/tmp", "vsk323-notification-")
 	if e != nil {
 		t.Fatal(e)
@@ -160,7 +161,7 @@ func TestNotificationReadinessCompleteAcknowledgedWorkflow(t *testing.T) {
 	for i, ref := range []struct{ id, purpose string }{{p.PrimaryReferenceID, operations.ReadinessGithubPurpose}, {p.SecondaryReferenceID, operations.ReadinessSlackPurpose}} {
 		exec(`INSERT INTO credential_reference_versions VALUES(?,?,?, ?,?,'native-systemd','v1',?,'active',1,0,?,?,'fixture-declaration',1,'fixture-plan',?,'fixture-run','fixture-step','fixture-lease','operator-a','now')`, fmt.Sprintf("version-%d", i), ref.id, operations.ReadinessAdapter, ref.purpose, p.TargetID, operations.Digest("synthetic-ciphertext"), now.Format(time.RFC3339), []byte(`["`+operations.ReadinessAdapter+`"]`), operations.Digest("fixture"))
 	}
-	caps, _ := json.Marshal([]string{"credential.operations.readiness", operations.ReadinessCapability(repo.Digest)})
+	caps, _ := json.Marshal([]string{"credential.operations.readiness", operations.ReadinessCapability(repo.Digest), "operations.notifications"})
 	exec(`INSERT INTO gate_applied_profiles VALUES('fixture-profile','vegastack-labs','1.0.0','fixture-policy','1.0.0',?,1,0,'fixture-declaration',1,'fixture-plan',?,'fixture-run','fixture-step','fixture-lease','operator-a','now')`, caps, operations.Digest("fixture"))
 	revisions := store.NewPlanRepository(s)
 	declarations, e := change.NewService(store.NewDeclarationRepository(s), clock)
@@ -259,7 +260,7 @@ func TestNotificationReadinessCompleteAcknowledgedWorkflow(t *testing.T) {
 			t.Fatal("ack request", e)
 		}
 		expires, _ := time.Parse(time.RFC3339, card.Request.ExpiresAt)
-		approved, e := ack.Decide(ctx, acknowledgement.Candidate{Human: human, AuthorityID: card.Request.AuthorityID, Action: acknowledgement.ActionApprove, PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, TargetDigest: card.Request.TargetDigest, ReasonDigest: card.Request.ReasonDigest, Nonce: card.Nonce, StateRevision: card.Request.StateRevision, RecoveryEpoch: card.Request.RecoveryEpoch, ExpiresAt: expires, DecidedAt: now})
+		approved, e := ack.Decide(ctx, acknowledgement.Candidate{Human: human, AuthorityID: card.Request.AuthorityID, Action: acknowledgement.ActionApprove, PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, TargetDigest: card.Request.TargetDigest, ReasonDigest: card.Request.ReasonDigest, Nonce: card.Nonce, StateRevision: card.Request.StateRevision, RecoveryEpoch: card.Request.RecoveryEpoch, ExpiresAt: expires, DecidedAt: clock().UTC()})
 		if e != nil {
 			t.Fatal("ack decide", e)
 		}
@@ -317,7 +318,9 @@ func TestNotificationReadinessCompleteAcknowledgedWorkflow(t *testing.T) {
 	if githubWrites != 2 || slackWrites != 2 || resolver.calls != 2 {
 		t.Fatal("evidence collection/application sent extra messages")
 	}
-	exec(`UPDATE effective_authorization_principals SET status='revoked',grant_revision=2 WHERE principal_id='secondary-human'`)
+	t.Run("source failure delivery retry and recovery", func(t *testing.T) {
+		testOperationsFailureRecovery(t, ctx, monitor, exec, func(d time.Duration) { clockOffset += d })
+	})
 	if monitor.notificationGatePassed(ctx, scope, h, clock()) {
 		t.Fatal("revoked selected recipient retained qualification")
 	}
