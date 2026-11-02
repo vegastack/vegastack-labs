@@ -186,7 +186,14 @@ func (authenticator *BrowserAuthenticator) browserAssetRequestAllowed(request *h
 		return false
 	}
 	if mode[0] == "navigate" && destination[0] == "document" {
-		return site[0] == "none" || site[0] == "same-origin"
+		// A top-level page load may come from the Access login redirect, a link in
+		// another app or a bookmark. It only returns static Console bytes after a
+		// verified identity; API requests keep the strict same-origin tuple.
+		switch site[0] {
+		case "none", "same-origin", "same-site", "cross-site":
+			return true
+		}
+		return false
 	}
 	if site[0] != "same-origin" {
 		return false

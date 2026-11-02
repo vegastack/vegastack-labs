@@ -294,3 +294,35 @@ func TestBrowserAuthenticatorCreatesSessionOnlyForDocumentNavigationWithoutValid
 		t.Fatal("a subresource request created a session")
 	}
 }
+
+func TestBrowserAuthenticatorAdmitsTopLevelDocumentNavigationFromAnySiteButNothingElse(t *testing.T) {
+	authenticator, _, _ := newBrowserAuthFixture(t)
+	for _, test := range []struct {
+		site, mode, destination string
+		allowed                 bool
+	}{
+		{"none", "navigate", "document", true},
+		{"same-origin", "navigate", "document", true},
+		{"same-site", "navigate", "document", true},
+		{"cross-site", "navigate", "document", true},
+		{"bogus", "navigate", "document", false},
+		{"cross-site", "navigate", "iframe", false},
+		{"cross-site", "no-cors", "script", false},
+		{"cross-site", "cors", "empty", false},
+	} {
+		request := httptest.NewRequest(http.MethodGet, "https://console.example/nodes", nil)
+		request.Header.Set("Sec-Fetch-Site", test.site)
+		request.Header.Set("Sec-Fetch-Mode", test.mode)
+		request.Header.Set("Sec-Fetch-Dest", test.destination)
+		if actual := authenticator.browserAssetRequestAllowed(request); actual != test.allowed {
+			t.Fatalf("%s/%s/%s allowed = %t, want %t", test.site, test.mode, test.destination, actual, test.allowed)
+		}
+	}
+	post := httptest.NewRequest(http.MethodPost, "https://console.example/nodes", nil)
+	post.Header.Set("Sec-Fetch-Site", "cross-site")
+	post.Header.Set("Sec-Fetch-Mode", "navigate")
+	post.Header.Set("Sec-Fetch-Dest", "document")
+	if authenticator.browserAssetRequestAllowed(post) {
+		t.Fatal("a cross-site POST navigation was admitted")
+	}
+}
