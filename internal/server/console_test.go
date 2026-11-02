@@ -304,7 +304,17 @@ func TestBrowserRouterAllowsVerifiedNavigationWithoutLocalSession(t *testing.T) 
 
 func TestBrowserAssetAdmissionRejectsCrossSiteAndForgedForwarding(t *testing.T) {
 	for _, mutate := range []func(*http.Request){
-		func(request *http.Request) { request.Header.Set("Sec-Fetch-Site", "cross-site") },
+		// A cross-site page load is admitted (Access login redirect); a cross-site
+		// subresource or embedded document is not.
+		func(request *http.Request) {
+			request.Header.Set("Sec-Fetch-Site", "cross-site")
+			request.Header.Set("Sec-Fetch-Mode", "no-cors")
+			request.Header.Set("Sec-Fetch-Dest", "script")
+		},
+		func(request *http.Request) {
+			request.Header.Set("Sec-Fetch-Site", "cross-site")
+			request.Header.Set("Sec-Fetch-Dest", "iframe")
+		},
 		func(request *http.Request) {
 			request.Host = "internal.example"
 			request.Header.Set("X-Forwarded-Host", "console.example")
