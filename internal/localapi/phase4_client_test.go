@@ -235,3 +235,21 @@ func clientPlanPresentation(plan generated.Plan) generated.PlanPresentation {
 	raw, _ := json.Marshal(plan)
 	return generated.PlanPresentation{Plan: plan, ReadablePlan: "exact readable test plan", CanonicalPlan: string(raw)}
 }
+
+func TestPilotEvidenceSpecAcceptsChangedSubmission(t *testing.T) {
+	data := generated.GateEvidenceSubmission{Schema: generated.SchemaIDGateEvidenceSubmission, SchemaVersion: "1.1.0", DraftID: "draft-1", ChangeID: "gate-evidence-ev-1", EvidenceID: "ev-1", Status: "draft", StateRevision: 7}
+	envelope, err := clientTestFactory().SuccessWithRequestID(pilotEvidenceSpec.command, "request-1", true, 0, 7, data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(envelope)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response, err := validateTypedResponse(append(raw, '\n'), http.StatusOK, pilotEvidenceSpec, func(d generated.GateEvidenceSubmission, r generated.RunResult) bool {
+		return validGateData(d, generated.SchemaIDGateEvidenceSubmission) && d.StateRevision == r.StateRevision
+	})
+	if err != nil || response.Data.EvidenceID != "ev-1" {
+		t.Fatalf("response=%#v err=%v", response, err)
+	}
+}
