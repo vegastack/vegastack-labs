@@ -2,6 +2,17 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+
+## 03-11-2026 — Prepare a health-reporting application for managed delivery ([#317](https://github.com/vegastack/vegastack-labs/issues/317))
+
+- **What:** The local Go image packager can explicitly include an application-owned self-healthcheck, and a small public-data application implements that check without a shell or curl. After successful admission, the runner hook exposes only the public numeric run/job/attempt so packaging can describe the actual job.
+- **Why:** The first managed-delivery demonstration needs a real container-health result and exact numeric provenance; unsigned files and a workflow job name cannot satisfy those requirements.
+- **How it went:** A focused regression reproduced the missing image check. Packaging/CLI and authenticated evidence checks passed, and the application rejects failed, redirected and cancelled probes. Metadata creation refuses replacement and symlinks. Linux runner code cross-compiled; native Docker/Coolify, actual hook execution and real signing remain untested.
+- **Changed:** Opt-in self-healthcheck flag and generated help · provenance-bound image configuration · public-data application · post-admission public assignment metadata · inactive build/sign workflow example · one-time administrator prerequisite procedure.
+- **Decisions:** Operator selected administrator preparation followed by existing Labs commands, local GitHub/Cosign preparation and controlled manual artifact transfer. The workflow stays inactive; no setup automation framework, live permission, qualification or phase acceptance is inferred.
+
+— approved source implementation by (omkarmohanta09) in chat · built by Codex · branch feat/317-working-delivery
+
 ## 29-10-2026 — Preserve administrator access after controller service handoff ([#333](https://github.com/vegastack/vegastack-labs/issues/333))
 
 - **What:** The service-owned runtime directory now permits search access so the distinct administrator can reach the existing group-restricted local API socket after handoff.

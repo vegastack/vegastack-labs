@@ -8,6 +8,7 @@ func goImageCommand() CommandDefinition {
 			{Name: "--source-revision", Kind: FlagValue, ValueName: "revision", Required: true, Summary: "Require this exact revision in compiler-reported clean VCS metadata."},
 			{Name: "--builder-id", Kind: FlagValue, ValueName: "uri", Required: true, Summary: "Record supplied packaging builder URI; no signing identity is inferred."},
 			{Name: "--invocation-id", Kind: FlagValue, ValueName: "uri", Required: true, Summary: "Record supplied packaging invocation URI."},
+			{Name: "--self-healthcheck", Kind: FlagSwitch, Summary: "Add an exec healthcheck using /app --healthcheck; select only when the application implements it. No binary is executed during packaging."},
 			{Name: "--directory", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Create a new local output directory; existing paths are refused."},
 		}, commonFlags()...), ResultSchema: runResultSchemaID, DataSchema: "vegastack-labs.dev/go-image-build-data",
 		Examples: []ExampleDefinition{{Summary: "Package a previously compiled binary; output remains unsigned.", Arguments: []string{"release", "build-go-image", "--binary", "build/app", "--source-uri", "https://example.org/application", "--source-revision", "0123456789abcdef0123456789abcdef01234567", "--builder-id", "https://example.org/packager", "--invocation-id", "https://example.org/runs/1", "--directory", "build/image", "--output", "json"}}},

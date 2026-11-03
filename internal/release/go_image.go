@@ -21,6 +21,7 @@ const MaxGoImageBinary = 128 << 20
 // The embedded clean revision is checked, not authenticated. This operation
 // packages an existing binary; it does not claim to have compiled its source.
 type GoImageRequest struct {
+	SelfHealthcheck                                    bool
 	Binary                                             []byte
 	SourceURI, SourceRevision, BuilderID, InvocationID string
 }
@@ -106,14 +107,24 @@ func BuildGoImage(ctx context.Context, q GoImageRequest) (GoImageOutput, error) 
 		return empty, evidenceError()
 	}
 	marshal := func(v any) []byte { b, _ := json.Marshal(v); return b }
-	config := marshal(map[string]any{"architecture": arch, "os": "linux", "config": map[string]any{"User": "65532:65532", "Entrypoint": []string{"/app"}, "WorkingDir": "/"}, "rootfs": map[string]any{"type": "layers", "diff_ids": []string{hashOCI(layer.Bytes())}}})
+	imageConfig := map[string]any{"User": "65532:65532", "Entrypoint": []string{"/app"}, "WorkingDir": "/"}
+	// The caller explicitly asserts that this application implements --healthcheck.
+	// Never execute the supplied binary here or add a shell/network utility.
+	if q.SelfHealthcheck {
+		imageConfig["Healthcheck"] = map[string]any{"Test": []string{"CMD", "/app", "--healthcheck"}, "Interval": int64(30 * time.Second), "Timeout": int64(5 * time.Second), "StartPeriod": int64(5 * time.Second), "Retries": 3}
+	}
+	config := marshal(map[string]any{"architecture": arch, "os": "linux", "config": imageConfig, "rootfs": map[string]any{"type": "layers", "diff_ids": []string{hashOCI(layer.Bytes())}}})
 	descriptor := func(kind string, b []byte) map[string]any {
 		return map[string]any{"mediaType": kind, "digest": hashOCI(b), "size": len(b)}
 	}
 	manifest := marshal(map[string]any{"schemaVersion": 2, "mediaType": "application/vnd.oci.image.manifest.v1+json", "config": descriptor("application/vnd.oci.image.config.v1+json", config), "layers": []any{descriptor("application/vnd.oci.image.layer.v1.tar", layer.Bytes())}})
 	digest := hashOCI(manifest)
 	binaryDigest := hashOCI(binary)
-	params := marshal(map[string]any{"binaryDigest": binaryDigest, "sourceURI": q.SourceURI, "sourceRevision": q.SourceRevision, "architecture": arch, "inventoryScope": "compiled-go-modules-only", "metadataTrust": "caller-and-compiler-reported-unverified", "entrypoint": "/app"})
+	parameters := map[string]any{"binaryDigest": binaryDigest, "sourceURI": q.SourceURI, "sourceRevision": q.SourceRevision, "architecture": arch, "inventoryScope": "compiled-go-modules-only", "metadataTrust": "caller-and-compiler-reported-unverified", "entrypoint": "/app"}
+	if q.SelfHealthcheck {
+		parameters["selfHealthcheck"] = true
+	}
+	params := marshal(parameters)
 	expected := BuildExpectation{ImageDigest: digest, SourceURI: q.SourceURI, SourceRevision: q.SourceRevision, BuilderID: q.BuilderID, BuildType: GoScratchBuildType, InvocationID: q.InvocationID, ExternalParameters: params}
 	provenance := marshal(map[string]any{"buildDefinition": map[string]any{"buildType": GoScratchBuildType, "externalParameters": json.RawMessage(params), "resolvedDependencies": []any{map[string]any{"uri": q.SourceURI, "digest": map[string]string{"gitCommit": q.SourceRevision}}, map[string]any{"uri": "urn:sha256:" + strings.TrimPrefix(binaryDigest, "sha256:"), "digest": map[string]string{"sha256": strings.TrimPrefix(binaryDigest, "sha256:")}}}}, "runDetails": map[string]any{"builder": map[string]string{"id": q.BuilderID}, "metadata": map[string]any{"invocationId": q.InvocationID, "startedOn": start.Format(time.RFC3339Nano), "finishedOn": time.Now().UTC().Format(time.RFC3339Nano)}}})
 	pkg := func(id, name string) map[string]any {
