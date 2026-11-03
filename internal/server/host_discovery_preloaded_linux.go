@@ -46,7 +46,7 @@ func (r loadedDiscoveryKeyReader) Borrow(ctx context.Context, target hostdiscove
 	directory := os.NewFile(uintptr(fd), "discovery-credentials")
 	defer directory.Close()
 	var stat unix.Stat_t
-	if unix.Fstat(fd, &stat) != nil || stat.Mode&unix.S_IFMT != unix.S_IFDIR || stat.Uid != r.ownerUID || stat.Mode&0077 != 0 {
+	if unix.Fstat(fd, &stat) != nil || stat.Mode&unix.S_IFMT != unix.S_IFDIR || !nativecredential.LoadedCredentialDirectoryProtected(stat.Uid, stat.Mode, r.ownerUID) {
 		return blocked()
 	}
 	raw, err := nativecredential.ReadLoadedBytes(ctx, directory, name, r.ownerUID)

@@ -81,6 +81,13 @@ func loadedCredentialProtected(owner uint32, mode uint32, serviceUID uint32) boo
 // access through an ACL, owned by root with mode exactly 0500 or 0550. Any other owner, or a
 // mode that grants anyone else access or write, is refused.
 func loadedCredentialDirectoryProtected(owner uint32, mode uint32, serviceUID uint32) bool {
+	return LoadedCredentialDirectoryProtected(owner, mode, serviceUID)
+}
+
+// LoadedCredentialDirectoryProtected checks the ownership and permissions of a
+// delivered credential directory. Callers must separately verify its file type
+// and open it without following symlinks; access still requires the OS to allow it.
+func LoadedCredentialDirectoryProtected(owner uint32, mode uint32, serviceUID uint32) bool {
 	permissions := mode & 0o777
 	if owner == serviceUID {
 		return permissions&0o077 == 0
