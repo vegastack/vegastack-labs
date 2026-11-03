@@ -46,7 +46,11 @@ func controllerPrerequisitePackage(c checkedSourcePackage, module, relative stri
 	}
 	names := slices.Clone(c.listed.GoFiles)
 	slices.Sort(names)
-	seal, ok := controllerPrerequisiteSourceSeals[relative+"|"+strings.Join(names, ",")]
+	key := relative + "|" + strings.Join(names, ",")
+	seal, ok := ciWorkingDeliverySourceSeals[key]
+	if relative != "internal/cli" || !ok {
+		seal, ok = controllerPrerequisiteSourceSeals[key]
+	}
 	if !ok {
 		return false
 	}

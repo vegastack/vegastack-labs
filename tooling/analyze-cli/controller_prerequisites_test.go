@@ -17,6 +17,9 @@ const controllerTestModule = "github.com/vegastack/vegastack-labs"
 func controllerSealFixture(t *testing.T, key string, seal hostActionSourceSeal) listedPackage {
 	t.Helper()
 	relative, joined, _ := strings.Cut(key, "|")
+	if current, ok := ciWorkingDeliverySourceSeals[key]; ok && relative == "internal/cli" {
+		seal = current
+	}
 	names := strings.Split(joined, ",")
 	dir := t.TempDir()
 	for _, name := range names {
