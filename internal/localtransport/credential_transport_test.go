@@ -13,6 +13,32 @@ import (
 	"time"
 )
 
+func TestPaginationCannotWidenLocalTransport(t *testing.T) {
+	for _, requestPath := range []string{
+		"/api/v1/ci/enrollments?limit=1", "/api/v1/ci/enrollments?after=enrollment%3Aa&limit=100",
+	} {
+		if !validRequest(Request{SocketPath: "/tmp/control.sock", Method: MethodGet, Path: requestPath, Timeout: time.Second, ResponseLimit: 4096}) {
+			t.Fatalf("bounded CI pagination rejected: %s", requestPath)
+		}
+	}
+	for _, requestPath := range []string{
+		"/api/v1/ci/enrollments?", "/api/v1/ci/enrollments?after=enrollment-a",
+		"/api/v1/ci/enrollments?limit=0", "/api/v1/ci/enrollments?limit=101", "/api/v1/ci/enrollments?limit=01",
+		"/api/v1/ci/enrollments?limit=1&limit=2", "/api/v1/ci/enrollments?limit=1&scope=all",
+		"/api/v1/ci/enrollments?after=..%2Fother&limit=1", "/api/v1/ci/enrollments?after=%252Fother&limit=1",
+		"/api/v1/ci/enrollments?after=&limit=1", "/api/v1/ci/enrollments?limit=1#other",
+		"/api/v1/ci/enrollments?limit=1&after=enrollment-a", "/api/v1/ci/enrollments?after=enrollment%3aa&limit=1",
+		"/api/v1/ci/enrollments/enrollment-a?limit=1", "/api/v1/health?limit=1", "https://other.example/api/v1/ci/enrollments?limit=1",
+	} {
+		if validRequest(Request{SocketPath: "/tmp/control.sock", Method: MethodGet, Path: requestPath, Timeout: time.Second, ResponseLimit: 4096}) {
+			t.Fatalf("widened query accepted: %s", requestPath)
+		}
+	}
+	if validRequest(Request{SocketPath: "/tmp/control.sock", Method: MethodPost, Path: "/api/v1/ci/enrollments?limit=1", Body: []byte("{}"), Timeout: time.Second, ResponseLimit: 4096}) {
+		t.Fatal("query accepted for a mutation")
+	}
+}
+
 func TestCredentialBinaryRequestIsExactLocalOnlyAndBounded(t *testing.T) {
 	metadata := []byte(`{"schema":"vegastack-labs.dev/credential-import-request"}`)
 	request := Request{SocketPath: "/tmp/control.sock", Method: MethodPost, Path: "/api/v1/credential-references/ref-a/import-stream", Body: []byte("synthetic-private-canary"), Timeout: time.Second, ResponseLimit: 4096, BinaryCredential: true, CredentialMetadata: metadata}

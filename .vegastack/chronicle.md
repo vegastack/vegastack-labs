@@ -3,6 +3,16 @@
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
 
+## 03-11-2026 — Restore local CI enrollment pagination ([#317](https://github.com/vegastack/vegastack-labs/issues/317))
+
+- **What:** CI enrollment listing can send its existing bounded pagination query through the local Unix API transport.
+- **Why:** A read-only controller check returned an integrity error before the request reached the server: the CLI added a query while the transport rejected every query.
+- **How it went:** The regression reproduced the exact error for default, cursor and encoded-ID pages. The fix allows only canonical GET pagination on the existing enrollment route; unrelated routes, mutation queries and malformed or widened parameters remain denied. Focused package tests and vet passed; one independent Codex review found no actionable runtime finding. Live installation and Phase 9 acceptance remain pending.
+- **Changed:** Finite local pagination validation · real Unix-client regression · query denial coverage · additive exact source-boundary seals preserving historical evidence.
+- **Decisions:** No new service, dependency, permission or provider operation. Missing CI/deployment gate read grants remain separate from this client defect.
+
+— Phase 9 continuation by (omkarmohanta09) in chat · built by Codex · branch fix/317-ci-enrollment-query
+
 ## 03-11-2026 — Prepare a health-reporting application for managed delivery ([#317](https://github.com/vegastack/vegastack-labs/issues/317))
 
 - **What:** The local Go image packager can explicitly include an application-owned self-healthcheck, and a small public-data application implements that check without a shell or curl. After successful admission, the runner hook exposes only the public numeric run/job/attempt so packaging can describe the actual job.

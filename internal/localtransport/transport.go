@@ -12,7 +12,9 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -120,8 +122,10 @@ func RoundTrip(ctx context.Context, input Request) (Response, error) {
 }
 
 func validRequest(input Request) bool {
+	requestPath, query, hasQuery := strings.Cut(input.Path, "?")
 	if input.SocketPath == "" || len(input.Path) == 0 || len(input.Path) > maximumPathBytes || strings.ContainsRune(input.Path, 0) ||
-		!strings.HasPrefix(input.Path, "/api/v1/") || strings.ContainsAny(input.Path, "?#\\") || path.Clean(input.Path) != input.Path ||
+		!strings.HasPrefix(requestPath, "/api/v1/") || strings.ContainsAny(input.Path, "#\\") || path.Clean(requestPath) != requestPath ||
+		(hasQuery && !validCIEnrollmentQuery(input.Method, requestPath, query)) ||
 		input.Timeout <= 0 || input.Timeout > maximumTimeout || input.ResponseLimit <= 0 || input.ResponseLimit > maximumResponseBytes || len(input.Body) > maximumRequestBytes {
 		return false
 	}
@@ -140,6 +144,43 @@ func validRequest(input Request) bool {
 	default:
 		return false
 	}
+}
+
+// Only the existing CI list endpoint may carry canonical, bounded pagination.
+// Other paths retain the transport's query prohibition.
+func validCIEnrollmentQuery(method, requestPath, query string) bool {
+	if method != MethodGet || requestPath != "/api/v1/ci/enrollments" {
+		return false
+	}
+	values, err := url.ParseQuery(query)
+	if err != nil || values.Encode() != query || len(values["limit"]) != 1 {
+		return false
+	}
+	for key, list := range values {
+		if len(list) != 1 {
+			return false
+		}
+		value := list[0]
+		switch key {
+		case "limit":
+			n, err := strconv.Atoi(value)
+			if err != nil || n < 1 || n > 100 || strconv.Itoa(n) != value {
+				return false
+			}
+		case "after":
+			if len(value) == 0 || len(value) > 128 || value[0] < 'a' || value[0] > 'z' {
+				return false
+			}
+			for _, c := range value {
+				if !(c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || strings.ContainsRune("._:-", c)) {
+					return false
+				}
+			}
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func credentialImportPath(requestPath string) bool {
