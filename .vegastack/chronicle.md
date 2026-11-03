@@ -3,6 +3,16 @@
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
 
+## 03-11-2026 — Let discovery read protected systemd credential directories ([#317](https://github.com/vegastack/vegastack-labs/issues/317))
+
+- **What:** The discovery reader uses the same directory protection check as the existing native credential resolver, including root-owned systemd directories with mode 0500 or 0550.
+- **Why:** After the controller moved to its distinct service account, read-only discovery encountered a directory layout its private check rejected. No host permission change is needed to correct that mismatch.
+- **How it went:** Portable protection and affected package tests passed; the Linux reader regression compiled. Root-owned filesystem cases require isolated Linux execution and remain unrun. One independent Codex review found no actionable issue in the runtime patch. No controller update, discovery recovery or host admission is claimed.
+- **Changed:** Shared directory check · root-owned reader fixtures and unsafe-directory denials · additive exact source seals preserving historical evidence.
+- **Decisions:** No new service, credential, dependency or permission bypass. Actual service-user ACL access and live discovery still require verification after an authorized controller update.
+
+— Phase 9 continuation approved by (omkarmohanta09) in chat · built by Codex · branch fix/317-discovery-credential-directory
+
 ## 03-11-2026 — Restore local CI enrollment pagination ([#317](https://github.com/vegastack/vegastack-labs/issues/317))
 
 - **What:** CI enrollment listing can send its existing bounded pagination query through the local Unix API transport.

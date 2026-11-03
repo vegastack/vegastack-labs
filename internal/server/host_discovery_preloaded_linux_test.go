@@ -22,7 +22,7 @@ import (
 )
 
 func TestPreloadedDiscoveryProtectedKeyFiles(t *testing.T) {
-	for _, scenario := range []string{"valid", "changed-key", "missing", "oversized", "malformed", "encrypted", "file-symlink", "directory-symlink", "file-directory", "loose-file", "loose-directory", "wrong-owner", "wrong-mode", "legacy-mode", "missing-digest", "relative-directory", "unclean-directory", "cancelled", "wrong-version"} {
+	for _, scenario := range []string{"valid", "systemd-root-0500", "systemd-root-0550", "root-writable-directory", "root-world-directory", "changed-key", "missing", "oversized", "malformed", "encrypted", "file-symlink", "directory-symlink", "file-directory", "loose-file", "loose-directory", "wrong-owner", "wrong-mode", "legacy-mode", "missing-digest", "relative-directory", "unclean-directory", "cancelled", "wrong-version"} {
 		t.Run(scenario, func(t *testing.T) {
 			directory := t.TempDir()
 			if err := os.Chmod(directory, 0700); err != nil {
@@ -45,6 +45,14 @@ func TestPreloadedDiscoveryProtectedKeyFiles(t *testing.T) {
 				}
 			}
 			switch scenario {
+			case "systemd-root-0500", "systemd-root-0550", "root-writable-directory", "root-world-directory":
+				if os.Getuid() != 0 {
+					t.Skip("root-owned systemd fixture requires isolated Linux root")
+				}
+				owner = 988
+				permissions := map[string]os.FileMode{"systemd-root-0500": 0500, "systemd-root-0550": 0550, "root-writable-directory": 0750, "root-world-directory": 0555}
+				must(os.Chmod(path, 0440))
+				must(os.Chmod(directory, permissions[scenario]))
 			case "changed-key":
 				other, _ := preloadedReaderSyntheticKey(t)
 				must(os.WriteFile(path, other, 0600))
@@ -95,7 +103,7 @@ func TestPreloadedDiscoveryProtectedKeyFiles(t *testing.T) {
 			}
 			t.Setenv("CREDENTIALS_DIRECTORY", directory)
 			value, err := newPreloadedDiscoveryKeyReader(owner).Borrow(ctx, target)
-			if scenario != "valid" {
+			if scenario != "valid" && scenario != "systemd-root-0500" && scenario != "systemd-root-0550" {
 				if value != nil {
 					value.Close()
 					t.Fatal("denial returned credential")
