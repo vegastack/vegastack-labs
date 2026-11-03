@@ -99,7 +99,8 @@ func TestNetworkConnectSourceSealsRejectDrift(t *testing.T) {
 		}
 		checked++
 	}
-	if checked != 24+1+1+2 {
-		t.Fatal("all 24 existing platform/domain variants plus exact pilot/maintenance validators and connector runtime variants must be sealed")
+	// #317 adds three exact CLI platform/fixture variants; historical maps remain unchanged.
+	if checked != 24+1+1+2+3 {
+		t.Fatalf("expected 31 exact source variants, checked %d", checked)
 	}
 }
