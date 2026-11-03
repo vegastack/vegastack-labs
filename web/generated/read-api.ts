@@ -1196,6 +1196,7 @@ export interface HostDiscoveryTarget {
   readonly "port": number;
   readonly "user": string;
   readonly "hostKey": string;
+  readonly "actionUser"?: string | null;
   readonly "profileId": string;
   readonly "credentialReferenceId": string;
   readonly "materialVersion": string;
@@ -9499,6 +9500,15 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "nullable": false,
         "minLength": 1,
         "maxLength": 2048
+      },
+      {
+        "name": "actionUser",
+        "kind": "string",
+        "required": false,
+        "nullable": true,
+        "omitEmpty": true,
+        "minLength": 1,
+        "maxLength": 32
       },
       {
         "name": "profileId",

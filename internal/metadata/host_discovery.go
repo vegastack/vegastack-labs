@@ -27,6 +27,7 @@ func hostDiscoverySchemas() []SchemaDefinition {
 			phase5ID("targetId", "TargetID"), phase5Positive("revision", "Revision"),
 			discoveryText("address", "Address", 45), phase5Positive("port", "Port"),
 			discoveryText("user", "User", 32), discoveryText("hostKey", "HostKey", 2048),
+			FieldDefinition{JSONName: "actionUser", GoName: "ActionUser", Kind: ValueString, Nullable: true, OmitEmpty: true, MinLength: intPointer(1), MaxLength: intPointer(32)},
 			phase5ID("profileId", "ProfileID"), phase5ID("credentialReferenceId", "CredentialReferenceID"), phase5ID("materialVersion", "MaterialVersion"),
 			discoveryText("expectedOs", "ExpectedOS", 32), discoveryText("expectedVersion", "ExpectedVersion", 32), discoveryText("expectedArchitecture", "ExpectedArchitecture", 32),
 			phase5NullableID("inventoryDraftId", "InventoryDraftID"), phase5Nonnegative("inventoryDraftRevision", "InventoryDraftRevision"), phase5NullableID("assetId", "AssetID"),

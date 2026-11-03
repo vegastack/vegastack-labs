@@ -3,6 +3,14 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
+    "actionUser": {
+      "maxLength": 32,
+      "minLength": 1,
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "address": {
       "maxLength": 45,
       "minLength": 1,

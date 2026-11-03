@@ -3108,6 +3108,7 @@ type HostDiscoveryTarget struct {
 	Port                      int64   `json:"port"`
 	User                      string  `json:"user"`
 	HostKey                   string  `json:"hostKey"`
+	ActionUser                *string `json:"actionUser,omitempty"`
 	ProfileID                 string  `json:"profileId"`
 	CredentialReferenceID     string  `json:"credentialReferenceId"`
 	MaterialVersion           string  `json:"materialVersion"`

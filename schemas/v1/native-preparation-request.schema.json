@@ -2050,6 +2050,14 @@
     "host-discovery-target": {
       "additionalProperties": false,
       "properties": {
+        "actionUser": {
+          "maxLength": 32,
+          "minLength": 1,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "address": {
           "maxLength": 45,
           "minLength": 1,

@@ -1458,3 +1458,13 @@ The final source-boundary check exposed the shared volume-lineage change in the 
 - **Decisions:** Existing Phase 6 deferrals remain deferred. No live operations, new service or independent review round.
 
 — approved by (omkarmohanta09) · built by Codex · branch chore/7.9-operator-procedures
+
+## 03-11-2026 — Discovery and helper actions can use separate logins ([#363](https://github.com/vegastack/vegastack-labs/issues/363))
+
+- **What:** An optional `actionUser` on the existing approved host target selects the helper SSH account while `user` continues to select the discovery account. Older targets retain their original encoding, digest and account behavior.
+- **Why:** Using the helper key with the discovery administrator's username prevented the prepared helper from being reached. Replacing the discovery username would break its existing credential and identity-read path.
+- **How it went:** Local regressions reproduced the forced shared login and rejected the missing contract field before the fix. Focused target/digest, resolver, metadata and generated-contract tests passed. Source validation does not establish live host admission or Phase 9 acceptance.
+- **Changed:** Existing target metadata and generated contracts, non-root account validation, helper transport selection and operator procedure. No new dependency or database migration.
+- **Decisions:** Reuse the existing target revision/digest and approval flow. Publishing and live installation remain separate steps.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/363-action-ssh-account
