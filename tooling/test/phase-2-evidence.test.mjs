@@ -776,8 +776,9 @@ test("controller plan classification appends its exact closure and preserves con
 test("the #317 working delivery closure preserves history and rejects missing or widened authority", async () => {
   const manifest = await loadManifest();
   const facts = await collectIntegratedFacts(ROOT);
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-2), {id:"controller-plan-risk-issue333-v2",issue:333,commands:[],imports:[],mutationBoundaryDigest:"sha256:3a98f172f6c3a45a44742ccf92b79a01320625d2560310fed0efd81343fb5bd2"});
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-1), {id:"phase9-working-delivery-issue317-v1",issue:317,commands:[],imports:[],mutationBoundaryDigest:facts.postPhase2MutationBoundaryDigest});
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-3), {id:"controller-plan-risk-issue333-v2",issue:333,commands:[],imports:[],mutationBoundaryDigest:"sha256:3a98f172f6c3a45a44742ccf92b79a01320625d2560310fed0efd81343fb5bd2"});
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-2), {id:"phase9-working-delivery-issue317-v1",issue:317,commands:[],imports:[],mutationBoundaryDigest:"sha256:7305ec7a5c70415d31273d018f5f3fc32abdec706411ea45dd5b6f8c55ec0401"});
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-1), {id:"phase9-ci-pagination-issue317-v1",issue:317,commands:[],imports:[],mutationBoundaryDigest:facts.postPhase2MutationBoundaryDigest});
   assert.equal(validateEvidence(manifest, facts).status, "pass");
   for (const mutate of [
     m => m.contract.reviewedWaves.pop(),

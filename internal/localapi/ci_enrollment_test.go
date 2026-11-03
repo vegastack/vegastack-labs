@@ -121,3 +121,49 @@ func TestCIEnrollmentClientValidatesActualUnixResponse(t *testing.T) {
 		})
 	}
 }
+
+func TestCIEnrollmentListReachesUnixServerWithPagination(t *testing.T) {
+	for _, tc := range []struct {
+		name, after, query string
+		limit              int
+	}{
+		{"default", "", "limit=50", 50},
+		{"next-page", "enrollment-a", "after=enrollment-a&limit=1", 1},
+		{"encoded-id", "enrollment:a", "after=enrollment%3Aa&limit=7", 7},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir, err := os.MkdirTemp("/tmp", "vsk-ci-page-")
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { os.RemoveAll(dir) })
+			socket := filepath.Join(dir, "api.sock")
+			listener, err := net.Listen("unix", socket)
+			if err != nil {
+				t.Fatal(err)
+			}
+			data := generated.CiEnrollmentList{Schema: generated.SchemaIDCiEnrollmentList, SchemaVersion: "1.0.0", Enrollments: []generated.CiEnrollmentRecord{}, StateRevision: 3, RecoveryEpoch: 1}
+			envelope, err := clientTestFactory().Success("api.v1.ci.enrollments.list", 1, 3, data)
+			if err != nil {
+				t.Fatal(err)
+			}
+			raw, err := json.Marshal(envelope)
+			if err != nil {
+				t.Fatal(err)
+			}
+			server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != "GET" || r.URL.Path != "/api/v1/ci/enrollments" || r.URL.RawQuery != tc.query {
+					t.Error("wrong enrollment pagination request", r.Method, r.URL)
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.Write(append(raw, '\n'))
+			})}
+			go server.Serve(listener)
+			t.Cleanup(func() { server.Close() })
+			response, err := NewClient(clientTestFactory()).ListCIEnrollments(context.Background(), serverconfig.Profile{SocketPath: socket}, tc.after, tc.limit)
+			if err != nil || response.ExitCode != 0 || response.Data.StateRevision != 3 || response.Data.Enrollments == nil {
+				t.Fatalf("valid enrollment page did not reach the local API: response=%+v err=%v", response, err)
+			}
+		})
+	}
+}

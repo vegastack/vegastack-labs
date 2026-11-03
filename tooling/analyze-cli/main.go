@@ -757,7 +757,7 @@ func reviewedControlNetworkImport(candidate checkedSourcePackage, imported, main
 		}
 		return false
 	case localTransportImport:
-		return (imported == "net" || imported == "net/http") && reviewedLocalTransportPackage(candidate)
+		return (imported == "net" || imported == "net/http" || imported == "net/url") && reviewedLocalTransportPackage(candidate)
 	case sshTransportImport:
 		return imported == "net/http" && reviewedSSHTransportPackage(candidate, localTransportImport)
 	case serverConfigImport:
@@ -1622,6 +1622,9 @@ func reviewedUnixDial(function *types.Func, call *ast.CallExpr) bool {
 
 const reviewedLocalTransportDigest = "3f97f09b0fb0280196e869b0defe165fee6eefbb0caec1fbbf91fa2e4a1143c4"
 
+// #317 adds only bounded canonical CI enrollment pagination.
+const reviewedCIPaginationTransportDigest = "209aee2bbed1ccc23323e37cfdf3dd8e1ad9257fda7ceb9ad8afe000e2c23a28"
+
 const reviewedSSHTransportDigest = "398d7cc24e246c024285ed0dc7aea0d178b64fe53f42238a26f06c289f4f69d3"
 
 // forbiddenBackupProcessPatterns are secret/lock transports the pinned restic
@@ -1828,6 +1831,10 @@ func reviewedLocalTransportPackage(candidate checkedSourcePackage) bool {
 		"net/http": true, "path": true, "strings": true, "time": true,
 		"github.com/vegastack/vegastack-labs/internal/credentialref": true,
 	}
+	digest := digestSourceFiles(candidate.listed.Dir, candidate.listed.GoFiles)
+	if digest == reviewedCIPaginationTransportDigest {
+		approvedImports["net/url"], approvedImports["strconv"] = true, true
+	}
 	if len(candidate.listed.GoFiles) != 1 || candidate.listed.GoFiles[0] != "transport.go" || len(candidate.listed.Imports) != len(approvedImports) {
 		return false
 	}
@@ -1851,7 +1858,7 @@ func reviewedLocalTransportPackage(candidate checkedSourcePackage) bool {
 			return false
 		}
 	}
-	return digestSourceFiles(candidate.listed.Dir, candidate.listed.GoFiles) == reviewedLocalTransportDigest
+	return digest == reviewedLocalTransportDigest || digest == reviewedCIPaginationTransportDigest
 }
 
 func digestSourceFiles(directory string, names []string) string {
