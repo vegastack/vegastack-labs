@@ -32,5 +32,9 @@ func (s hostActionTargets) Resolve(ctx context.Context, b generated.HostActionBu
 		return transport.Target{}, actionFailure()
 	}
 	t := x.Target
-	return transport.Target{HostID: r.HostID, HostIdentityDigest: b.HostIdentityDigest, Address: t.Address, User: t.User, HostKey: t.HostKey, AutomationPrincipalID: r.AutomationPrincipalID, Port: uint16(t.Port), CallerUID: uint32(r.CallerUID), Revision: t.Revision}, nil
+	user := t.User
+	if t.ActionUser != nil {
+		user = *t.ActionUser
+	}
+	return transport.Target{HostID: r.HostID, HostIdentityDigest: b.HostIdentityDigest, Address: t.Address, User: user, HostKey: t.HostKey, AutomationPrincipalID: r.AutomationPrincipalID, Port: uint16(t.Port), CallerUID: uint32(r.CallerUID), Revision: t.Revision}, nil
 }

@@ -22,6 +22,9 @@ func ValidateTarget(value generated.HostDiscoveryTarget) error {
 	if err != nil || address.Zone() != "" || address.IsUnspecified() || address.IsMulticast() || address.IsLinkLocalUnicast() || address.IsLinkLocalMulticast() || address.Is4In6() || address.String() != value.Address || value.Port > 65535 || !username.MatchString(value.User) || value.User == "root" {
 		return deny()
 	}
+	if value.ActionUser != nil && (!username.MatchString(*value.ActionUser) || *value.ActionUser == "root") {
+		return deny()
+	}
 	key, comment, options, rest, err := ssh.ParseAuthorizedKey([]byte(value.HostKey))
 	if err != nil || len(rest) != 0 || len(options) != 0 || comment != "" || strings.TrimSpace(string(ssh.MarshalAuthorizedKey(key))) != value.HostKey {
 		return deny()
