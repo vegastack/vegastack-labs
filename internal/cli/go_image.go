@@ -9,7 +9,7 @@ import (
 )
 
 func (app *App) buildGoImage(ctx context.Context, p parsedArguments) int {
-	out, err := release.BuildGoImageFile(ctx, p.Value("--binary"), release.GoImageRequest{SourceURI: p.Value("--source-uri"), SourceRevision: p.Value("--source-revision"), BuilderID: p.Value("--builder-id"), InvocationID: p.Value("--invocation-id")})
+	out, err := release.BuildGoImageFile(ctx, p.Value("--binary"), release.GoImageRequest{SelfHealthcheck: p.Switch("--self-healthcheck"), SourceURI: p.Value("--source-uri"), SourceRevision: p.Value("--source-revision"), BuilderID: p.Value("--builder-id"), InvocationID: p.Value("--invocation-id")})
 	if err == nil {
 		err = release.WriteGoImage(ctx, p.Value("--directory"), out)
 	}

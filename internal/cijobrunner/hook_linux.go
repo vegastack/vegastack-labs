@@ -47,7 +47,15 @@ func RunHook(ctx context.Context, socket string) error {
 	}
 	// The private PID1 validated every launch-bound field before supplying binding.
 	// Preserve already buffered bytes while Close interrupts the underlying socket.
-	return cijobguard.Hold(ctx, expected, time.Now().Add(time.Hour), &hookReader{Reader: r, Closer: c}, terminateInit)
+	if err := cijobguard.Hold(ctx, expected, time.Now().Add(time.Hour), &hookReader{Reader: r, Closer: c}, terminateInit); err != nil {
+		return err
+	}
+	// User steps start only after this hook exits successfully. Never publish
+	// private plan/lease/epoch fields, or release the job on a failed write.
+	if writeJobIdentity(runnerRoot, expected) != nil {
+		return terminateInit()
+	}
+	return nil
 }
 
 type hookReader struct {

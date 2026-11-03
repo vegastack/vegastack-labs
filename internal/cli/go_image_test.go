@@ -76,6 +76,37 @@ func TestGoImageCLIActualCompileAndOutput(t *testing.T) {
 	if code == 0 {
 		t.Fatal("output overwritten")
 	}
+
+	// The public parser must carry the explicit healthcheck option into actual OCI bytes.
+	healthyOutput := filepath.Join(t.TempDir(), "healthy-oci")
+	healthyArgs := append([]string(nil), args...)
+	healthyArgs[len(healthyArgs)-3] = healthyOutput
+	healthyArgs = append(healthyArgs, "--self-healthcheck")
+	code, stdout, stderr = runTestApp(t, context.Background(), healthyArgs, nil)
+	if code != 0 {
+		t.Fatal("healthcheck option failed", code, stdout, stderr)
+	}
+	var index struct{ Manifests []struct{ Digest string } }
+	raw, err := os.ReadFile(filepath.Join(healthyOutput, "index.json"))
+	if err != nil || json.Unmarshal(raw, &index) != nil || len(index.Manifests) != 1 {
+		t.Fatal("missing OCI index", err)
+	}
+	var manifest struct{ Config struct{ Digest string } }
+	raw, err = os.ReadFile(filepath.Join(healthyOutput, "blobs", "sha256", strings.TrimPrefix(index.Manifests[0].Digest, "sha256:")))
+	if err != nil || json.Unmarshal(raw, &manifest) != nil {
+		t.Fatal("missing manifest", err)
+	}
+	raw, err = os.ReadFile(filepath.Join(healthyOutput, "blobs", "sha256", strings.TrimPrefix(manifest.Config.Digest, "sha256:")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var config struct {
+		Config struct{ Healthcheck struct{ Test []string } }
+	}
+	if json.Unmarshal(raw, &config) != nil || strings.Join(config.Config.Healthcheck.Test, "|") != "CMD|/app|--healthcheck" {
+		t.Fatal("CLI did not produce executable healthcheck")
+	}
+
 	// An actual recompile after changing source must be denied as dirty.
 	if e := os.WriteFile(filepath.Join(source, "main.go"), []byte("package main\nfunc main(){println(1)}\n"), 0600); e != nil {
 		t.Fatal(e)

@@ -125,3 +125,68 @@ func TestGoImageRejectsUnsignedPublicationEvidence(t *testing.T) {
 		t.Fatal("unsigned payloads passed authenticated verification")
 	}
 }
+
+func TestGoImageSelfHealthcheckIsExplicitAndBoundToProvenance(t *testing.T) {
+	binary, revision := compileImageBinary(t)
+	q := GoImageRequest{Binary: binary, SourceURI: "https://example.org/app", SourceRevision: revision, BuilderID: "https://example.org/builder", InvocationID: "https://example.org/run/1"}
+	plain, err := BuildGoImage(context.Background(), q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	q.SelfHealthcheck = true
+	checked, err := BuildGoImage(context.Background(), q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var config struct {
+		Config struct {
+			Healthcheck *struct {
+				Test                           []string
+				Interval, Timeout, StartPeriod int64
+				Retries                        int
+			}
+		}
+	}
+	if err = json.Unmarshal(plain.Config, &config); err != nil || config.Config.Healthcheck != nil {
+		t.Fatal("default image acquired a healthcheck", err)
+	}
+	if err = json.Unmarshal(checked.Config, &config); err != nil {
+		t.Fatal(err)
+	}
+	h := config.Config.Healthcheck
+	if h == nil || strings.Join(h.Test, "|") != "CMD|/app|--healthcheck" || h.Interval != 30_000_000_000 || h.Timeout != 5_000_000_000 || h.StartPeriod != 5_000_000_000 || h.Retries != 3 {
+		t.Fatalf("missing bounded exec healthcheck: %+v", h)
+	}
+	if checked.Expected.ImageDigest == plain.Expected.ImageDigest {
+		t.Fatal("healthcheck did not change immutable image identity")
+	}
+	params, err := jsonObject(context.Background(), checked.Expected.ExternalParameters)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(checked.Expected.ExternalParameters, []byte(`"selfHealthcheck":true`)) {
+		t.Fatal("healthcheck missing from expected signed parameters")
+	}
+	predicate, err := statementPredicate(context.Background(), checked.ProvenanceStatement, "https://slsa.dev/provenance/v1", checked.Expected.ImageDigest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = checkProvenance(context.Background(), predicate, checked.Expected, params); err != nil {
+		t.Fatal(err)
+	}
+	// The existing authenticated publication verifier accepts the exact new image
+	// and parameters without a new trust format or relaxed signature checks.
+	signed := signBuildStatements(t, checked.Manifest, checked.Expected, checked.ProvenanceStatement, checked.SBOMStatement)
+	if _, err = VerifyBuildEvidenceBytes(context.Background(), signed); err != nil {
+		t.Fatal("healthchecked image failed existing evidence verifier", err)
+	}
+	signed.Expected.ExternalParameters = plain.Expected.ExternalParameters
+	if _, err = VerifyBuildEvidenceBytes(context.Background(), signed); err == nil {
+		t.Fatal("healthcheck parameter substitution accepted")
+	}
+
+	var manifest struct{ Config struct{ Digest string } }
+	if err = json.Unmarshal(checked.Manifest, &manifest); err != nil || manifest.Config.Digest != hashOCI(checked.Config) {
+		t.Fatal("manifest did not bind healthcheck configuration", err)
+	}
+}

@@ -1019,6 +1019,7 @@ Owner phase: `9` · risk: `read-only` · availability: `available`
 - `--invocation-id <uri>` — Record supplied packaging invocation URI.
 - `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
 - `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+- `--self-healthcheck` — Add an exec healthcheck using /app --healthcheck; select only when the application implements it. No binary is executed during packaging.
 - `--source-revision <revision>` — Require this exact revision in compiler-reported clean VCS metadata.
 - `--source-uri <uri>` — Record caller-supplied source URI; this is not authenticated source identity.
 

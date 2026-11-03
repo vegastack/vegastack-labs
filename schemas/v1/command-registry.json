@@ -5715,6 +5715,15 @@
           ]
         },
         {
+          "name": "--self-healthcheck",
+          "kind": "switch",
+          "valueName": "",
+          "required": false,
+          "repeatable": false,
+          "summary": "Add an exec healthcheck using /app --healthcheck; select only when the application implements it. No binary is executed during packaging.",
+          "enum": null
+        },
+        {
           "name": "--source-revision",
           "kind": "value",
           "valueName": "revision",
