@@ -15,11 +15,14 @@ var ciWorkingDeliveryHistoricalSourceSeals = map[string]hostActionSourceSeal{
 
 // #367 exact current timing variants; retain every historical literal seal above.
 var ciWorkingDeliverySourceSeals = func() map[string]hostActionSourceSeal {
-	current := make(map[string]hostActionSourceSeal, len(ciWorkingDeliveryHistoricalSourceSeals)+len(helperClockSkewSourceSeals))
+	current := make(map[string]hostActionSourceSeal, len(ciWorkingDeliveryHistoricalSourceSeals)+len(helperClockSkewSourceSeals)+len(fail2banStartupSourceSeals))
 	for key, seal := range ciWorkingDeliveryHistoricalSourceSeals {
 		current[key] = seal
 	}
 	for key, seal := range helperClockSkewSourceSeals {
+		current[key] = seal
+	}
+	for key, seal := range fail2banStartupSourceSeals {
 		current[key] = seal
 	}
 	return current
@@ -31,4 +34,10 @@ var helperClockSkewSourceSeals = map[string]hostActionSourceSeal{
 	"internal/hostaction|bundle.go,ci_job.go,native_producer_bundle.go,native_receipt.go,native_receipt_linux.go,native_receipt_unix.go,once.go,pipe_unix.go,policy_unix.go,receipt_unix.go,recovery_payload.go,request.go,result.go":                {imports: []string{"bufio", "bytes", "context", "crypto/ed25519", "crypto/sha256", "encoding/base64", "encoding/hex", "encoding/json", "github.com/vegastack/vegastack-labs/internal/failure", "github.com/vegastack/vegastack-labs/internal/generated", "github.com/vegastack/vegastack-labs/internal/strictjson", "golang.org/x/sys/unix", "io", "os", "path/filepath", "regexp", "strings", "sync", "time"}, digest: "e6116575c6acc7cb0e7a99d8c677f3e4905070c5d589a2e405d9ac8c6422bc9e"},
 	"internal/hostaction|bundle.go,ci_job.go,native_producer_bundle.go,native_receipt.go,native_receipt_unix.go,native_receipt_unsupported.go,once.go,pipe_unix.go,policy_unix.go,receipt_unix.go,recovery_payload.go,request.go,result.go":          {imports: []string{"bufio", "bytes", "context", "crypto/ed25519", "crypto/sha256", "encoding/base64", "encoding/hex", "encoding/json", "github.com/vegastack/vegastack-labs/internal/failure", "github.com/vegastack/vegastack-labs/internal/generated", "github.com/vegastack/vegastack-labs/internal/strictjson", "golang.org/x/sys/unix", "io", "os", "path/filepath", "regexp", "strings", "sync", "time"}, digest: "4b8d80f7a9cd58debf58b1933dc88fee8c93ca325fb40f5c27575acc9a924b5b"},
 	"internal/hostaction|bundle.go,ci_job.go,native_producer_bundle.go,native_receipt.go,native_receipt_unsupported.go,once.go,pipe_other.go,platform_unsupported.go,recovery_payload.go,request.go,result.go":                                       {imports: []string{"bufio", "context", "crypto/ed25519", "crypto/sha256", "encoding/base64", "encoding/hex", "encoding/json", "github.com/vegastack/vegastack-labs/internal/failure", "github.com/vegastack/vegastack-labs/internal/generated", "github.com/vegastack/vegastack-labs/internal/strictjson", "io", "os", "time"}, digest: "7cf37e981e01a911ef63c088a6c836748f89243a2dbfd7c49a143fd08068ea21"},
+}
+
+// #369 exact Fail2ban startup readiness variants; no new files or imports.
+var fail2banStartupSourceSeals = map[string]hostActionSourceSeal{
+	"internal/debianbaseline|aide.go,apparmor.go,apply_unix.go,apt_unix.go,audit.go,collect.go,fail2ban.go,handler.go,health.go,input.go,native_unix.go,policy.go,reader.go,time_unix.go,volume_files_unix.go,volume_linux.go,volume_mapping.go,volume_metadata.go,volume_native_cases_linux.go,volume_native_witness_linux.go,volume_recovery_linux.go,volume_recovery_unix.go": {imports: []string{"bytes", "context", "crypto/sha256", "encoding/binary", "encoding/hex", "encoding/json", "errors", "fmt", "github.com/vegastack/vegastack-labs/internal/debianaccess", "github.com/vegastack/vegastack-labs/internal/generated", "github.com/vegastack/vegastack-labs/internal/hostaction", "github.com/vegastack/vegastack-labs/internal/strictjson", "golang.org/x/sys/unix", "io", "math", "net/netip", "os", "os/exec", "path", "path/filepath", "reflect", "regexp", "runtime", "slices", "sort", "strconv", "strings", "syscall", "time"}, digest: "2f1c32ccc43f6343592b3b0f811645fa0204cb74554fc09c26b41ce9e8d79c23"},
+	"internal/debianbaseline|aide.go,apparmor.go,apply_unix.go,apt_unix.go,audit.go,collect.go,fail2ban.go,handler.go,health.go,input.go,native_unix.go,policy.go,reader.go,time_unix.go,volume_files_unix.go,volume_mapping.go,volume_metadata.go,volume_recovery_unix.go,volume_unsupported.go":                                                                                {imports: []string{"bytes", "context", "crypto/sha256", "encoding/binary", "encoding/hex", "encoding/json", "errors", "fmt", "github.com/vegastack/vegastack-labs/internal/debianaccess", "github.com/vegastack/vegastack-labs/internal/generated", "github.com/vegastack/vegastack-labs/internal/hostaction", "github.com/vegastack/vegastack-labs/internal/strictjson", "golang.org/x/sys/unix", "io", "math", "net/netip", "os", "os/exec", "path", "reflect", "regexp", "runtime", "slices", "sort", "strconv", "strings", "syscall", "time"}, digest: "0e6eff7ac20c1fbd4f5e59a7144dd0c83e87769b9d64388ca888770cea9477fd"},
 }
