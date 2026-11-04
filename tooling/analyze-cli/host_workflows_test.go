@@ -99,8 +99,9 @@ func TestNetworkConnectSourceSealsRejectDrift(t *testing.T) {
 		}
 		checked++
 	}
-	// #317 adds three exact CLI platform/fixture variants; historical maps remain unchanged.
-	if checked != 24+1+1+2+3 {
-		t.Fatalf("expected 31 exact source variants, checked %d", checked)
+	// #317 adds three CLI variants; #369 adds two exact baseline variants.
+	// Historical maps remain unchanged.
+	if checked != 24+1+1+2+3+2 {
+		t.Fatalf("expected 33 exact source variants, checked %d", checked)
 	}
 }
