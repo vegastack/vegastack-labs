@@ -784,6 +784,13 @@
         "commands": [],
         "imports": [],
         "mutationBoundaryDigest": "sha256:b4c8dec0c0c8354aba9ce356a9f79560df8c0ba321fdd8f1d4b5571b153c271a"
+      },
+      {
+        "id": "phase9-fail2ban-journal-issue371-v1",
+        "issue": 371,
+        "commands": [],
+        "imports": [],
+        "mutationBoundaryDigest": "sha256:ac943eab1fb60fc069d37560202ee3ec24a5abd0bcf3de56d616564f43368375"
       }
     ]
   },
