@@ -6,7 +6,7 @@ import (
 )
 
 // Issue226 additive exact source closures. Historical Issue223/225 seals remain unchanged.
-var debianBaselineSourceSeals = map[string]hostActionSourceSeal{
+var debianBaselineHistoricalSourceSeals = map[string]hostActionSourceSeal{
 	"cmd/vsk-labs|access_rollback_linux.go,host_action_linux.go,main.go,native_probe_linux.go":                                                                                    {imports: []string{"context", "crypto/rand", "encoding/hex", "github.com/vegastack/vegastack-labs/internal/adapter/nativecredential", "github.com/vegastack/vegastack-labs/internal/backup", "github.com/vegastack/vegastack-labs/internal/cli", "github.com/vegastack/vegastack-labs/internal/clientfile", "github.com/vegastack/vegastack-labs/internal/debianaccess", "github.com/vegastack/vegastack-labs/internal/debianbaseline", "github.com/vegastack/vegastack-labs/internal/hostaction", "github.com/vegastack/vegastack-labs/internal/release", "github.com/vegastack/vegastack-labs/internal/result", "github.com/vegastack/vegastack-labs/internal/server", "os", "os/signal", "strconv", "syscall", "time"}, digest: "1d1ba29bc740ae0651ef9bc0e8fc01bae600061ea3445a0ff2c046a0e99184a5"},
 	"cmd/vsk-labs|access_rollback_unsupported.go,host_action_unsupported.go,main.go,native_probe_unsupported.go":                                                                  {imports: []string{"context", "crypto/rand", "encoding/hex", "github.com/vegastack/vegastack-labs/internal/backup", "github.com/vegastack/vegastack-labs/internal/cli", "github.com/vegastack/vegastack-labs/internal/clientfile", "github.com/vegastack/vegastack-labs/internal/release", "github.com/vegastack/vegastack-labs/internal/result", "github.com/vegastack/vegastack-labs/internal/server", "os", "os/signal", "syscall"}, digest: "3a1e120ce55e2414783b81cd3a25e776ab1a2e121e4aec8ed42543d7404edf47"},
 	"internal/adapter/hostaction|access_render.go,access_render_lock.go,access_render_unix.go,access_sequence.go,adapter.go,baseline_render.go,profile_renderer.go,ssh.go":        {imports: []string{"bufio", "bytes", "context", "encoding/base64", "encoding/json", "github.com/vegastack/vegastack-labs/ansible", "github.com/vegastack/vegastack-labs/internal/adapter", "github.com/vegastack/vegastack-labs/internal/credentialref", "github.com/vegastack/vegastack-labs/internal/debianaccess", "github.com/vegastack/vegastack-labs/internal/debianbaseline", "github.com/vegastack/vegastack-labs/internal/failure", "github.com/vegastack/vegastack-labs/internal/generated", "github.com/vegastack/vegastack-labs/internal/hostaction", "github.com/vegastack/vegastack-labs/internal/strictjson", "golang.org/x/crypto/ssh", "io", "io/fs", "net", "os", "os/exec", "path/filepath", "strconv", "strings", "sync", "syscall", "time"}, digest: "d46dc43e17c970a251c29c35cbe6ee3f1611ebe4f4c9df790e0fc89e5970fa52"},
@@ -20,6 +20,19 @@ var debianBaselineSourceSeals = map[string]hostActionSourceSeal{
 	"internal/hostaction|bundle.go,once.go,pipe_other.go,platform_unsupported.go,request.go,result.go":       {imports: []string{"bufio", "context", "crypto/ed25519", "crypto/sha256", "encoding/base64", "encoding/hex", "encoding/json", "github.com/vegastack/vegastack-labs/internal/failure", "github.com/vegastack/vegastack-labs/internal/generated", "github.com/vegastack/vegastack-labs/internal/strictjson", "io", "os", "time"}, digest: "8238485b161c60e600b1f06f4ea4bbae9892a8e6011b071ab7e5fb095e7a2249"},
 	"internal/hostaction|bundle.go,once.go,pipe_unix.go,policy_unix.go,receipt_unix.go,request.go,result.go": {imports: []string{"bufio", "bytes", "context", "crypto/ed25519", "crypto/sha256", "encoding/base64", "encoding/hex", "encoding/json", "github.com/vegastack/vegastack-labs/internal/failure", "github.com/vegastack/vegastack-labs/internal/generated", "github.com/vegastack/vegastack-labs/internal/strictjson", "golang.org/x/sys/unix", "io", "os", "path/filepath", "regexp", "strings", "sync", "time"}, digest: "3675a399e7f9b279f5ce77ec81ca8448a5ce154f3ab1a1a049663d2cd0be3ee2"},
 }
+
+// #369 routes only the two exact current startup variants through the existing checker.
+// Every historical literal seal remains unchanged above.
+var debianBaselineSourceSeals = func() map[string]hostActionSourceSeal {
+	current := make(map[string]hostActionSourceSeal, len(debianBaselineHistoricalSourceSeals)+len(fail2banStartupSourceSeals))
+	for key, seal := range debianBaselineHistoricalSourceSeals {
+		current[key] = seal
+	}
+	for key, seal := range fail2banStartupSourceSeals {
+		current[key] = seal
+	}
+	return current
+}()
 
 func reviewedDebianBaselinePackage(c checkedSourcePackage, module, relative string) bool {
 	if c.listed.ImportPath != module+"/"+relative || len(c.listed.CgoFiles) != 0 {
