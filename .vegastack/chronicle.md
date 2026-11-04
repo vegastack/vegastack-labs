@@ -4,6 +4,16 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 
 
 
+## 04-11-2026 — Reload Audit with its supported native command ([#373](https://github.com/vegastack/vegastack-labs/issues/373))
+
+- **What:** The existing Audit baseline action requests its configuration reload through the Audit control utility once, preserving the surrounding rollback and verification sequence.
+- **Why:** Debian's packaged auditd service has no service-manager reload command, so the previous request failed after loading the selected rules.
+- **How it went:** A regression at the actual reload method reproduced the unsupported service reload before the correction. The fixed command, unchanged context and error propagation are covered locally; whole-Apply and live acceptance remain separate.
+- **Changed:** One existing native reload call and focused compatibility/failure regressions · additive exact source bindings preserving prior history.
+- **Decisions:** No new dependency, service, signal choice, permission or retry path.
+
+— Phase 9 continuation by (omkarmohanta09) in chat · built by Codex · branch fix/373-audit-native-reload
+
 ## 04-11-2026 — Read the native Fail2ban SSH journal match ([#371](https://github.com/vegastack/vegastack-labs/issues/371))
 
 - **What:** The existing Fail2ban observer recognizes its native journal-match display header and still requires the exact SSH service rule.

@@ -80,7 +80,7 @@ func (n *nativeRuntime) Apply(ctx context.Context, b generated.HostActionBundle,
 		if _, e = n.run(ctx, "/usr/sbin/auditctl", []string{"-R", "/etc/audit/rules.d/70-vsk-security.rules"}, nil); e != nil {
 			return Result{Changed: true}, e
 		}
-		if _, e = n.run(ctx, "/usr/bin/systemctl", []string{"reload", "auditd.service"}, nil); e != nil {
+		if e = n.reloadAudit(ctx); e != nil {
 			return Result{Changed: true}, e
 		}
 	}
@@ -335,5 +335,10 @@ func (n *nativeRuntime) startFail2ban(ctx context.Context) error {
 		return errBaseline
 	}
 	_, e := n.run(ctx, "/usr/bin/fail2ban-client", []string{"reload", "sshd"}, nil)
+	return e
+}
+
+func (n *nativeRuntime) reloadAudit(ctx context.Context) error {
+	_, e := n.run(ctx, "/usr/sbin/auditctl", []string{"--signal", "reload"}, nil)
 	return e
 }

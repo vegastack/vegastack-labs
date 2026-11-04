@@ -8,12 +8,22 @@ import (
 	"testing"
 )
 
-func TestFail2banJournalActualBaselineSealsRejectDrift(t *testing.T) {
+func TestAuditReloadActualBaselineSealsRejectDrift(t *testing.T) {
 	const module = "github.com/vegastack/vegastack-labs"
-	if len(fail2banJournalSourceSeals) != 3 {
+	if len(fail2banJournalSourceSeals) != 3 || len(auditReloadSourceSeals) != 2 {
 		t.Fatal("unexpected journal source scope")
 	}
+	current := make(map[string]hostActionSourceSeal)
 	for key, seal := range fail2banJournalSourceSeals {
+		current[key] = seal
+	}
+	for key, seal := range auditReloadSourceSeals {
+		current[key] = seal
+	}
+	if len(current) != 3 {
+		t.Fatal("current variants widened")
+	}
+	for key, seal := range current {
 		t.Run(key, func(t *testing.T) {
 			relative, joined, ok := strings.Cut(key, "|")
 			if !ok || relative != "internal/debianbaseline" {
@@ -32,7 +42,7 @@ func TestFail2banJournalActualBaselineSealsRejectDrift(t *testing.T) {
 			}
 			c := checkedSourcePackage{sourcePackage: sourcePackage{listed: listedPackage{ImportPath: module + "/" + relative, Dir: dir, GoFiles: slices.Clone(names), Imports: slices.Clone(seal.imports)}}}
 			if !reviewedDebianBaselinePackage(c, module, relative) {
-				t.Fatal("actual baseline checker rejected exact journal source")
+				t.Fatal("actual baseline checker rejected exact current source")
 			}
 			first := filepath.Join(dir, names[0])
 			raw, e := os.ReadFile(first)
@@ -93,6 +103,33 @@ func TestFail2banStartupHistoricalSealsPreserved(t *testing.T) {
 		current, ok := fail2banJournalSourceSeals[key]
 		if !ok || !slices.Equal(current.imports, seal.imports) || current.digest == seal.digest {
 			t.Fatal("current journal variant lost exact startup import/file binding")
+		}
+	}
+}
+
+// Historical #371 native bytes remain sealed; only the Windows variant is current.
+func TestFail2banJournalHistoricalSealsPreserved(t *testing.T) {
+	if len(fail2banJournalSourceSeals) != 3 || len(auditReloadSourceSeals) != 2 {
+		t.Fatal("unexpected exact variant scope")
+	}
+	for key, seal := range fail2banJournalSourceSeals {
+		want := "5ce8e37ed1bb7dc4a1605728d74ba68dccda0aac76df155bb690ba158b56d68e"
+		native := strings.Contains(key, "apply_unix.go")
+		if native {
+			want = "47abe4309127d8aabec582c1a99e0703cc2df27c8429ebb6627ccfd8ef780a7e"
+		}
+		if strings.Contains(key, "volume_linux.go") {
+			want = "352415260e4510d1ce26771c571aec13202cad2a10f1b6db85348fbbf31d5464"
+		}
+		if seal.digest != want {
+			t.Fatal("historical journal seal changed")
+		}
+		next, ok := auditReloadSourceSeals[key]
+		if ok != native || (ok && (!slices.Equal(next.imports, seal.imports) || next.digest == seal.digest)) {
+			t.Fatal("native reload widened bindings or changed Windows authority")
+		}
+		if current := debianBaselineSourceSeals[key]; current.digest != seal.digest && (!ok || current.digest != next.digest) {
+			t.Fatal("actual baseline routing lost exact variant")
 		}
 	}
 }
