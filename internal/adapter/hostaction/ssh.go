@@ -58,7 +58,14 @@ func (a *Adapter) exchangeOne(ctx context.Context, target Target, envelope gener
 	if conn.SetDeadline(handshakeDeadline) != nil {
 		return fail(false)
 	}
-	config := &ssh.ClientConfig{User: target.User, HostKeyCallback: ssh.FixedHostKey(hostKey), Auth: []ssh.AuthMethod{ssh.PublicKeys(signer)}}
+	algorithms := []string{hostKey.Type()}
+	switch hostKey.Type() {
+	case ssh.KeyAlgoRSA:
+		algorithms = []string{ssh.KeyAlgoRSASHA512, ssh.KeyAlgoRSASHA256}
+	case ssh.CertAlgoRSAv01:
+		algorithms = []string{ssh.CertAlgoRSASHA512v01, ssh.CertAlgoRSASHA256v01}
+	}
+	config := &ssh.ClientConfig{User: target.User, HostKeyAlgorithms: algorithms, HostKeyCallback: ssh.FixedHostKey(hostKey), Auth: []ssh.AuthMethod{ssh.PublicKeys(signer)}}
 	secure, chans, requests, err := ssh.NewClientConn(conn, conn.RemoteAddr().String(), config)
 	if err != nil {
 		return fail(false)
