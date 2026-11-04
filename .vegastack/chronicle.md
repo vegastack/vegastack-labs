@@ -3,6 +3,17 @@
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
 
+## 04-11-2026 — Connect helper actions using the approved host key ([#365](https://github.com/vegastack/vegastack-labs/issues/365))
+
+- **What:** Helper SSH connections select the approved host-key algorithm before checking the exact pinned key. A server offering another key type can no longer steer negotiation away from the approved key.
+- **Why:** A real local SSH reproduction rejected an approved Ed25519 key when the same server also offered ECDSA.
+- **How it went:** The mixed-key reproduction failed before the correction and passed afterward. Focused transport tests retain wrong-key denial and verify RSA keys and certificates against SHA-2-only peers. Live helper verification remains pending.
+- **Changed:** Existing helper transport and SSH fixture · additive exact source-closure record, preserving all historical entries.
+- **Decisions:** None; reuse discovery's existing selection logic with no dependency, credential, schema or live-host change. Slack diagnostics remain deferred.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/365-helper-pinned-host-key
+
+
 ## 03-11-2026 — Let discovery read protected systemd credential directories ([#317](https://github.com/vegastack/vegastack-labs/issues/317))
 
 - **What:** The discovery reader uses the same directory protection check as the existing native credential resolver, including root-owned systemd directories with mode 0500 or 0550.

@@ -4,8 +4,11 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"crypto/ed25519"
+	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
@@ -72,6 +75,46 @@ func fixture(t *testing.T, mode string, mutations ...func(*generated.HostActionB
 	t.Helper()
 	_, key, _ := ed25519.GenerateKey(rand.Reader)
 	signer, _ := ssh.NewSignerFromKey(key)
+	hostSigner := signer
+	if strings.HasPrefix(mode, "rsa-") {
+		hostPrivateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+		if err != nil {
+			t.Fatal(err)
+		}
+		hostSigner, err = ssh.NewSignerFromKey(hostPrivateKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+		algorithm := ssh.KeyAlgoRSASHA512
+		if strings.HasSuffix(mode, "256") {
+			algorithm = ssh.KeyAlgoRSASHA256
+		}
+		hostSigner, err = ssh.NewSignerWithAlgorithms(hostSigner.(ssh.AlgorithmSigner), []string{algorithm})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.HasPrefix(mode, "rsa-cert-") {
+			certificate := &ssh.Certificate{Key: hostSigner.PublicKey(), CertType: ssh.HostCert, ValidAfter: uint64(time.Now().Add(-time.Minute).Unix()), ValidBefore: uint64(time.Now().Add(time.Minute).Unix())}
+			if err = certificate.SignCert(rand.Reader, signer); err != nil {
+				t.Fatal(err)
+			}
+			hostSigner, err = ssh.NewCertSigner(certificate, hostSigner)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	var extraHostSigner ssh.Signer
+	if mode == "mixed-host-keys" || strings.HasPrefix(mode, "rsa-") {
+		extra, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		extraHostSigner, err = ssh.NewSignerFromKey(extra)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 	pk, _ := x509.MarshalPKCS8PrivateKey(key)
 	value, err := credentialref.NewValue(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: pk}))
 	if err != nil {
@@ -110,7 +153,10 @@ func fixture(t *testing.T, mode string, mutations ...func(*generated.HostActionB
 			}
 			return nil, nil
 		}}
-		cfg.AddHostKey(signer)
+		cfg.AddHostKey(hostSigner)
+		if extraHostSigner != nil {
+			cfg.AddHostKey(extraHostSigner)
+		}
 		server, channels, requests, err := ssh.NewServerConn(conn, cfg)
 		if err != nil {
 			return
@@ -207,7 +253,7 @@ func fixture(t *testing.T, mode string, mutations ...func(*generated.HostActionB
 			}
 		}
 	}()
-	target := &targetFixture{target: Target{HostID: b.HostID, HostIdentityDigest: d, Address: "127.0.0.1", Port: uint16(listener.Addr().(*net.TCPAddr).Port), User: "automation", HostKey: string(ssh.MarshalAuthorizedKey(signer.PublicKey())), AutomationPrincipalID: b.AutomationPrincipalID, CallerUID: 1001, Revision: 1}}
+	target := &targetFixture{target: Target{HostID: b.HostID, HostIdentityDigest: d, Address: "127.0.0.1", Port: uint16(listener.Addr().(*net.TCPAddr).Port), User: "automation", HostKey: string(ssh.MarshalAuthorizedKey(hostSigner.PublicKey())), AutomationPrincipalID: b.AutomationPrincipalID, CallerUID: 1001, Revision: 1}}
 	auth := &authorityFixture{key: key}
 	a, err := New(target, issuerFixture{envelope: envelope}, auth)
 	if err != nil {
@@ -323,6 +369,24 @@ func TestConfirmRevocationRequiresActualSelectedCredentialKey(t *testing.T) {
 			}
 			if _, err = a.Verify(context.Background(), op, effect); err != nil {
 				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestPinnedHostKeyNegotiation(t *testing.T) {
+	for _, mode := range []string{"mixed-host-keys", "rsa-sha512", "rsa-sha256", "rsa-cert-sha512", "rsa-cert-sha256"} {
+		t.Run(mode, func(t *testing.T) {
+			a, op, binding, value, authority, _, _ := fixture(t, mode)
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			effect, err := a.ExecuteBoundWithCredentials(ctx, op, binding, []*credentialref.Value{value})
+			if err != nil {
+				t.Fatalf("approved key unavailable during negotiation: %v", err)
+			}
+			verified, err := a.Verify(ctx, op, effect)
+			if err != nil || !verified.Verified || authority.calls != 1 {
+				t.Fatalf("signed action not verified: %+v %v", verified, err)
 			}
 		})
 	}
