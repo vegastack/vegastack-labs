@@ -195,6 +195,12 @@ func fixture(t *testing.T, mode string, mutations ...func(*generated.HostActionB
 				}
 				digest, _ := protocol.BundleDigest(e.Bundle)
 				c := generated.HostActionChallenge{Schema: generated.SchemaIDHostActionChallenge, SchemaVersion: "1.0.0", BundleDigest: digest, Nonce: base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{3}, 32)), HostID: b.HostID, StartedAt: time.Now().UTC().Truncate(time.Second).Format(time.RFC3339)}
+				if mode == "ahead-challenge" {
+					c.StartedAt = time.Now().UTC().Add(time.Second).Truncate(time.Second).Format(time.RFC3339)
+				}
+				if mode == "excessive-future-challenge" {
+					c.StartedAt = time.Now().UTC().Add(3 * time.Second).Truncate(time.Second).Format(time.RFC3339)
+				}
 				if mode == "wrong-challenge" {
 					c.HostID = "other"
 				}
@@ -264,7 +270,7 @@ func fixture(t *testing.T, mode string, mutations ...func(*generated.HostActionB
 	return a, op, binding, value, auth, target, connections
 }
 func TestBoundSSHProtocol(t *testing.T) {
-	for _, mode := range []string{"success", "wrong-challenge", "oversize", "disconnect", "wrong-result", "trailing", "changed-target", "authority-denied", "wrong-host-key", "wrong-consumer", "expired", "issuer-denied"} {
+	for _, mode := range []string{"success", "ahead-challenge", "excessive-future-challenge", "wrong-challenge", "oversize", "disconnect", "wrong-result", "trailing", "changed-target", "authority-denied", "wrong-host-key", "wrong-consumer", "expired", "issuer-denied"} {
 		t.Run(mode, func(t *testing.T) {
 			a, op, b, v, auth, target, connections := fixture(t, mode)
 			switch mode {
@@ -286,7 +292,7 @@ func TestBoundSSHProtocol(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			defer cancel()
 			effect, err := a.ExecuteBoundWithCredentials(ctx, op, b, []*credentialref.Value{v})
-			if mode == "success" {
+			if mode == "success" || mode == "ahead-challenge" {
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -311,7 +317,7 @@ func TestBoundSSHProtocol(t *testing.T) {
 					t.Fatal("denied request dialed")
 				}
 			}
-			if mode == "wrong-challenge" || mode == "oversize" || mode == "changed-target" || mode == "wrong-host-key" {
+			if mode == "wrong-challenge" || mode == "excessive-future-challenge" || mode == "oversize" || mode == "changed-target" || mode == "wrong-host-key" {
 				if auth.calls != 0 {
 					t.Fatal("signed invalid challenge")
 				}
