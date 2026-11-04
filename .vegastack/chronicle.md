@@ -4,6 +4,16 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 
 
 
+## 04-11-2026 — Wait for the SSH jail after starting Fail2ban ([#369](https://github.com/vegastack/vegastack-labs/issues/369))
+
+- **What:** The existing baseline action waits up to five seconds for a newly started Fail2ban SSH jail before reloading it once. A running service keeps its existing behavior.
+- **Why:** The service manager can report a successful start before the daemon has finished opening its control socket and preparing the jail.
+- **How it went:** A deterministic local regression failed with the previous startup sequence and passed with bounded readiness polling. Cancellation, unavailable readiness and command failures stop execution without retrying the mutating reload. Live reapplication remains pending; the earlier failed action and its actual rollback remain recorded separately.
+- **Changed:** Existing baseline startup path and focused failure regressions.
+- **Decisions:** No new service, dependency, approval path or automatic replay. The existing rollback remains in control of incomplete actions.
+
+— Phase 9 continuation by (omkarmohanta09) in chat · built by Codex · branch fix/369-fail2ban-startup-readiness
+
 ## 04-11-2026 — Keep signed helper actions working across a clock second boundary ([#367](https://github.com/vegastack/vegastack-labs/issues/367))
 
 - **What:** The existing helper protocol tolerates one second in future-time comparisons between controller and helper timestamps. Signed expiry, freshness windows and one-shot execution remain strict.

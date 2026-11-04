@@ -12,6 +12,7 @@ import (
 	"path"
 	"strings"
 	"syscall"
+	"time"
 )
 
 func (n *nativeRuntime) Apply(ctx context.Context, b generated.HostActionBundle, in generated.DebianBaselineInput) (Result, error) {
@@ -65,15 +66,7 @@ func (n *nativeRuntime) Apply(ctx context.Context, b generated.HostActionBundle,
 	}
 
 	if selected(in, "linux.fail2ban-sshd") {
-		if _, e = n.run(ctx, "/usr/bin/fail2ban-client", []string{"-t"}, nil); e != nil {
-			return Result{Changed: true}, e
-		}
-		if _, e = n.run(ctx, "/usr/bin/systemctl", []string{"is-active", "fail2ban.service"}, nil); e != nil {
-			if _, e = n.run(ctx, "/usr/bin/systemctl", []string{"start", "fail2ban.service"}, nil); e != nil {
-				return Result{Changed: true}, e
-			}
-		}
-		if _, e = n.run(ctx, "/usr/bin/fail2ban-client", []string{"reload", "sshd"}, nil); e != nil {
+		if e = n.startFail2ban(ctx); e != nil {
 			return Result{Changed: true}, e
 		}
 	}
@@ -306,4 +299,41 @@ func (n *nativeRuntime) preflightProfiles(ctx context.Context, in generated.Debi
 		out = append(out, debianaccess.BaselineProfile{File: "etc/apparmor.d/" + p.ProfileID, Name: name, Digest: p.ProfileDigest})
 	}
 	return out, nil
+}
+
+func (n *nativeRuntime) startFail2ban(ctx context.Context) error {
+	if _, e := n.run(ctx, "/usr/bin/fail2ban-client", []string{"-t"}, nil); e != nil {
+		return e
+	}
+	if _, e := n.run(ctx, "/usr/bin/systemctl", []string{"is-active", "fail2ban.service"}, nil); e != nil {
+		if _, e := n.run(ctx, "/usr/bin/systemctl", []string{"start", "fail2ban.service"}, nil); e != nil {
+			return e
+		}
+		// Type=simple start can return before the selected SSH jail is available.
+		readyCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+		for {
+			if readyCtx.Err() != nil {
+				return errBaseline
+			}
+			if _, e := n.run(readyCtx, "/usr/bin/fail2ban-client", []string{"status", "sshd"}, nil); e == nil {
+				break
+			}
+			if readyCtx.Err() != nil {
+				return errBaseline
+			}
+			timer := time.NewTimer(100 * time.Millisecond)
+			select {
+			case <-readyCtx.Done():
+				timer.Stop()
+				return errBaseline
+			case <-timer.C:
+			}
+		}
+	}
+	if ctx.Err() != nil {
+		return errBaseline
+	}
+	_, e := n.run(ctx, "/usr/bin/fail2ban-client", []string{"reload", "sshd"}, nil)
+	return e
 }

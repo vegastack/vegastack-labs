@@ -777,6 +777,13 @@
         "commands": [],
         "imports": [],
         "mutationBoundaryDigest": "sha256:c8fc12824be54536538f7697c60958fa13615383051aca9213d72822665c5042"
+      },
+      {
+        "id": "phase9-fail2ban-startup-issue369-v1",
+        "issue": 369,
+        "commands": [],
+        "imports": [],
+        "mutationBoundaryDigest": "sha256:b4c8dec0c0c8354aba9ce356a9f79560df8c0ba321fdd8f1d4b5571b153c271a"
       }
     ]
   },
