@@ -75,6 +75,28 @@ func TestHostActionIssuerAuthorizerFreezesEnvelopeAndRechecksState(t *testing.T)
 	if err := hostaction.VerifyAuthorization(raw, challenge, envelope.Bundle, policy, now); err != nil {
 		t.Fatal(err)
 	}
+	for _, offset := range []time.Duration{time.Second, 2 * time.Second} {
+		future := challenge
+		future.StartedAt = now.Add(offset).Format(time.RFC3339)
+		before := signer.calls
+		auth, err := authority.Authorize(context.Background(), envelope, future)
+		if offset > time.Second {
+			if err == nil || signer.calls != before {
+				t.Fatal("signed challenge beyond clock-skew limit")
+			}
+			continue
+		}
+		if err != nil {
+			t.Fatal("rejected one-second-quantized challenge", err)
+		}
+		raw, _ := json.Marshal(auth)
+		if err := hostaction.VerifyAuthorization(raw, future, envelope.Bundle, policy, now.Add(offset)); err != nil {
+			t.Fatal("helper rejected bounded-skew authorization", err)
+		}
+		if auth.ExpiresAt != approved.ExpiresAt {
+			t.Fatal("clock tolerance extended authorization expiry")
+		}
+	}
 	for _, scenario := range []string{"revoked", "shorter-lease", "changed-identity", "tampered-signature"} {
 		t.Run(scenario, func(t *testing.T) {
 			before := signer.calls

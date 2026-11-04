@@ -149,7 +149,7 @@ func (a *HostActionAuthority) Authorize(ctx context.Context, envelope generated.
 	digest, _ := hostaction.BundleDigest(b)
 	nonce, e4 := base64.StdEncoding.Strict().DecodeString(c.Nonce)
 	started, e5 := time.Parse(time.RFC3339, c.StartedAt)
-	if e4 != nil || len(nonce) != 32 || e5 != nil || started.After(now) || now.Sub(started) >= hostaction.AuthorizationWindow || c.HostID != b.HostID || c.BundleDigest != digest {
+	if e4 != nil || len(nonce) != 32 || e5 != nil || started.After(now.Add(hostaction.MaximumClockSkew)) || now.Sub(started) >= hostaction.AuthorizationWindow || c.HostID != b.HostID || c.BundleDigest != digest {
 		return out, actionFailure()
 	}
 	expires := now.Add(hostaction.AuthorizationWindow)

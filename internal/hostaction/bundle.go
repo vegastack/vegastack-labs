@@ -21,6 +21,10 @@ const MaximumFrame = 8192
 // MaximumResultFrame bounds only the final measured result; authentication stays 8 KiB.
 const MaximumResultFrame = 262144
 const AuthorizationWindow = 5 * time.Second
+
+// MaximumClockSkew bounds future-time comparisons between the controller and
+// helper, whose signed timestamps have one-second precision. Expiry stays strict.
+const MaximumClockSkew = time.Second
 const envelopeDomain = "vsk-host-action-envelope-v1\x00"
 const authorizationDomain = "vsk-host-action-authorization-v1\x00"
 
@@ -105,7 +109,7 @@ func VerifyEnvelope(raw []byte, policy Policy, now time.Time) (generated.HostAct
 	signature, e2 := base64.StdEncoding.Strict().DecodeString(e.Signature)
 	issued, e3 := time.Parse(time.RFC3339, e.Bundle.IssuedAt)
 	expires, e4 := time.Parse(time.RFC3339, e.Bundle.ExpiresAt)
-	if err != nil || e2 != nil || len(signature) != ed25519.SignatureSize || !ed25519.Verify(policy.PublicKey, message, signature) || e3 != nil || e4 != nil || now.Before(issued) || !now.Before(expires) || !issued.Before(expires) || expires.Sub(issued) > 5*time.Minute {
+	if err != nil || e2 != nil || len(signature) != ed25519.SignatureSize || !ed25519.Verify(policy.PublicKey, message, signature) || e3 != nil || e4 != nil || issued.After(now.Add(MaximumClockSkew)) || !now.Before(expires) || !issued.Before(expires) || expires.Sub(issued) > 5*time.Minute {
 		return generated.HostActionBundle{}, blocked()
 	}
 	return e.Bundle, nil
@@ -127,7 +131,7 @@ func VerifyAuthorization(raw []byte, c generated.HostActionChallenge, b generate
 	expiry, e5 := time.Parse(time.RFC3339, a.ExpiresAt)
 	bundleExpiry, e6 := time.Parse(time.RFC3339, b.ExpiresAt)
 	signature, e7 := base64.StdEncoding.Strict().DecodeString(a.Signature)
-	if err != nil || len(nonce) != 32 || e2 != nil || e3 != nil || e4 != nil || e5 != nil || e6 != nil || e7 != nil || c.HostID != b.HostID || c.BundleDigest != digest || a.BundleDigest != digest || a.ChallengeDigest != Digest(c) || a.KeyID != p.KeyID || a.StateRevision != b.StateRevision || a.RecoveryEpoch != b.RecoveryEpoch || started.After(at) || now.Before(at) || !now.Before(expiry) || !at.Before(expiry) || expiry.Sub(at) > AuthorizationWindow || expiry.After(bundleExpiry) || now.Sub(started) > AuthorizationWindow || !ed25519.Verify(p.PublicKey, AuthorizationMessage(a), signature) {
+	if err != nil || len(nonce) != 32 || e2 != nil || e3 != nil || e4 != nil || e5 != nil || e6 != nil || e7 != nil || c.HostID != b.HostID || c.BundleDigest != digest || a.BundleDigest != digest || a.ChallengeDigest != Digest(c) || a.KeyID != p.KeyID || a.StateRevision != b.StateRevision || a.RecoveryEpoch != b.RecoveryEpoch || started.After(at.Add(MaximumClockSkew)) || at.After(now.Add(MaximumClockSkew)) || !now.Before(expiry) || !at.Before(expiry) || expiry.Sub(at) > AuthorizationWindow || expiry.After(bundleExpiry) || now.Sub(started) > AuthorizationWindow || !ed25519.Verify(p.PublicKey, AuthorizationMessage(a), signature) {
 		return blocked()
 	}
 	return nil

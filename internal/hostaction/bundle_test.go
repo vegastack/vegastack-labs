@@ -64,7 +64,12 @@ func TestEnvelopeExactSignatureAndEveryField(t *testing.T) {
 			}
 		})
 	}
-	for _, at := range []time.Time{now.Add(-time.Second), now.Add(time.Minute)} {
+	for _, at := range []time.Time{now.Add(-250 * time.Millisecond), now.Add(-time.Second)} {
+		if _, err := VerifyEnvelope(raw, p, at); err != nil {
+			t.Fatal("rejected bounded future issuance", err)
+		}
+	}
+	for _, at := range []time.Time{now.Add(-time.Second - time.Nanosecond), now.Add(time.Minute)} {
 		if _, err := VerifyEnvelope(raw, p, at); err == nil {
 			t.Fatal("accepted invalid time")
 		}

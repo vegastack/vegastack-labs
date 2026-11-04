@@ -3,6 +3,18 @@
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
 
+
+## 04-11-2026 — Keep signed helper actions working across a clock second boundary ([#367](https://github.com/vegastack/vegastack-labs/issues/367))
+
+- **What:** The existing helper protocol tolerates one second in future-time comparisons between controller and helper timestamps. Signed expiry, freshness windows and one-shot execution remain strict.
+- **Why:** A deterministic signed-protocol reproduction rejected legitimate clocks only 250 milliseconds apart when they straddled a whole-second timestamp boundary.
+- **How it went:** The regression failed before the correction and passed afterward at the helper, authority and local SSH seams. Live recovery and acceptance remain pending; an uncertain run is preserved unchanged.
+- **Changed:** Shared bounded clock tolerance in existing verification paths · signed protocol regression and future-time denials.
+- **Decisions:** No new dependency, service, schema, credential or acknowledgement path. No expiry grace or automatic replay.
+
+— Phase 9 continuation by (omkarmohanta09) in chat · built by Codex · branch fix/367-helper-clock-skew
+
+
 ## 04-11-2026 — Connect helper actions using the approved host key ([#365](https://github.com/vegastack/vegastack-labs/issues/365))
 
 - **What:** Helper SSH connections select the approved host-key algorithm before checking the exact pinned key. A server offering another key type can no longer steer negotiation away from the approved key.

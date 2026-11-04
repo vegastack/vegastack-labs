@@ -142,7 +142,7 @@ func (a *Adapter) exchangeOne(ctx context.Context, target Target, envelope gener
 	nonce, err := base64.StdEncoding.DecodeString(challenge.Nonce)
 	started, timeErr := time.Parse(time.RFC3339, challenge.StartedAt)
 	now := time.Now()
-	if err != nil || len(nonce) != 32 || timeErr != nil || started.After(now) || now.Sub(started) > protocol.AuthorizationWindow {
+	if err != nil || len(nonce) != 32 || timeErr != nil || started.After(now.Add(protocol.MaximumClockSkew)) || now.Sub(started) > protocol.AuthorizationWindow {
 		return fail(false)
 	}
 	current, err := a.targets.Resolve(ctx, envelope.Bundle)
