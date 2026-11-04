@@ -78,7 +78,7 @@ func TestTimeRejectsNaNAndLargeOffsets(t *testing.T) {
 func TestFail2banRequiresExactObservedSourcesAndBounds(t *testing.T) {
 	in := generated.DebianBaselineInput{ControlIDs: []string{"linux.fail2ban-sshd"}, RecoverySourcePrefixes: []string{"192.0.2.1/32"}}
 	r := fixtureReader{}
-	for k, v := range map[string]string{"status": "Status\nNumber of jail: 1\nJail list: sshd", "maxretry": "5", "findtime": "600", "bantime": "600", "ignoreip": "192.0.2.1/32", "ignorecommand": "", "journalmatch": "['_SYSTEMD_UNIT=ssh.service']", "actions": "vsk-sshd", "usedns": "no"} {
+	for k, v := range map[string]string{"status": "Status\nNumber of jail: 1\nJail list: sshd", "maxretry": "5", "findtime": "600", "bantime": "600", "ignoreip": "192.0.2.1/32", "ignorecommand": "", "journalmatch": "Current match filter:\n_SYSTEMD_UNIT=ssh.service\n", "actions": "vsk-sshd", "usedns": "no"} {
 		r[ReadRequest{Operation: ReadFail2ban, Selector: k}] = []byte(v)
 	}
 	files := DesiredFiles(in)
@@ -88,6 +88,28 @@ func TestFail2banRequiresExactObservedSourcesAndBounds(t *testing.T) {
 	if e != nil || m.Status != "passed" {
 		t.Fatal(m, e)
 	}
+	for _, value := range []string{"_SYSTEMD_UNIT=ssh.service", "['_SYSTEMD_UNIT=ssh.service']"} {
+		r[ReadRequest{Operation: ReadFail2ban, Selector: "journalmatch"}] = []byte(value)
+		m, e = CollectFail2ban(context.Background(), in, r)
+		if e != nil || m.Status != "passed" {
+			t.Fatal("existing exact representation rejected", value, m, e)
+		}
+	}
+	for _, value := range []string{
+		"Current match filter:\n_SYSTEMD_UNIT=ssh.service\nSYSLOG_IDENTIFIER=sshd",
+		"Current match filter:\n_SYSTEMD_UNIT=ssh.service + SYSLOG_IDENTIFIER=sshd",
+		"Current match filter:\n_SYSTEMD_UNIT=other.service",
+		"Other header:\n_SYSTEMD_UNIT=ssh.service",
+		"Current match filter:\nCurrent match filter:\n_SYSTEMD_UNIT=ssh.service",
+		"Current match filter:\n",
+	} {
+		r[ReadRequest{Operation: ReadFail2ban, Selector: "journalmatch"}] = []byte(value)
+		m, e = CollectFail2ban(context.Background(), in, r)
+		if e == nil && m.Status == "passed" {
+			t.Fatal("unsafe journal match passed", value)
+		}
+	}
+	r[ReadRequest{Operation: ReadFail2ban, Selector: "journalmatch"}] = []byte("Current match filter:\n_SYSTEMD_UNIT=ssh.service\n")
 	for key, value := range map[string]string{"bantime": "-1", "maxretry": "50", "ignoreip": "192.0.2.1/32 attacker.example", "journalmatch": "_SYSTEMD_UNIT=ssh.service+SYSLOG_IDENTIFIER=sshd", "actions": "iptables-allports"} {
 		old := r[ReadRequest{Operation: ReadFail2ban, Selector: key}]
 		r[ReadRequest{Operation: ReadFail2ban, Selector: key}] = []byte(value)

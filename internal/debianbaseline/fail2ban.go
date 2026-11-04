@@ -38,7 +38,8 @@ func CollectFail2ban(ctx context.Context, in generated.DebianBaselineInput, r Na
 	if !strings.HasSuffix(facts["status"], "Jail list:\tsshd") && !strings.HasSuffix(facts["status"], "Jail list: sshd") {
 		return c, nil
 	}
-	if strings.Trim(strings.TrimSpace(facts["journalmatch"]), ` []"'`) != "_SYSTEMD_UNIT=ssh.service" {
+	journalMatch := strings.TrimPrefix(facts["journalmatch"], "Current match filter:\n")
+	if strings.Trim(strings.TrimSpace(journalMatch), ` []"'`) != "_SYSTEMD_UNIT=ssh.service" {
 		return c, nil
 	}
 	if strings.TrimSpace(strings.TrimPrefix(facts["actions"], "The jail sshd has the following actions:\n")) != "vsk-sshd" {

@@ -8,12 +8,12 @@ import (
 	"testing"
 )
 
-func TestFail2banStartupActualBaselineSealsRejectDrift(t *testing.T) {
+func TestFail2banJournalActualBaselineSealsRejectDrift(t *testing.T) {
 	const module = "github.com/vegastack/vegastack-labs"
-	if len(fail2banStartupSourceSeals) != 2 {
-		t.Fatal("unexpected startup source scope")
+	if len(fail2banJournalSourceSeals) != 3 {
+		t.Fatal("unexpected journal source scope")
 	}
-	for key, seal := range fail2banStartupSourceSeals {
+	for key, seal := range fail2banJournalSourceSeals {
 		t.Run(key, func(t *testing.T) {
 			relative, joined, ok := strings.Cut(key, "|")
 			if !ok || relative != "internal/debianbaseline" {
@@ -32,7 +32,7 @@ func TestFail2banStartupActualBaselineSealsRejectDrift(t *testing.T) {
 			}
 			c := checkedSourcePackage{sourcePackage: sourcePackage{listed: listedPackage{ImportPath: module + "/" + relative, Dir: dir, GoFiles: slices.Clone(names), Imports: slices.Clone(seal.imports)}}}
 			if !reviewedDebianBaselinePackage(c, module, relative) {
-				t.Fatal("actual baseline checker rejected exact startup source")
+				t.Fatal("actual baseline checker rejected exact journal source")
 			}
 			first := filepath.Join(dir, names[0])
 			raw, e := os.ReadFile(first)
@@ -74,5 +74,25 @@ func TestFail2banStartupActualBaselineSealsRejectDrift(t *testing.T) {
 				t.Fatal("sibling package inherited authority")
 			}
 		})
+	}
+}
+
+// Historical #369 digests describe the old source, never today's current files.
+func TestFail2banStartupHistoricalSealsPreserved(t *testing.T) {
+	if len(fail2banStartupSourceSeals) != 2 {
+		t.Fatal("startup history widened")
+	}
+	for key, seal := range fail2banStartupSourceSeals {
+		want := "0e6eff7ac20c1fbd4f5e59a7144dd0c83e87769b9d64388ca888770cea9477fd"
+		if strings.Contains(key, "volume_linux.go") {
+			want = "2f1c32ccc43f6343592b3b0f811645fa0204cb74554fc09c26b41ce9e8d79c23"
+		}
+		if seal.digest != want {
+			t.Fatal("historical startup seal changed")
+		}
+		current, ok := fail2banJournalSourceSeals[key]
+		if !ok || !slices.Equal(current.imports, seal.imports) || current.digest == seal.digest {
+			t.Fatal("current journal variant lost exact startup import/file binding")
+		}
 	}
 }

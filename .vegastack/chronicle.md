@@ -4,6 +4,16 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 
 
 
+## 04-11-2026 — Read the native Fail2ban SSH journal match ([#371](https://github.com/vegastack/vegastack-labs/issues/371))
+
+- **What:** The existing Fail2ban observer recognizes its native journal-match display header and still requires the exact SSH service rule.
+- **Why:** Live verification reached the running SSH jail but rejected the response header as part of the rule. The incomplete action was restored through the existing rollback.
+- **How it went:** The captured native-format response failed at the real collector seam before the correction and passed afterward. Additional clauses, wrong units and unexpected headers remain denied. Native reapplication remains pending.
+- **Changed:** Existing journal-match reader and focused regressions.
+- **Decisions:** No new service, dependency, permission, configuration policy or replay path.
+
+— Phase 9 continuation by (omkarmohanta09) in chat · built by Codex · branch fix/371-fail2ban-journal-header
+
 ## 04-11-2026 — Wait for the SSH jail after starting Fail2ban ([#369](https://github.com/vegastack/vegastack-labs/issues/369))
 
 - **What:** The existing baseline action waits up to five seconds for a newly started Fail2ban SSH jail before reloading it once. A running service keeps its existing behavior.

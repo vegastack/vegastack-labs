@@ -15,7 +15,7 @@ var ciWorkingDeliveryHistoricalSourceSeals = map[string]hostActionSourceSeal{
 
 // #367 exact current timing variants; retain every historical literal seal above.
 var ciWorkingDeliverySourceSeals = func() map[string]hostActionSourceSeal {
-	current := make(map[string]hostActionSourceSeal, len(ciWorkingDeliveryHistoricalSourceSeals)+len(helperClockSkewSourceSeals)+len(fail2banStartupSourceSeals))
+	current := make(map[string]hostActionSourceSeal, len(ciWorkingDeliveryHistoricalSourceSeals)+len(helperClockSkewSourceSeals)+len(fail2banStartupSourceSeals)+len(fail2banJournalSourceSeals))
 	for key, seal := range ciWorkingDeliveryHistoricalSourceSeals {
 		current[key] = seal
 	}
@@ -23,6 +23,9 @@ var ciWorkingDeliverySourceSeals = func() map[string]hostActionSourceSeal {
 		current[key] = seal
 	}
 	for key, seal := range fail2banStartupSourceSeals {
+		current[key] = seal
+	}
+	for key, seal := range fail2banJournalSourceSeals {
 		current[key] = seal
 	}
 	return current
@@ -40,4 +43,11 @@ var helperClockSkewSourceSeals = map[string]hostActionSourceSeal{
 var fail2banStartupSourceSeals = map[string]hostActionSourceSeal{
 	"internal/debianbaseline|aide.go,apparmor.go,apply_unix.go,apt_unix.go,audit.go,collect.go,fail2ban.go,handler.go,health.go,input.go,native_unix.go,policy.go,reader.go,time_unix.go,volume_files_unix.go,volume_linux.go,volume_mapping.go,volume_metadata.go,volume_native_cases_linux.go,volume_native_witness_linux.go,volume_recovery_linux.go,volume_recovery_unix.go": {imports: []string{"bytes", "context", "crypto/sha256", "encoding/binary", "encoding/hex", "encoding/json", "errors", "fmt", "github.com/vegastack/vegastack-labs/internal/debianaccess", "github.com/vegastack/vegastack-labs/internal/generated", "github.com/vegastack/vegastack-labs/internal/hostaction", "github.com/vegastack/vegastack-labs/internal/strictjson", "golang.org/x/sys/unix", "io", "math", "net/netip", "os", "os/exec", "path", "path/filepath", "reflect", "regexp", "runtime", "slices", "sort", "strconv", "strings", "syscall", "time"}, digest: "2f1c32ccc43f6343592b3b0f811645fa0204cb74554fc09c26b41ce9e8d79c23"},
 	"internal/debianbaseline|aide.go,apparmor.go,apply_unix.go,apt_unix.go,audit.go,collect.go,fail2ban.go,handler.go,health.go,input.go,native_unix.go,policy.go,reader.go,time_unix.go,volume_files_unix.go,volume_mapping.go,volume_metadata.go,volume_recovery_unix.go,volume_unsupported.go":                                                                                {imports: []string{"bytes", "context", "crypto/sha256", "encoding/binary", "encoding/hex", "encoding/json", "errors", "fmt", "github.com/vegastack/vegastack-labs/internal/debianaccess", "github.com/vegastack/vegastack-labs/internal/generated", "github.com/vegastack/vegastack-labs/internal/hostaction", "github.com/vegastack/vegastack-labs/internal/strictjson", "golang.org/x/sys/unix", "io", "math", "net/netip", "os", "os/exec", "path", "reflect", "regexp", "runtime", "slices", "sort", "strconv", "strings", "syscall", "time"}, digest: "0e6eff7ac20c1fbd4f5e59a7144dd0c83e87769b9d64388ca888770cea9477fd"},
+}
+
+// #371 exact current journal-header variants; historical startup seals remain intact.
+var fail2banJournalSourceSeals = map[string]hostActionSourceSeal{
+	"internal/debianbaseline|aide.go,apparmor.go,apply_unix.go,apt_unix.go,audit.go,collect.go,fail2ban.go,handler.go,health.go,input.go,native_unix.go,policy.go,reader.go,time_unix.go,volume_files_unix.go,volume_linux.go,volume_mapping.go,volume_metadata.go,volume_native_cases_linux.go,volume_native_witness_linux.go,volume_recovery_linux.go,volume_recovery_unix.go": {imports: []string{"bytes", "context", "crypto/sha256", "encoding/binary", "encoding/hex", "encoding/json", "errors", "fmt", "github.com/vegastack/vegastack-labs/internal/debianaccess", "github.com/vegastack/vegastack-labs/internal/generated", "github.com/vegastack/vegastack-labs/internal/hostaction", "github.com/vegastack/vegastack-labs/internal/strictjson", "golang.org/x/sys/unix", "io", "math", "net/netip", "os", "os/exec", "path", "path/filepath", "reflect", "regexp", "runtime", "slices", "sort", "strconv", "strings", "syscall", "time"}, digest: "352415260e4510d1ce26771c571aec13202cad2a10f1b6db85348fbbf31d5464"},
+	"internal/debianbaseline|aide.go,apparmor.go,apply_unix.go,apt_unix.go,audit.go,collect.go,fail2ban.go,handler.go,health.go,input.go,native_unix.go,policy.go,reader.go,time_unix.go,volume_files_unix.go,volume_mapping.go,volume_metadata.go,volume_recovery_unix.go,volume_unsupported.go":                                                                                {imports: []string{"bytes", "context", "crypto/sha256", "encoding/binary", "encoding/hex", "encoding/json", "errors", "fmt", "github.com/vegastack/vegastack-labs/internal/debianaccess", "github.com/vegastack/vegastack-labs/internal/generated", "github.com/vegastack/vegastack-labs/internal/hostaction", "github.com/vegastack/vegastack-labs/internal/strictjson", "golang.org/x/sys/unix", "io", "math", "net/netip", "os", "os/exec", "path", "reflect", "regexp", "runtime", "slices", "sort", "strconv", "strings", "syscall", "time"}, digest: "47abe4309127d8aabec582c1a99e0703cc2df27c8429ebb6627ccfd8ef780a7e"},
+	"internal/debianbaseline|aide.go,apparmor.go,audit.go,collect.go,fail2ban.go,handler.go,health.go,input.go,native_unsupported.go,policy.go,reader.go,volume_mapping.go,volume_metadata.go,volume_unsupported.go":                                                                                                                                                             {imports: []string{"bytes", "context", "crypto/sha256", "encoding/binary", "encoding/hex", "encoding/json", "errors", "fmt", "github.com/vegastack/vegastack-labs/internal/debianaccess", "github.com/vegastack/vegastack-labs/internal/generated", "github.com/vegastack/vegastack-labs/internal/hostaction", "github.com/vegastack/vegastack-labs/internal/strictjson", "math", "net/netip", "path", "reflect", "regexp", "slices", "sort", "strconv", "strings", "time"}, digest: "5ce8e37ed1bb7dc4a1605728d74ba68dccda0aac76df155bb690ba158b56d68e"},
 }
