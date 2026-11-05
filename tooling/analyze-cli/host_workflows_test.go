@@ -102,8 +102,9 @@ func TestNetworkConnectSourceSealsRejectDrift(t *testing.T) {
 	// #317 adds three CLI variants; #369 adds two exact baseline variants.
 	// #371 also reseals the portable baseline variant changed by shared collector source.
 	// #379 adds three exact retained-administrator access variants.
-	// Historical maps remain unchanged.
-	if checked != 24+1+1+2+3+2+1+3 {
-		t.Fatalf("expected 37 exact source variants, checked %d", checked)
+	// #386 current routing fixtures select one default CLI variant instead of
+	// the three historical recovery-tag variants. Historical maps remain unchanged.
+	if checked != 24+1+1+2+1+2+1+3 {
+		t.Fatalf("expected 35 exact source variants, checked %d", checked)
 	}
 }

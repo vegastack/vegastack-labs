@@ -17,8 +17,17 @@ const controllerTestModule = "github.com/vegastack/vegastack-labs"
 func controllerSealFixture(t *testing.T, key string, seal hostActionSourceSeal) listedPackage {
 	t.Helper()
 	relative, joined, _ := strings.Cut(key, "|")
-	if current, ok := ciWorkingDeliverySourceSeals[key]; ok && relative == "internal/cli" {
-		seal = current
+	// Fixtures read today's routing bytes. Select today's complete exact CLI
+	// variant rather than pairing them with a historical pre-extension file list.
+	// Historical production maps and every drift-denial assertion remain intact.
+	if relative == "internal/cli" {
+		for currentKey, current := range currentCIJobFixtureSeals() {
+			if strings.HasPrefix(currentKey, relative+"|") {
+				_, joined, _ = strings.Cut(currentKey, "|")
+				seal = current
+				break
+			}
+		}
 	}
 	names := strings.Split(joined, ",")
 	dir := t.TempDir()
