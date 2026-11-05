@@ -37,6 +37,9 @@ var ciWorkingDeliverySourceSeals = func() map[string]hostActionSourceSeal {
 	for key, seal := range retainedAdministratorSourceSeals {
 		current[key] = seal
 	}
+	for key, seal := range manualPublicationSourceSeals {
+		current[key] = seal
+	}
 	return current
 }()
 
