@@ -8,9 +8,9 @@ import (
 	"testing"
 )
 
-func TestAuditReloadActualBaselineSealsRejectDrift(t *testing.T) {
+func TestCIResourceSliceActualBaselineSealsRejectDrift(t *testing.T) {
 	const module = "github.com/vegastack/vegastack-labs"
-	if len(fail2banJournalSourceSeals) != 3 || len(auditReloadSourceSeals) != 2 {
+	if len(fail2banJournalSourceSeals) != 3 || len(auditReloadSourceSeals) != 2 || len(ciResourceSliceSourceSeals) != 3 {
 		t.Fatal("unexpected journal source scope")
 	}
 	current := make(map[string]hostActionSourceSeal)
@@ -18,6 +18,9 @@ func TestAuditReloadActualBaselineSealsRejectDrift(t *testing.T) {
 		current[key] = seal
 	}
 	for key, seal := range auditReloadSourceSeals {
+		current[key] = seal
+	}
+	for key, seal := range ciResourceSliceSourceSeals {
 		current[key] = seal
 	}
 	if len(current) != 3 {
@@ -107,7 +110,7 @@ func TestFail2banStartupHistoricalSealsPreserved(t *testing.T) {
 	}
 }
 
-// Historical #371 native bytes remain sealed; only the Windows variant is current.
+// Historical #371/#373 bytes remain sealed; #377 shared collector changes supersede all three current variants.
 func TestFail2banJournalHistoricalSealsPreserved(t *testing.T) {
 	if len(fail2banJournalSourceSeals) != 3 || len(auditReloadSourceSeals) != 2 {
 		t.Fatal("unexpected exact variant scope")
@@ -128,8 +131,12 @@ func TestFail2banJournalHistoricalSealsPreserved(t *testing.T) {
 		if ok != native || (ok && (!slices.Equal(next.imports, seal.imports) || next.digest == seal.digest)) {
 			t.Fatal("native reload widened bindings or changed Windows authority")
 		}
-		if current := debianBaselineSourceSeals[key]; current.digest != seal.digest && (!ok || current.digest != next.digest) {
-			t.Fatal("actual baseline routing lost exact variant")
+		latest, found := ciResourceSliceSourceSeals[key]
+		if !found || !slices.Equal(latest.imports, seal.imports) || latest.digest == seal.digest || latest.digest == next.digest {
+			t.Fatal("resource variant lost exact historical file/import binding")
+		}
+		if current := debianBaselineSourceSeals[key]; current.digest != latest.digest {
+			t.Fatal("actual baseline routing lost exact resource variant")
 		}
 	}
 }

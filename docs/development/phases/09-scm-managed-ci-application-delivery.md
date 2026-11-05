@@ -1,5 +1,13 @@
 # Phase 9 — SCM, managed CI and application delivery
 
+## CI resource baseline bootstrap — source correction #377
+
+The baseline collector accepts the exact existing CI role boundary `vsk-ci.slice` for `host` and `ci` inputs, in addition to its existing safe service selectors. Arbitrary slices, scopes, templates and other roles remain rejected. A CI slice observation must be active and report `/etc/systemd/system/vsk-ci.slice`; its finite memory/tasks/CPU properties must exactly match the approved resource input and actual disk headroom must meet the declared minimum. An inactive slice, foreign/missing unit fragment, unlimited or mismatched limit, or insufficient disk does not pass.
+
+This collector change does not configure or start the slice. A separately authorized administrator preparation must use the existing Linux role renderer and ownership rules for the intended empty CI slice, with concrete finite limits and the real work mount. It must preserve unknown preimages, refuse a foreign or nonempty group, and avoid moving or limiting any current runner, Docker or user-manager process. Later role application retains the same declarative owner and exact preimage. Human recovery may remove or stop only the newly prepared empty slice and restore its recorded preimage; it must preserve existing workloads and data.
+
+After preparation, use the existing acknowledged `debian.baseline.collect` action with `linux.resource-health` and the approved `resources` input. The result verifies current systemd properties and disk headroom. It does not independently prove raw cgroup enforcement under load, unit ownership/overrides, CI workload isolation or full native qualification. Those later role/qualification checks remain separate. Missing live preparation or observations still block working CI admission; source completion alone is not a passed resource baseline.
+
 ## Working CI demonstration policy — 04-11-2026
 
 The operator selected a working delivery demonstration with full native qualification deferred, and explicitly declined encrypted storage. The optional `labs-working-ci/1.0.0` policy supports only managed CI execution and preparation of the CI role. It does not pass `host.hardening-baseline`, `host.role-admission`, native qualification, application deployment, replacement or recovery admission. A demonstration result does not close the original full-qualification acceptance criteria.
