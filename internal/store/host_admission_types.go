@@ -8,6 +8,7 @@ type HostAdmissionSnapshot struct {
 	NativeProducerBindings                       map[string]HostNativeProducerBinding
 	RoleIntentRevision                           int64
 	AppliedProfileDigest                         string
+	AppliedProfile                               *GateAppliedProfile
 	Host                                         generated.ManagedHost
 	Profile                                      generated.HostProfile
 	ProfileLock                                  generated.DebianProfileLock
@@ -27,6 +28,7 @@ type HostAdmissionSnapshot struct {
 	PrerequisiteEvidenceIDs                      map[string]string
 	NetworkingRequired, StandbyRequired          bool
 	VolumeIDs                                    []string
+	HasVolumeDeclarations                        bool
 	Storage                                      HostStoragePrerequisites
 	RoleBlockers                                 []string
 	Blockers                                     []string

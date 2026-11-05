@@ -1,5 +1,10 @@
 # Project chronicle
 
+## 04-11-2026 — Keep working CI separate from full qualification (#375)
+
+The initial CI demonstration was blocked by a contract requiring the entire native qualification catalog, including encrypted-volume recovery. Omkar chose to leave storage unencrypted and defer full qualification. The local implementation adds an explicitly applied, host-scoped working CI policy using the existing control database and receipt checks. All ten actual baseline controls and the applicable CI role isolation/resource checks remain required. The strict admission paths for deployment, replacement and recovery are unchanged. This source work does not install or activate the policy, run CI, or complete Phase 9.
+
+
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
 
