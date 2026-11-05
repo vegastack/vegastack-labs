@@ -1,5 +1,9 @@
 # Project chronicle
 
+## 05-11-2026 — Preserve an existing administrator during access preparation (#379)
+
+The access verifier treated every declared account as unprivileged, so it could not retain an existing human recovery administrator with current sudo or Docker membership. The optional retention declaration pins one existing human identity, its keys, full group set and sudo policy. Drift still blocks, other accounts retain strict checks, and the action never grants groups or creates an administrator. The full SSH configuration also keeps the automation helper’s key-only and forwarding restrictions. Focused synthetic checks and critical review establish source behavior; live access and Phase 9 acceptance remain separate.
+
 ## 05-11-2026 — Observe the existing CI resource boundary (#377)
 
 The CI role already owns a finite resource slice, but the preceding baseline validator accepted only service units. That prevented the intended pre-staged CI slice from being observed. The collector also needed to reject inactive or incorrectly located slice observations. The fix accepts only the exact CI slice for host/CI inputs, checks its active canonical unit and keeps existing finite limit and disk checks. It adds no configuration writer or live effect; preparing the empty boundary and proving actual workload isolation remain separate steps.

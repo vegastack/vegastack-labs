@@ -15,7 +15,7 @@ var ciWorkingDeliveryHistoricalSourceSeals = map[string]hostActionSourceSeal{
 
 // #367 exact current timing variants; retain every historical literal seal above.
 var ciWorkingDeliverySourceSeals = func() map[string]hostActionSourceSeal {
-	current := make(map[string]hostActionSourceSeal, len(ciWorkingDeliveryHistoricalSourceSeals)+len(helperClockSkewSourceSeals)+len(fail2banStartupSourceSeals)+len(fail2banJournalSourceSeals)+len(auditReloadSourceSeals)+len(ciResourceSliceSourceSeals))
+	current := make(map[string]hostActionSourceSeal, len(ciWorkingDeliveryHistoricalSourceSeals)+len(helperClockSkewSourceSeals)+len(fail2banStartupSourceSeals)+len(fail2banJournalSourceSeals)+len(auditReloadSourceSeals)+len(ciResourceSliceSourceSeals)+len(retainedAdministratorSourceSeals))
 	for key, seal := range ciWorkingDeliveryHistoricalSourceSeals {
 		current[key] = seal
 	}
@@ -32,6 +32,9 @@ var ciWorkingDeliverySourceSeals = func() map[string]hostActionSourceSeal {
 		current[key] = seal
 	}
 	for key, seal := range ciResourceSliceSourceSeals {
+		current[key] = seal
+	}
+	for key, seal := range retainedAdministratorSourceSeals {
 		current[key] = seal
 	}
 	return current

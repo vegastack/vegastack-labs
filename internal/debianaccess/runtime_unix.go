@@ -237,6 +237,10 @@ func (n *nativeRuntime) inspectAccounts(in generated.DebianAccessInput) error {
 	}
 	dangerous := map[string]bool{"root": true, "sudo": true, "admin": true, "wheel": true, "docker": true, "lxd": true, "incus-admin": true, "libvirt": true, "disk": true, "shadow": true}
 	for _, a := range in.Accounts {
+		retained := a.RetainedAdministrator != nil
+		if retained && validateRetainedAdministrator(a) != nil {
+			return errAccess
+		}
 		if dangerous[a.Name] {
 			return errAccess
 		}
@@ -253,20 +257,38 @@ func (n *nativeRuntime) inspectAccounts(in generated.DebianAccessInput) error {
 				}
 			}
 		}
+		if retained && !accountExists {
+			return errAccess
+		}
 		if err := n.inspectHome(a, accountExists); err != nil {
 			return err
 		}
+		currentGroups := []string{}
+		seenGroups := map[string]bool{}
 		for _, line := range strings.Split(string(groups), "\n") {
 			v := strings.Split(line, ":")
 			if len(v) != 4 {
 				continue
+			}
+			if retained {
+				member := v[2] == fmt.Sprint(a.GID)
+				for _, name := range strings.Split(v[3], ",") {
+					member = member || name == a.Name
+				}
+				if member {
+					if seenGroups[v[0]] {
+						return errAccess
+					}
+					seenGroups[v[0]] = true
+					currentGroups = append(currentGroups, v[0])
+				}
 			}
 			if dangerous[v[0]] {
 				if v[2] == fmt.Sprint(a.GID) {
 					return errAccess
 				}
 				for _, member := range strings.Split(v[3], ",") {
-					if member == a.Name {
+					if member == a.Name && (!retained || (v[0] != "sudo" && v[0] != "admin" && v[0] != "wheel" && v[0] != "docker")) {
 						return errAccess
 					}
 				}
@@ -275,6 +297,12 @@ func (n *nativeRuntime) inspectAccounts(in generated.DebianAccessInput) error {
 				if v[0] != a.Name || v[2] != fmt.Sprint(a.GID) {
 					return errAccess
 				}
+			}
+		}
+		if retained {
+			sort.Strings(currentGroups)
+			if strings.Join(currentGroups, "\x00") != strings.Join(a.RetainedAdministrator.Groups, "\x00") || n.inspectRetainedAdministratorKeys(a) != nil {
+				return errAccess
 			}
 		}
 	}
@@ -494,6 +522,14 @@ func (n *nativeRuntime) applyConfigurationLocked(ctx context.Context, in generat
 	return n.measure(in, "partial", "access-applied-awaiting-independent-probes", true), nil
 }
 func (n *nativeRuntime) applyAccounts(ctx context.Context, in generated.DebianAccessInput) error {
+	for _, a := range in.Accounts {
+		if a.RetainedAdministrator != nil {
+			if n.inspectAccounts(in) != nil || n.inspectExistingKeys(in) != nil || n.inspectSudo(ctx, in) != nil {
+				return errAccess
+			}
+			break
+		}
+	}
 	raw, e := n.read("etc/passwd")
 	if e != nil {
 		return e
@@ -503,6 +539,9 @@ func (n *nativeRuntime) applyAccounts(ctx context.Context, in generated.DebianAc
 		return e
 	}
 	for _, a := range in.Accounts {
+		if a.RetainedAdministrator != nil {
+			continue
+		}
 		if !strings.Contains("\n"+string(groups), "\n"+a.Name+":") {
 			if _, e = n.run(ctx, "/usr/sbin/groupadd", []string{"--gid", strconv.FormatInt(a.GID, 10), "--", a.Name}, nil); e != nil {
 				return e
@@ -662,6 +701,16 @@ func (n *nativeRuntime) verifyEffectiveSSH(ctx context.Context, in generated.Deb
 		if e != nil || !strings.Contains(string(out), "passwordauthentication no\n") || !strings.Contains(string(out), "kbdinteractiveauthentication no\n") || !strings.Contains(string(out), "authorizedkeysfile /etc/vsk-labs/authorized_keys/%u\n") {
 			return errAccess
 		}
+		for _, a := range in.Accounts {
+			if a.Role != "automation" || !strings.HasPrefix(c, "user="+a.Name+",") {
+				continue
+			}
+			for _, required := range []string{"authenticationmethods publickey\n", "permittty no\n", "allowtcpforwarding no\n", "allowagentforwarding no\n", "x11forwarding no\n", "permittunnel no\n"} {
+				if !strings.Contains(string(out), required) {
+					return errAccess
+				}
+			}
+		}
 	}
 	root, e := n.run(ctx, "/usr/sbin/sshd", []string{"-T", "-C", "user=root,host=localhost,addr=127.0.0.1"}, nil)
 	if e != nil {
@@ -684,6 +733,11 @@ func (n *nativeRuntime) verifyEffectiveSSH(ctx context.Context, in generated.Deb
 	return nil
 }
 func (n *nativeRuntime) inspectExistingKeys(in generated.DebianAccessInput) error {
+	for _, a := range in.Accounts {
+		if a.RetainedAdministrator != nil && n.inspectRetainedAdministratorKeys(a) != nil {
+			return errAccess
+		}
+	}
 	check := func(p string, keys []string, allowRestrict bool) error {
 		raw, e := n.read(p)
 		if os.IsNotExist(e) {
@@ -790,4 +844,64 @@ func (n *nativeRuntime) inspectExistingKeys(in generated.DebianAccessInput) erro
 
 func onlyRestrictOptions(options []string) bool {
 	return len(options) == 0 || (len(options) == 1 && options[0] == "restrict")
+}
+
+// Retention permits no key enrollment or revocation: the current safe canonical
+// and per-user files must each contain exactly the declared human keys.
+func (n *nativeRuntime) inspectRetainedAdministratorKeys(a generated.AccessAccount) error {
+	if validateRetainedAdministrator(a) != nil || len(a.PublicKeys) == 0 {
+		return errAccess
+	}
+	wanted := map[string]bool{}
+	for _, text := range a.PublicKeys {
+		key, _, opts, rest, err := ssh.ParseAuthorizedKey([]byte(text))
+		if err != nil || len(opts) != 0 || len(rest) != 0 {
+			return errAccess
+		}
+		fp := ssh.FingerprintSHA256(key)
+		if wanted[fp] {
+			return errAccess
+		}
+		wanted[fp] = true
+	}
+	files := [][]byte{}
+	canonical, err := n.read("etc/vsk-labs/authorized_keys/" + a.Name)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	if err == nil {
+		files = append(files, canonical)
+	}
+	home, err := n.readUserAuthorizedKeys(a)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	if err == nil {
+		files = append(files, home)
+	}
+	if len(files) == 0 {
+		return errAccess
+	}
+	for _, raw := range files {
+		observed := map[string]bool{}
+		for _, line := range strings.Split(string(raw), "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+			key, _, opts, rest, err := ssh.ParseAuthorizedKey([]byte(line))
+			if err != nil || len(opts) != 0 || len(rest) != 0 {
+				return errAccess
+			}
+			fp := ssh.FingerprintSHA256(key)
+			if !wanted[fp] {
+				return errAccess
+			}
+			observed[fp] = true
+		}
+		if len(observed) != len(wanted) {
+			return errAccess
+		}
+	}
+	return nil
 }

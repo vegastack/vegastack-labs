@@ -30,7 +30,6 @@ func DesiredFiles(input generated.DebianAccessInput) (map[string][]byte, error) 
 		ssh = strings.Replace(ssh, "AllowUsers "+strings.Join(users, " "), "AllowUsers "+strings.Join(users, " ")+" root", 1)
 		ssh += "Match User root\n    PermitRootLogin prohibit-password\n    AuthorizedKeysFile /etc/vsk-labs/service_authorized_keys/root\n    AuthenticationMethods publickey\n    PermitTTY no\n    AllowTcpForwarding no\n    AllowAgentForwarding no\n    X11Forwarding no\nMatch all\n"
 	}
-	out["etc/ssh/sshd_config.d/70-vsk-access.conf"] = []byte(ssh)
 	for _, a := range input.Accounts {
 		if !accessName.MatchString(a.Name) || a.Name == "root" {
 			return nil, errAccess
@@ -43,12 +42,14 @@ func DesiredFiles(input generated.DebianAccessInput) (map[string][]byte, error) 
 			}
 		}
 		if a.Role == "automation" {
+			ssh += "Match User " + a.Name + "\n    AuthenticationMethods publickey\n    PasswordAuthentication no\n    KbdInteractiveAuthentication no\n    PermitTTY no\n    AllowTcpForwarding no\n    AllowAgentForwarding no\n    X11Forwarding no\n    PermitTunnel no\nMatch all\n"
 			for i := range keys {
 				keys[i] = "restrict " + keys[i]
 			}
 		}
 		out["etc/vsk-labs/authorized_keys/"+a.Name] = []byte(strings.Join(keys, "\n") + "\n")
 	}
+	out["etc/ssh/sshd_config.d/70-vsk-access.conf"] = []byte(ssh)
 	if len(input.PrivilegedServiceKeys) > 0 {
 		var keys []string
 		for _, k := range input.PrivilegedServiceKeys {

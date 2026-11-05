@@ -1,4 +1,43 @@
 {
+  "$defs": {
+    "access-retained-administrator": {
+      "additionalProperties": false,
+      "properties": {
+        "groups": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/access-retained-administrator"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "sudoPolicyDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "groups",
+        "sudoPolicyDigest"
+      ],
+      "type": "object"
+    }
+  },
   "$id": "vegastack-labs.dev/access-account",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
@@ -31,6 +70,16 @@
       "maxItems": 8,
       "type": "array",
       "uniqueItems": true
+    },
+    "retainedAdministrator": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/access-retained-administrator"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "role": {
       "enum": [

@@ -24,7 +24,7 @@ var debianBaselineHistoricalSourceSeals = map[string]hostActionSourceSeal{
 // #369/#371/#373/#377 route only exact current variants through the existing checker.
 // Every historical literal seal remains unchanged above.
 var debianBaselineSourceSeals = func() map[string]hostActionSourceSeal {
-	current := make(map[string]hostActionSourceSeal, len(debianBaselineHistoricalSourceSeals)+len(fail2banStartupSourceSeals)+len(fail2banJournalSourceSeals)+len(auditReloadSourceSeals)+len(ciResourceSliceSourceSeals))
+	current := make(map[string]hostActionSourceSeal, len(debianBaselineHistoricalSourceSeals)+len(fail2banStartupSourceSeals)+len(fail2banJournalSourceSeals)+len(auditReloadSourceSeals)+len(ciResourceSliceSourceSeals)+len(retainedAdministratorSourceSeals))
 	for key, seal := range debianBaselineHistoricalSourceSeals {
 		current[key] = seal
 	}
@@ -38,6 +38,9 @@ var debianBaselineSourceSeals = func() map[string]hostActionSourceSeal {
 		current[key] = seal
 	}
 	for key, seal := range ciResourceSliceSourceSeals {
+		current[key] = seal
+	}
+	for key, seal := range retainedAdministratorSourceSeals {
 		current[key] = seal
 	}
 	return current

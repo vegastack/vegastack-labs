@@ -115,7 +115,11 @@ func (f *nativeFixture) command(_ context.Context, bin string, args []string, in
 		return []byte("active\n"), nil
 	case "/usr/sbin/sshd":
 		if args[0] == "-T" {
-			return []byte("permitrootlogin no\nkbdinteractiveauthentication no\npasswordauthentication no\nauthorizedkeysfile /etc/vsk-labs/authorized_keys/%u\n"), nil
+			out := "permitrootlogin no\nkbdinteractiveauthentication no\npasswordauthentication no\nauthorizedkeysfile /etc/vsk-labs/authorized_keys/%u\n"
+			if len(args) > 2 && strings.HasPrefix(args[2], "user=automation,") {
+				out += "authenticationmethods publickey\npermittty no\nallowtcpforwarding no\nallowagentforwarding no\nx11forwarding no\npermittunnel no\n"
+			}
+			return []byte(out), nil
 		}
 		return nil, nil
 	case "/usr/sbin/iptables-nft", "/usr/sbin/ip6tables-nft":

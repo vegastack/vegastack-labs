@@ -10,6 +10,7 @@ import (
 	"net/netip"
 	"path"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/vegastack/vegastack-labs/internal/generated"
@@ -23,6 +24,7 @@ const ActionVersion = "1.0.0"
 
 var accountName = regexp.MustCompile(`^[a-z_][a-z0-9_-]{0,31}$`)
 var interfaceName = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_.:-]{0,14}$`)
+var retainedSudoDigest = regexp.MustCompile(`^sha256:[a-f0-9]{64}$`)
 var errInput = errors.New("invalid Debian access input")
 
 func DecodeInput(raw []byte) (generated.DebianAccessInput, error) {
@@ -75,8 +77,15 @@ func ValidateDesiredInput(in generated.DebianAccessInput) error {
 	uids := map[int64]bool{}
 	homes := map[string]bool{}
 	automation := 0
+	retainedAdministrators := 0
 	keyRoles := map[string]string{}
 	for _, a := range in.Accounts {
+		if a.RetainedAdministrator != nil {
+			retainedAdministrators++
+			if retainedAdministrators > 1 || validateRetainedAdministrator(a) != nil || !slices.Contains(in.SSHUsers, a.Name) {
+				return errInput
+			}
+		}
 		if !accountName.MatchString(a.Name) || a.Name == "root" || ProtectedName(a.Name) || a.UID <= 0 || a.GID <= 0 || a.UID > 4294967295 || a.GID > 4294967295 || uids[a.UID] || homes[a.Home] || names[a.Name].Name != "" || path.Clean(a.Home) != a.Home || strings.ContainsAny(a.Home, "\n\r\x00${} ") {
 			return errInput
 		}
@@ -120,6 +129,13 @@ func ValidateDesiredInput(in generated.DebianAccessInput) error {
 	}
 	if automation != 1 {
 		return errInput
+	}
+	if retainedAdministrators != 0 {
+		for _, account := range in.Accounts {
+			if account.Role == "automation" && !slices.Contains(in.SSHUsers, account.Name) {
+				return errInput
+			}
+		}
 	}
 
 	if in.RevokeAutomationSessionsRetainedPublicKey != "" {
@@ -229,6 +245,29 @@ func ValidateDesiredInput(in generated.DebianAccessInput) error {
 			return errInput
 		}
 		owned[v.ResourceID] = true
+	}
+	return nil
+}
+
+func validateRetainedAdministrator(a generated.AccessAccount) error {
+	r := a.RetainedAdministrator
+	if r == nil || a.Role != "human" || r.Schema != generated.SchemaIDAccessRetainedAdministrator || r.SchemaVersion != "1.0.0" || !retainedSudoDigest.MatchString(r.SudoPolicyDigest) || len(r.Groups) == 0 || len(r.Groups) > 64 || !slices.IsSorted(r.Groups) || !slices.Contains(r.Groups, a.Name) {
+		return errInput
+	}
+	privileged := false
+	for i, group := range r.Groups {
+		if !accountName.MatchString(group) || i > 0 && group == r.Groups[i-1] {
+			return errInput
+		}
+		switch group {
+		case "root", "disk", "shadow", "lxd", "incus-admin", "libvirt":
+			return errInput
+		case "sudo", "admin", "wheel", "docker":
+			privileged = true
+		}
+	}
+	if !privileged {
+		return errInput
 	}
 	return nil
 }
