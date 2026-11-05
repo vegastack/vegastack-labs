@@ -158,6 +158,7 @@ type Config struct {
 	ServiceRecoveryPolicies       []servicerecovery.Policy
 	CIJobBindings                 []generated.CiJobExecutionBinding
 	CIPublicationBindings         []generated.CiPublicationBinding
+	ManualPublicationBindings     []generated.ManualPublicationBinding
 	CIEnrollmentPolicies          []CIEnrollmentPolicy
 	ServiceImportPolicies         []servicecatalog.Policy
 	ServiceDeploymentPolicies     []servicecatalog.DeploymentPolicy

@@ -102,6 +102,15 @@ func (repository *DeclarationRepository) CreateRevision(ctx context.Context, req
 				return err
 			}
 		}
+		if request.Document.DeclarationType == ManualPublicationOperation {
+			actor, err := serviceActor(ctx)
+			if err != nil {
+				return err
+			}
+			if err = NewManualPublicationRepository(repository.store).validate(actor, row, request.Document); err != nil {
+				return err
+			}
+		}
 		if in := request.Document.CIJob; in != nil {
 			actor, err := serviceActor(ctx)
 			if err != nil {
@@ -229,7 +238,7 @@ func decodeStoredDeclaration(raw []byte, reasonDigest string, document *generate
 }
 
 func validDeclarationContent(document generated.DeclarationRevision, reasonDigest string) bool {
-	return (document.Maintenance == nil || document.Maintenance.ReasonDigest == reasonDigest) && maintenance.ValidateDeclaration(document) && ValidCIPublicationDeclaration(document) && ValidateCIJobDeclaration(document) && ValidateCIEnrollmentDeclaration(document) && ValidateHostingLifecycleDeclaration(document) && ValidateServiceRecoveryDeclaration(document) && ValidateServiceDeploymentDeclaration(document) && ValidateServiceImportDeclaration(document) && ValidateNetworkEndpointDeclaration(document) && ValidateGrantBatchDeclaration(document) && validAliasClaimDeclarationShape(document, reasonDigest) && validOffsiteDeclarationShape(document) && document.ContentDigest == declarationContentDigest(document, reasonDigest)
+	return (document.Maintenance == nil || document.Maintenance.ReasonDigest == reasonDigest) && maintenance.ValidateDeclaration(document) && ValidManualPublicationDeclaration(document) && ValidCIPublicationDeclaration(document) && ValidateCIJobDeclaration(document) && ValidateCIEnrollmentDeclaration(document) && ValidateHostingLifecycleDeclaration(document) && ValidateServiceRecoveryDeclaration(document) && ValidateServiceDeploymentDeclaration(document) && ValidateServiceImportDeclaration(document) && ValidateNetworkEndpointDeclaration(document) && ValidateGrantBatchDeclaration(document) && validAliasClaimDeclarationShape(document, reasonDigest) && validOffsiteDeclarationShape(document) && document.ContentDigest == declarationContentDigest(document, reasonDigest)
 }
 
 func validOffsiteDeclarationShape(document generated.DeclarationRevision) bool {

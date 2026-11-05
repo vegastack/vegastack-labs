@@ -5,6 +5,7 @@ Contract schema: `1.32.0`
 
 | Operation | Method | Path | Availability | Audience | Stream | Request schema | Data schema |
 |---|---|---|---|---|---|---|---|
+| `api.v1.artifact.publications.drafts.create` | `POST` | `/api/v1/artifacts/publications/drafts` | `available` | `operator` | `finite` | `vegastack-labs.dev/manual-publication-draft-request` | `vegastack-labs.dev/declaration-revision` |
 | `api.v1.audit-checkpoints.create` | `POST` | `/api/v1/audit-checkpoints` | `available` | `operator` | `finite` | `vegastack-labs.dev/audit-checkpoint-request` | `vegastack-labs.dev/audit-checkpoint` |
 | `api.v1.audit-checkpoints.list` | `GET` | `/api/v1/audit-checkpoints` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/browser-audit-checkpoint-list-data` |
 | `api.v1.audit-history.verification` | `GET` | `/api/v1/audit-history/verification` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/browser-audit-verification-data` |

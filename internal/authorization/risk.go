@@ -21,6 +21,7 @@ var errUnknownRisk = errors.New("unknown plan operation or risk")
 
 var operationRisk = map[string]RiskClass{
 	"operations.notification-readiness.test": RiskControlPlane,
+	"artifact.publish.manual":                RiskControlPlane,
 	"ci.artifact.publish":                    RiskControlPlane,
 	"hosting.lifecycle.apply":                RiskControlPlane,
 	"service.recover":                        RiskProductionLike,

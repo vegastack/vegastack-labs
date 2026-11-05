@@ -11,7 +11,7 @@ import (
 
 func TestCIBlobCopyRequiresExactSourceOwnerAndStatement(t *testing.T) {
 	const module = "github.com/vegastack/vegastack-labs"
-	for _, relative := range []string{"internal/adapter/ociregistry/client.go", "internal/adapter/ociregistry/verified.go", "internal/server/ci_publication.go"} {
+	for _, relative := range []string{"internal/adapter/ociregistry/client.go", "internal/adapter/ociregistry/verified.go", "internal/server/ci_publication.go", "internal/server/manual_publication.go"} {
 		raw, e := os.ReadFile(filepath.Join("..", "..", relative))
 		if e != nil {
 			t.Fatal(e)

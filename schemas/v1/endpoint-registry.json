@@ -4,6 +4,19 @@
   "schemaVersion": "1.32.0",
   "endpoints": [
     {
+      "id": "api.v1.artifact.publications.drafts.create",
+      "method": "POST",
+      "path": "/api/v1/artifacts/publications/drafts",
+      "availability": "available",
+      "ownerPhase": "9",
+      "requestSchema": "vegastack-labs.dev/manual-publication-draft-request",
+      "dataSchema": "vegastack-labs.dev/declaration-revision",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
       "id": "api.v1.audit-checkpoints.create",
       "method": "POST",
       "path": "/api/v1/audit-checkpoints",

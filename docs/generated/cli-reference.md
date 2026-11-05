@@ -18,6 +18,19 @@ Owner phase: `4` · risk: `mutation` · availability: `available`
 
 - Execute one exact current and authorized immutable plan.: `vsk-labs apply --config fixture/server-profile.json --plan-id plan-1 --output json`
 
+### `vsk-labs artifact publication draft`
+
+Draft verified manual image publication for exact human acknowledgement.
+
+Owner phase: `9` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected operator profile.
+- `--file <path>` — Read one exact publication draft request.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Draft verified manual image publication for exact human acknowledgement.: `vsk-labs artifact publication draft --config fixture/client.json --file fixture/publication.json --output json`
+
 ### `vsk-labs audit checkpoints`
 
 List sanitized audit checkpoints.

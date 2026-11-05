@@ -1,3 +1,7 @@
+## Manual signed image publication
+
+The first working delivery can now prepare a separate human publication plan without requiring a GitHub runner token or pretending a local build is an admitted CI job. It reuses the existing server, credentials, exact-plan Slack acknowledgement, offline signature verifier and bounded OCI transport. Protected configuration pins the signer and repository independently of the supplied artifact; the registry result proves signed image bytes and exact digest readback, with uncertain writes preserved honestly. Existing CI publication and deployment admission retain their prior checks. Live signing, registry setup and deployment remain separate prerequisites.
+
 # Project chronicle
 
 ## 05-11-2026 — Preserve an existing administrator during access preparation (#379)

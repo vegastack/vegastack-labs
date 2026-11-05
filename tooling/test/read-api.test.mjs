@@ -519,3 +519,22 @@ test("approved #333 controller setup endpoints retain exact local operator bound
     }
   }
 });
+
+
+test("manual publication keeps an exact operator-only inert draft boundary", async (t) => {
+  const registry = JSON.parse(await readFile(path.join(process.cwd(), "schemas/v1/endpoint-registry.json"), "utf8"));
+  const id = "api.v1.artifact.publications.drafts.create";
+  assert.equal((await verifyReadAPI()).status, "pass");
+  for (const mutation of ["method", "execute-path", "request-schema", "browser", "sibling"]) {
+    const copy = structuredClone(registry);
+    const endpoint = copy.endpoints.find((value) => value.id === id);
+    assert.ok(endpoint);
+    if (mutation === "method") endpoint.method = "GET";
+    else if (mutation === "execute-path") endpoint.path = "/api/v1/artifacts/publications/execute";
+    else if (mutation === "request-schema") endpoint.requestSchema = "vegastack-labs.dev/ci-publication-draft-request";
+    else if (mutation === "browser") endpoint.audiences.push("browser");
+    else copy.endpoints.push({...endpoint, id: "api.v1.artifact.publications.execute", path: "/api/v1/artifacts/publications/execute"});
+    const root = await fixtureRepo(t, {"schemas/v1/endpoint-registry.json": `${JSON.stringify(copy)}\n`});
+    assert.ok((await verifyReadAPI(root)).codes.includes("READ_API_ENDPOINT_DRIFT"), mutation);
+  }
+});

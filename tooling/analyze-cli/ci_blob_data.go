@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-// Blob.Open reopens already frozen, digest-checked artifact bytes. These three
+// Blob.Open reopens already frozen, digest-checked artifact bytes. These four
 // exact assignments copy artifact data; they do not register commands. Bind
 // source bytes, package/file, owning function AND assignment AST independently.
 func reviewedCIBlobDataCopy(c checkedSourcePackage, file *ast.File, statement *ast.AssignStmt, generatedImport string) bool {
@@ -30,6 +30,7 @@ func reviewedCIBlobDataCopy(c checkedSourcePackage, file *ast.File, statement *a
 		{"internal/adapter/ociregistry/client.go", "Publish", "5819cf59bbb742f187dafa6634319ad50a5b79c6fee1cce6c2bf874a470b3761", "43a497db21ecb74ba5e1a2e6f4b67aba30f0b061c90702a7006b6708a89a275b"},
 		{"internal/adapter/ociregistry/verified.go", "PublishVerified", "6d5e2fb99ebebbf05dd92f0036f893224ae0193ed8efadbfa9e477165ee4227e", "df5f3fa581055fb6b6d2f676801247f110cd9835b072c6993115ea12cd285994"},
 		{"internal/server/ci_publication.go", "candidate", "2cd38e8511183aa040d2d896d70c8ae2d15c12a9a1742fc8e1b952f6cce92478", "f0c43368cf19f6c39e807e7b5769b5cc52357558be2fca12439c5db4d5eef8c4"},
+		{"internal/server/manual_publication.go", "candidate", "d33b9379a61debf042cada4b7150f396150613fb46cf4e47106e8e75b00c0f25", "1efd0375165febe46883fd80830201435c52730f532bc9ebc39c333f994ac5fb"},
 	} {
 		if name != filepath.Base(seal.relative) || c.listed.ImportPath != module+"/"+filepath.ToSlash(filepath.Dir(seal.relative)) {
 			continue

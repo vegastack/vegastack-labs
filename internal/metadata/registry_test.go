@@ -440,7 +440,7 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 	wantAvailable := map[string]bool{
 		"doctor": false, "doctor controller-prerequisites": false, "operations status": false, "operations observe": false, "operations notification-readiness": false,
 		"maintenance diagnose": false, "maintenance draft": false, "maintenance repair": false,
-		"ci publication draft": false, "ci job draft": false, "ci enrollment draft": false, "ci enrollment list": false, "ci enrollment show": false,
+		"artifact publication draft": false, "ci publication draft": false, "ci job draft": false, "ci enrollment draft": false, "ci enrollment list": false, "ci enrollment show": false,
 		"service configuration show": false, "service recovery draft": false, "service recovery show": false, "hosting lifecycle draft": false, "hosting lifecycle show": false,
 		"service deployment draft": false, "service deployment show": false,
 		"service list": false, "service show": false, "service observe": false, "service import draft": false,

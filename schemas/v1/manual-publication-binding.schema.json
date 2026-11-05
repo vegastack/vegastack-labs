@@ -1,0 +1,80 @@
+{
+  "$id": "vegastack-labs.dev/manual-publication-binding",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "bindingId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "candidateDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "candidatePath": {
+      "maxLength": 4096,
+      "minLength": 1,
+      "type": "string"
+    },
+    "imageDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "materialVersion": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "referenceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "registryOrigin": {
+      "maxLength": 4096,
+      "minLength": 1,
+      "type": "string"
+    },
+    "repository": {
+      "maxLength": 4096,
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/manual-publication-binding"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "trustPolicyDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "trustPolicyPath": {
+      "maxLength": 4096,
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "bindingId",
+    "registryOrigin",
+    "repository",
+    "referenceId",
+    "materialVersion",
+    "candidatePath",
+    "candidateDigest",
+    "trustPolicyPath",
+    "trustPolicyDigest",
+    "imageDigest"
+  ],
+  "title": "VegaStack Labs manual publication binding",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}
