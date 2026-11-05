@@ -1,5 +1,10 @@
 # Project chronicle
 
+## 05-11-2026 — Observe the existing CI resource boundary (#377)
+
+The CI role already owns a finite resource slice, but the preceding baseline validator accepted only service units. That prevented the intended pre-staged CI slice from being observed. The collector also needed to reject inactive or incorrectly located slice observations. The fix accepts only the exact CI slice for host/CI inputs, checks its active canonical unit and keeps existing finite limit and disk checks. It adds no configuration writer or live effect; preparing the empty boundary and proving actual workload isolation remain separate steps.
+
+
 ## 04-11-2026 — Keep working CI separate from full qualification (#375)
 
 The initial CI demonstration was blocked by a contract requiring the entire native qualification catalog, including encrypted-volume recovery. Omkar chose to leave storage unencrypted and defer full qualification. The local implementation adds an explicitly applied, host-scoped working CI policy using the existing control database and receipt checks. All ten actual baseline controls and the applicable CI role isolation/resource checks remain required. The strict admission paths for deployment, replacement and recovery are unchanged. This source work does not install or activate the policy, run CI, or complete Phase 9.

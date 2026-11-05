@@ -165,7 +165,8 @@ func ValidateDesiredInput(in generated.DebianBaselineInput) error {
 		}
 	}
 	for _, r := range in.Resources {
-		if !strings.HasSuffix(r.Unit, ".service") || !selector.MatchString(r.Unit) || r.MinimumFreeBytes < 1<<30 || r.MinimumFreePercent < 10 || r.MinimumFreePercent > 100 || r.CPUQuotaPercent > 10000 || !validMount(r.MountPath) {
+		ciSlice := r.Unit == "vsk-ci.slice" && (in.RoleID == "host" || in.RoleID == "ci")
+		if (!strings.HasSuffix(r.Unit, ".service") && !ciSlice) || !selector.MatchString(r.Unit) || r.MinimumFreeBytes < 1<<30 || r.MinimumFreePercent < 10 || r.MinimumFreePercent > 100 || r.CPUQuotaPercent > 10000 || !validMount(r.MountPath) {
 			return errInput
 		}
 	}

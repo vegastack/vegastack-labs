@@ -59,6 +59,9 @@ func collectHealthControl(ctx context.Context, in generated.DebianBaselineInput,
 				return c, e
 			}
 			v := kv(b)
+			if limit.Unit == "vsk-ci.slice" && (v["ActiveState"] != "active" || v["FragmentPath"] != "/etc/systemd/system/vsk-ci.slice") {
+				return c, nil
+			}
 			mem, e1 := number(v["MemoryMax"])
 			tasks, e2 := number(v["TasksMax"])
 			quota, e3 := parseDuration(v["CPUQuotaPerSecUSec"])

@@ -805,6 +805,13 @@
         "commands": [],
         "imports": [],
         "mutationBoundaryDigest": "sha256:bf41df87a12e5a0bfbd5370adfd1b2dd10a5bda68f6d8ea1ce63f7558378523b"
+      },
+      {
+        "id": "phase9-ci-resource-slice-issue377-v1",
+        "issue": 377,
+        "commands": [],
+        "imports": [],
+        "mutationBoundaryDigest": "sha256:1606746ad48b9631aaee89e0369cc439d8d864d70bba3f098570e9a7ba56e109"
       }
     ]
   },

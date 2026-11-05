@@ -21,10 +21,10 @@ var debianBaselineHistoricalSourceSeals = map[string]hostActionSourceSeal{
 	"internal/hostaction|bundle.go,once.go,pipe_unix.go,policy_unix.go,receipt_unix.go,request.go,result.go": {imports: []string{"bufio", "bytes", "context", "crypto/ed25519", "crypto/sha256", "encoding/base64", "encoding/hex", "encoding/json", "github.com/vegastack/vegastack-labs/internal/failure", "github.com/vegastack/vegastack-labs/internal/generated", "github.com/vegastack/vegastack-labs/internal/strictjson", "golang.org/x/sys/unix", "io", "os", "path/filepath", "regexp", "strings", "sync", "time"}, digest: "3675a399e7f9b279f5ce77ec81ca8448a5ce154f3ab1a1a049663d2cd0be3ee2"},
 }
 
-// #369/#371/#373 route only exact current variants through the existing checker.
+// #369/#371/#373/#377 route only exact current variants through the existing checker.
 // Every historical literal seal remains unchanged above.
 var debianBaselineSourceSeals = func() map[string]hostActionSourceSeal {
-	current := make(map[string]hostActionSourceSeal, len(debianBaselineHistoricalSourceSeals)+len(fail2banStartupSourceSeals)+len(fail2banJournalSourceSeals)+len(auditReloadSourceSeals))
+	current := make(map[string]hostActionSourceSeal, len(debianBaselineHistoricalSourceSeals)+len(fail2banStartupSourceSeals)+len(fail2banJournalSourceSeals)+len(auditReloadSourceSeals)+len(ciResourceSliceSourceSeals))
 	for key, seal := range debianBaselineHistoricalSourceSeals {
 		current[key] = seal
 	}
@@ -35,6 +35,9 @@ var debianBaselineSourceSeals = func() map[string]hostActionSourceSeal {
 		current[key] = seal
 	}
 	for key, seal := range auditReloadSourceSeals {
+		current[key] = seal
+	}
+	for key, seal := range ciResourceSliceSourceSeals {
 		current[key] = seal
 	}
 	return current
