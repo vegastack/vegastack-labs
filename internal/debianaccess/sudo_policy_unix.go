@@ -4,7 +4,9 @@ package debianaccess
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/strictjson"
 	"os"
 	"strings"
 )
@@ -37,7 +39,17 @@ func (n *nativeRuntime) inspectSudo(ctx context.Context, in generated.DebianAcce
 	}
 	for _, a := range in.Accounts {
 		raw, e := n.run(ctx, "/usr/bin/cvtsudoers", []string{"-c", "/dev/null", "-f", "json", "-e", "-M", "-m", "user=" + a.Name, "/etc/sudoers"}, nil)
-		if e != nil || validateSudoPolicy(raw, a.Name, a.Role == "automation") != nil {
+		if e != nil {
+			return errAccess
+		}
+		if retained := a.RetainedAdministrator; retained != nil {
+			var policy map[string]json.RawMessage
+			if validateRetainedAdministrator(a) != nil || len(raw) > 65536 || strictjson.Scan(ctx, raw, strictjson.Limits{MaxDepth: 12}) != nil || json.Unmarshal(raw, &policy) != nil || policy == nil || digestBytes(raw) != retained.SudoPolicyDigest {
+				return errAccess
+			}
+			continue
+		}
+		if validateSudoPolicy(raw, a.Name, a.Role == "automation") != nil {
 			return errAccess
 		}
 	}

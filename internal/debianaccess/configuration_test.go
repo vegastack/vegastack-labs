@@ -87,3 +87,54 @@ func TestOriginalConnectionRuleSaveNormalizationAndRefusal(t *testing.T) {
 		})
 	}
 }
+
+func TestAccessSSHRetainsAutomationRestrictions(t *testing.T) {
+	for _, tc := range []struct {
+		name, automation    string
+		serviceRoot, revoke bool
+	}{
+		{name: "ordinary", automation: "automation"},
+		{name: "declared-helper-name", automation: "helper_action"},
+		{name: "service-root", automation: "automation", serviceRoot: true},
+		{name: "session-revocation", automation: "automation", revoke: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			in := validInput(t)
+			in.Accounts[0].Name = tc.automation
+			in.Accounts[0].Home = "/home/" + tc.automation
+			human := validInput(t).Accounts[0]
+			human.Name, human.Home, human.Role = "administrator", "/home/administrator", "human"
+			human.UID, human.GID = 1002, 1002
+			in.Accounts = append(in.Accounts, human)
+			in.SSHUsers = []string{tc.automation, human.Name}
+			if tc.serviceRoot {
+				in.PrivilegedServiceKeys = []generated.AccessServiceKey{{PublicKey: human.PublicKeys[0], SourcePrefixes: []string{"192.0.2.1/32"}}}
+			}
+			if tc.revoke {
+				in.RevokeAutomationSessionsRetainedPublicKey = in.Accounts[0].PublicKeys[0]
+			}
+			files, err := DesiredFiles(in)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := "# Owned by the acknowledged VegaStack Debian access profile.\nPasswordAuthentication no\nKbdInteractiveAuthentication no\nPubkeyAuthentication yes\nPermitEmptyPasswords no\nPermitRootLogin no\nAuthorizedKeysFile /etc/vsk-labs/authorized_keys/%u\nAllowUsers administrator " + tc.automation
+			if tc.serviceRoot {
+				want += " root"
+			}
+			want += "\n"
+			if tc.serviceRoot {
+				want += "Match User root\n    PermitRootLogin prohibit-password\n    AuthorizedKeysFile /etc/vsk-labs/service_authorized_keys/root\n    AuthenticationMethods publickey\n    PermitTTY no\n    AllowTcpForwarding no\n    AllowAgentForwarding no\n    X11Forwarding no\nMatch all\n"
+			}
+			want += "Match User " + tc.automation + "\n    AuthenticationMethods publickey\n    PasswordAuthentication no\n    KbdInteractiveAuthentication no\n    PermitTTY no\n    AllowTcpForwarding no\n    AllowAgentForwarding no\n    X11Forwarding no\n    PermitTunnel no\nMatch all\n"
+			if got := string(files["etc/ssh/sshd_config.d/70-vsk-access.conf"]); got != want {
+				t.Fatalf("full SSH configuration lost account restrictions or changed human/service behavior:\ngot:\n%s\nwant:\n%s", got, want)
+			}
+			if got := string(files["etc/vsk-labs/authorized_keys/"+tc.automation]); got != "restrict "+in.Accounts[0].PublicKeys[0]+"\n" {
+				t.Fatalf("automation key or retained revocation key changed: %q", got)
+			}
+			if got := string(files["etc/vsk-labs/authorized_keys/administrator"]); got != human.PublicKeys[0]+"\n" {
+				t.Fatal("human key behavior changed")
+			}
+		})
+	}
+}

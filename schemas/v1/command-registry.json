@@ -8214,6 +8214,11 @@
       "artifactPath": "schemas/v1/access-probe-tuple.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/access-retained-administrator",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/access-retained-administrator.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/access-rollback-specification",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/access-rollback-specification.schema.json"

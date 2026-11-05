@@ -87,6 +87,7 @@ export interface AccessAccount {
   readonly "role": "human" | "automation" | "service";
   readonly "publicKeys": ReadonlyArray<string>;
   readonly "publicKeyDigests": ReadonlyArray<string>;
+  readonly "retainedAdministrator"?: AccessRetainedAdministrator | null;
 }
 
 export interface AccessFlow {
@@ -173,6 +174,13 @@ export interface AccessProbeTuple {
   readonly "address": string;
   readonly "port": number;
   readonly "protocol": "tcp" | "udp";
+}
+
+export interface AccessRetainedAdministrator {
+  readonly "schema": "vegastack-labs.dev/access-retained-administrator";
+  readonly "schemaVersion": "1.0.0";
+  readonly "groups": ReadonlyArray<string>;
+  readonly "sudoPolicyDigest": string;
 }
 
 export interface AccessRollbackSpecification {
@@ -2537,6 +2545,14 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "itemKind": "string",
         "maxItems": 8,
         "uniqueItems": true
+      },
+      {
+        "name": "retainedAdministrator",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "omitEmpty": true,
+        "ref": "vegastack-labs.dev/access-retained-administrator"
       }
     ]
   },
@@ -3080,6 +3096,46 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
           "tcp",
           "udp"
         ]
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/access-retained-administrator",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/access-retained-administrator"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "groups",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "minItems": 1,
+        "maxItems": 64,
+        "uniqueItems": true
+      },
+      {
+        "name": "sudoPolicyDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
       }
     ]
   },
@@ -17772,6 +17828,10 @@ function decodeAccessProbeSource(value: unknown): AccessProbeSource {
 
 function decodeAccessProbeTuple(value: unknown): AccessProbeTuple {
   return decodeSchema("vegastack-labs.dev/access-probe-tuple", value) as unknown as AccessProbeTuple;
+}
+
+function decodeAccessRetainedAdministrator(value: unknown): AccessRetainedAdministrator {
+  return decodeSchema("vegastack-labs.dev/access-retained-administrator", value) as unknown as AccessRetainedAdministrator;
 }
 
 function decodeAccessRollbackSpecification(value: unknown): AccessRollbackSpecification {

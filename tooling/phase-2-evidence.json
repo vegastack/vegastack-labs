@@ -812,6 +812,13 @@
         "commands": [],
         "imports": [],
         "mutationBoundaryDigest": "sha256:1606746ad48b9631aaee89e0369cc439d8d864d70bba3f098570e9a7ba56e109"
+      },
+      {
+        "id": "phase9-retained-administrator-issue379-v1",
+        "issue": 379,
+        "commands": [],
+        "imports": [],
+        "mutationBoundaryDigest": "sha256:6a0576acac0ef97e4fe89e512ddddc4512754a77a74984e6c0fb7914252ce35a"
       }
     ]
   },

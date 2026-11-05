@@ -27,6 +27,7 @@ const (
 	SchemaIDAccessProbeObservation                 = "vegastack-labs.dev/access-probe-observation"
 	SchemaIDAccessProbeSource                      = "vegastack-labs.dev/access-probe-source"
 	SchemaIDAccessProbeTuple                       = "vegastack-labs.dev/access-probe-tuple"
+	SchemaIDAccessRetainedAdministrator            = "vegastack-labs.dev/access-retained-administrator"
 	SchemaIDAccessRollbackSpecification            = "vegastack-labs.dev/access-rollback-specification"
 	SchemaIDAccessServiceKey                       = "vegastack-labs.dev/access-service-key"
 	SchemaIDAccessTargetIdentity                   = "vegastack-labs.dev/access-target-identity"
@@ -642,15 +643,16 @@ const (
 )
 
 type AccessAccount struct {
-	Schema           string   `json:"schema"`
-	SchemaVersion    string   `json:"schemaVersion"`
-	Name             string   `json:"name"`
-	UID              int64    `json:"uid"`
-	GID              int64    `json:"gid"`
-	Home             string   `json:"home"`
-	Role             string   `json:"role"`
-	PublicKeys       []string `json:"publicKeys"`
-	PublicKeyDigests []string `json:"publicKeyDigests"`
+	Schema                string                       `json:"schema"`
+	SchemaVersion         string                       `json:"schemaVersion"`
+	Name                  string                       `json:"name"`
+	UID                   int64                        `json:"uid"`
+	GID                   int64                        `json:"gid"`
+	Home                  string                       `json:"home"`
+	Role                  string                       `json:"role"`
+	PublicKeys            []string                     `json:"publicKeys"`
+	PublicKeyDigests      []string                     `json:"publicKeyDigests"`
+	RetainedAdministrator *AccessRetainedAdministrator `json:"retainedAdministrator,omitempty"`
 }
 
 type AccessConfirmInput struct {
@@ -809,6 +811,13 @@ type AccessProbeTuple struct {
 	Address         string `json:"address"`
 	Port            int64  `json:"port"`
 	Protocol        string `json:"protocol"`
+}
+
+type AccessRetainedAdministrator struct {
+	Schema           string   `json:"schema"`
+	SchemaVersion    string   `json:"schemaVersion"`
+	Groups           []string `json:"groups"`
+	SudoPolicyDigest string   `json:"sudoPolicyDigest"`
 }
 
 type AccessRollbackSpecification struct {

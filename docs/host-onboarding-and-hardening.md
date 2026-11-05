@@ -8,6 +8,16 @@ Status: confirmed outcomes and selected Debian design, with real-OS profile qual
 
 [Security policy](security-and-operations.md) · [Automation and support matrix](automation-and-agents.md#os-and-architecture-support-matrix) · [Development roadmap](development/roadmap.md)
 
+## Retaining an existing recovery administrator
+
+An access input may select `retainedAdministrator` on exactly one existing `human` account. The optional object contains its complete, sorted current `groups` and `sudoPolicyDigest`, the SHA256 digest of the exact bounded JSON produced by the existing per-user `cvtsudoers` command. The existing account fields bind its name, UID, GID, home and public keys. The administrator and automation identity must both remain in `sshUsers`. The ordinary rendered-access and immutable plan digests bind this selection; it grants no separate execution or acknowledgement authority.
+
+The native verifier requires the existing account, exact declared identity, unchanged group set, unchanged sudo policy and exact current public-key set in every existing supported key file. It permits only explicitly retained supplementary `sudo`, `admin`, `wheel` or `docker` membership; privileged primary groups and other forbidden memberships remain denied. Missing or changed state blocks before effects. The action does not create the retained administrator, add or revoke groups, or write sudo grants. Omitted retention keeps the existing strict account checks.
+
+Human procedure: inspect these current values through an authorized bounded read, keep the actual public keys in the private request, include the optional retention object and review the ordinary access plan. Verify administrator recovery and the automation helper through the existing independent probe/confirm sequence. Do not replace current keys or privileges merely to make a baseline pass. The full SSH renderer retains the automation account's key-only, no-TTY, no-forwarding and no-tunnel restrictions, and native verification checks its effective SSH context.
+
+This source capability does not prepare probe sources, apply a firewall, qualify a host, admit CI or complete Phase 9. The live access plan still needs its actual source/witness bindings, recovery preconditions and human acknowledgement.
+
 ## Database registration — working-first slice
 
 Issue [#222](https://github.com/vegastack/vegastack-labs/issues/222) adds registration of an already observed Debian candidate through the existing server API. Registration writes only the control database. It does not connect to a host, install software, create credentials, assign roles, or qualify either admission gate.
