@@ -43,6 +43,7 @@ type Profile struct {
 	CIExternalDeployments            []generated.CiExternalDeploymentBinding
 	CIJobBindings                    []generated.CiJobExecutionBinding
 	CIPublicationBindings            []generated.CiPublicationBinding
+	ManualPublicationBindings        []generated.ManualPublicationBinding
 	CIEnrollmentBindings             []generated.CiEnrollmentBinding
 	ServiceBindings                  []generated.ServiceProviderBinding
 	ServiceDeploymentBindings        []generated.ServiceDeploymentProviderBinding
@@ -298,6 +299,10 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 		}
 		scheduledRunner = &ScheduledRunner{UID: uid, PrincipalID: runner.PrincipalID, BinaryPath: runner.BinaryPath, ConfigPath: runner.ConfigPath}
 	}
+	manualPublications, err := FreezeManualPublicationBindings(input.ManualPublicationBindings)
+	if err != nil {
+		return Profile{}, err
+	}
 	ciPublications, err := FreezeCIPublicationBindings(input.CIPublicationBindings)
 	if err != nil {
 		return Profile{}, err
@@ -344,6 +349,7 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 		CIExternalDeployments:            ciExternal,
 		CIJobBindings:                    ciJobs,
 		CIPublicationBindings:            ciPublications,
+		ManualPublicationBindings:        manualPublications,
 		CIEnrollmentBindings:             ciBindings,
 		CIDeploymentJobs:                 ciDeployments,
 		ServiceBindings:                  serviceBindings,

@@ -819,6 +819,15 @@
         "commands": [],
         "imports": [],
         "mutationBoundaryDigest": "sha256:eb87c2ca46ca9c91ebf2898acbec6996478b2848c579a945a244d0273fe04cb1"
+      },
+      {
+        "id": "phase9-manual-publication-issue386-v1",
+        "issue": 386,
+        "commands": [
+          "artifact publication draft"
+        ],
+        "imports": [],
+        "mutationBoundaryDigest": "sha256:096bb27ae12add6685234a379d771ac10f27a4e67083d0162b91ec85cea2a4b7"
       }
     ]
   },

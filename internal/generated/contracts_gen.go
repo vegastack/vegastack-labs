@@ -286,6 +286,8 @@ const (
 	SchemaIDMaintenanceTarget                      = "vegastack-labs.dev/maintenance-target"
 	SchemaIDManagedHost                            = "vegastack-labs.dev/managed-host"
 	SchemaIDManagedHostList                        = "vegastack-labs.dev/managed-host-list"
+	SchemaIDManualPublicationBinding               = "vegastack-labs.dev/manual-publication-binding"
+	SchemaIDManualPublicationDraftRequest          = "vegastack-labs.dev/manual-publication-draft-request"
 	SchemaIDMeshChange                             = "vegastack-labs.dev/mesh-change"
 	SchemaIDMeshDraftRequest                       = "vegastack-labs.dev/mesh-draft-request"
 	SchemaIDMeshDraftSubmission                    = "vegastack-labs.dev/mesh-draft-submission"
@@ -457,10 +459,11 @@ const (
 	OutputJSON                                     = "json"
 	FlagPlanID                                     = "--plan-id"
 	FlagSchemaVersion                              = "--schema-version"
+	CommandNameArtifactPublicationDraft            = "artifact publication draft"
+	FlagFile                                       = "--file"
 	CommandNameAuditCheckpoints                    = "audit checkpoints"
 	CommandNameAuditVerify                         = "audit verify"
 	CommandNameAuthorizationGrantsDraft            = "authorization grants draft"
-	FlagFile                                       = "--file"
 	CommandNameBackupOffsiteRetirementDryRun       = "backup offsite-retirement dry-run"
 	CommandNameBackupOffsiteRetirementStage        = "backup offsite-retirement stage"
 	CommandNameBackupPolicyDraft                   = "backup policy draft"
@@ -4089,6 +4092,31 @@ type ManagedHostList struct {
 	RecoveryEpoch int64         `json:"recoveryEpoch"`
 }
 
+type ManualPublicationBinding struct {
+	Schema            string `json:"schema"`
+	SchemaVersion     string `json:"schemaVersion"`
+	BindingID         string `json:"bindingId"`
+	RegistryOrigin    string `json:"registryOrigin"`
+	Repository        string `json:"repository"`
+	ReferenceID       string `json:"referenceId"`
+	MaterialVersion   string `json:"materialVersion"`
+	CandidatePath     string `json:"candidatePath"`
+	CandidateDigest   string `json:"candidateDigest"`
+	TrustPolicyPath   string `json:"trustPolicyPath"`
+	TrustPolicyDigest string `json:"trustPolicyDigest"`
+	ImageDigest       string `json:"imageDigest"`
+}
+
+type ManualPublicationDraftRequest struct {
+	Schema                string `json:"schema"`
+	SchemaVersion         string `json:"schemaVersion"`
+	BindingID             string `json:"bindingId"`
+	ExpectedStateRevision int64  `json:"expectedStateRevision"`
+	RecoveryEpoch         int64  `json:"recoveryEpoch"`
+	IdempotencyKey        string `json:"idempotencyKey"`
+	ReasonDigest          string `json:"reasonDigest"`
+}
+
 type MeshChange struct {
 	Schema                    string      `json:"schema"`
 	SchemaVersion             string      `json:"schemaVersion"`
@@ -5847,6 +5875,7 @@ type ServerProfile struct {
 	CIExternalDeployments            []CiExternalDeploymentBinding      `json:"ciExternalDeployments,omitempty"`
 	CIJobBindings                    []CiJobExecutionBinding            `json:"ciJobBindings,omitempty"`
 	CIPublicationBindings            []CiPublicationBinding             `json:"ciPublicationBindings,omitempty"`
+	ManualPublicationBindings        []ManualPublicationBinding         `json:"manualPublicationBindings,omitempty"`
 	CIDeploymentJobs                 []CiDeploymentJobBinding           `json:"ciDeploymentJobs,omitempty"`
 	CIEnrollmentBindings             []CiEnrollmentBinding              `json:"ciEnrollmentBindings,omitempty"`
 	ServiceBindings                  []ServiceProviderBinding           `json:"serviceBindings,omitempty"`
@@ -6471,6 +6500,7 @@ type Example struct {
 
 var Commands = []Command{
 	{Path: []string{"apply"}, Summary: "Execute one exact current and authorized immutable plan.", Availability: "available", OwnerPhase: "4", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--plan-id", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Select the exact immutable plan; this does not acknowledge it.", Enum: []string(nil)}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/plan-reference-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/run-presentation", Examples: []Example{{Summary: "Execute one exact current and authorized immutable plan.", Arguments: []string{"apply", "--config", "fixture/server-profile.json", "--plan-id", "plan-1", "--output", "json"}}}},
+	{Path: []string{"artifact", "publication", "draft"}, Summary: "Draft verified manual image publication for exact human acknowledgement.", Availability: "available", OwnerPhase: "9", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected operator profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one exact publication draft request.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/manual-publication-draft-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/declaration-revision", Examples: []Example{{Summary: "Draft verified manual image publication for exact human acknowledgement.", Arguments: []string{"artifact", "publication", "draft", "--config", "fixture/client.json", "--file", "fixture/publication.json", "--output", "json"}}}},
 	{Path: []string{"audit"}, Summary: "Inspect sanitized audit history.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned", DataSchema: "vegastack-labs.dev/browser-audit-checkpoint-list-data"},
 	{Path: []string{"audit", "checkpoints"}, Summary: "List sanitized audit checkpoints.", Availability: "available", OwnerPhase: "5", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/browser-audit-checkpoint-list-data", Examples: []Example{{Summary: "List sanitized audit checkpoints.", Arguments: []string{"audit", "checkpoints", "--config", "fixture/server-profile.json", "--output", "json"}}}},
 	{Path: []string{"audit", "verify"}, Summary: "Verify local audit history against independent checkpoint state.", Availability: "available", OwnerPhase: "5", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/browser-audit-verification-data", Examples: []Example{{Summary: "Verify local audit history against independent checkpoint state.", Arguments: []string{"audit", "verify", "--config", "fixture/server-profile.json", "--output", "json"}}}},
@@ -6594,6 +6624,7 @@ var Commands = []Command{
 }
 
 var Endpoints = []Endpoint{
+	{ID: "api.v1.artifact.publications.drafts.create", Method: "POST", Path: "/api/v1/artifacts/publications/drafts", Availability: "available", OwnerPhase: "9", QuerySchema: "", RequestSchema: "vegastack-labs.dev/manual-publication-draft-request", DataSchema: "vegastack-labs.dev/declaration-revision", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.audit-checkpoints.create", Method: "POST", Path: "/api/v1/audit-checkpoints", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/audit-checkpoint-request", DataSchema: "vegastack-labs.dev/audit-checkpoint", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.audit-checkpoints.list", Method: "GET", Path: "/api/v1/audit-checkpoints", Availability: "available", OwnerPhase: "5", QuerySchema: "vegastack-labs.dev/api-page-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/browser-audit-checkpoint-list-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.audit-history.verification", Method: "GET", Path: "/api/v1/audit-history/verification", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/browser-audit-verification-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},

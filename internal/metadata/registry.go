@@ -236,6 +236,7 @@ func Current() Registry {
 	commands = append(commands, ciEnrollmentCommands()...)
 	commands = append(commands, ciJobCommands()...)
 	commands = append(commands, ciPublicationCommands()...)
+	commands = append(commands, manualPublicationCommands()...)
 	commands = append(commands, serviceCatalogCommands()...)
 	commands = append(commands, serviceDeploymentCommands()...)
 	commands = append(commands, serviceConfigurationCommands()...)
@@ -266,6 +267,7 @@ func Current() Registry {
 	endpoints = append(endpoints, ciEnrollmentEndpoints()...)
 	endpoints = append(endpoints, ciJobEndpoints()...)
 	endpoints = append(endpoints, ciPublicationEndpoints()...)
+	endpoints = append(endpoints, manualPublicationEndpoints()...)
 	endpoints = append(endpoints, serviceCatalogEndpoints()...)
 	endpoints = append(endpoints, serviceDeploymentEndpoints()...)
 	endpoints = append(endpoints, serviceConfigurationEndpoints()...)
@@ -956,6 +958,7 @@ func currentSchemas() []SchemaDefinition {
 				{JSONName: "ciExternalDeployments", GoName: "CIExternalDeployments", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/ci-external-deployment-binding", MaxItems: intPointer(64)},
 				{JSONName: "ciJobBindings", GoName: "CIJobBindings", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/ci-job-execution-binding", MaxItems: intPointer(128)},
 				{JSONName: "ciPublicationBindings", GoName: "CIPublicationBindings", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/ci-publication-binding", MaxItems: intPointer(128)},
+				{JSONName: "manualPublicationBindings", GoName: "ManualPublicationBindings", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/manual-publication-binding", MaxItems: intPointer(128)},
 				{JSONName: "ciDeploymentJobs", GoName: "CIDeploymentJobs", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/ci-deployment-job-binding", MaxItems: intPointer(64)},
 				{JSONName: "ciEnrollmentBindings", GoName: "CIEnrollmentBindings", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/ci-enrollment-binding", MaxItems: intPointer(128)},
 				{JSONName: "serviceBindings", GoName: "ServiceBindings", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/service-provider-binding", MaxItems: intPointer(128)},
@@ -1053,6 +1056,7 @@ func currentSchemas() []SchemaDefinition {
 	schemas = append(schemas, goImageSchema())
 	schemas = append(schemas, ciJobSchemas()...)
 	schemas = append(schemas, ciPublicationSchemas()...)
+	schemas = append(schemas, manualPublicationSchemas()...)
 	schemas = append(schemas, ciExternalDeploymentSchemas()...)
 	schemas = append(schemas, serviceCatalogSchemas()...)
 	schemas = append(schemas, serviceDeploymentSchemas()...)

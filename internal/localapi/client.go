@@ -81,6 +81,7 @@ type Client interface {
 	GetCIEnrollment(context.Context, serverconfig.Profile, string) (TypedResponse[generated.CiEnrollmentRecord], error)
 	DraftCIJob(context.Context, serverconfig.Profile, generated.CiJobDraftRequest) (TypedResponse[generated.DeclarationRevision], error)
 	DraftCIPublication(context.Context, serverconfig.Profile, generated.CiPublicationDraftRequest) (TypedResponse[generated.DeclarationRevision], error)
+	DraftManualPublication(context.Context, serverconfig.Profile, generated.ManualPublicationDraftRequest) (TypedResponse[generated.DeclarationRevision], error)
 	DraftCIEnrollment(context.Context, serverconfig.Profile, generated.CiEnrollmentDraftRequest) (TypedResponse[generated.DeclarationRevision], error)
 	ListServices(context.Context, serverconfig.Profile, string, int) (TypedResponse[generated.ServiceList], error)
 	GetService(context.Context, serverconfig.Profile, string) (TypedResponse[generated.ServiceRecord], error)
@@ -386,6 +387,9 @@ func requestTyped[T any](client *client, ctx context.Context, profile serverconf
 
 func remoteCommandArguments(spec requestSpec) []string {
 	if args := ciPublicationRemoteArguments(spec); args != nil {
+		return args
+	}
+	if args := manualPublicationRemoteArguments(spec); args != nil {
 		return args
 	}
 	if args := ciJobRemoteArguments(spec); args != nil {

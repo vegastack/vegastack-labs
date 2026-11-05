@@ -6,6 +6,11 @@ Available commands:
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --plan-id <id>         Select the exact immutable plan; this does not acknowledge it.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  artifact publication draft Draft verified manual image publication for exact human acknowledgement.
+    --config <path>        Read one protected operator profile.
+    --file <path>          Read one exact publication draft request.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   audit checkpoints        List sanitized audit checkpoints.
     --config <path>        Read one protected server profile.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.

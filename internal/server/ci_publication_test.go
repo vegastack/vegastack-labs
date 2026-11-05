@@ -78,7 +78,7 @@ func TestCIPublicationCandidateUsesActualSignaturesAndExactSource(t *testing.T) 
 		})
 	}
 }
-func publicationRegistryFixture(t *testing.T, before func(*http.Request)) (*ociregistry.Client, string, *atomic.Int32) {
+func publicationRegistryFixture(t *testing.T, before func(*http.Request), faults ...func(http.ResponseWriter, *http.Request) bool) (*ociregistry.Client, string, *atomic.Int32) {
 	t.Helper()
 	writes := &atomic.Int32{}
 	var manifest []byte
@@ -97,6 +97,11 @@ func publicationRegistryFixture(t *testing.T, before func(*http.Request)) (*ocir
 			t.Error("publication escaped repository", r.URL.Path)
 			w.WriteHeader(404)
 			return
+		}
+		for _, fault := range faults {
+			if fault(w, r) {
+				return
+			}
 		}
 		tail := strings.TrimPrefix(r.URL.Path, prefix)
 		switch {

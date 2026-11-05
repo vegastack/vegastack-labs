@@ -74,6 +74,79 @@
     },
     {
       "path": [
+        "artifact",
+        "publication",
+        "draft"
+      ],
+      "summary": "Draft verified manual image publication for exact human acknowledgement.",
+      "availability": "available",
+      "ownerPhase": "9",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected operator profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one exact publication draft request.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/manual-publication-draft-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/declaration-revision",
+      "examples": [
+        {
+          "summary": "Draft verified manual image publication for exact human acknowledgement.",
+          "arguments": [
+            "artifact",
+            "publication",
+            "draft",
+            "--config",
+            "fixture/client.json",
+            "--file",
+            "fixture/publication.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
         "audit"
       ],
       "summary": "Inspect sanitized audit history.",
@@ -9485,6 +9558,16 @@
       "id": "vegastack-labs.dev/managed-host-list",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/managed-host-list.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/manual-publication-binding",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/manual-publication-binding.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/manual-publication-draft-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/manual-publication-draft-request.schema.json"
     },
     {
       "id": "vegastack-labs.dev/mesh-change",

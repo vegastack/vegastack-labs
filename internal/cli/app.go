@@ -482,6 +482,8 @@ func (app *App) Run(ctx context.Context, args []string) int {
 		return app.runServiceDeployment(ctx, mode, parsed)
 	case generated.CommandNameCiPublicationDraft:
 		return app.runCIPublication(ctx, mode, parsed)
+	case generated.CommandNameArtifactPublicationDraft:
+		return app.runManualPublication(ctx, mode, parsed)
 	case generated.CommandNameCiJobDraft:
 		return app.runCIJob(ctx, mode, parsed)
 	case generated.CommandNameCiEnrollmentList, generated.CommandNameCiEnrollmentShow, generated.CommandNameCiEnrollmentDraft:
