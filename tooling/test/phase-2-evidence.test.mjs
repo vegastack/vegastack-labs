@@ -788,7 +788,7 @@ test("the #317 delivery, #363 account, #365 host-key, #367 clock-skew, #369 star
   assert.deepEqual(manifest.contract.reviewedWaves.slice(0,76).at(-1), {"id":"phase9-audit-reload-issue373-v1","issue":373,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:76f6d94f74c8adb4fcdb473e5e59fa18d023ca6c77ec4839d02233024336e589"});
   assert.deepEqual(manifest.contract.reviewedWaves.slice(0,77).at(-1), {"id":"phase9-working-ci-admission-issue375-v1","issue":375,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:bf41df87a12e5a0bfbd5370adfd1b2dd10a5bda68f6d8ea1ce63f7558378523b"});
   assert.deepEqual(manifest.contract.reviewedWaves.slice(0,78).at(-1), {"id":"phase9-ci-resource-slice-issue377-v1","issue":377,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:1606746ad48b9631aaee89e0369cc439d8d864d70bba3f098570e9a7ba56e109"});
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-1), {"id":"phase9-retained-administrator-issue379-v1","issue":379,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:6a0576acac0ef97e4fe89e512ddddc4512754a77a74984e6c0fb7914252ce35a"});
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-1), {"id":"phase9-retained-administrator-issue379-v1","issue":379,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:eb87c2ca46ca9c91ebf2898acbec6996478b2848c579a945a244d0273fe04cb1"});
   assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.reviewedWaves.at(-1).mutationBoundaryDigest);
   assert.equal(validateEvidence(manifest, facts).status, "pass");
   for (const mutate of [
