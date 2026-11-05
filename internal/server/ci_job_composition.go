@@ -15,6 +15,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/cijobguard"
 	"github.com/vegastack/vegastack-labs/internal/cijobrunner"
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
+	"github.com/vegastack/vegastack-labs/internal/gate"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/hostaction"
 	"github.com/vegastack/vegastack-labs/internal/store"
@@ -23,7 +24,30 @@ import (
 type ciJobReadiness struct{ replacement hostReplacementComposition }
 
 func (c ciJobReadiness) CheckCIJobHost(ctx context.Context, id string) (store.HostAdmissionSnapshot, error) {
-	s, e := c.replacement.roleAdmission(ctx, id)
+	if c.replacement.gates == nil || c.replacement.clock == nil {
+		return store.HostAdmissionSnapshot{}, actionFailure()
+	}
+	at := c.replacement.clock().UTC()
+	s, e := c.replacement.gates.CheckHostAdmission(ctx, id, "workload-admit", at)
+	if e != nil {
+		return s, e
+	}
+	if gate.WorkingCISelected(s) {
+		applied, err := c.replacement.gates.GetAppliedProfileScope(ctx)
+		if err != nil {
+			return s, err
+		}
+		scope := gate.ResolvedScope{ProfileID: applied.ProfileID, ProfileVersion: applied.ProfileVersion, PolicyID: applied.PolicyID, PolicyVersion: applied.PolicyVersion, Capabilities: applied.Capabilities, StateRevision: applied.StateRevision, RecoveryEpoch: applied.RecoveryEpoch}
+		decision, err := gate.EvaluateWorkingCI(ctx, s, scope, "role", at)
+		if err != nil {
+			return s, err
+		}
+		if decision.Outcome != "passed" {
+			return s, actionFailure()
+		}
+		return s, nil
+	}
+	s, e = c.replacement.roleAdmission(ctx, id)
 	if e != nil {
 		return s, e
 	}

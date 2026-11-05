@@ -15,7 +15,12 @@ type hostRoleComposition struct {
 	clock  func() time.Time
 }
 
+// baseline retains strict admission for recovery, ingress and other callers.
 func (c hostRoleComposition) baseline(ctx context.Context, hostID string) (store.HostAdmissionSnapshot, error) {
+	return c.baselineForRole(ctx, hostID, "")
+}
+
+func (c hostRoleComposition) baselineForRole(ctx context.Context, hostID, roleID string) (store.HostAdmissionSnapshot, error) {
 	if c.gates == nil || c.clock == nil {
 		return store.HostAdmissionSnapshot{}, actionFailure()
 	}
@@ -32,6 +37,16 @@ func (c hostRoleComposition) baseline(ctx context.Context, hostID string) (store
 		return s, actionFailure()
 	}
 	scope := gate.ResolvedScope{ProfileID: applied.ProfileID, ProfileVersion: applied.ProfileVersion, PolicyID: applied.PolicyID, PolicyVersion: applied.PolicyVersion, Capabilities: applied.Capabilities, StateRevision: applied.StateRevision, RecoveryEpoch: applied.RecoveryEpoch}
+	if roleID == "ci" && gate.WorkingCISelected(s) {
+		decision, err := gate.EvaluateWorkingCI(ctx, s, scope, "baseline", at)
+		if err != nil {
+			return s, err
+		}
+		if decision.Outcome != "passed" {
+			return s, actionFailure()
+		}
+		return s, nil
+	}
 	evaluation, err := gate.EvaluateHostAdmission(ctx, s, scope, "host.hardening-baseline", at)
 	if err != nil {
 		return s, err
@@ -48,7 +63,7 @@ func (c hostRoleComposition) VerifyRoleBaseline(ctx context.Context, p generated
 	if p.HostAction != nil && (p.HostAction.ActionID == "debian.role.collect" || p.HostAction.ActionID == "debian.control.handoff.verify") {
 		return c.gates.CheckHostAdmission(ctx, p.HostRoleScope.SubjectHostID, "role-install", c.clock().UTC())
 	}
-	return c.baseline(ctx, p.HostRoleScope.SubjectHostID)
+	return c.baselineForRole(ctx, p.HostRoleScope.SubjectHostID, p.HostRoleScope.RoleID)
 }
 func (c hostRoleComposition) PrepareRole(ctx context.Context, actionID string, in generated.LinuxRoleInput) (generated.LinuxRoleInput, error) {
 	if c.gates == nil || c.clock == nil {
@@ -59,7 +74,7 @@ func (c hostRoleComposition) PrepareRole(ctx context.Context, actionID string, i
 	if actionID == "debian.role.collect" || actionID == "debian.control.handoff.verify" {
 		s, err = c.gates.CheckHostAdmission(ctx, in.HostID, "role-install", c.clock().UTC())
 	} else {
-		s, err = c.baseline(ctx, in.HostID)
+		s, err = c.baselineForRole(ctx, in.HostID, in.RoleID)
 	}
 	if err != nil {
 		return in, err

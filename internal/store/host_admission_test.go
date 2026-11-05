@@ -67,6 +67,11 @@ func TestHostAdmissionProofComparisonExcludesUnrelatedRevision(t *testing.T) {
 		t.Fatal("changed role blocker accepted")
 	}
 	altered = before
+	altered.HasVolumeDeclarations = true
+	if e = r.ValidateHostAdmissionSnapshot(f.ctx, altered); e == nil {
+		t.Fatal("changed unverified volume declaration accepted")
+	}
+	altered = before
 	altered.VolumeIDs = []string{"new-volume"}
 	if e = r.ValidateHostAdmissionSnapshot(f.ctx, altered); e == nil {
 		t.Fatal("changed declared volume set accepted")

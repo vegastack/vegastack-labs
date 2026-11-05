@@ -76,6 +76,7 @@ func (r *GateRepository) resolveHostAdmission(ctx context.Context, tx ReadTx, ho
 			return out, actionError(generated.ErrorCodeIntegrityFailure)
 		}
 		out.AppliedProfileDigest = hostaction.Digest(applied)
+		out.AppliedProfile = &applied
 	} else if pe != sql.ErrNoRows {
 		return out, pe
 	}
@@ -392,6 +393,7 @@ func admissionVolumeDeclarations(ctx context.Context, tx ReadTx, out *HostAdmiss
 		if !subject || d.Status == "superseded" {
 			continue
 		}
+		out.HasVolumeDeclarations = true
 		found := false
 		for _, m := range out.Measurements {
 			if m.Measurement.Volume != nil {
@@ -445,19 +447,19 @@ func (r *GateRepository) validateHostAdmissionSnapshot(ctx context.Context, tx R
 func hostAdmissionProofDigest(s HostAdmissionSnapshot) string {
 	// Global revision deliberately excluded: unrelated writes are not host drift.
 	return hostaction.Digest(struct {
-		Binding, RoleBinding, AppliedProfile string
-		Epoch, RoleIntentRevision            int64
-		Measurements                         []HostAdmissionMeasurement
-		Evidence                             []generated.GateEvidence
-		Qualifications                       []HostNativeQualification
-		NativeBindings                       map[string]HostNativeProducerBinding
-		Prerequisites                        map[string]string
-		Storage                              HostStoragePrerequisites
-		Blockers                             []string
-		RoleBlockers                         []string
-		VolumeIDs                            []string
-		NetworkingRequired, StandbyRequired  bool
-	}{s.BindingDigest, s.RoleBindingDigest, s.AppliedProfileDigest, s.Revision.RecoveryEpoch, s.RoleIntentRevision, s.Measurements, s.Evidence, s.Qualifications, s.NativeProducerBindings, s.PrerequisiteDigests, s.Storage, s.Blockers, s.RoleBlockers, s.VolumeIDs, s.NetworkingRequired, s.StandbyRequired})
+		Binding, RoleBinding, AppliedProfile                       string
+		Epoch, RoleIntentRevision                                  int64
+		Measurements                                               []HostAdmissionMeasurement
+		Evidence                                                   []generated.GateEvidence
+		Qualifications                                             []HostNativeQualification
+		NativeBindings                                             map[string]HostNativeProducerBinding
+		Prerequisites                                              map[string]string
+		Storage                                                    HostStoragePrerequisites
+		Blockers                                                   []string
+		RoleBlockers                                               []string
+		VolumeIDs                                                  []string
+		NetworkingRequired, StandbyRequired, HasVolumeDeclarations bool
+	}{s.BindingDigest, s.RoleBindingDigest, s.AppliedProfileDigest, s.Revision.RecoveryEpoch, s.RoleIntentRevision, s.Measurements, s.Evidence, s.Qualifications, s.NativeProducerBindings, s.PrerequisiteDigests, s.Storage, s.Blockers, s.RoleBlockers, s.VolumeIDs, s.NetworkingRequired, s.StandbyRequired, s.HasVolumeDeclarations})
 }
 
 // A later attempted mutation invalidates earlier measurements even if it failed
