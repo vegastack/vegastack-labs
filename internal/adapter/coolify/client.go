@@ -183,7 +183,7 @@ func (c *Client) team(ctx context.Context, id int64, v *credentialref.Value) err
 	var team struct {
 		ID int64 `json:"id"`
 	}
-	if e := c.get(ctx, "/team", v, &team); e != nil {
+	if e := c.get(ctx, "/teams/current", v, &team); e != nil {
 		return e
 	}
 	if team.ID != id {

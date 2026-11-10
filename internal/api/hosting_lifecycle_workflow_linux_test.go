@@ -88,7 +88,7 @@ func testHostingLifecycleAPI(t *testing.T, fault string) {
 		}
 		var out any
 		switch r.Method + " " + r.URL.Path {
-		case "GET /team":
+		case "GET /teams/current":
 			out = map[string]any{"id": 1}
 		case "GET /projects":
 			out = []any{}

@@ -125,7 +125,7 @@ func (c *Client) ObserveResources(ctx context.Context, q ResourceRequest, v *cre
 	var team struct {
 		ID int64 `json:"id"`
 	}
-	if e := read("/team", &team); e != nil {
+	if e := read("/teams/current", &team); e != nil {
 		return out, e
 	}
 	if team.ID != q.TeamID {

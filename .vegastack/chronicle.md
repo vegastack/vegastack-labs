@@ -1,3 +1,7 @@
+## 10-11-2026 — Match the manual delivery client to Coolify's actual API ([#317](https://github.com/vegastack/vegastack-labs/issues/317))
+
+The live Coolify instance exposed a mismatch between earlier fixtures and its selected version: team observation uses `/teams/current`, server responses hide their numeric ID, and application responses omit additional-destination counts. The client now reads the real team endpoint and keeps deployment identity proof in the separately observed primary destination, which exposes both the numeric server ID and UUID. Exactly one primary destination remains mandatory, and explicit nonzero count fields still fail closed. A realistic public-response regression failed before the fix and passes afterward; mismatched primary-server identity is denied before any write. This changes no schema, credential authority or live deployment state. Hosting resource creation remains deferred where its other assumed response fields are unavailable.
+
 ## 09-11-2026 — Let one signed test application finish the manual delivery path ([#317](https://github.com/vegastack/vegastack-labs/issues/317))
 
 - **What:** The existing hosting and deployment paths can select one explicitly bounded manual demonstration through their current protected bindings and acknowledged profile. It keeps the exact image, hosts and finite private/stateless development configuration separate from general host qualification. The existing service-list pagination path also reaches the controller instead of failing at local transport validation.

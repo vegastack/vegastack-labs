@@ -109,7 +109,7 @@ func newServiceCatalogWorkflowSeeded(t *testing.T, seed func(generated.ServicePr
 			return
 		}
 		switch r.URL.Path {
-		case "/api/v1/team":
+		case "/api/v1/teams/current":
 			_, _ = w.Write([]byte(`{"id":1}`))
 		case "/api/v1/projects/project-a":
 			_, _ = w.Write([]byte(`{"id":2,"uuid":"project-a"}`))
