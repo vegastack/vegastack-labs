@@ -644,7 +644,10 @@ func reviewedPhase228Package(c checkedSourcePackage, module, relative string) bo
 	}
 	names := append([]string(nil), c.listed.GoFiles...)
 	sort.Strings(names)
-	seal, ok := harborRecoverySourceSeals[relative+"|"+strings.Join(names, ",")]
+	seal, ok := harborRetentionSourceSeals[relative+"|"+strings.Join(names, ",")]
+	if !ok {
+		seal, ok = harborRecoverySourceSeals[relative+"|"+strings.Join(names, ",")]
+	}
 	if !ok {
 		seal, ok = discoveryCredentialSourceSeals[relative+"|"+strings.Join(names, ",")]
 	}
