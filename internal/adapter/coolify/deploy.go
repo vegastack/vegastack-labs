@@ -53,7 +53,7 @@ func (c *Client) DeployImage(ctx context.Context, q ImageDeploymentRequest, v *c
 	var team struct {
 		ID int64 `json:"id"`
 	}
-	if e := read("/team", &team); e != nil {
+	if e := read("/teams/current", &team); e != nil {
 		return out, e
 	}
 	if team.ID != t.TeamID {
@@ -91,7 +91,7 @@ func (c *Client) DeployImage(ctx context.Context, q ImageDeploymentRequest, v *c
 	if e := read("/applications/"+t.ApplicationUUID, &app); e != nil {
 		return out, e
 	}
-	if app.UUID != t.ApplicationUUID || app.EnvironmentID != t.EnvironmentID || app.DestinationID != t.DestinationID || app.DestinationType != t.DestinationType || app.BuildPack != "dockerimage" || app.Servers == nil || app.Networks == nil || *app.Servers != 0 || *app.Networks != 0 {
+	if app.UUID != t.ApplicationUUID || app.EnvironmentID != t.EnvironmentID || app.DestinationID != t.DestinationID || app.DestinationType != t.DestinationType || app.BuildPack != "dockerimage" || (app.Servers != nil && *app.Servers != 0) || (app.Networks != nil && *app.Networks != 0) {
 		return out, ErrIdentity
 	}
 	var destinations []struct {
@@ -103,6 +103,9 @@ func (c *Client) DeployImage(ctx context.Context, q ImageDeploymentRequest, v *c
 	if e := read("/applications/"+t.ApplicationUUID+"/destinations", &destinations); e != nil {
 		return out, e
 	}
+	// The pinned API does not expose additional_*_count on application GET.
+	// This separately authorized endpoint enumerates the primary and every
+	// additional destination, so exactly one matching primary proves no fanout.
 	if len(destinations) != 1 {
 		return out, ErrIdentity
 	}
@@ -117,7 +120,9 @@ func (c *Client) DeployImage(ctx context.Context, q ImageDeploymentRequest, v *c
 	if e := read("/servers/"+q.ServerUUID, &server); e != nil {
 		return out, e
 	}
-	if server.ID != q.ServerID || server.UUID != q.ServerUUID {
+	// Server GET hides its numeric ID. The independent primary destination
+	// above already proved the exact numeric server ID and UUID together.
+	if server.UUID != q.ServerUUID {
 		return out, ErrIdentity
 	}
 	patch := map[string]any{"docker_registry_image_name": q.Repository, "docker_registry_image_tag": "sha256-" + strings.TrimPrefix(q.Digest, "sha256:")}

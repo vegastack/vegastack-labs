@@ -31,7 +31,7 @@ func target() ApplicationTarget {
 }
 func fixtures() map[string]string {
 	return map[string]string{
-		"/api/v1/team":                            `{"id":1,"name":"private","members":[{"token":"hidden"}]}`,
+		"/api/v1/teams/current":                   `{"id":1,"name":"private","members":[{"token":"hidden"}]}`,
 		"/api/v1/projects/project-one":            `{"id":2,"uuid":"project-one"}`,
 		"/api/v1/projects/project-one/production": `{"id":3,"name":"production","project_id":2}`,
 		"/api/v1/applications/app-one":            `{"uuid":"app-one","environment_id":3,"destination_id":4,"destination_type":"App\\Models\\StandaloneDocker","docker_registry_image_name":"registry.example/app","docker_registry_image_tag":"v1","status":"running:healthy","http_basic_auth_password":"hidden"}`,
@@ -68,7 +68,7 @@ func TestObserveApplicationPinnedPathsIdentityAndSanitizedConfiguration(t *testi
 	if e != nil {
 		t.Fatal(e)
 	}
-	if strings.Join(*paths, ",") != "/api/v1/team,/api/v1/projects/project-one,/api/v1/projects/project-one/production,/api/v1/applications/app-one" {
+	if strings.Join(*paths, ",") != "/api/v1/teams/current,/api/v1/projects/project-one,/api/v1/projects/project-one/production,/api/v1/applications/app-one" {
 		t.Fatal(*paths)
 	}
 	if got.ConfiguredImageName != "registry.example/app" || got.ConfiguredImageTag != "v1" || got.ProviderStatus != "running:healthy" || got.ServerRelation != "unknown" {
@@ -86,7 +86,7 @@ func TestObserveApplicationPinnedPathsIdentityAndSanitizedConfiguration(t *testi
 }
 func TestObserveApplicationRejectsWrongRelationships(t *testing.T) {
 	for _, tc := range []struct{ name, path, body string }{
-		{"team", "/api/v1/team", `{"id":9}`}, {"project", "/api/v1/projects/project-one", `{"id":9,"uuid":"project-one"}`}, {"project-uuid", "/api/v1/projects/project-one", `{"id":2,"uuid":"another"}`}, {"environment", "/api/v1/projects/project-one/production", `{"id":9,"project_id":2,"name":"production"}`}, {"environment-project", "/api/v1/projects/project-one/production", `{"id":3,"project_id":9,"name":"production"}`}, {"application", "/api/v1/applications/app-one", `{"uuid":"other"}`}, {"destination", "/api/v1/applications/app-one", `{"uuid":"app-one","environment_id":3,"destination_id":9,"destination_type":"App\\Models\\StandaloneDocker"}`},
+		{"team", "/api/v1/teams/current", `{"id":9}`}, {"project", "/api/v1/projects/project-one", `{"id":9,"uuid":"project-one"}`}, {"project-uuid", "/api/v1/projects/project-one", `{"id":2,"uuid":"another"}`}, {"environment", "/api/v1/projects/project-one/production", `{"id":9,"project_id":2,"name":"production"}`}, {"environment-project", "/api/v1/projects/project-one/production", `{"id":3,"project_id":9,"name":"production"}`}, {"application", "/api/v1/applications/app-one", `{"uuid":"other"}`}, {"destination", "/api/v1/applications/app-one", `{"uuid":"app-one","environment_id":3,"destination_id":9,"destination_type":"App\\Models\\StandaloneDocker"}`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := fixtures()
@@ -133,7 +133,7 @@ func TestRejectsMalformedDuplicateAndOversizedJSON(t *testing.T) {
 	for _, body := range []string{`{"id":1`, `{"id":1,"id":1}`, `{"id":1,"extra":{"x":1,"x":2}}`, `{"id":1} {}`, `null`, strings.Repeat(" ", maxBody+1)} {
 		t.Run(fmt.Sprint(len(body), body[:min(len(body), 16)]), func(t *testing.T) {
 			f := fixtures()
-			f["/api/v1/team"] = body
+			f["/api/v1/teams/current"] = body
 			c, _, _ := fixtureClient(t, f)
 			if _, e := c.ObserveApplication(context.Background(), target(), credential(t)); e == nil {
 				t.Fatal("accepted invalid JSON")

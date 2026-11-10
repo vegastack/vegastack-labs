@@ -39,7 +39,7 @@ func TestResourcesCreateThenVerifyExactOwnedIDs(t *testing.T) {
 		}
 		var out any
 		switch r.Method + " " + r.URL.Path {
-		case "GET /team":
+		case "GET /teams/current":
 			out = map[string]any{"id": 1}
 		case "GET /servers/server-a":
 			out = map[string]any{"id": 7, "uuid": "server-a", "ip": "192.0.2.10"}
@@ -98,7 +98,7 @@ func TestResourcesCreateThenVerifyExactOwnedIDs(t *testing.T) {
 func TestResourceCreationNeverPublishesCredentialAsExternalID(t *testing.T) {
 	s := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method + " " + r.URL.Path {
-		case "GET /team":
+		case "GET /teams/current":
 			json.NewEncoder(w).Encode(map[string]any{"id": 1})
 		case "GET /projects":
 			json.NewEncoder(w).Encode([]any{})

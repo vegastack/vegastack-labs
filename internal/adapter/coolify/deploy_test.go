@@ -17,6 +17,11 @@ func deploymentFixture(t *testing.T, mode string) (*Client, *ImageDeploymentRequ
 	q := &ImageDeploymentRequest{Target: target(), DestinationUUID: "destination-one", ServerUUID: "server-one", ServerID: 5, Repository: "registry.example/app", Digest: "sha256:" + strings.Repeat("a", 64), Check: func() error { return nil }}
 	fs := fixtures()
 	fs["/api/v1/applications/app-one"] = `{"uuid":"app-one","environment_id":3,"destination_id":4,"destination_type":"App\\Models\\StandaloneDocker","build_pack":"dockerimage","additional_servers_count":0,"additional_networks_count":0}`
+	if mode == "v4310" {
+		// v4.3.10 omits synthetic count fields and hides the standalone server ID.
+		fs["/api/v1/applications/app-one"] = `{"uuid":"app-one","environment_id":3,"destination_id":4,"destination_type":"App\\Models\\StandaloneDocker","build_pack":"dockerimage"}`
+		fs["/api/v1/servers/server-one"] = `{"uuid":"server-one","ip":"192.0.2.10"}`
+	}
 	if mode == "counts" {
 		fs["/api/v1/applications/app-one"] = strings.ReplaceAll(fs["/api/v1/applications/app-one"], `"additional_networks_count":0`, `"additional_networks_count":1`)
 	}
@@ -161,5 +166,26 @@ func TestDeployImageRejectsMissingCheckAndInvalidDigest(t *testing.T) {
 	}
 	if len(*calls) != 0 {
 		t.Fatal(*calls)
+	}
+}
+
+func TestDeployImageV4310PublicContract(t *testing.T) {
+	c, q, calls := deploymentFixture(t, "v4310")
+	got, err := c.DeployImage(context.Background(), *q, credential(t))
+	if err != nil || got.Stage != "queued" || got.DeploymentUUID != "deployment-one" {
+		t.Fatalf("public contract failed: %+v %v; calls=%v", got, err, *calls)
+	}
+}
+
+func TestDeployImageV4310RejectsMismatchedPrimaryServerBeforeWrites(t *testing.T) {
+	c, q, calls := deploymentFixture(t, "v4310")
+	q.ServerID++
+	if _, err := c.DeployImage(context.Background(), *q, credential(t)); err == nil {
+		t.Fatal("accepted a primary destination attached to another numeric server")
+	}
+	for _, call := range *calls {
+		if !strings.HasPrefix(call, "GET ") {
+			t.Fatalf("write before identity proof: %s", call)
+		}
 	}
 }

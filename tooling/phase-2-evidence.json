@@ -835,6 +835,13 @@
         "commands": [],
         "imports": [],
         "mutationBoundaryDigest": "sha256:887df596d8342899d12e5bf28de857b5e58772b10c8db92a8263cbe9833b108c"
+      },
+      {
+        "id": "phase9-coolify-contract-issue317-v1",
+        "issue": 317,
+        "commands": [],
+        "imports": [],
+        "mutationBoundaryDigest": "sha256:fc10303a0765466529cedeecd5a902ad69f948769c277be81d40918af0191e00"
       }
     ]
   },

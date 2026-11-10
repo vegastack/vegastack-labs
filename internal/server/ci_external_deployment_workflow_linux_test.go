@@ -94,7 +94,7 @@ func newCIExternalWorkflowFixture(t *testing.T, f hostActionEnrollmentFixture, b
 			}
 		}
 		switch r.Method + " " + r.URL.Path {
-		case "GET /api/v1/team":
+		case "GET /api/v1/teams/current":
 			fmt.Fprint(w, `{"id":1}`)
 		case "GET /api/v1/projects/project-one":
 			fmt.Fprint(w, `{"id":2,"uuid":"project-one"}`)
