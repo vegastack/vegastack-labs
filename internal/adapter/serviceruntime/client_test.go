@@ -3,7 +3,9 @@ package serviceruntime
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"crypto/ed25519"
+	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/json"
 	"encoding/pem"
@@ -44,7 +46,7 @@ type peer struct {
 	containerReads int
 }
 
-func fixture(t *testing.T, mode string) (Target, Selection, *credentialref.Value, *peer) {
+func fixture(t *testing.T, mode string, mixedKeys ...bool) (Target, Selection, *credentialref.Value, *peer) {
 	t.Helper()
 	server, _ := key(t)
 	user, private := key(t)
@@ -65,6 +67,17 @@ func fixture(t *testing.T, mode string) (Target, Selection, *credentialref.Value
 		return nil, nil
 	}}
 	config.AddHostKey(server)
+	if len(mixedKeys) > 0 && mixedKeys[0] {
+		private, e := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		if e != nil {
+			t.Fatal(e)
+		}
+		alternate, e := ssh.NewSignerFromKey(private)
+		if e != nil {
+			t.Fatal(e)
+		}
+		config.AddHostKey(alternate)
+	}
 	p := &peer{mode: mode}
 	go func() {
 		conn, e := listener.Accept()
@@ -281,6 +294,31 @@ func TestObserveRuntimeVerifiesAppliedResourceLimits(t *testing.T) {
 			_, e := NewClient().Observe(context.Background(), target, selection, value, func(context.Context) error { return nil })
 			if (mode == "resources") != (e == nil) {
 				t.Fatalf("resource verification mode %s err %v", mode, e)
+			}
+		})
+	}
+}
+
+func TestObservePinnedAlgorithmWithMultipleServerKeys(t *testing.T) {
+	for _, wrongPin := range []bool{false, true} {
+		t.Run(strconv.FormatBool(wrongPin), func(t *testing.T) {
+			target, selection, value, p := fixture(t, "healthy", true)
+			if wrongPin {
+				other, _ := key(t)
+				target.HostKey = strings.TrimSpace(string(ssh.MarshalAuthorizedKey(other.PublicKey())))
+			}
+			out, e := NewClient().Observe(context.Background(), target, selection, value, func(context.Context) error { return nil })
+			if wrongPin {
+				if e == nil {
+					t.Fatal("different pinned key accepted")
+				}
+				p.mu.Lock()
+				defer p.mu.Unlock()
+				if len(p.commands) != 0 {
+					t.Fatal("command executed before host key verification")
+				}
+			} else if e != nil || !out.Running || out.Health != "healthy" {
+				t.Fatal("registered Ed25519 key lost to unrelated advertised ECDSA key", out, e)
 			}
 		})
 	}

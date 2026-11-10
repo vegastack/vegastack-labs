@@ -54,7 +54,7 @@ func (c *Client) ObserveCapacity(ctx context.Context, t Target, value *credentia
 	if conn.SetDeadline(deadline) != nil {
 		return out, ErrUnavailable
 	}
-	secure, chans, requests, e := ssh.NewClientConn(conn, conn.RemoteAddr().String(), &ssh.ClientConfig{User: t.User, HostKeyCallback: ssh.FixedHostKey(key), Auth: []ssh.AuthMethod{ssh.PublicKeys(signer)}})
+	secure, chans, requests, e := ssh.NewClientConn(conn, conn.RemoteAddr().String(), &ssh.ClientConfig{User: t.User, HostKeyAlgorithms: pinnedHostKeyAlgorithms(key), HostKeyCallback: ssh.FixedHostKey(key), Auth: []ssh.AuthMethod{ssh.PublicKeys(signer)}})
 	if e != nil {
 		return out, ErrUnavailable
 	}
@@ -173,6 +173,11 @@ func (c *Client) ObserveCapacity(ctx context.Context, t Target, value *credentia
 			quota = (projection.NanoCPUs + 9999999) / 10000000
 		} else if projection.CPUQuota > 0 && projection.CPUPeriod > 0 && projection.CPUQuota <= 1000000000 && projection.CPUPeriod <= 1000000000 {
 			quota = (projection.CPUQuota*100 + projection.CPUPeriod - 1) / projection.CPUPeriod
+		}
+		if quota <= 0 && t.AllowSharedCPU && projection.NanoCPUs == 0 && (projection.CPUQuota == 0 || projection.CPUQuota == -1) && projection.CPUPeriod >= 0 && projection.CPUPeriod <= 1000000000 {
+			// This exact manual-demo opt-in permits CPU contention with an
+			// unlimited neighbour. It does not invent an enforced allocation.
+			continue
 		}
 		if quota <= 0 || quota > 409600 {
 			return out, ErrUnavailable

@@ -76,3 +76,29 @@ func (c *serviceDeploymentComposition) manualAdmission(ctx context.Context, d ge
 	}
 	return true, nil
 }
+
+func manualSharedCPUCapability(s generated.ServiceProviderBinding, d generated.ServiceDeploymentProviderBinding) string {
+	return "manual.service.shared-cpu." + strings.TrimPrefix(manualServiceCapability(s, d), "manual.service.")
+}
+
+// Sharing requires both ordinary exact manual admission and its separate,
+// acknowledged CPU choice. Absence leaves the capacity observer strict.
+func (c *serviceDeploymentComposition) sharedCPUAdmission(ctx context.Context, d generated.ServiceDefinition, b generated.ServiceDeploymentProviderBinding, epoch int64) (bool, error) {
+	manual, e := c.manualAdmission(ctx, d, b, epoch)
+	if !manual || e != nil {
+		return false, e
+	}
+	binding, e := c.base.binding(d)
+	if e != nil {
+		return false, e
+	}
+	capability := manualSharedCPUCapability(binding, b)
+	scope, e := c.base.gates.GetAppliedProfileScope(ctx)
+	if e != nil {
+		return false, e
+	}
+	if !slices.Contains(scope.Capabilities, capability) {
+		return false, nil
+	}
+	return checkManualDeliveryHost(ctx, c.base.gates, d.HostID, d.HostIdentityDigest, epoch, capability)
+}
