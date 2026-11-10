@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 type Access struct {
@@ -457,14 +458,11 @@ func (c *Client) applyLifecycle(ctx context.Context, q LifecycleRequest, user st
 }
 
 func validRobotSecret(value []byte) bool {
-	if len(value) < 8 || len(value) > 128 {
+	if len(value) < 8 || len(value) > 128 || !utf8.Valid(value) {
 		return false
 	}
 	var upper, lower, number bool
 	for _, c := range value {
-		if c < 33 || c > 126 {
-			return false
-		}
 		upper = upper || c >= 'A' && c <= 'Z'
 		lower = lower || c >= 'a' && c <= 'z'
 		number = number || c >= '0' && c <= '9'

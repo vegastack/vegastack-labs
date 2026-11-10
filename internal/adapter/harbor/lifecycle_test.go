@@ -243,3 +243,12 @@ func TestLifecycleRejectsOmittedExistingRetentionBeforeWrite(t *testing.T) {
 		t.Fatal("omitted existing retention allowed recovery mutations", e, writes, reads)
 	}
 }
+
+func TestRobotSecretAcceptsVendorValidSpaces(t *testing.T) {
+	if !validRobotSecret([]byte("Valid secret1")) {
+		t.Fatal("vendor-valid secret rejected")
+	}
+	if validRobotSecret([]byte("missing-uppercase1")) {
+		t.Fatal("missing required uppercase accepted")
+	}
+}

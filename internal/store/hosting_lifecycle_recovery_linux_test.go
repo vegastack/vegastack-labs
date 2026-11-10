@@ -11,13 +11,23 @@ import (
 )
 
 func TestHostingLifecycleExplicitPartialRecovery(t *testing.T) {
+	for _, known := range []bool{false, true} {
+		t.Run(map[bool]string{false: "legacy-empty-receipt", true: "created-project-retention-missing"}[known], func(t *testing.T) { testHostingLifecycleExplicitPartialRecovery(t, known) })
+	}
+}
+func testHostingLifecycleExplicitPartialRecovery(t *testing.T, known bool) {
 	f, r, in := newHostingLifecycleFixture(t)
 	defer f.s.Close()
+	owned := []generated.HostingOwnedResource{{Schema: generated.SchemaIDHostingOwnedResource, SchemaVersion: "1.0.0", Kind: "harbor-project", ExternalID: "7", ParentID: "project-a"}}
+	var partialOwned []generated.HostingOwnedResource
+	if known {
+		partialOwned = owned
+	}
 	apply := seedHostingLifecycleExecution(t, f, in)
 	if err := r.Begin(f.ctx, apply); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := r.Complete(f.ctx, apply, hostinglifecycle.Outcome{Status: "partial"}); err != nil {
+	if _, err := r.Complete(f.ctx, apply, hostinglifecycle.Outcome{Status: "partial", OwnedResources: partialOwned}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := f.s.conn.ExecContext(f.ctx, `UPDATE plan_runs SET status='partial' WHERE run_id=?`, apply.RunID); err != nil {
@@ -39,7 +49,7 @@ func TestHostingLifecycleExplicitPartialRecovery(t *testing.T) {
 	if _, err := r.OwnedResources(f.ctx, in); Code(err) != generated.ErrorCodeRecoveryRequired {
 		t.Fatalf("ordinary replay allowed: %v", err)
 	}
-	owned := []generated.HostingOwnedResource{{Schema: generated.SchemaIDHostingOwnedResource, SchemaVersion: "1.0.0", Kind: "harbor-project", ExternalID: "7", ParentID: "project-a"}}
+
 	raw, _ := json.Marshal(in)
 	var request map[string]any
 	_ = json.Unmarshal(raw, &request)

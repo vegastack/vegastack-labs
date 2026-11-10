@@ -85,3 +85,18 @@ func TestHostingRecoveryOwnershipRejectsUnrelatedOrAmbiguousBindings(t *testing.
 		})
 	}
 }
+
+func TestHostingRecoveryPartialSnapshotKeepsOnlyCreatedIDs(t *testing.T) {
+	snapshot := harbor.LifecycleSnapshot{Projects: []harbor.ProjectBinding{{ID: 7, Name: "project", KeepLast: 5}}, Robots: []harbor.RobotBinding{{Name: "robot$pull", ReferenceID: "pull-ref"}}}
+	owned := harborOwnedResources(snapshot)
+	if len(owned) != 1 || owned[0].Kind != "harbor-project" || owned[0].ExternalID != "7" {
+		t.Fatalf("partial snapshot retained missing resources: %+v", owned)
+	}
+	conf, _ := recoveryHostingFixture()
+	if err := applyHostingRecoveryOwnership(&conf, owned); err != nil {
+		t.Fatal("created project cannot be recovered after retention failure", err)
+	}
+	if conf.Harbor.Resources.Projects[0].ID != 7 || conf.Harbor.Resources.Projects[0].RetentionID != 0 {
+		t.Fatal("recovery changed missing retention into an existing resource")
+	}
+}

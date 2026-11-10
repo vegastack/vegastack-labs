@@ -704,7 +704,7 @@ test("the #322 pilot wave rejects command, import, source and historical widenin
 test("the combined Phase 10 wave rejects command, import, source and historical widening", async () => {
   const manifest = await loadManifest();
   const facts = await collectIntegratedFacts(ROOT);
-  assert.equal(manifest.contract.reviewedWaves.length, 83);
+  assert.equal(manifest.contract.reviewedWaves.length, 84);
   assert.equal(manifest.contract.reviewedWaves.slice(0, 63).at(-1).issue, 322);
   assert.deepEqual(manifest.contract.reviewedWaves.slice(0, 64).at(-1), {"id":"phase10-issues323-324-325-326-328-v1","issue":323,"commands":["doctor","maintenance diagnose","maintenance draft","maintenance repair","operations notification-readiness","operations observe","operations status"],"imports":["github.com/vegastack/vegastack-labs/internal/adapter/beszel","github.com/vegastack/vegastack-labs/internal/adapter/githubalerts","github.com/vegastack/vegastack-labs/internal/adapter/slackalerts","github.com/vegastack/vegastack-labs/internal/maintenance","github.com/vegastack/vegastack-labs/internal/operations","github.com/vegastack/vegastack-labs/internal/siteheartbeat"],"mutationBoundaryDigest":"sha256:f4eade03640b8cba61e54bd529b3cd93ea9db8383e4aa722f3a12c0f48b0f19e"});
   assert.equal(validateEvidence(manifest, facts).status, "pass");
@@ -793,7 +793,7 @@ test("the #317 delivery, #363 account, #365 host-key, #367 clock-skew, #369 star
   assert.deepEqual(manifest.contract.reviewedWaves.slice(0,81).at(-1), {"id":"phase9-manual-delivery-issue317-v2","issue":317,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:887df596d8342899d12e5bf28de857b5e58772b10c8db92a8263cbe9833b108c"});
   assert.deepEqual(manifest.contract.reviewedWaves.slice(0,82).at(-1), {"id":"phase9-coolify-contract-issue317-v1","issue":317,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:fc10303a0765466529cedeecd5a902ad69f948769c277be81d40918af0191e00"});
   assert.deepEqual(manifest.contract.reviewedWaves.slice(0,83).at(-1), {"id":"phase9-controller-credential-activation-issue317-v1","issue":317,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:6a24c920a765ba7bfbdb615e2faf6d727fb49ac5fccd1d5d254951bca4dba404"});
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-1), {"id":"phase9-harbor-lifecycle-recovery-issue391-v1","issue":391,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:a6f06129e4863793f88c0de23a7ce5f40dfaa0283b5283a4a1c389584c4051a3"});
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-1), {"id":"phase9-harbor-lifecycle-recovery-issue391-v1","issue":391,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:4dbc69b11e2713880afe2410b8ba0680aa1a8a1a0bbf6b5277741fb8f0da13cb"});
   assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.reviewedWaves.at(-1).mutationBoundaryDigest);
   assert.equal(validateEvidence(manifest, facts).status, "pass");
   for (const mutate of [

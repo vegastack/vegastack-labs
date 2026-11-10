@@ -453,12 +453,7 @@ func (c *hostingLifecycleComposition) observe(ctx context.Context, q generated.H
 		} else {
 			s, e = client.ObserveLifecycle(ctx, b.Resources, b.Username, v)
 		}
-		for _, p := range s.Projects {
-			out.OwnedResources = append(out.OwnedResources, generated.HostingOwnedResource{Schema: generated.SchemaIDHostingOwnedResource, SchemaVersion: "1.0.0", Kind: "harbor-project", ExternalID: strconv.FormatInt(p.ID, 10), ParentID: p.Name}, generated.HostingOwnedResource{Schema: generated.SchemaIDHostingOwnedResource, SchemaVersion: "1.0.0", Kind: "harbor-retention", ExternalID: strconv.FormatInt(p.RetentionID, 10), ParentID: p.Name})
-		}
-		for _, r := range s.Robots {
-			out.OwnedResources = append(out.OwnedResources, generated.HostingOwnedResource{Schema: generated.SchemaIDHostingOwnedResource, SchemaVersion: "1.0.0", Kind: "harbor-robot", ExternalID: strconv.FormatInt(r.ID, 10), ParentID: r.ReferenceID})
-		}
+		out.OwnedResources = append(out.OwnedResources, harborOwnedResources(s)...)
 		if e != nil {
 			return out, e
 		}
@@ -514,4 +509,25 @@ func (c *hostingLifecycleComposition) Apply(ctx context.Context, q generated.Hos
 		return out, serviceFailure(generated.ErrorCodePlanStale)
 	}
 	return c.observe(ctx, q, conf, p, true)
+}
+
+// Partial snapshots contain only resource IDs actually returned by the provider.
+// Missing retention/robot IDs must remain absent so a later explicit recovery
+// can create them without inheriting a zero-ID ownership record.
+func harborOwnedResources(snapshot harbor.LifecycleSnapshot) []generated.HostingOwnedResource {
+	out := []generated.HostingOwnedResource{}
+	for _, p := range snapshot.Projects {
+		if p.ID > 0 {
+			out = append(out, generated.HostingOwnedResource{Schema: generated.SchemaIDHostingOwnedResource, SchemaVersion: "1.0.0", Kind: "harbor-project", ExternalID: strconv.FormatInt(p.ID, 10), ParentID: p.Name})
+		}
+		if p.RetentionID > 0 {
+			out = append(out, generated.HostingOwnedResource{Schema: generated.SchemaIDHostingOwnedResource, SchemaVersion: "1.0.0", Kind: "harbor-retention", ExternalID: strconv.FormatInt(p.RetentionID, 10), ParentID: p.Name})
+		}
+	}
+	for _, r := range snapshot.Robots {
+		if r.ID > 0 {
+			out = append(out, generated.HostingOwnedResource{Schema: generated.SchemaIDHostingOwnedResource, SchemaVersion: "1.0.0", Kind: "harbor-robot", ExternalID: strconv.FormatInt(r.ID, 10), ParentID: r.ReferenceID})
+		}
+	}
+	return out
 }
