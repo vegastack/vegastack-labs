@@ -230,7 +230,10 @@ func (c *hostingLifecycleComposition) applyOwnership(ctx context.Context, q gene
 		return e
 	}
 	if q.RecoveryRunID != "" {
-		return applyHostingRecoveryOwnership(conf, owned)
+		if e := applyHostingRecoveryOwnership(conf, owned); e != nil {
+			return e
+		}
+		return applyHostingArtifactReadSelection(conf, q.ArtifactReadReferenceID)
 	}
 	for _, r := range owned {
 		if conf.Coolify != nil {
@@ -274,7 +277,7 @@ func (c *hostingLifecycleComposition) applyOwnership(ctx context.Context, q gene
 			}
 		}
 	}
-	return nil
+	return applyHostingArtifactReadSelection(conf, q.ArtifactReadReferenceID)
 }
 
 // Recovery overlays are allowed only for the exact configured Harbor bindings.
@@ -530,4 +533,34 @@ func harborOwnedResources(snapshot harbor.LifecycleSnapshot) []generated.Hosting
 		}
 	}
 	return out
+}
+
+// A request can add metadata read only to its one configured pull robot.
+// The selection is part of the same declaration/plan digest and actual provider
+// observation seals whether the permission is already present.
+func applyHostingArtifactReadSelection(conf *hostingConfiguration, selected string) error {
+	if selected == "" {
+		return nil
+	}
+	if conf == nil || conf.Harbor == nil || conf.Coolify != nil || conf.Platform != nil {
+		return serviceFailure(generated.ErrorCodeInputInvalid)
+	}
+	h := *conf.Harbor
+	h.Resources.Robots = append([]harbor.RobotBinding(nil), h.Resources.Robots...)
+	found := 0
+	for i := range h.Resources.Robots {
+		r := &h.Resources.Robots[i]
+		if r.ReferenceID == selected {
+			if r.Push {
+				return serviceFailure(generated.ErrorCodeInputInvalid)
+			}
+			r.ArtifactRead = true
+			found++
+		}
+	}
+	if found != 1 {
+		return serviceFailure(generated.ErrorCodeInputInvalid)
+	}
+	conf.Harbor = &h
+	return nil
 }

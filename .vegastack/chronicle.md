@@ -1,3 +1,9 @@
+## 10-11-2026 — Let the selected Harbor pull robot read artifact metadata ([#391](https://github.com/vegastack/vegastack-labs/issues/391))
+
+Signed publication succeeded, then application import exposed a distinct Harbor permission: repository pull allows image downloads but not the artifact-information API. The existing hosting plan now explicitly selects one configured pull robot for the additional project-scoped artifact-read permission. Its supported permission update preserves identity, expiry and secret, verifies the real result, and retains the applied selection in future plans. No Labs grants, credential replacement, new service or additional write authority are introduced. Live permission application and application delivery remain separate acceptance evidence.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/391-harbor-artifact-read
+
 ## 10-11-2026 — Classify signed manual publication consistently ([#386](https://github.com/vegastack/vegastack-labs/issues/386))
 
 The actual publication draft exposed a planner mismatch: it inherited the production default destructive risk while authorization requires the already-defined control-plane risk. The planner now validates the exact manual declaration and requires its existing human/central branch before selecting control-plane. Malformed inputs still fail closed. The rejected immutable plan remains intact; installation and a fresh acknowledged publication are separate live evidence. No new permission or publication authority is added.

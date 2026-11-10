@@ -74,6 +74,13 @@ func (r *HostingLifecycleRepository) validate(p identity.Principal, row discover
 	if rev != in.ExpectedLifecycleRevision {
 		return actionError(generated.ErrorCodePlanStale)
 	}
+	selected, e := hostingArtifactReadSelection(row, in)
+	if e != nil {
+		return e
+	}
+	if selected != "" && selected != in.ArtifactReadReferenceID {
+		return actionError(generated.ErrorCodePlanStale)
+	}
 	if in.RecoveryRunID != "" {
 		_, e = r.recoveryResources(row, in)
 		return e
@@ -97,6 +104,7 @@ func (r *HostingLifecycleRepository) Prepare(ctx context.Context, in generated.H
 		return out, err
 	}
 	out = generated.HostingLifecycleRequest{Schema: generated.SchemaIDHostingLifecycleRequest, SchemaVersion: "1.0.0", TargetID: in.TargetID, BindingID: p.Binding.BindingID, ConfigurationDigest: p.Binding.ConfigurationDigest, ObservedDigest: hostinglifecycle.Digest("unobserved"), Action: in.Action, ExpectedStateRevision: in.ExpectedStateRevision, RecoveryEpoch: in.RecoveryEpoch, IdempotencyKey: in.IdempotencyKey, ReasonDigest: in.ReasonDigest}
+	out.ArtifactReadReferenceID = in.ArtifactReadReferenceID
 	out.RecoveryRunID, out.RecoveryRecordDigest = in.RecoveryRunID, in.RecoveryRecordDigest
 	out.RecoveryResources = append([]generated.HostingOwnedResource(nil), in.RecoveryResources...)
 	err = r.store.Read(ctx, func(tx ReadTx) error {
@@ -115,6 +123,13 @@ func (r *HostingLifecycleRepository) Prepare(ctx context.Context, in generated.H
 		out.ExpectedLifecycleRevision, e = hostingLifecycleRevision(row, in.TargetID)
 		if e != nil {
 			return e
+		}
+		selected, e := hostingArtifactReadSelection(row, out)
+		if e != nil {
+			return e
+		}
+		if out.ArtifactReadReferenceID == "" {
+			out.ArtifactReadReferenceID = selected
 		}
 		return r.validate(actor, row, out)
 	})
@@ -349,4 +364,28 @@ func validateHostingRecoveryProof(runID, recordDigest string, resources []genera
 		seen[key] = true
 	}
 	return nil
+}
+
+// Retain the last applied, explicitly selected read permission in fresh plans.
+// This never applies infrastructure changes or permits dropping/changing the
+// selection through an omitted field or a raw Stage call.
+func hostingArtifactReadSelection(row discoveryRow, in generated.HostingLifecycleRequest) (string, error) {
+	var raw []byte
+	var digest string
+	err := row(`SELECT canonical_bytes,digest FROM hosting_lifecycle_records WHERE target_id=? ORDER BY revision DESC LIMIT 1`, in.TargetID).Scan(&raw, &digest)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	var record generated.HostingLifecycleRecord
+	if json.Unmarshal(raw, &record) != nil || hostinglifecycle.Digest(record) != digest {
+		return "", actionError(generated.ErrorCodeIntegrityFailure)
+	}
+	selected := record.Request.ArtifactReadReferenceID
+	if selected != "" && (record.Request.BindingID != in.BindingID || record.Request.ConfigurationDigest != in.ConfigurationDigest || record.Request.RecoveryEpoch != in.RecoveryEpoch || record.Revision != in.ExpectedLifecycleRevision) {
+		return "", actionError(generated.ErrorCodePlanStale)
+	}
+	return selected, nil
 }

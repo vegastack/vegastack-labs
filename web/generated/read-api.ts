@@ -1477,6 +1477,7 @@ export interface HostingLifecycleRequest {
   readonly "recoveryEpoch": number;
   readonly "idempotencyKey": string;
   readonly "reasonDigest": string;
+  readonly "artifactReadReferenceId"?: string;
   readonly "recoveryRunId"?: string;
   readonly "recoveryRecordDigest"?: string;
   readonly "recoveryResources"?: ReadonlyArray<HostingOwnedResource>;
@@ -11370,6 +11371,14 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "artifactReadReferenceId",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
       },
       {
         "name": "recoveryRunId",

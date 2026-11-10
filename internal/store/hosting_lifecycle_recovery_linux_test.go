@@ -120,3 +120,43 @@ func testHostingLifecycleExplicitPartialRecovery(t *testing.T, known bool) {
 		t.Fatal("old partial history changed")
 	}
 }
+
+func TestHostingLifecycleArtifactReadSelectionPersists(t *testing.T) {
+	f, r, in := newHostingLifecycleFixture(t)
+	defer f.s.Close()
+	in.ArtifactReadReferenceID = "pull-ref"
+	apply := seedHostingLifecycleExecution(t, f, in)
+	if err := r.Begin(f.ctx, apply); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.Complete(f.ctx, apply, hostinglifecycle.Outcome{Status: "succeeded", OwnedResources: []generated.HostingOwnedResource{}}); err != nil {
+		t.Fatal(err)
+	}
+	prior, err := r.Get(f.ctx, in.TargetID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	revision, err := NewPlanRepository(f.s).CurrentRevision(f.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	draft := generated.HostingLifecycleDraftRequest{Schema: generated.SchemaIDHostingLifecycleDraftRequest, SchemaVersion: "1.0.0", TargetID: in.TargetID, Action: in.Action, ExpectedStateRevision: revision.StateRevision, RecoveryEpoch: in.RecoveryEpoch, IdempotencyKey: "retain-artifact-read", ReasonDigest: in.ReasonDigest}
+	prepared, err := r.Prepare(f.ctx, draft)
+	if err != nil || prepared.ArtifactReadReferenceID != "pull-ref" {
+		t.Fatal("approved read selection not inherited", err, prepared)
+	}
+	if _, err := r.Stage(f.ctx, prepared); err != nil {
+		t.Fatal(err)
+	}
+	for _, changed := range []string{"", "foreign-ref"} {
+		q := prepared
+		q.ArtifactReadReferenceID = changed
+		if _, err := r.Stage(f.ctx, q); Code(err) != generated.ErrorCodePlanStale {
+			t.Fatal("selection drop/change accepted", changed, err)
+		}
+	}
+	after, err := r.Get(f.ctx, in.TargetID)
+	if err != nil || hostinglifecycle.Digest(after) != hostinglifecycle.Digest(prior) {
+		t.Fatal("preparation changed applied history", err)
+	}
+}
