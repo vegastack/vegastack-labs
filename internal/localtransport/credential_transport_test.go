@@ -16,12 +16,20 @@ import (
 func TestPaginationCannotWidenLocalTransport(t *testing.T) {
 	for _, requestPath := range []string{
 		"/api/v1/ci/enrollments?limit=1", "/api/v1/ci/enrollments?after=enrollment%3Aa&limit=100",
+		"/api/v1/services?limit=1", "/api/v1/services?limit=50", "/api/v1/services?after=service%3Aa&limit=100",
 	} {
 		if !validRequest(Request{SocketPath: "/tmp/control.sock", Method: MethodGet, Path: requestPath, Timeout: time.Second, ResponseLimit: 4096}) {
-			t.Fatalf("bounded CI pagination rejected: %s", requestPath)
+			t.Fatalf("bounded list pagination rejected: %s", requestPath)
 		}
 	}
 	for _, requestPath := range []string{
+		"/api/v1/services?", "/api/v1/services?after=service-a",
+		"/api/v1/services?limit=0", "/api/v1/services?limit=101", "/api/v1/services?limit=01",
+		"/api/v1/services?limit=1&limit=2", "/api/v1/services?limit=1&scope=all",
+		"/api/v1/services?after=..%2Fother&limit=1", "/api/v1/services?after=%252Fother&limit=1",
+		"/api/v1/services?after=&limit=1", "/api/v1/services?limit=1#other",
+		"/api/v1/services?limit=1&after=service-a", "/api/v1/services?after=service%3aa&limit=1",
+		"/api/v1/services/service-a?limit=1", "/api/v1/services/?limit=1", "https://other.example/api/v1/services?limit=1",
 		"/api/v1/ci/enrollments?", "/api/v1/ci/enrollments?after=enrollment-a",
 		"/api/v1/ci/enrollments?limit=0", "/api/v1/ci/enrollments?limit=101", "/api/v1/ci/enrollments?limit=01",
 		"/api/v1/ci/enrollments?limit=1&limit=2", "/api/v1/ci/enrollments?limit=1&scope=all",
@@ -34,8 +42,10 @@ func TestPaginationCannotWidenLocalTransport(t *testing.T) {
 			t.Fatalf("widened query accepted: %s", requestPath)
 		}
 	}
-	if validRequest(Request{SocketPath: "/tmp/control.sock", Method: MethodPost, Path: "/api/v1/ci/enrollments?limit=1", Body: []byte("{}"), Timeout: time.Second, ResponseLimit: 4096}) {
-		t.Fatal("query accepted for a mutation")
+	for _, requestPath := range []string{"/api/v1/ci/enrollments?limit=1", "/api/v1/services?limit=1"} {
+		if validRequest(Request{SocketPath: "/tmp/control.sock", Method: MethodPost, Path: requestPath, Body: []byte("{}"), Timeout: time.Second, ResponseLimit: 4096}) {
+			t.Fatal("query accepted for a mutation")
+		}
 	}
 }
 

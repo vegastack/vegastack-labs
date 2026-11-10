@@ -773,7 +773,7 @@ test("controller plan classification appends its exact closure and preserves con
 });
 
 
-test("the #317 delivery, #363 account, #365 host-key, #367 clock-skew, #369 startup, #371 journal, #373 audit reload and #375 working CI admission and #377 CI resource slice and #379 retained administrator and #386 manual publication closures preserve history and reject widened authority", async () => {
+test("the #317 delivery, #363 account, #365 host-key, #367 clock-skew, #369 startup, #371 journal, #373 audit reload and #375 working CI admission and #377 CI resource slice and #379 retained administrator and #386 manual publication and #317 manual delivery closures preserve history and reject widened authority", async () => {
   const manifest = await loadManifest();
   const facts = await collectIntegratedFacts(ROOT);
   assert.deepEqual(manifest.contract.reviewedWaves.slice(0,70).at(-4), {id:"controller-plan-risk-issue333-v2",issue:333,commands:[],imports:[],mutationBoundaryDigest:"sha256:3a98f172f6c3a45a44742ccf92b79a01320625d2560310fed0efd81343fb5bd2"});
@@ -789,7 +789,8 @@ test("the #317 delivery, #363 account, #365 host-key, #367 clock-skew, #369 star
   assert.deepEqual(manifest.contract.reviewedWaves.slice(0,77).at(-1), {"id":"phase9-working-ci-admission-issue375-v1","issue":375,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:bf41df87a12e5a0bfbd5370adfd1b2dd10a5bda68f6d8ea1ce63f7558378523b"});
   assert.deepEqual(manifest.contract.reviewedWaves.slice(0,78).at(-1), {"id":"phase9-ci-resource-slice-issue377-v1","issue":377,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:1606746ad48b9631aaee89e0369cc439d8d864d70bba3f098570e9a7ba56e109"});
   assert.deepEqual(manifest.contract.reviewedWaves.slice(0,79).at(-1), {"id":"phase9-retained-administrator-issue379-v1","issue":379,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:eb87c2ca46ca9c91ebf2898acbec6996478b2848c579a945a244d0273fe04cb1"});
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-1), {"id":"phase9-manual-publication-issue386-v1","issue":386,"commands":["artifact publication draft"],"imports":[],"mutationBoundaryDigest":"sha256:096bb27ae12add6685234a379d771ac10f27a4e67083d0162b91ec85cea2a4b7"});
+  assert.deepEqual(manifest.contract.reviewedWaves.slice(0,80).at(-1), {"id":"phase9-manual-publication-issue386-v1","issue":386,"commands":["artifact publication draft"],"imports":[],"mutationBoundaryDigest":"sha256:096bb27ae12add6685234a379d771ac10f27a4e67083d0162b91ec85cea2a4b7"});
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-1), {"id":"phase9-manual-delivery-issue317-v2","issue":317,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:887df596d8342899d12e5bf28de857b5e58772b10c8db92a8263cbe9833b108c"});
   assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.reviewedWaves.at(-1).mutationBoundaryDigest);
   assert.equal(validateEvidence(manifest, facts).status, "pass");
   for (const mutate of [

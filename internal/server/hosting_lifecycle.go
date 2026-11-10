@@ -116,7 +116,23 @@ func (c *hostingLifecycleComposition) configuration(ctx context.Context, q gener
 	if out.Harbor != nil && !seen[out.Harbor.HostID] {
 		return out, p, serviceFailure(generated.ErrorCodeInputInvalid)
 	}
+	if err := validateHostingPlatformTarget(out); err != nil {
+		return out, p, err
+	}
 	return out, p, nil
+}
+
+// The platform executor must use the same control host checked by the protected target set.
+func validateHostingPlatformTarget(conf hostingConfiguration) error {
+	if conf.Platform == nil {
+		return nil
+	}
+	for _, target := range conf.Targets {
+		if target.HostID == conf.Platform.HostID && target.IdentityDigest == conf.Platform.HostIdentityDigest && target.Role == "control" {
+			return nil
+		}
+	}
+	return serviceFailure(generated.ErrorCodeInputInvalid)
 }
 func (c *hostingLifecycleComposition) checkTargets(ctx context.Context, q generated.HostingLifecycleRequest, conf hostingConfiguration) error {
 	if e := c.repo.Authorize(ctx, q); e != nil {
@@ -125,6 +141,17 @@ func (c *hostingLifecycleComposition) checkTargets(ctx context.Context, q genera
 	for _, t := range conf.Targets {
 		if e := c.repo.CheckTarget(ctx, q, t.HostID, t.IdentityDigest); e != nil {
 			return e
+		}
+		p, ok := c.profiles[q.TargetID]
+		if !ok || p.BindingID != q.BindingID || p.ConfigurationDigest != q.ConfigurationDigest {
+			return serviceFailure(generated.ErrorCodePlanStale)
+		}
+		manual, e := checkManualDeliveryHost(ctx, c.gates, t.HostID, t.IdentityDigest, q.RecoveryEpoch, manualHostingCapability(p))
+		if e != nil {
+			return e
+		}
+		if manual {
+			continue
 		}
 		a, e := (hostReplacementComposition{gates: c.gates, clock: time.Now}).roleAdmission(ctx, t.HostID)
 		if e != nil {

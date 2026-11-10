@@ -37,9 +37,15 @@ func (c *serviceDeploymentComposition) observeCapacity(ctx context.Context, d ge
 		if actual != before {
 			return serviceFailure(generated.ErrorCodePlanStale)
 		}
-		admission, e := (hostReplacementComposition{gates: c.base.gates, clock: time.Now}).roleAdmission(ctx, d.HostID)
-		if e != nil || admission.IdentityDigest != d.HostIdentityDigest || admission.Profile.RoleID != "application" {
-			return serviceFailure(generated.ErrorCodePrerequisiteBlocked)
+		manual, e := c.manualAdmission(ctx, d, b, target.RecoveryEpoch)
+		if e != nil {
+			return e
+		}
+		if !manual {
+			admission, e := (hostReplacementComposition{gates: c.base.gates, clock: time.Now}).roleAdmission(ctx, d.HostID)
+			if e != nil || admission.IdentityDigest != d.HostIdentityDigest || admission.Profile.RoleID != "application" {
+				return serviceFailure(generated.ErrorCodePrerequisiteBlocked)
+			}
 		}
 		return c.base.recheckCredential(ctx, d, false, target.RecoveryEpoch, b.RuntimeReferenceID, "service.runtime", "runtime-observe", "credential.service-runtime.read", credential)
 	}
@@ -107,8 +113,15 @@ func (c *serviceDeploymentComposition) Configuration(ctx context.Context, servic
 	if _, currentErr := c.base.repo.Get(ctx, serviceID); currentErr != nil {
 		return generated.ServiceConfigurationStatus{}, currentErr
 	}
+	manual, e := c.manualAdmission(ctx, record.Definition, b, record.RecoveryEpoch)
+	if e != nil {
+		return generated.ServiceConfigurationStatus{}, e
+	}
 	out.PlacementState = "eligible"
 	out.PlacementReason = "current-qualified-capacity"
+	if manual {
+		out.PlacementReason = "current-working-demo-capacity"
+	}
 	return out, nil
 }
 func (c *serviceDeploymentComposition) checkDataContract(ctx context.Context, q generated.ServiceDeploymentRequest) error {

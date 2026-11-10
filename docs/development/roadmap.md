@@ -1,5 +1,7 @@
 # Full-scope development roadmap
 
+> **Phase 9 finish-line amendment (09-11-2026):** The operator selected signed manual application delivery and deferred managed CI. Complete the actual signed image → scoped registry → exact approved deployment → independently observed running digest/health path before closing the amended working milestone. Original managed-CI signing, isolation and runner lifecycle acceptance remains explicitly deferred under [Module 4](https://github.com/vegastack/vegastack-labs/issues/10), never passed by manual delivery. See [the current phase scope](phases/09-scm-managed-ci-application-delivery.md#current-manual-delivery-scope--09-11-2026) and [D-134](../decisions-and-sources.md#d-134).
+
 > **Working-first scope correction (08-10-2026):** Additional hardening and advanced recovery below are deferred. Build a small useful end-to-end feature using existing platform components first. Historical control requirements are not completed or waived as qualification evidence. The [simplicity mandate](../../AGENTS.md#working-first--simplicity-mandate) and protected-host exclusion control current work.
 
 > **Current operational exclusion (07-10-2026):** `vsk-node-04` and `vsk-node-05` host live applications/databases and must not be contacted or operated, including read-only discovery, CI and indirect provider/controller actions. Historical role assignments below grant no permission. See the [hard exclusion](../../AGENTS.md#protected-live-hosts--hard-exclusion).

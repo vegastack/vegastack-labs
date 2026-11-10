@@ -80,7 +80,17 @@ func (f *serviceCatalogWorkflow) exec(query string, args ...any) {
 func (f *serviceCatalogWorkflow) draft() generated.ServiceImportDraftRequest {
 	return generated.ServiceImportDraftRequest{Schema: generated.SchemaIDServiceImportDraftRequest, SchemaVersion: "1.0.0", ServiceID: "service-a", BindingID: "binding-a", ExpectedStateRevision: 5, IdempotencyKey: "import-a", ReasonDigest: servicecatalog.Digest("synthetic reason")}
 }
+
+type serviceCatalogWorkflowSeed struct {
+	Target      generated.HostDiscoveryTargetDraftRequest
+	Observation generated.HostObservation
+	Profile     store.GateAppliedProfile
+}
+
 func newServiceCatalogWorkflow(t *testing.T) *serviceCatalogWorkflow {
+	return newServiceCatalogWorkflowSeeded(t, nil)
+}
+func newServiceCatalogWorkflowSeeded(t *testing.T, seed func(generated.ServiceProviderBinding) serviceCatalogWorkflowSeed) *serviceCatalogWorkflow {
 	t.Helper()
 	f := &serviceCatalogWorkflow{t: t, hostingStatus: "running:healthy", resolver: &serviceCatalogWorkflowResolver{}}
 	f.actor = identity.Principal{ID: "operator-a", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman, DeviceID: "device-a"}
@@ -173,6 +183,17 @@ func newServiceCatalogWorkflow(t *testing.T) *serviceCatalogWorkflow {
 	f.exec(`PRAGMA foreign_keys=ON`)
 	t.Cleanup(func() { _ = f.db.Close() })
 	hash := servicecatalog.Digest("fixture")
+	targetBytes, observationBytes := []byte(`{}`), []byte(`{}`)
+	targetDigest, observationDigest := hash, hash
+	profile := store.GateAppliedProfile{ProfileID: "synthetic-profile", ProfileVersion: "1.0.0", PolicyID: "fixture-policy", PolicyVersion: "1.0.0", Capabilities: []string{"credential.hosting.read", "credential.registry.read"}}
+	if seed != nil {
+		selected := seed(binding)
+		targetBytes, _ = json.Marshal(selected.Target)
+		observationBytes, _ = json.Marshal(selected.Observation)
+		targetDigest, observationDigest = servicecatalog.Digest(selected.Target), servicecatalog.Digest(selected.Observation)
+		profile = selected.Profile
+	}
+	profileBytes, _ := json.Marshal(profile.Capabilities)
 	f.exec(`UPDATE system_meta SET state_revision=5 WHERE id=1`)
 	f.exec(`INSERT INTO effective_authorization_principals VALUES('operator-a','human','active',1,'now','now')`)
 	f.exec(`INSERT INTO read_principals VALUES('operator-a','active',1,'now','now')`)
@@ -182,13 +203,13 @@ func newServiceCatalogWorkflow(t *testing.T) *serviceCatalogWorkflow {
 	f.exec(`INSERT INTO immutable_plans VALUES('fixture-plan',?,'fixture-declaration',1,1,0,?,?,?,?,?,?,'2026-01-01T00:00:00Z','2026-12-01T00:00:00Z')`, hash, hash, hash, hash, []byte(`{}`), "synthetic fixture", hash)
 	f.exec(`INSERT INTO acknowledgement_requests VALUES('fixture-ack','fixture-plan',?,?,?,'operator-a','fixture-authority',?,1,0,'later','approved',?,?,'now','now','now')`, hash, hash, hash, hash, []byte(`{}`), []byte(`{}`))
 	f.exec(`INSERT INTO plan_runs VALUES('fixture-run','fixture-plan',?,'decision',NULL,'1.0.0','central','executor',?,'succeeded',0,'not-requested','verified',?,0,1,0,?,?,?,'now','now')`, hash, hash, hash, hash, hash, []byte(`{}`))
-	f.exec(`INSERT INTO host_discovery_drafts VALUES('fixture-target','candidate-a',1,0,'activate',?,?,'operator-a',1,0)`, hash, []byte(`{}`))
+	f.exec(`INSERT INTO host_discovery_drafts VALUES('fixture-target','candidate-a',1,0,'activate',?,?,'operator-a',1,0)`, targetDigest, targetBytes)
 	f.exec(`INSERT INTO host_discovery_targets VALUES('candidate-a',1,'fixture-target','active','fixture-plan',0)`)
 	f.exec(`INSERT INTO host_discovery_attempts VALUES('fixture-observation','operator-a',?,?,'candidate-a',1,?,1,1,0,'later',?)`, hash, hash, hash, []byte(`{}`))
-	f.exec(`INSERT INTO host_observations VALUES('fixture-observation','candidate-a',1,?,?,1,0)`, []byte(`{}`), hash)
+	f.exec(`INSERT INTO host_observations VALUES('fixture-observation','candidate-a',1,?,?,1,0)`, observationBytes, observationDigest)
 	f.exec(`INSERT INTO host_adoption_drafts VALUES('fixture-adoption',?,?,'operator-a',1,0)`, hash, []byte(`{}`))
 	f.exec(`INSERT INTO managed_hosts VALUES('synthetic-service-host','candidate-a',?,'product-serial','physical','fixture-observation','synthetic-profile','fixture-adoption','fixture-plan','operator-a','fixture-ack',1,0)`, binding.HostIdentityDigest)
-	f.exec(`INSERT INTO gate_applied_profiles VALUES('service-profile','synthetic-profile','1.0.0','fixture-policy','1.0.0',?,1,0,'fixture-declaration',1,'fixture-plan',?,'fixture-run','fixture-step','fixture-lease','operator-a','now')`, []byte(`["credential.hosting.read","credential.registry.read"]`), hash)
+	f.exec(`INSERT INTO gate_applied_profiles VALUES('service-profile',?,?,?,?,?,1,0,'fixture-declaration',1,'fixture-plan',?,'fixture-run','fixture-step','fixture-lease','operator-a','now')`, profile.ProfileID, profile.ProfileVersion, profile.PolicyID, profile.PolicyVersion, profileBytes, hash)
 	f.credentialVersion("hosting-ref", "hosting.coolify", "hosting-observe", "one", "active", 1)
 	f.credentialVersion("registry-ref", "registry.harbor", "registry-observe", "one", "active", 1)
 	// Fixture SQL bypasses the store's writer cache. Reopen the real store so

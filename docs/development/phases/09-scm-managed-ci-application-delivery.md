@@ -1,5 +1,25 @@
 # Phase 9 — SCM, managed CI and application delivery
 
+## Current manual delivery scope — 09-11-2026
+
+(omkarmohanta09) selected signed manual delivery and explicitly deferred managed CI. This amends the immediate Phase 9 finish line under [D-134](../../decisions-and-sources.md#d-134); original assigned-job, CI signing/isolation and runner cleanup acceptance remains deferred under [Module 4](https://github.com/vegastack/vegastack-labs/issues/10). Earlier CI descriptions below preserve implementation history and do not override this current scope. Phase 9 remains open until [the amended acceptance owner](https://github.com/vegastack/vegastack-labs/issues/317) has actual live evidence.
+
+The smallest source change selects `labs-working-manual/1.0.0` through the existing acknowledged profile binding and finite capabilities derived from the exact protected hosting and service/deployment bindings. It covers only the configured named targets and one signed development/private/stateless application with finite resources and no migration. It does not pass strict host hardening, role admission, native qualification, replacement or recovery. Missing policy retains strict behavior; selected but changed scope denies. Existing authorization, genuine Slack acknowledgement, current state/epoch/lease/credential checks and independent observations remain required.
+
+The already merged manual publisher verifies the actual signed manifest using a separately protected identity/issuer/trust policy and publishes only its configured repository. The original CI publisher still requires actual admitted CI results. A manually signed image does not establish signed CI SBOM/provenance or build identity.
+
+The current operator outcome is complete only when all of the following are evidenced:
+
+- Exact named host registration and the separately authorized one-time administrator preparation are observed; registration is not qualification.
+- Actual Coolify/Harbor instances, protected HTTPS access, persistent datasets, provider IDs and purpose-scoped credential references exist. Names, staged files and API fixtures are insufficient.
+- The final controller runs the merged source and the exact finite manual policy is applied through the normal acknowledgement flow.
+- The exact signed image is published through Labs, independently read back at the same registry digest, and separately deployed through an acknowledged plan.
+- Independent runtime observation confirms the same running digest and healthy application; relevant safe failure/recovery behavior and the identical human procedure are recorded.
+- Original managed-CI obligations and all previous hardening/Mac/advanced-recovery/notification deferrals remain visibly unpassed, with no claim that this result satisfies full v1 acceptance.
+
+The source PR references the acceptance owner rather than closing it. The existing local service-list correction is part of the source candidate; prepared CI-only work remains preserved and unshipped. One final evidence reconciliation closes the amended phase only after the actual result, without rerunning previously accepted unrelated phases.
+
+
 ## CI resource baseline bootstrap — source correction #377
 
 The baseline collector accepts the exact existing CI role boundary `vsk-ci.slice` for `host` and `ci` inputs, in addition to its existing safe service selectors. Arbitrary slices, scopes, templates and other roles remain rejected. A CI slice observation must be active and report `/etc/systemd/system/vsk-ci.slice`; its finite memory/tasks/CPU properties must exactly match the approved resource input and actual disk headroom must meet the declared minimum. An inactive slice, foreign/missing unit fragment, unlimited or mismatched limit, or insufficient disk does not pass.

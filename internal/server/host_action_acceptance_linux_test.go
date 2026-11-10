@@ -51,6 +51,10 @@ func TestHostActionAcceptance(t *testing.T) {
 }
 
 type hostActionAcceptanceHooks struct {
+	ConfigureStore   func(*store.Config)
+	PlatformPreparer api.HostingPlatformPreparer
+	ActionRequest    func(generated.HostActionRequest) generated.HostActionRequest
+
 	Peer           func(*testing.T, ssh.Signer, ActionSigner, *atomic.Int32, string) int
 	DenialCode     string
 	EnrollmentOnly bool
@@ -97,7 +101,11 @@ func hostActionAcceptance(t *testing.T, actionMode string, options ...hostAction
 		t.Fatal(err)
 	}
 	path := filepath.Join(directory, "control.db")
-	authority, err := store.Open(ctx, store.Config{DatabasePath: path, Mode: store.InitializeNew, ExpectedUID: uint32(os.Geteuid()), ToolVersion: "test", BuildVersion: "test", Clock: clock})
+	configuration := store.Config{DatabasePath: path, Mode: store.InitializeNew, ExpectedUID: uint32(os.Geteuid()), ToolVersion: "test", BuildVersion: "test", Clock: clock}
+	if hooks.ConfigureStore != nil {
+		hooks.ConfigureStore(&configuration)
+	}
+	authority, err := store.Open(ctx, configuration)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -323,7 +331,7 @@ func hostActionAcceptance(t *testing.T, actionMode string, options ...hostAction
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = api.RegisterHostActionOperations(app, api.HostActionOperations{Hosts: actionRepo, Declarations: declarations, Credentials: credentials, Results: factory}); err != nil {
+	if err = api.RegisterHostActionOperations(app, api.HostActionOperations{HostingPlatformPreparer: hooks.PlatformPreparer, Hosts: actionRepo, Declarations: declarations, Credentials: credentials, Results: factory}); err != nil {
 		t.Fatal(err)
 	}
 	current, err = revisions.CurrentRevision(ctx)
@@ -332,6 +340,9 @@ func hostActionAcceptance(t *testing.T, actionMode string, options ...hostAction
 	}
 	identityDigest := hostadoption.IdentityDigest("product-serial", "synthetic-serial")
 	actionRequest := generated.HostActionRequest{Schema: generated.SchemaIDHostActionRequest, SchemaVersion: "1.0.0", ActionID: "test.write-file", ActionVersion: "1.0.0", ActionInput: "{}", ActionInputDigest: hostaction.BytesDigest([]byte("{}")), HostID: "synthetic-host", TargetRevision: 1, TargetDigest: digest, AutomationPrincipalID: "automation-a", CallerUID: 1001, CredentialReferenceID: "action-key", CredentialMaterialVersion: "version-a", ConsoleConfirmation: generated.HostActionConsoleConfirmation{Schema: generated.SchemaIDHostActionConsoleConfirmation, SchemaVersion: "1.0.0", Method: "administrator-verified-console", TargetDigest: digest, HostIdentityDigest: identityDigest}, ExpectedStateRevision: current.StateRevision, RecoveryEpoch: current.RecoveryEpoch, IdempotencyKey: "action-one"}
+	if hooks.ActionRequest != nil {
+		actionRequest = hooks.ActionRequest(actionRequest)
+	}
 	grant("declaration.author", "declaration", hostaction.DraftID(actionRequest), "author")
 	var actionDraft generated.HostActionSubmission
 	decode(request("POST", "/api/v1/host-actions/draft", actionRequest, true), &actionDraft)
