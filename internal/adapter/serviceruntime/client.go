@@ -133,7 +133,7 @@ func (c *Client) Observe(ctx context.Context, t Target, s Selection, value *cred
 	if e != nil {
 		return out, ErrInput
 	}
-	secure, chans, requests, e := ssh.NewClientConn(conn, conn.RemoteAddr().String(), &ssh.ClientConfig{User: t.User, HostKeyCallback: ssh.FixedHostKey(key), Auth: []ssh.AuthMethod{ssh.PublicKeys(signer)}})
+	secure, chans, requests, e := ssh.NewClientConn(conn, conn.RemoteAddr().String(), &ssh.ClientConfig{User: t.User, HostKeyAlgorithms: pinnedHostKeyAlgorithms(key), HostKeyCallback: ssh.FixedHostKey(key), Auth: []ssh.AuthMethod{ssh.PublicKeys(signer)}})
 	if e != nil {
 		return out, ErrUnavailable
 	}
@@ -284,4 +284,17 @@ func (w *boundedOutput) Write(p []byte) (int, error) {
 		return w.buffer.Write(p)
 	}
 	return len(p), nil
+}
+
+// Negotiate the registered key type, while retaining exact key verification.
+// RSA host keys use SHA-2 signatures rather than the legacy SHA-1 algorithm.
+func pinnedHostKeyAlgorithms(key ssh.PublicKey) []string {
+	switch key.Type() {
+	case ssh.KeyAlgoRSA:
+		return []string{ssh.KeyAlgoRSASHA512, ssh.KeyAlgoRSASHA256}
+	case ssh.CertAlgoRSAv01:
+		return []string{ssh.CertAlgoRSASHA512v01, ssh.CertAlgoRSASHA256v01}
+	default:
+		return []string{key.Type()}
+	}
 }

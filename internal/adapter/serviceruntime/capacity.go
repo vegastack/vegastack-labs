@@ -54,7 +54,7 @@ func (c *Client) ObserveCapacity(ctx context.Context, t Target, value *credentia
 	if conn.SetDeadline(deadline) != nil {
 		return out, ErrUnavailable
 	}
-	secure, chans, requests, e := ssh.NewClientConn(conn, conn.RemoteAddr().String(), &ssh.ClientConfig{User: t.User, HostKeyCallback: ssh.FixedHostKey(key), Auth: []ssh.AuthMethod{ssh.PublicKeys(signer)}})
+	secure, chans, requests, e := ssh.NewClientConn(conn, conn.RemoteAddr().String(), &ssh.ClientConfig{User: t.User, HostKeyAlgorithms: pinnedHostKeyAlgorithms(key), HostKeyCallback: ssh.FixedHostKey(key), Auth: []ssh.AuthMethod{ssh.PublicKeys(signer)}})
 	if e != nil {
 		return out, ErrUnavailable
 	}

@@ -1,3 +1,13 @@
+## 10-11-2026 — Read the runtime when a server advertises several SSH keys ([#317](https://github.com/vegastack/vegastack-labs/issues/317))
+
+- **What:** Runtime and capacity inspection now negotiate the registered host key's algorithm before checking its exact identity. A server advertising an additional SSH key can no longer cause the selected key to be rejected before inspection starts.
+- **Why:** The working delivery reached deployment preparation, where SSH chose an advertised key of another type despite an existing registered key.
+- **How it went:** Both observation paths reproduced the failure with a mixed-key fixture; their focused tests and vet pass after the correction. A separate capacity blocker from containers with no CPU limit remains unresolved.
+- **Changed:** Runtime reads use the registered key algorithm, preserve exact key verification and reject a different pinned key before running commands. Host configuration and capacity rules remain unchanged; installation and live delivery are separate evidence.
+- **Decisions:** none.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/317-runtime-pinned-ssh
+
 ## 10-11-2026 — Let the selected Harbor pull robot read artifact metadata ([#391](https://github.com/vegastack/vegastack-labs/issues/391))
 
 Signed publication succeeded, then application import exposed a distinct Harbor permission: repository pull allows image downloads but not the artifact-information API. The existing hosting plan now explicitly selects one configured pull robot for the additional project-scoped artifact-read permission. Its supported permission update preserves identity, expiry and secret, verifies the real result, and retains the applied selection in future plans. No Labs grants, credential replacement, new service or additional write authority are introduced. Live permission application and application delivery remain separate acceptance evidence.
