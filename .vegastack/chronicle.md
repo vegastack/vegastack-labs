@@ -1,3 +1,13 @@
+## 10-11-2026 — Preserve the signed manual image's native healthcheck ([#317](https://github.com/vegastack/vegastack-labs/issues/317))
+
+- **What:** The exact manual delivery branch disables only Coolify's generated shell probe, preserving the signed image's exec-form native healthcheck and its 30-second interval.
+- **Why:** The first rollout reached the signed image, but Coolify wrapped the configured health command in `CMD-SHELL`. The scratch image has no shell, so its generated probe failed and the provider removed the failed rollout.
+- **How it went:** Read-only inspection matched the generated shell probe to the signed image's native command. The source correction leaves independent runtime health, digest and resource-limit verification mandatory; installation and a fresh acknowledged recovery remain pending live evidence.
+- **Changed:** Existing manual deployment-to-provider settings only; no image, schema, capability or profile change. Provider probe fields do not claim an enforced 10-second native interval.
+- **Decisions:** Preserve the partial run and its history. No health waiver or expansion of CI, Mac or hardening scope.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/317-image-native-healthcheck
+
 ## 10-11-2026 — Let the selected manual demo share CPU explicitly ([#317](https://github.com/vegastack/vegastack-labs/issues/317))
 
 - **What:** The exact private stateless manual application can select best-effort CPU sharing through an additional binding-specific applied capability. The original manual policy alone retains strict capacity accounting.

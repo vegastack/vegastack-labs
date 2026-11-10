@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/vegastack/vegastack-labs/internal/adapter/coolify"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/identity"
 	"github.com/vegastack/vegastack-labs/internal/serverconfig"
@@ -91,5 +92,29 @@ func TestServiceDeploymentCompositionDeniesBeforeProviderAndArtifactProof(t *tes
 	q.ArtifactProofDigest = servicecatalog.Digest(q.Artifact)
 	if e := c.artifact(context.Background(), q, c.bindings[q.Definition.ServiceID]); e == nil {
 		t.Fatal("caller proof admitted unknown artifact")
+	}
+}
+
+func TestDeploymentImageSettingsPreserveNativeHealthForManualAdmission(t *testing.T) {
+	configuration := generated.ServiceConfiguration{Schema: generated.SchemaIDServiceConfiguration, SchemaVersion: "1.0.0", EnvironmentClass: "development", CPUQuotaPercent: 100, MemoryBytes: 268435456, StorageBytes: 1073741824, Port: 8080, Exposure: "private", HealthPath: "/healthz", HealthExpectedStatus: 200, HealthIntervalSeconds: 10, HealthTimeoutSeconds: 2, HealthRetries: 3, DataClass: "stateless", Migration: "none", Rollback: "previous-artifact", SecretReferenceIDs: []string{}}
+	ordinary, err := coolify.Settings(configuration)
+	if err != nil || !ordinary.HealthEnabled {
+		t.Fatal("ordinary provider healthcheck must remain enabled", ordinary, err)
+	}
+	for _, manual := range []bool{false, true} {
+		actual, err := deploymentImageSettings(configuration, manual)
+		if err != nil {
+			t.Fatal(err)
+		}
+		expected := ordinary
+		if manual {
+			expected.HealthEnabled = false
+		}
+		if actual != expected {
+			t.Fatalf("manual=%t provider settings differ: got %+v want %+v", manual, actual, expected)
+		}
+	}
+	if _, err := deploymentImageSettings(generated.ServiceConfiguration{}, true); err == nil {
+		t.Fatal("manual admission bypassed configuration validation")
 	}
 }
