@@ -18,7 +18,7 @@ func TestLifecycleCreatesTwoSystemRobotsFromProtectedSecrets(t *testing.T) {
 func TestLifecyclePreservesCreatedIDsWhenSecretUpdateFails(t *testing.T) {
 	testLifecycleCreatesProtectedRobots(t, true)
 }
-func testLifecycleCreatesProtectedRobots(t *testing.T, failPatch bool) {
+func testLifecycleCreatesProtectedRobots(t *testing.T, failPatch bool, artifactRead ...bool) {
 	t.Helper()
 	retentionID := int64(0)
 	var retention map[string]any
@@ -92,6 +92,9 @@ func testLifecycleCreatesProtectedRobots(t *testing.T, failPatch bool) {
 	v, _ := credentialref.NewValue([]byte("fixture-admin"))
 	defer v.Close()
 	q := LifecycleRequest{Projects: []ProjectBinding{{ID: 11, Name: "project", KeepLast: 20}}, Robots: []RobotBinding{{Name: "robot$ci", ReferenceID: "ci-ref", MaterialVersion: "v1", Push: true, Duration: 365}, {Name: "robot$deploy", ReferenceID: "deploy-ref", MaterialVersion: "v1", Duration: 365}}, Check: func() error { return nil }}
+	if len(artifactRead) > 0 && artifactRead[0] {
+		q.Robots[1].ArtifactRead = true
+	}
 	out, e := c.ApplyLifecycleWithSecrets(context.Background(), q, "admin", v, func(_ context.Context, r RobotBinding) (*credentialref.Value, error) {
 		return credentialref.NewValue([]byte(secrets[r.Name]))
 	})
@@ -107,6 +110,9 @@ func testLifecycleCreatesProtectedRobots(t *testing.T, failPatch bool) {
 	raw, _ := json.Marshal(out)
 	if strings.Contains(string(raw), "private-") {
 		t.Fatal("credential leaked")
+	}
+	if len(artifactRead) > 0 && artifactRead[0] && (out.ArtifactReadReferenceID != "deploy-ref" || !out.Robots[1].ArtifactRead) {
+		t.Fatal("fresh robot missing selected artifact read", out)
 	}
 	if out.Robots[0].Push == out.Robots[1].Push {
 		t.Fatal("two robot separation lost")
@@ -271,5 +277,118 @@ func TestRetentionComparisonAllowsVendorOmittedEmptyParams(t *testing.T) {
 	changed.Rules[0].Params["latestPushedK"] = 6
 	if equalRetention(changed, expected) {
 		t.Fatal("changed retention count accepted")
+	}
+}
+
+func TestLifecycleCreatesSelectedArtifactReadRobotDirectly(t *testing.T) {
+	testLifecycleCreatesProtectedRobots(t, false, true)
+}
+func TestLifecycleAddsArtifactReadWithoutChangingExistingRobot(t *testing.T) {
+	testLifecycleArtifactReadTransition(t, "update")
+}
+func TestLifecycleRejectsArtifactReadNoopOrUnrelatedPermissions(t *testing.T) {
+	for _, mode := range []string{"noop", "not-editable", "foreign-permission", "push-selection", "expiry-changed"} {
+		t.Run(mode, func(t *testing.T) { testLifecycleArtifactReadTransition(t, mode) })
+	}
+}
+func testLifecycleArtifactReadTransition(t *testing.T, mode string) {
+	t.Helper()
+	project := ProjectBinding{ID: 11, Name: "project", RetentionID: 9, KeepLast: 5}
+	q := LifecycleRequest{Projects: []ProjectBinding{project}, Robots: []RobotBinding{{ID: 7, Name: "robot$push", ReferenceID: "push-ref", Push: true, Duration: 7, MaterialVersion: "v1"}, {ID: 8, Name: "robot$pull", ReferenceID: "pull-ref", Duration: 7, MaterialVersion: "v1", ArtifactRead: true}}, Check: func() error { return nil }}
+	if mode == "push-selection" {
+		q.Robots[0].ArtifactRead = true
+	}
+	baseline := []RobotPermission{{Kind: "project", Namespace: "project", Access: []Access{{Resource: "repository", Action: "pull", Effect: "allow"}}}}
+	desired := []RobotPermission{{Kind: "project", Namespace: "project", Access: []Access{{Resource: "repository", Action: "pull", Effect: "allow"}, {Resource: "artifact", Action: "read", Effect: "allow"}}}}
+	actual := baseline
+	if mode == "foreign-permission" {
+		actual = []RobotPermission{{Kind: "project", Namespace: "project", Access: []Access{{Resource: "repository", Action: "pull", Effect: "allow"}, {Resource: "repository", Action: "push", Effect: "allow"}}}}
+	}
+	writes, secretReads := 0, 0
+	expires := time.Now().Add(24 * time.Hour).Unix()
+	s := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var out any
+		switch {
+		case r.Method == "GET" && r.URL.Path == "/api/v2.0/projects/project":
+			out = map[string]any{"project_id": 11, "name": "project", "metadata": map[string]string{"public": "false", "retention_id": "9"}}
+		case r.Method == "GET" && r.URL.Path == "/api/v2.0/retentions/9":
+			out = retention(project)
+		case r.Method == "GET" && strings.HasPrefix(r.URL.Path, "/api/v2.0/robots/"):
+			id, e := strconv.Atoi(strings.TrimPrefix(r.URL.Path, "/api/v2.0/robots/"))
+			if e != nil || id < 7 || id > 8 {
+				t.Fatal("unexpected robot")
+			}
+			robot := q.Robots[id-7]
+			perms := []RobotPermission{{Kind: "project", Namespace: "project", Access: []Access{{Resource: "repository", Action: "pull", Effect: "allow"}, {Resource: "repository", Action: "push", Effect: "allow"}}}}
+			if id == 8 {
+				perms = actual
+			}
+			out = map[string]any{"id": id, "name": robot.Name, "level": "system", "description": "retained-description", "disable": false, "editable": mode != "not-editable", "duration": 7, "expires_at": expires, "permissions": perms}
+		case r.Method == "PUT" && r.URL.Path == "/api/v2.0/robots/8":
+			writes++
+			var body map[string]json.RawMessage
+			if json.NewDecoder(r.Body).Decode(&body) != nil || len(body) != 5 {
+				t.Error("permission update must preserve only required metadata and omit duration/secret")
+			}
+			var name, level, description string
+			var disabled bool
+			var perms []RobotPermission
+			json.Unmarshal(body["name"], &name)
+			json.Unmarshal(body["level"], &level)
+			json.Unmarshal(body["description"], &description)
+			json.Unmarshal(body["disable"], &disabled)
+			json.Unmarshal(body["permissions"], &perms)
+			if name != "robot$pull" || level != "system" || description != "retained-description" || disabled || !permissionEqual(perms, desired) {
+				t.Error("permission update changed unrelated robot settings")
+			}
+			if mode != "noop" {
+				actual = desired
+			}
+			if mode == "expiry-changed" {
+				expires++
+			}
+			return // Harbor PUT returns an empty200 response.
+		default:
+			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(500)
+			return
+		}
+		json.NewEncoder(w).Encode(out)
+	}))
+	defer s.Close()
+	c, _ := NewClient(s.URL, s.Client().Transport)
+	v, _ := credentialref.NewValue([]byte("fixture-admin"))
+	defer v.Close()
+	var beforeJSON []byte
+	if mode == "update" {
+		before, e := c.ObserveLifecycle(context.Background(), q, "admin", v)
+		if e != nil || before.ArtifactReadReferenceID != "" || before.Robots[1].ArtifactRead {
+			t.Fatal("old permission observation not sealed accurately", before, e)
+		}
+		beforeJSON, _ = json.Marshal(before)
+	}
+	out, e := c.ApplyLifecycleWithSecrets(context.Background(), q, "admin", v, func(context.Context, RobotBinding) (*credentialref.Value, error) {
+		secretReads++
+		return credentialref.NewValue([]byte("Must-not-be-read1"))
+	})
+	if secretReads != 0 {
+		t.Fatal("permission-only transition borrowed a robot password")
+	}
+	if mode == "update" {
+		afterJSON, _ := json.Marshal(out)
+		if string(beforeJSON) == string(afterJSON) {
+			t.Fatal("old and new permission states have identical canonical snapshot")
+		}
+		if e != nil || writes != 1 || len(out.Robots) != 2 || !out.Robots[1].ArtifactRead || out.ArtifactReadReferenceID != "pull-ref" {
+			t.Fatal("artifact read transition not verified", out, e, writes)
+		}
+	} else {
+		expectedWrites := 0
+		if mode == "noop" || mode == "expiry-changed" {
+			expectedWrites = 1
+		}
+		if e == nil || writes != expectedWrites {
+			t.Fatal("invalid artifact read transition accepted", out, e, writes)
+		}
 	}
 }

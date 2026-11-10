@@ -870,6 +870,13 @@
         "commands": [],
         "imports": [],
         "mutationBoundaryDigest": "sha256:49397f8064d061758949ebdc59fe36d883035625d5a6d42f35a6fe5ef27af05d"
+      },
+      {
+        "id": "phase9-harbor-artifact-read-issue391-v3",
+        "issue": 391,
+        "commands": [],
+        "imports": [],
+        "mutationBoundaryDigest": "sha256:cdeb72e579ff9d05b9dc8f7b68f83a3414daf01e18df9dfe895b9e67ecb1357c"
       }
     ]
   },

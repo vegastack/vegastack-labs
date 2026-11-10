@@ -5053,6 +5053,10 @@
           ],
           "type": "string"
         },
+        "artifactReadReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
         "bindingId": {
           "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
           "type": "string"

@@ -100,3 +100,30 @@ func TestHostingRecoveryPartialSnapshotKeepsOnlyCreatedIDs(t *testing.T) {
 		t.Fatal("recovery changed missing retention into an existing resource")
 	}
 }
+
+func TestHostingArtifactReadSelectsOnlyConfiguredPullRobot(t *testing.T) {
+	conf, _ := recoveryHostingFixture()
+	original := conf.Harbor
+	if err := applyHostingArtifactReadSelection(&conf, "pull-ref"); err != nil {
+		t.Fatal(err)
+	}
+	if conf.Harbor.Resources.Robots[0].ArtifactRead || !conf.Harbor.Resources.Robots[1].ArtifactRead || conf.Harbor.Resources.Robots[1].ReconcileSecret || original.Resources.Robots[1].ArtifactRead {
+		t.Fatal("selection broadened or modified source/secret", conf)
+	}
+	for _, name := range []string{"push-ref", "foreign-ref"} {
+		invalid, _ := recoveryHostingFixture()
+		if err := applyHostingArtifactReadSelection(&invalid, name); err == nil {
+			t.Fatal("foreign/push selector accepted", name)
+		}
+	}
+	duplicate, _ := recoveryHostingFixture()
+	duplicate.Harbor.Resources.Robots = append(duplicate.Harbor.Resources.Robots, duplicate.Harbor.Resources.Robots[1])
+	if err := applyHostingArtifactReadSelection(&duplicate, "pull-ref"); err == nil {
+		t.Fatal("ambiguous selection accepted")
+	}
+	mixed, _ := recoveryHostingFixture()
+	mixed.Coolify = &hostingCoolify{}
+	if err := applyHostingArtifactReadSelection(&mixed, "pull-ref"); err == nil {
+		t.Fatal("mixed provider selection accepted")
+	}
+}

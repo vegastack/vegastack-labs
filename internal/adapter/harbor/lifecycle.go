@@ -33,6 +33,7 @@ type RobotBinding struct {
 	Duration        int64  `json:"duration"`
 	// ReconcileSecret is set only by an explicitly approved partial recovery.
 	ReconcileSecret bool `json:"-"`
+	ArtifactRead    bool `json:"-"`
 }
 type ProjectBinding struct {
 	ID          int64  `json:"id"`
@@ -47,8 +48,9 @@ type LifecycleRequest struct {
 	Check    func() error     `json:"-"`
 }
 type LifecycleSnapshot struct {
-	Projects []ProjectBinding `json:"projects"`
-	Robots   []RobotBinding   `json:"robots"`
+	ArtifactReadReferenceID string           `json:"artifactReadReferenceId,omitempty"`
+	Projects                []ProjectBinding `json:"projects"`
+	Robots                  []RobotBinding   `json:"robots"`
 }
 
 // SecretSink must atomically stage the one-time secret into the existing
@@ -120,6 +122,9 @@ func validateLifecycle(q LifecycleRequest) bool {
 	pushes := 0
 	names := map[string]bool{}
 	for _, r := range q.Robots {
+		if r.Push && r.ArtifactRead {
+			return false
+		}
 		if r.ID < 0 || !strings.HasPrefix(r.Name, "robot$") || len(r.Name) > 128 || strings.ContainsAny(r.Name, " /\r\n\\\x00") || r.Duration < 1 || r.Duration > 365 || names[r.Name] {
 			return false
 		}
@@ -137,11 +142,21 @@ func validateLifecycle(q LifecycleRequest) bool {
 	return pushes == 1
 }
 func permissions(q LifecycleRequest, push bool) []RobotPermission {
+	artifactRead := false
+	for _, r := range q.Robots {
+		artifactRead = artifactRead || !push && !r.Push && r.ArtifactRead
+	}
+	return robotPermissions(q, push, artifactRead)
+}
+func robotPermissions(q LifecycleRequest, push, artifactRead bool) []RobotPermission {
 	out := make([]RobotPermission, 0, len(q.Projects))
 	for _, p := range q.Projects {
 		a := []Access{{"repository", "pull", "allow"}}
 		if push {
 			a = append(a, Access{"repository", "push", "allow"})
+		}
+		if artifactRead {
+			a = append(a, Access{"artifact", "read", "allow"})
 		}
 		out = append(out, RobotPermission{"project", p.Name, a})
 	}
@@ -210,24 +225,47 @@ func (c *Client) ObserveLifecycle(ctx context.Context, q LifecycleRequest, user 
 		if r.ID == 0 {
 			continue
 		}
-		var got struct {
-			ID          int64             `json:"id"`
-			Name        string            `json:"name"`
-			Level       string            `json:"level"`
-			Disable     bool              `json:"disable"`
-			Expires     int64             `json:"expires_at"`
-			Permissions []RobotPermission `json:"permissions"`
-		}
-		_, e := c.lifecycleRequest(ctx, "GET", "/robots/"+strconv.FormatInt(r.ID, 10), nil, &got, user, v, q.Check)
+		_, actualRead, e := c.observeLifecycleRobot(ctx, q, r, user, v)
 		if e != nil {
 			return out, e
 		}
-		if got.ID != r.ID || got.Name != r.Name || got.Level != "system" || got.Disable || got.Expires <= time.Now().Unix() || !permissionEqual(got.Permissions, permissions(q, r.Push)) {
-			return out, clientError("INTEGRITY_FAILURE")
+		r.ArtifactRead = actualRead
+		if actualRead {
+			out.ArtifactReadReferenceID = r.ReferenceID
 		}
 		out.Robots = append(out.Robots, r)
 	}
 	return out, nil
+}
+
+type lifecycleRobotObservation struct {
+	ID          int64             `json:"id"`
+	Name        string            `json:"name"`
+	Level       string            `json:"level"`
+	Disable     bool              `json:"disable"`
+	Editable    bool              `json:"editable"`
+	Duration    int64             `json:"duration"`
+	Expires     int64             `json:"expires_at"`
+	Description string            `json:"description"`
+	Permissions []RobotPermission `json:"permissions"`
+}
+
+func (c *Client) observeLifecycleRobot(ctx context.Context, q LifecycleRequest, r RobotBinding, user string, v *credentialref.Value) (lifecycleRobotObservation, bool, error) {
+	var got lifecycleRobotObservation
+	_, e := c.lifecycleRequest(ctx, "GET", "/robots/"+strconv.FormatInt(r.ID, 10), nil, &got, user, v, q.Check)
+	if e != nil {
+		return got, false, e
+	}
+	if got.ID != r.ID || got.Name != r.Name || got.Level != "system" || got.Disable || got.Expires <= time.Now().Unix() {
+		return got, false, clientError("INTEGRITY_FAILURE")
+	}
+	if permissionEqual(got.Permissions, permissions(q, r.Push)) {
+		return got, r.ArtifactRead, nil
+	}
+	if r.ArtifactRead && !r.Push && permissionEqual(got.Permissions, robotPermissions(q, false, false)) {
+		return got, false, nil
+	}
+	return got, false, clientError("INTEGRITY_FAILURE")
 }
 
 type retentionSelector struct {
@@ -392,6 +430,38 @@ func (c *Client) applyLifecycle(ctx context.Context, q LifecycleRequest, user st
 		}
 	}
 	for i, r := range q.Robots {
+		if r.ID != 0 && r.ArtifactRead && out.ArtifactReadReferenceID != r.ReferenceID {
+			before, actual, e := c.observeLifecycleRobot(ctx, q, r, user, v)
+			if e != nil {
+				return out, e
+			}
+			if !actual {
+				if !before.Editable || before.Duration < 1 {
+					return out, clientError("INTEGRITY_FAILURE")
+				}
+				body := struct {
+					Name        string            `json:"name"`
+					Level       string            `json:"level"`
+					Description string            `json:"description"`
+					Disable     bool              `json:"disable"`
+					Permissions []RobotPermission `json:"permissions"`
+				}{before.Name, before.Level, before.Description, before.Disable, permissions(q, false)}
+				// Omitting duration preserves the vendor's existing expiry.
+				// No secret field or secret-update endpoint is used here.
+				if _, e = c.lifecycleRequest(ctx, "PUT", "/robots/"+strconv.FormatInt(r.ID, 10), body, nil, user, v, q.Check); e != nil {
+					return out, e
+				}
+				after, applied, e := c.observeLifecycleRobot(ctx, q, r, user, v)
+				if e != nil {
+					return out, e
+				}
+				if !applied || after.Duration != before.Duration || after.Expires != before.Expires || after.Description != before.Description || after.Editable != before.Editable {
+					return out, clientError("INTEGRITY_FAILURE")
+				}
+			}
+			rememberRobot(r)
+			out.ArtifactReadReferenceID = r.ReferenceID
+		}
 		if r.ID != 0 && !r.ReconcileSecret {
 			continue
 		}
@@ -459,6 +529,11 @@ func (c *Client) applyLifecycle(ctx context.Context, q LifecycleRequest, user st
 	verified, e := c.ObserveLifecycle(ctx, q, user, v)
 	if e != nil {
 		return out, e
+	}
+	for _, r := range q.Robots {
+		if r.ArtifactRead && verified.ArtifactReadReferenceID != r.ReferenceID {
+			return out, clientError("INTEGRITY_FAILURE")
+		}
 	}
 	return verified, nil
 }

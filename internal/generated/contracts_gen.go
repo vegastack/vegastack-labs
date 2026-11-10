@@ -3423,17 +3423,18 @@ type HostVolumeBinding struct {
 }
 
 type HostingLifecycleDraftRequest struct {
-	Schema                string                 `json:"schema"`
-	SchemaVersion         string                 `json:"schemaVersion"`
-	TargetID              string                 `json:"targetId"`
-	Action                string                 `json:"action"`
-	ExpectedStateRevision int64                  `json:"expectedStateRevision"`
-	RecoveryEpoch         int64                  `json:"recoveryEpoch"`
-	IdempotencyKey        string                 `json:"idempotencyKey"`
-	ReasonDigest          string                 `json:"reasonDigest"`
-	RecoveryRunID         string                 `json:"recoveryRunId,omitempty"`
-	RecoveryRecordDigest  string                 `json:"recoveryRecordDigest,omitempty"`
-	RecoveryResources     []HostingOwnedResource `json:"recoveryResources,omitempty"`
+	Schema                  string                 `json:"schema"`
+	SchemaVersion           string                 `json:"schemaVersion"`
+	TargetID                string                 `json:"targetId"`
+	Action                  string                 `json:"action"`
+	ExpectedStateRevision   int64                  `json:"expectedStateRevision"`
+	RecoveryEpoch           int64                  `json:"recoveryEpoch"`
+	IdempotencyKey          string                 `json:"idempotencyKey"`
+	ReasonDigest            string                 `json:"reasonDigest"`
+	ArtifactReadReferenceID string                 `json:"artifactReadReferenceId,omitempty"`
+	RecoveryRunID           string                 `json:"recoveryRunId,omitempty"`
+	RecoveryRecordDigest    string                 `json:"recoveryRecordDigest,omitempty"`
+	RecoveryResources       []HostingOwnedResource `json:"recoveryResources,omitempty"`
 }
 
 type HostingLifecycleProfile struct {
@@ -3473,6 +3474,7 @@ type HostingLifecycleRequest struct {
 	RecoveryEpoch             int64                  `json:"recoveryEpoch"`
 	IdempotencyKey            string                 `json:"idempotencyKey"`
 	ReasonDigest              string                 `json:"reasonDigest"`
+	ArtifactReadReferenceID   string                 `json:"artifactReadReferenceId,omitempty"`
 	RecoveryRunID             string                 `json:"recoveryRunId,omitempty"`
 	RecoveryRecordDigest      string                 `json:"recoveryRecordDigest,omitempty"`
 	RecoveryResources         []HostingOwnedResource `json:"recoveryResources,omitempty"`

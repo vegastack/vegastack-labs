@@ -15,7 +15,9 @@ func hostingLifecycleSchemas() []SchemaDefinition {
 		run.Required, run.OmitEmpty = false, true
 		digest := phase5Digest("recoveryRecordDigest", "RecoveryRecordDigest")
 		digest.Required, digest.OmitEmpty = false, true
-		return append(fields, run, digest, FieldDefinition{JSONName: "recoveryResources", GoName: "RecoveryResources", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/hosting-owned-resource", MinItems: intPointer(1), MaxItems: intPointer(512)})
+		artifact := phase5ID("artifactReadReferenceId", "ArtifactReadReferenceID")
+		artifact.Required, artifact.OmitEmpty = false, true
+		return append(fields, artifact, run, digest, FieldDefinition{JSONName: "recoveryResources", GoName: "RecoveryResources", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/hosting-owned-resource", MinItems: intPointer(1), MaxItems: intPointer(512)})
 	}
 	return []SchemaDefinition{
 		phase5Schema("vegastack-labs.dev/hosting-owned-resource", phase5Enum("kind", "Kind", "coolify-project", "coolify-environment", "coolify-application", "coolify-service", "harbor-project", "harbor-retention", "harbor-robot"), text("externalId", "ExternalID"), text("parentId", "ParentID")),
