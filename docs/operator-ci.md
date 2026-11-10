@@ -1,5 +1,20 @@
 # Managed CI: current operator procedure
 
+## Selected working path: signed manual delivery
+
+The 09-11-2026 operator decision selects manual delivery and defers the managed runner path below. Reuse the already built/signed image when its exact bytes, source and protected signer policy still match. Do not request a PAT, fabricate a CI job or re-sign an unchanged artifact just to exercise the CI path.
+
+The administrator first establishes the exact named hosts, protected component files/datasets, actual HTTPS hosting/registry endpoints, first administrator/team and purpose-scoped credential references. The selected one-time preparation is not an alternate provider owner or permission for arbitrary installer scripts, shared tunnels, data deletion or blanket sudo. Existing platform install/verify and hosting resource commands still require their exact inputs and current authority. If a preparation operation is missing, keep it explicit and resolve its bounded scope before touching the host/provider.
+
+Select the finite `labs-working-manual/1.0.0` policy through the ordinary gate-profile draft, immutable plan, Slack acknowledgement and apply flow, preserving existing required capabilities. Its `manual.hosting.<digest>` capability binds the original protected hosting profile including its complete configuration digest. Its `manual.service.<digest>` capability binds the exact protected service and deployment-provider bindings, including the single configured artifact and finite private/stateless development configuration. Digests use the existing canonical typed JSON digest. An operator must derive them from the exact protected bindings, never an untrusted image-supplied policy. A changed binding requires a fresh explicit capability and acknowledged profile plan; a previous manual plan cannot gain broader scope. Strict host qualification/recovery remains unpassed.
+
+After installation, run `vsk-labs artifact publication draft --config <protected-client-profile> --file <private-draft.json> --output json` against the explicitly configured manual publication binding. The private draft selects only the binding and ordinary state/epoch/idempotency/reason fields. Inspect the returned declaration, use existing `plan`, obtain the genuine Slack acknowledgement, then `apply` the exact plan. Inspect the independent registry digest result before preparing the separate `service deployment draft` operation. Do not use direct registry push or a manually invented success receipt.
+
+The deployment still verifies independently protected signature trust, exact artifact/configuration, current identity/scope/credentials/lease, registry readback, capacity and runtime health/digest. Its placement reason identifies working-demo capacity rather than qualified capacity. A first deployment has no previous application revision to roll back to: preserve data and record failure/stop/recovery facts honestly instead of claiming an unperformed rollback. An uncertain publication or deployment attempt must be inspected before any new plan; no automatic replay or volume deletion.
+
+The final acceptance record must show the same signed, published and running digest and healthy application, the relevant live failure/recovery result, and this equivalent human procedure. Existing software denial evidence can be reused where unchanged; missing live results remain open. See [the amended phase acceptance](development/phases/09-scm-managed-ci-application-delivery.md#current-manual-delivery-scope--09-11-2026).
+
+
 ## Prepare the build locally
 
 `vsk-labs release build-go-image` packages an existing static Linux Go binary into a new local OCI layout. Supply `--binary`, `--source-uri`, `--source-revision`, `--builder-id`, `--invocation-id` and a new `--directory`; `--output json` returns the generated result envelope. The embedded Go build information must report the exact clean Git revision, Linux AMD64 or ARM64, and CGO disabled. The source and builder metadata are checked for consistency, not authenticated.

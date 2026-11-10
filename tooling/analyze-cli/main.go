@@ -1628,6 +1628,9 @@ const reviewedLocalTransportDigest = "3f97f09b0fb0280196e869b0defe165fee6eefbb0c
 // #317 adds only bounded canonical CI enrollment pagination.
 const reviewedCIPaginationTransportDigest = "209aee2bbed1ccc23323e37cfdf3dd8e1ad9257fda7ceb9ad8afe000e2c23a28"
 
+// #384 adds the same bounded canonical pagination only to GET services.
+const reviewedServicePaginationTransportDigest = "bd3f85e97f276b4165347a788f35bb91b5978661b539427b364e02bad74f365d"
+
 const reviewedSSHTransportDigest = "398d7cc24e246c024285ed0dc7aea0d178b64fe53f42238a26f06c289f4f69d3"
 
 // forbiddenBackupProcessPatterns are secret/lock transports the pinned restic
@@ -1835,7 +1838,7 @@ func reviewedLocalTransportPackage(candidate checkedSourcePackage) bool {
 		"github.com/vegastack/vegastack-labs/internal/credentialref": true,
 	}
 	digest := digestSourceFiles(candidate.listed.Dir, candidate.listed.GoFiles)
-	if digest == reviewedCIPaginationTransportDigest {
+	if digest == reviewedCIPaginationTransportDigest || digest == reviewedServicePaginationTransportDigest {
 		approvedImports["net/url"], approvedImports["strconv"] = true, true
 	}
 	if len(candidate.listed.GoFiles) != 1 || candidate.listed.GoFiles[0] != "transport.go" || len(candidate.listed.Imports) != len(approvedImports) {
@@ -1861,7 +1864,7 @@ func reviewedLocalTransportPackage(candidate checkedSourcePackage) bool {
 			return false
 		}
 	}
-	return digest == reviewedLocalTransportDigest || digest == reviewedCIPaginationTransportDigest
+	return digest == reviewedLocalTransportDigest || digest == reviewedCIPaginationTransportDigest || digest == reviewedServicePaginationTransportDigest
 }
 
 func digestSourceFiles(directory string, names []string) string {

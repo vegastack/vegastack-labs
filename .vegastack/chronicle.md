@@ -1,3 +1,13 @@
+## 09-11-2026 — Let one signed test application finish the manual delivery path ([#317](https://github.com/vegastack/vegastack-labs/issues/317))
+
+- **What:** The existing hosting and deployment paths can select one explicitly bounded manual demonstration through their current protected bindings and acknowledged profile. It keeps the exact image, hosts and finite private/stateless development configuration separate from general host qualification. The existing service-list pagination path also reaches the controller instead of failing at local transport validation.
+- **Why:** The operator selected working manual delivery and deferred managed CI and additional hardening. The prior application path still required the entire role qualification contract, so signing an image alone could not deliver it.
+- **How it went:** Focused Linux composition tests exposed immutable fixture-seeding and request-binding mistakes; those were corrected without relaxing production validation. The software proof passes, while actual hosting bootstrap, publication and application acceptance remain pending. Existing Docker access on node03 removed the need for an extra helper account or privilege bootstrap.
+- **Changed:** Finite hosting/service digest capabilities · current policy and identity checks at existing provider/capacity boundaries · truthful working-demo placement · bounded service-list pagination · explicit manual acceptance and managed-CI deferrals.
+- **Decisions:** D-134 records the operator-selected manual finish line; full managed-CI, native qualification and existing deferred work are not reported as passed.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/317-manual-delivery-finish
+
 ## Manual signed image publication
 
 The first working delivery can now prepare a separate human publication plan without requiring a GitHub runner token or pretending a local build is an admitted CI job. It reuses the existing server, credentials, exact-plan Slack acknowledgement, offline signature verifier and bounded OCI transport. Protected configuration pins the signer and repository independently of the supplied artifact; the registry result proves signed image bytes and exact digest readback, with uncertain writes preserved honestly. Existing CI publication and deployment admission retain their prior checks. Live signing, registry setup and deployment remain separate prerequisites.

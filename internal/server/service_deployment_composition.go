@@ -127,18 +127,25 @@ func (c *serviceDeploymentComposition) authority(ctx context.Context, q generate
 			return target, serviceFailure(generated.ErrorCodePlanStale)
 		}
 	}
-	// Registration is deliberately not admission. Reuse the existing complete
-	// evaluator rather than interpreting a snapshot or doc as a passed gate.
-	admission, err := (hostReplacementComposition{gates: c.base.gates, clock: time.Now}).roleAdmission(ctx, q.Definition.HostID)
+	// Registration is not qualification. The explicit working policy permits only
+	// its exact manual demo; every other request retains complete role admission.
+	manual, err := c.manualAdmission(ctx, q.Definition, c.bindings[q.Definition.ServiceID], q.RecoveryEpoch)
 	if err != nil {
 		return target, err
+	}
+	var admission store.HostAdmissionSnapshot
+	if !manual {
+		admission, err = (hostReplacementComposition{gates: c.base.gates, clock: time.Now}).roleAdmission(ctx, q.Definition.HostID)
+		if err != nil {
+			return target, err
+		}
 	}
 	if q.Configuration != nil {
 		if err := c.checkDataContract(ctx, q); err != nil {
 			return target, err
 		}
 	}
-	if admission.IdentityDigest != q.Definition.HostIdentityDigest || admission.Revision.RecoveryEpoch != q.RecoveryEpoch || admission.Profile.RoleID != "application" {
+	if !manual && (admission.IdentityDigest != q.Definition.HostIdentityDigest || admission.Revision.RecoveryEpoch != q.RecoveryEpoch || admission.Profile.RoleID != "application") {
 		return target, serviceFailure(generated.ErrorCodePrerequisiteBlocked)
 	}
 	return target, nil
