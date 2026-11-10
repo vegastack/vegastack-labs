@@ -51,7 +51,7 @@ func hostingLifecycleRevision(row discoveryRow, id string) (int64, error) {
 	return n, e
 }
 func (r *HostingLifecycleRepository) validate(p identity.Principal, row discoveryRow, in generated.HostingLifecycleRequest) error {
-	if hostinglifecycle.ValidateRequest(in) != nil {
+	if hostinglifecycle.ValidateRequest(in) != nil || validateHostingRecoveryProof(in.RecoveryRunID, in.RecoveryRecordDigest, in.RecoveryResources) != nil {
 		return actionError(generated.ErrorCodeInputInvalid)
 	}
 	if e := authorizeDeviceRow(row, p); e != nil {
@@ -85,7 +85,7 @@ func (r *HostingLifecycleRepository) Prepare(ctx context.Context, in generated.H
 	if generated.ValidateContractJSON(generated.SchemaIDHostingLifecycleDraftRequest, raw, generated.ContractExact) != nil {
 		return out, actionError(generated.ErrorCodeInputInvalid)
 	}
-	if hostinglifecycle.ValidateRecovery(in.RecoveryRunID, in.RecoveryRecordDigest, in.RecoveryResources) != nil {
+	if validateHostingRecoveryProof(in.RecoveryRunID, in.RecoveryRecordDigest, in.RecoveryResources) != nil {
 		return out, actionError(generated.ErrorCodeInputInvalid)
 	}
 	actor, err := serviceActor(ctx)
@@ -148,7 +148,7 @@ func ValidateHostingLifecycleDeclaration(d generated.DeclarationRevision) bool {
 		return true
 	}
 	in := d.HostingLifecycle
-	if in == nil || d.CIEnrollment != nil || d.ServiceRecovery != nil || d.ServiceDeployment != nil || d.ServiceImport != nil || d.NetworkEndpoint != nil || d.AuthorizationGrantBatch != nil || d.HostAliasClaim != nil || hostinglifecycle.ValidateRequest(*in) != nil || d.DeclarationType != "hosting.lifecycle" || d.DeclarationID != hostingLifecycleDeclarationID(*in) || len(d.Operations) != 1 || len(d.Extensions) != 0 || d.RecoveryEpoch != in.RecoveryEpoch {
+	if in == nil || d.CIEnrollment != nil || d.ServiceRecovery != nil || d.ServiceDeployment != nil || d.ServiceImport != nil || d.NetworkEndpoint != nil || d.AuthorizationGrantBatch != nil || d.HostAliasClaim != nil || hostinglifecycle.ValidateRequest(*in) != nil || validateHostingRecoveryProof(in.RecoveryRunID, in.RecoveryRecordDigest, in.RecoveryResources) != nil || d.DeclarationType != "hosting.lifecycle" || d.DeclarationID != hostingLifecycleDeclarationID(*in) || len(d.Operations) != 1 || len(d.Extensions) != 0 || d.RecoveryEpoch != in.RecoveryEpoch {
 		return false
 	}
 	if d.Status == "draft" && (d.StateRevision != in.ExpectedStateRevision+1 || d.Revision != 1) {
@@ -331,4 +331,22 @@ func (r *HostingLifecycleRepository) CheckTarget(ctx context.Context, in generat
 		}
 		return nil
 	})
+}
+
+func validateHostingRecoveryProof(runID, recordDigest string, resources []generated.HostingOwnedResource) error {
+	if runID == "" && recordDigest == "" && len(resources) == 0 {
+		return nil
+	}
+	if runID == "" || recordDigest == "" || len(resources) == 0 {
+		return actionError(generated.ErrorCodeInputInvalid)
+	}
+	seen := map[string]bool{}
+	for _, r := range resources {
+		key := r.Kind + "\x00" + r.ParentID
+		if seen[key] {
+			return actionError(generated.ErrorCodeInputInvalid)
+		}
+		seen[key] = true
+	}
+	return nil
 }
