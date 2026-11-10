@@ -71,11 +71,14 @@ func seedHostingLifecycleExecution(t *testing.T, f *registrationStoreFixture, in
 	if !decodeStoredPlan(raw, "readable\n", &checked) {
 		t.Fatal("fixture plan invalid")
 	}
-	exec(`INSERT INTO immutable_plans VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, p.PlanID, p.PlanDigest, p.DeclarationID, 2, p.Binding.StateRevision, p.Binding.RecoveryEpoch, p.Binding.ObservationFingerprint, hostinglifecycle.Digest("deploy-key"), digest, raw, "readable\n", p.ReadableDigest, p.CreatedAt, p.ExpiresAt)
-	const runID = "hosting-run"
-	const stepID = "hosting-step"
-	const leaseID = "hosting-lease"
-	const ackID = "hosting-ack"
+	exec(`INSERT INTO immutable_plans VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, p.PlanID, p.PlanDigest, p.DeclarationID, 2, p.Binding.StateRevision, p.Binding.RecoveryEpoch, p.Binding.ObservationFingerprint, hostinglifecycle.Digest("deploy-key:"+in.IdempotencyKey), digest, raw, "readable\n", p.ReadableDigest, p.CreatedAt, p.ExpiresAt)
+	runID, stepID, leaseID, ackID := "hosting-run", "hosting-step", "hosting-lease", "hosting-ack"
+	if in.RecoveryRunID != "" {
+		runID += "-recovery"
+		stepID += "-recovery"
+		leaseID += "-recovery"
+		ackID += "-recovery"
+	}
 	exec(`INSERT INTO acknowledgement_requests VALUES(?,?,?,?,?,'operator-a','fixture-authority',?,0,0,'later','approved',?,?,'now','now','now')`, ackID, p.PlanID, p.PlanDigest, digest, digest, digest, []byte(`{}`), []byte(`{}`))
 	exec(`INSERT INTO plan_runs VALUES(?,?,?,'decision',?,'1.0.0','central','executor-central',?,'running',0,'not-requested','pending',NULL,0,?,0,?,?,?,'now','now')`, runID, p.PlanID, p.PlanDigest, ackID, digest, p.Binding.StateRevision, digest, digest, []byte(`{}`))
 	exec(`INSERT INTO plan_run_steps(step_id,run_id,sequence,operation_id,operation_type,adapter_id,executor_id,target_id,input_digest,artifact_digest,idempotent,status,effect_state,active_lease_id,result_digest,started_at,finished_at) VALUES(?,?,1,?,?,?,'executor-central',?,?,?,0,'running','intent-recorded',?,NULL,'now',NULL)`, stepID, runID, hostinglifecycle.OperationID, hostinglifecycle.Operation, hostinglifecycle.AdapterID, in.TargetID, digest, digest, leaseID)

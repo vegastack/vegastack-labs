@@ -10,11 +10,18 @@ func hostingLifecycleSchemas() []SchemaDefinition {
 	action := func() FieldDefinition {
 		return phase5Enum("action", "Action", "resources.apply")
 	}
+	recovery := func(fields ...FieldDefinition) []FieldDefinition {
+		run := phase5ID("recoveryRunId", "RecoveryRunID")
+		run.Required, run.OmitEmpty = false, true
+		digest := phase5Digest("recoveryRecordDigest", "RecoveryRecordDigest")
+		digest.Required, digest.OmitEmpty = false, true
+		return append(fields, run, digest, FieldDefinition{JSONName: "recoveryResources", GoName: "RecoveryResources", Kind: ValueArray, OmitEmpty: true, ItemRef: "vegastack-labs.dev/hosting-owned-resource", MinItems: intPointer(1), MaxItems: intPointer(512)})
+	}
 	return []SchemaDefinition{
 		phase5Schema("vegastack-labs.dev/hosting-owned-resource", phase5Enum("kind", "Kind", "coolify-project", "coolify-environment", "coolify-application", "coolify-service", "harbor-project", "harbor-retention", "harbor-robot"), text("externalId", "ExternalID"), text("parentId", "ParentID")),
 		phase5Schema("vegastack-labs.dev/hosting-lifecycle-profile", phase5ID("bindingId", "BindingID"), phase5ID("targetId", "TargetID"), text("configurationPath", "ConfigurationPath"), phase5Digest("configurationDigest", "ConfigurationDigest"), phase5ID("mutationReferenceId", "MutationReferenceID"), phase5ID("platformReferenceId", "PlatformReferenceID")),
-		phase5Schema("vegastack-labs.dev/hosting-lifecycle-draft-request", phase5ID("targetId", "TargetID"), action(), phase5Nonnegative("expectedStateRevision", "ExpectedStateRevision"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"), phase5ID("idempotencyKey", "IdempotencyKey"), phase5Digest("reasonDigest", "ReasonDigest")),
-		phase5Schema("vegastack-labs.dev/hosting-lifecycle-request", phase5ID("targetId", "TargetID"), phase5ID("bindingId", "BindingID"), phase5Digest("configurationDigest", "ConfigurationDigest"), phase5Digest("observedDigest", "ObservedDigest"), action(), phase5Nonnegative("expectedLifecycleRevision", "ExpectedLifecycleRevision"), phase5Nonnegative("expectedStateRevision", "ExpectedStateRevision"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"), phase5ID("idempotencyKey", "IdempotencyKey"), phase5Digest("reasonDigest", "ReasonDigest")),
+		phase5Schema("vegastack-labs.dev/hosting-lifecycle-draft-request", recovery(phase5ID("targetId", "TargetID"), action(), phase5Nonnegative("expectedStateRevision", "ExpectedStateRevision"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"), phase5ID("idempotencyKey", "IdempotencyKey"), phase5Digest("reasonDigest", "ReasonDigest"))...),
+		phase5Schema("vegastack-labs.dev/hosting-lifecycle-request", recovery(phase5ID("targetId", "TargetID"), phase5ID("bindingId", "BindingID"), phase5Digest("configurationDigest", "ConfigurationDigest"), phase5Digest("observedDigest", "ObservedDigest"), action(), phase5Nonnegative("expectedLifecycleRevision", "ExpectedLifecycleRevision"), phase5Nonnegative("expectedStateRevision", "ExpectedStateRevision"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"), phase5ID("idempotencyKey", "IdempotencyKey"), phase5Digest("reasonDigest", "ReasonDigest"))...),
 		phase5Schema("vegastack-labs.dev/hosting-lifecycle-record", ref("request", "Request", "vegastack-labs.dev/hosting-lifecycle-request"), FieldDefinition{JSONName: "ownedResources", GoName: "OwnedResources", Kind: ValueArray, Required: true, ItemRef: "vegastack-labs.dev/hosting-owned-resource", MinItems: intPointer(0), MaxItems: intPointer(512)}, phase5Positive("revision", "Revision"), phase5Enum("status", "Status", "succeeded", "partial", "failed"), phase5Digest("resultDigest", "ResultDigest"), phase5ID("planId", "PlanID"), phase5ID("runId", "RunID"), phase5Timestamp("completedAt", "CompletedAt")),
 	}
 }

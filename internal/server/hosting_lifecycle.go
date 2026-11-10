@@ -229,6 +229,9 @@ func (c *hostingLifecycleComposition) applyOwnership(ctx context.Context, q gene
 	if e != nil {
 		return e
 	}
+	if q.RecoveryRunID != "" {
+		return applyHostingRecoveryOwnership(conf, owned)
+	}
 	for _, r := range owned {
 		if conf.Coolify != nil {
 			b := &conf.Coolify.Resources
@@ -273,6 +276,90 @@ func (c *hostingLifecycleComposition) applyOwnership(ctx context.Context, q gene
 	}
 	return nil
 }
+
+// Recovery overlays are allowed only for the exact configured Harbor bindings.
+// The repository has already sealed these IDs to the latest partial result and
+// the fresh plan. Provider observation verifies their actual identity before use.
+func applyHostingRecoveryOwnership(conf *hostingConfiguration, owned []generated.HostingOwnedResource) error {
+	invalid := func() error { return serviceFailure(generated.ErrorCodeIntegrityFailure) }
+	if conf == nil || conf.Harbor == nil || conf.Coolify != nil || conf.Platform != nil || len(owned) == 0 {
+		return invalid()
+	}
+	harborConfig := *conf.Harbor
+	resources := harborConfig.Resources
+	resources.Projects = append([]harbor.ProjectBinding(nil), resources.Projects...)
+	resources.Robots = append([]harbor.RobotBinding(nil), resources.Robots...)
+	projects := map[string]int{}
+	robots := map[string]int{}
+	for i, p := range resources.Projects {
+		if _, ok := projects[p.Name]; ok {
+			return invalid()
+		}
+		projects[p.Name] = i
+	}
+	for i, r := range resources.Robots {
+		if _, ok := robots[r.ReferenceID]; ok {
+			return invalid()
+		}
+		robots[r.ReferenceID] = i
+	}
+	seenBindings := map[string]bool{}
+	seenIDs := map[string]bool{}
+	for _, r := range owned {
+		id, e := strconv.ParseInt(r.ExternalID, 10, 64)
+		if e != nil || id <= 0 || strconv.FormatInt(id, 10) != r.ExternalID {
+			return invalid()
+		}
+		bindingKey := r.Kind + "/" + r.ParentID
+		idKey := r.Kind + "/" + r.ExternalID
+		if seenBindings[bindingKey] || seenIDs[idKey] {
+			return invalid()
+		}
+		seenBindings[bindingKey] = true
+		seenIDs[idKey] = true
+		switch r.Kind {
+		case "harbor-project", "harbor-retention":
+			i, ok := projects[r.ParentID]
+			if !ok {
+				return invalid()
+			}
+			p := &resources.Projects[i]
+			if r.Kind == "harbor-project" {
+				if p.ID != 0 && p.ID != id {
+					return invalid()
+				}
+				p.ID = id
+			} else {
+				if p.RetentionID != 0 && p.RetentionID != id {
+					return invalid()
+				}
+				p.RetentionID = id
+			}
+		case "harbor-robot":
+			i, ok := robots[r.ParentID]
+			if !ok {
+				return invalid()
+			}
+			robot := &resources.Robots[i]
+			if robot.ID != 0 && robot.ID != id {
+				return invalid()
+			}
+			robot.ID = id
+			robot.ReconcileSecret = true
+		default:
+			return invalid()
+		}
+	}
+	for _, p := range resources.Projects {
+		if p.RetentionID > 0 && p.ID == 0 {
+			return invalid()
+		}
+	}
+	harborConfig.Resources = resources
+	conf.Harbor = &harborConfig
+	return nil
+}
+
 func (c *hostingLifecycleComposition) observe(ctx context.Context, q generated.HostingLifecycleRequest, conf hostingConfiguration, p generated.HostingLifecycleProfile, apply bool) (hostinglifecycle.Outcome, error) {
 	out := hostinglifecycle.Outcome{Status: "partial", OwnedResources: []generated.HostingOwnedResource{}}
 	if e := c.checkTargets(ctx, q, conf); e != nil {

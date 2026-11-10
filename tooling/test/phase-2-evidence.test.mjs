@@ -18,7 +18,7 @@ test("the original Phase 2 baseline stays immutable while later waves have exact
   assert.equal(manifest.contract.postPhase2MutationBoundaryDigest, "sha256:ec30a4cc9d4a6e5a3fc9817a55a5b0a1697adcae57b950325edd563637d308a8");
   assert.equal(manifest.contract.productionDependencyDigest, "sha256:a9e8788558fa5c3347b5b8464d8d5e4a67dcc9357e5ae07478b606a806f78133");
   assert.equal(manifest.contract.mutationAvailable, false);
-  assert.equal(manifest.contract.reviewedWaves?.length, 83);
+  assert.equal(manifest.contract.reviewedWaves?.length, 84);
   assert.equal(manifest.contract.reviewedWaves.slice(0, 62).length, 62);
   assert.deepEqual(manifest.contract.reviewedWaves.find(wave => wave.issue === 269), {"id":"phase7-issue269-v1","issue":269,"commands":["user offboard","user onboard","user resume","user suspend"],"imports":[],"mutationBoundaryDigest":"sha256:5e96ac023243311b523932fede76f010dacb3d42b020d140e9c4b694468bd4c8"});
   assert.deepEqual(manifest.contract.reviewedWaves.find(wave => wave.issue === 270), {"id":"phase7-issue270-v1","issue":270,"commands":["device approve","device request","device revoke"],"imports":[],"mutationBoundaryDigest":"sha256:0169a3072c212b8288df2c957bd5843e42637296dd1a02a802251b340ebecf0d"});
@@ -792,7 +792,8 @@ test("the #317 delivery, #363 account, #365 host-key, #367 clock-skew, #369 star
   assert.deepEqual(manifest.contract.reviewedWaves.slice(0,80).at(-1), {"id":"phase9-manual-publication-issue386-v1","issue":386,"commands":["artifact publication draft"],"imports":[],"mutationBoundaryDigest":"sha256:096bb27ae12add6685234a379d771ac10f27a4e67083d0162b91ec85cea2a4b7"});
   assert.deepEqual(manifest.contract.reviewedWaves.slice(0,81).at(-1), {"id":"phase9-manual-delivery-issue317-v2","issue":317,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:887df596d8342899d12e5bf28de857b5e58772b10c8db92a8263cbe9833b108c"});
   assert.deepEqual(manifest.contract.reviewedWaves.slice(0,82).at(-1), {"id":"phase9-coolify-contract-issue317-v1","issue":317,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:fc10303a0765466529cedeecd5a902ad69f948769c277be81d40918af0191e00"});
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-1), {"id":"phase9-controller-credential-activation-issue317-v1","issue":317,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:6a24c920a765ba7bfbdb615e2faf6d727fb49ac5fccd1d5d254951bca4dba404"});
+  assert.deepEqual(manifest.contract.reviewedWaves.slice(0,83).at(-1), {"id":"phase9-controller-credential-activation-issue317-v1","issue":317,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:6a24c920a765ba7bfbdb615e2faf6d727fb49ac5fccd1d5d254951bca4dba404"});
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-1), {"id":"phase9-harbor-lifecycle-recovery-issue391-v1","issue":391,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:a6f06129e4863793f88c0de23a7ce5f40dfaa0283b5283a4a1c389584c4051a3"});
   assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.reviewedWaves.at(-1).mutationBoundaryDigest);
   assert.equal(validateEvidence(manifest, facts).status, "pass");
   for (const mutate of [

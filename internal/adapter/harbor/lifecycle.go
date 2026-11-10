@@ -30,6 +30,8 @@ type RobotBinding struct {
 	MaterialVersion string `json:"materialVersion"`
 	Push            bool   `json:"push"`
 	Duration        int64  `json:"duration"`
+	// ReconcileSecret is set only by an explicitly approved partial recovery.
+	ReconcileSecret bool `json:"-"`
 }
 type ProjectBinding struct {
 	ID          int64  `json:"id"`
@@ -185,6 +187,12 @@ func (c *Client) ObserveLifecycle(ctx context.Context, q LifecycleRequest, user 
 		if got.Metadata["public"] != strconv.FormatBool(p.Public) {
 			return out, clientError("INTEGRITY_FAILURE")
 		}
+		if rawID := got.Metadata["retention_id"]; rawID != "" && rawID != "0" {
+			actualID, err := strconv.ParseInt(rawID, 10, 64)
+			if err != nil || actualID <= 0 || actualID != p.RetentionID {
+				return out, clientError("INTEGRITY_FAILURE")
+			}
+		}
 		out.Projects = append(out.Projects, p)
 		if p.RetentionID > 0 {
 			var rp retentionPolicy
@@ -290,10 +298,53 @@ func (c *Client) applyLifecycle(ctx context.Context, q LifecycleRequest, user st
 	if e != nil {
 		return out, e
 	}
-	for _, r := range q.Robots {
-		if r.ID == 0 && sink == nil && source == nil {
-			return out, clientError("PREREQUISITE_BLOCKED")
+	// Copy the mutable ID working set; the approved request remains unchanged.
+	q.Projects = append([]ProjectBinding(nil), q.Projects...)
+	q.Robots = append([]RobotBinding(nil), q.Robots...)
+	materials := make(map[int]*credentialref.Value)
+	defer func() {
+		for _, material := range materials {
+			material.Close()
 		}
+	}()
+	// Validate every planned password before the first provider mutation.
+	for i, r := range q.Robots {
+		if r.ID != 0 && !r.ReconcileSecret {
+			continue
+		}
+		if source == nil {
+			if r.ReconcileSecret || sink == nil {
+				return out, clientError("PREREQUISITE_BLOCKED")
+			}
+			continue
+		}
+		material, err := source(ctx, r)
+		if err != nil {
+			return out, err
+		}
+		if !validRobotSecret(material.Bytes()) {
+			material.Close()
+			return out, clientError("INPUT_INVALID")
+		}
+		materials[i] = material
+	}
+	rememberProject := func(p ProjectBinding) {
+		for i := range out.Projects {
+			if out.Projects[i].Name == p.Name {
+				out.Projects[i] = p
+				return
+			}
+		}
+		out.Projects = append(out.Projects, p)
+	}
+	rememberRobot := func(r RobotBinding) {
+		for i := range out.Robots {
+			if out.Robots[i].Name == r.Name {
+				out.Robots[i] = r
+				return
+			}
+		}
+		out.Robots = append(out.Robots, r)
 	}
 	for i, p := range q.Projects {
 		if p.ID == 0 {
@@ -313,6 +364,7 @@ func (c *Client) applyLifecycle(ctx context.Context, q LifecycleRequest, user st
 			}
 			p.ID = got.ID
 			q.Projects[i].ID = got.ID
+			rememberProject(p)
 		}
 		if p.RetentionID == 0 {
 			if _, e = c.lifecycleRequest(ctx, "POST", "/retentions", retention(p), nil, user, v, q.Check); e != nil {
@@ -329,63 +381,93 @@ func (c *Client) applyLifecycle(ctx context.Context, q LifecycleRequest, user st
 				return out, clientError("INTEGRITY_FAILURE")
 			}
 			q.Projects[i].RetentionID = id
+			rememberProject(q.Projects[i])
 		}
 	}
 	for i, r := range q.Robots {
-		if r.ID != 0 {
+		if r.ID != 0 && !r.ReconcileSecret {
 			continue
 		}
-		var got struct {
-			ID     int64  `json:"id"`
-			Name   string `json:"name"`
-			Secret string `json:"secret"`
-		}
-		var material *credentialref.Value
-		if source != nil {
-			material, e = source(ctx, r)
+		if r.ID == 0 {
+			var got struct {
+				ID     int64  `json:"id"`
+				Name   string `json:"name"`
+				Secret string `json:"secret"`
+			}
+			body := struct {
+				Name        string            `json:"name"`
+				Level       string            `json:"level"`
+				Duration    int64             `json:"duration"`
+				Permissions []RobotPermission `json:"permissions"`
+			}{strings.TrimPrefix(r.Name, "robot$"), "system", r.Duration, permissions(q, r.Push)}
+			if _, e = c.lifecycleRequest(ctx, "POST", "/robots", body, &got, user, v, q.Check); e != nil {
+				return out, e
+			}
+			if got.ID <= 0 || got.Name != r.Name {
+				got.Secret = ""
+				return out, clientError("INTEGRITY_FAILURE")
+			}
+			r.ID = got.ID
+			q.Robots[i].ID = got.ID
+			rememberRobot(r)
+			secret := []byte(got.Secret)
+			got.Secret = ""
+			if len(secret) == 0 || len(secret) > 4096 {
+				for i := range secret {
+					secret[i] = 0
+				}
+				return out, clientError("INTEGRITY_FAILURE")
+			}
+			if source == nil {
+				e = sink(ctx, r, bytes.NewReader(secret))
+			}
+			for i := range secret {
+				secret[i] = 0
+			}
 			if e != nil {
 				return out, e
 			}
-			if material == nil || len(material.Bytes()) < 8 || len(material.Bytes()) > 4096 {
-				return out, clientError("INPUT_INVALID")
+		}
+		if material := materials[i]; material != nil {
+			// Harbor CreateRobot always generates a secret. RefreshSec is the
+			// supported way to bind an existing protected password instead.
+			body := struct {
+				Secret string `json:"secret"`
+			}{string(material.Bytes())}
+			var response struct {
+				Secret string `json:"secret"`
 			}
-			defer material.Close()
-		}
-		body := struct {
-			Secret      string            `json:"secret,omitempty"`
-			Name        string            `json:"name"`
-			Level       string            `json:"level"`
-			Duration    int64             `json:"duration"`
-			Permissions []RobotPermission `json:"permissions"`
-		}{"", strings.TrimPrefix(r.Name, "robot$"), "system", r.Duration, permissions(q, r.Push)}
-		if material != nil {
-			body.Secret = string(material.Bytes())
-		}
-		if _, e = c.lifecycleRequest(ctx, "POST", "/robots", body, &got, user, v, q.Check); e != nil {
-			return out, e
-		}
-		if got.ID <= 0 || got.Secret == "" || len(got.Secret) > 4096 {
-			return out, clientError("INTEGRITY_FAILURE")
-		}
-		secret := []byte(got.Secret)
-		got.Secret = ""
-		if material != nil {
-			if !bytes.Equal(secret, material.Bytes()) {
-				e = clientError("INTEGRITY_FAILURE")
+			_, e = c.lifecycleRequest(ctx, "PATCH", "/robots/"+strconv.FormatInt(r.ID, 10), body, &response, user, v, q.Check)
+			body.Secret = ""
+			if e != nil {
+				response.Secret = ""
+				return out, e
 			}
-		} else {
-			e = sink(ctx, r, bytes.NewReader(secret))
-		}
-		for i := range secret {
-			secret[i] = 0
-		}
-		if e != nil {
-			return out, e
-		}
-		q.Robots[i].ID = got.ID
-		if got.Name != r.Name {
-			return out, clientError("INTEGRITY_FAILURE")
+			if response.Secret != "" {
+				response.Secret = ""
+				return out, clientError("INTEGRITY_FAILURE")
+			}
 		}
 	}
-	return c.ObserveLifecycle(ctx, q, user, v)
+	verified, e := c.ObserveLifecycle(ctx, q, user, v)
+	if e != nil {
+		return out, e
+	}
+	return verified, nil
+}
+
+func validRobotSecret(value []byte) bool {
+	if len(value) < 8 || len(value) > 128 {
+		return false
+	}
+	var upper, lower, number bool
+	for _, c := range value {
+		if c < 33 || c > 126 {
+			return false
+		}
+		upper = upper || c >= 'A' && c <= 'Z'
+		lower = lower || c >= 'a' && c <= 'z'
+		number = number || c >= '0' && c <= '9'
+	}
+	return upper && lower && number
 }

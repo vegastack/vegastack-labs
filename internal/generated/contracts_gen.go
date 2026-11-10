@@ -3423,14 +3423,17 @@ type HostVolumeBinding struct {
 }
 
 type HostingLifecycleDraftRequest struct {
-	Schema                string `json:"schema"`
-	SchemaVersion         string `json:"schemaVersion"`
-	TargetID              string `json:"targetId"`
-	Action                string `json:"action"`
-	ExpectedStateRevision int64  `json:"expectedStateRevision"`
-	RecoveryEpoch         int64  `json:"recoveryEpoch"`
-	IdempotencyKey        string `json:"idempotencyKey"`
-	ReasonDigest          string `json:"reasonDigest"`
+	Schema                string                 `json:"schema"`
+	SchemaVersion         string                 `json:"schemaVersion"`
+	TargetID              string                 `json:"targetId"`
+	Action                string                 `json:"action"`
+	ExpectedStateRevision int64                  `json:"expectedStateRevision"`
+	RecoveryEpoch         int64                  `json:"recoveryEpoch"`
+	IdempotencyKey        string                 `json:"idempotencyKey"`
+	ReasonDigest          string                 `json:"reasonDigest"`
+	RecoveryRunID         string                 `json:"recoveryRunId,omitempty"`
+	RecoveryRecordDigest  string                 `json:"recoveryRecordDigest,omitempty"`
+	RecoveryResources     []HostingOwnedResource `json:"recoveryResources,omitempty"`
 }
 
 type HostingLifecycleProfile struct {
@@ -3458,18 +3461,21 @@ type HostingLifecycleRecord struct {
 }
 
 type HostingLifecycleRequest struct {
-	Schema                    string `json:"schema"`
-	SchemaVersion             string `json:"schemaVersion"`
-	TargetID                  string `json:"targetId"`
-	BindingID                 string `json:"bindingId"`
-	ConfigurationDigest       string `json:"configurationDigest"`
-	ObservedDigest            string `json:"observedDigest"`
-	Action                    string `json:"action"`
-	ExpectedLifecycleRevision int64  `json:"expectedLifecycleRevision"`
-	ExpectedStateRevision     int64  `json:"expectedStateRevision"`
-	RecoveryEpoch             int64  `json:"recoveryEpoch"`
-	IdempotencyKey            string `json:"idempotencyKey"`
-	ReasonDigest              string `json:"reasonDigest"`
+	Schema                    string                 `json:"schema"`
+	SchemaVersion             string                 `json:"schemaVersion"`
+	TargetID                  string                 `json:"targetId"`
+	BindingID                 string                 `json:"bindingId"`
+	ConfigurationDigest       string                 `json:"configurationDigest"`
+	ObservedDigest            string                 `json:"observedDigest"`
+	Action                    string                 `json:"action"`
+	ExpectedLifecycleRevision int64                  `json:"expectedLifecycleRevision"`
+	ExpectedStateRevision     int64                  `json:"expectedStateRevision"`
+	RecoveryEpoch             int64                  `json:"recoveryEpoch"`
+	IdempotencyKey            string                 `json:"idempotencyKey"`
+	ReasonDigest              string                 `json:"reasonDigest"`
+	RecoveryRunID             string                 `json:"recoveryRunId,omitempty"`
+	RecoveryRecordDigest      string                 `json:"recoveryRecordDigest,omitempty"`
+	RecoveryResources         []HostingOwnedResource `json:"recoveryResources,omitempty"`
 }
 
 type HostingOwnedResource struct {

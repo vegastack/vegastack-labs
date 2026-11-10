@@ -13,11 +13,18 @@ import (
 )
 
 func TestLifecycleCreatesTwoSystemRobotsFromProtectedSecrets(t *testing.T) {
+	testLifecycleCreatesProtectedRobots(t, false)
+}
+func TestLifecyclePreservesCreatedIDsWhenSecretUpdateFails(t *testing.T) {
+	testLifecycleCreatesProtectedRobots(t, true)
+}
+func testLifecycleCreatesProtectedRobots(t *testing.T, failPatch bool) {
+	t.Helper()
 	retentionID := int64(0)
 	var retention map[string]any
 	robots := map[string]map[string]any{}
 	writes := 0
-	secrets := map[string]string{"robot$ci": "private-ci-secret", "robot$deploy": "private-deploy-secret"}
+	secrets := map[string]string{"robot$ci": "Private-ci-secret1", "robot$deploy": "Private-deploy-secret2"}
 	s := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "GET" {
 			writes++
@@ -46,11 +53,11 @@ func TestLifecycleCreatesTwoSystemRobotsFromProtectedSecrets(t *testing.T) {
 				t.Error("bad robot")
 			}
 			name := "robot$" + robot["name"].(string)
-			if robot["level"] != "system" || robot["secret"] != secrets[name] {
+			if robot["level"] != "system" || robot["secret"] != nil {
 				t.Error("wrong scoped secret creation")
 			}
 			id := strconv.Itoa(20 + len(robots))
-			secret := robot["secret"]
+			secret := "Vendor-generated-secret9"
 			delete(robot, "secret")
 			robot["name"] = name
 			robot["id"], _ = strconv.Atoi(id)
@@ -58,6 +65,19 @@ func TestLifecycleCreatesTwoSystemRobotsFromProtectedSecrets(t *testing.T) {
 			robots[id] = robot
 			out = map[string]any{"id": robot["id"], "name": name, "secret": secret}
 			w.WriteHeader(201)
+		case r.Method == "PATCH" && strings.HasPrefix(r.URL.Path, "/api/v2.0/robots/"):
+			if failPatch {
+				w.WriteHeader(500)
+				return
+			}
+			robot := robots[strings.TrimPrefix(r.URL.Path, "/api/v2.0/robots/")]
+			var input struct {
+				Secret string `json:"secret"`
+			}
+			if json.NewDecoder(r.Body).Decode(&input) != nil || input.Secret != secrets[robot["name"].(string)] {
+				t.Error("wrong scoped secret update")
+			}
+			out = map[string]string{"secret": ""}
 		case r.Method == "GET" && strings.HasPrefix(r.URL.Path, "/api/v2.0/robots/"):
 			out = robots[strings.TrimPrefix(r.URL.Path, "/api/v2.0/robots/")]
 		default:
@@ -75,7 +95,13 @@ func TestLifecycleCreatesTwoSystemRobotsFromProtectedSecrets(t *testing.T) {
 	out, e := c.ApplyLifecycleWithSecrets(context.Background(), q, "admin", v, func(_ context.Context, r RobotBinding) (*credentialref.Value, error) {
 		return credentialref.NewValue([]byte(secrets[r.Name]))
 	})
-	if e != nil || writes != 3 || len(out.Robots) != 2 || out.Projects[0].RetentionID != 9 {
+	if failPatch {
+		if e == nil || writes != 3 || len(out.Projects) != 1 || out.Projects[0].RetentionID != 9 || len(out.Robots) != 1 || out.Robots[0].ID != 20 {
+			t.Fatal("created IDs lost after partial effect", out, e, writes)
+		}
+		return
+	}
+	if e != nil || writes != 5 || len(out.Robots) != 2 || out.Projects[0].RetentionID != 9 {
 		t.Fatal(out, e, writes)
 	}
 	raw, _ := json.Marshal(out)
@@ -105,5 +131,115 @@ func TestLifecycleRejectsRobotPrivilegeExpansionBeforeWrite(t *testing.T) {
 	_, e := c.ApplyLifecycle(context.Background(), LifecycleRequest{Projects: []ProjectBinding{{ID: 11, Name: "project", KeepLast: 5}}, Robots: []RobotBinding{{ID: 7, Name: "robot$ci", ReferenceID: "ci-ref", MaterialVersion: "v1", Push: true, Duration: 30}, {ID: 8, Name: "robot$deploy", ReferenceID: "pull-ref", MaterialVersion: "v1", Duration: 30}}, Check: func() error { return nil }}, "admin", v, nil)
 	if e == nil || writes != 0 {
 		t.Fatal("foreign namespace mutation", e, writes)
+	}
+}
+
+func TestLifecycleRejectsInvalidStagedSecretBeforeMutation(t *testing.T) {
+	writes := 0
+	s := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "GET" {
+			writes++
+		}
+		w.WriteHeader(404)
+	}))
+	defer s.Close()
+	c, _ := NewClient(s.URL, s.Client().Transport)
+	v, _ := credentialref.NewValue([]byte("fixture-admin"))
+	defer v.Close()
+	q := LifecycleRequest{Projects: []ProjectBinding{{Name: "project", KeepLast: 5}}, Robots: []RobotBinding{{Name: "robot$ci", ReferenceID: "ci-ref", MaterialVersion: "v1", Push: true, Duration: 7}, {Name: "robot$deploy", ReferenceID: "deploy-ref", MaterialVersion: "v1", Duration: 7}}, Check: func() error { return nil }}
+	calls := 0
+	_, e := c.ApplyLifecycleWithSecrets(context.Background(), q, "admin", v, func(_ context.Context, r RobotBinding) (*credentialref.Value, error) {
+		calls++
+		secret := "Valid-protected-secret1"
+		if !r.Push {
+			secret = "invalid-lowercase"
+		}
+		return credentialref.NewValue([]byte(secret))
+	})
+	if e == nil || writes != 0 || calls != 2 {
+		t.Fatal("invalid later password allowed provider writes", e, writes, calls)
+	}
+}
+
+func TestLifecycleReconcilesOnlyMarkedExistingRobot(t *testing.T) {
+	writes := 0
+	project := ProjectBinding{ID: 11, Name: "project", RetentionID: 9, KeepLast: 5}
+	q := LifecycleRequest{Projects: []ProjectBinding{project}, Robots: []RobotBinding{{ID: 7, Name: "robot$ci", ReferenceID: "ci-ref", MaterialVersion: "v1", Push: true, Duration: 7, ReconcileSecret: true}, {ID: 8, Name: "robot$deploy", ReferenceID: "deploy-ref", MaterialVersion: "v1", Duration: 7}}, Check: func() error { return nil }}
+	s := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var out any
+		switch {
+		case r.Method == "GET" && r.URL.Path == "/api/v2.0/projects/project":
+			out = map[string]any{"project_id": 11, "name": "project", "metadata": map[string]string{"public": "false", "retention_id": "9"}}
+		case r.Method == "GET" && r.URL.Path == "/api/v2.0/retentions/9":
+			out = retention(project)
+		case r.Method == "GET" && strings.HasPrefix(r.URL.Path, "/api/v2.0/robots/"):
+			id, e := strconv.Atoi(strings.TrimPrefix(r.URL.Path, "/api/v2.0/robots/"))
+			if e != nil || id < 7 || id > 8 {
+				t.Error("unexpected robot")
+			}
+			robot := q.Robots[id-7]
+			out = map[string]any{"id": id, "name": robot.Name, "level": "system", "disable": false, "expires_at": time.Now().Add(time.Hour).Unix(), "permissions": permissions(q, robot.Push)}
+		case r.Method == "PATCH" && r.URL.Path == "/api/v2.0/robots/7":
+			writes++
+			var body struct {
+				Secret string `json:"secret"`
+			}
+			if json.NewDecoder(r.Body).Decode(&body) != nil || body.Secret != "Protected-secret1" {
+				t.Error("wrong reconciled password")
+			}
+			out = map[string]string{}
+		default:
+			t.Errorf("unexpected provider mutation %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(500)
+			return
+		}
+		json.NewEncoder(w).Encode(out)
+	}))
+	defer s.Close()
+	c, _ := NewClient(s.URL, s.Client().Transport)
+	v, _ := credentialref.NewValue([]byte("fixture-admin"))
+	defer v.Close()
+	calls := 0
+	out, e := c.ApplyLifecycleWithSecrets(context.Background(), q, "admin", v, func(_ context.Context, r RobotBinding) (*credentialref.Value, error) {
+		calls++
+		if r.ID != 7 {
+			t.Error("unmarked existing secret read")
+		}
+		return credentialref.NewValue([]byte("Protected-secret1"))
+	})
+	if e != nil || writes != 1 || calls != 1 || len(out.Robots) != 2 {
+		t.Fatal(out, e, writes, calls)
+	}
+	raw, _ := json.Marshal(q)
+	if strings.Contains(string(raw), "ReconcileSecret") || strings.Contains(string(raw), "reconcileSecret") {
+		t.Fatal("transient recovery permission serialized")
+	}
+}
+
+func TestLifecycleRejectsOmittedExistingRetentionBeforeWrite(t *testing.T) {
+	writes := 0
+	s := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "GET" {
+			writes++
+		}
+		if r.Method == "GET" && r.URL.Path == "/api/v2.0/projects/project" {
+			json.NewEncoder(w).Encode(map[string]any{"project_id": 11, "name": "project", "metadata": map[string]string{"public": "false", "retention_id": "9"}})
+			return
+		}
+		t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+		w.WriteHeader(500)
+	}))
+	defer s.Close()
+	c, _ := NewClient(s.URL, s.Client().Transport)
+	v, _ := credentialref.NewValue([]byte("fixture-admin"))
+	defer v.Close()
+	q := LifecycleRequest{Projects: []ProjectBinding{{ID: 11, Name: "project", KeepLast: 5}}, Robots: []RobotBinding{{ID: 7, Name: "robot$ci", ReferenceID: "ci-ref", MaterialVersion: "v1", Push: true, Duration: 7, ReconcileSecret: true}, {Name: "robot$deploy", ReferenceID: "deploy-ref", MaterialVersion: "v1", Duration: 7}}, Check: func() error { return nil }}
+	reads := 0
+	_, e := c.ApplyLifecycleWithSecrets(context.Background(), q, "admin", v, func(_ context.Context, r RobotBinding) (*credentialref.Value, error) {
+		reads++
+		return credentialref.NewValue([]byte("Protected-secret1"))
+	})
+	if e == nil || writes != 0 || reads != 0 {
+		t.Fatal("omitted existing retention allowed recovery mutations", e, writes, reads)
 	}
 }

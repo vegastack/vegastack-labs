@@ -74,11 +74,18 @@ func (r *HostingLifecycleRepository) validate(p identity.Principal, row discover
 	if rev != in.ExpectedLifecycleRevision {
 		return actionError(generated.ErrorCodePlanStale)
 	}
+	if in.RecoveryRunID != "" {
+		_, e = r.recoveryResources(row, in)
+		return e
+	}
 	return nil
 }
 func (r *HostingLifecycleRepository) Prepare(ctx context.Context, in generated.HostingLifecycleDraftRequest) (out generated.HostingLifecycleRequest, err error) {
 	raw, _ := json.Marshal(in)
 	if generated.ValidateContractJSON(generated.SchemaIDHostingLifecycleDraftRequest, raw, generated.ContractExact) != nil {
+		return out, actionError(generated.ErrorCodeInputInvalid)
+	}
+	if hostinglifecycle.ValidateRecovery(in.RecoveryRunID, in.RecoveryRecordDigest, in.RecoveryResources) != nil {
 		return out, actionError(generated.ErrorCodeInputInvalid)
 	}
 	actor, err := serviceActor(ctx)
@@ -90,7 +97,15 @@ func (r *HostingLifecycleRepository) Prepare(ctx context.Context, in generated.H
 		return out, err
 	}
 	out = generated.HostingLifecycleRequest{Schema: generated.SchemaIDHostingLifecycleRequest, SchemaVersion: "1.0.0", TargetID: in.TargetID, BindingID: p.Binding.BindingID, ConfigurationDigest: p.Binding.ConfigurationDigest, ObservedDigest: hostinglifecycle.Digest("unobserved"), Action: in.Action, ExpectedStateRevision: in.ExpectedStateRevision, RecoveryEpoch: in.RecoveryEpoch, IdempotencyKey: in.IdempotencyKey, ReasonDigest: in.ReasonDigest}
+	out.RecoveryRunID, out.RecoveryRecordDigest = in.RecoveryRunID, in.RecoveryRecordDigest
+	out.RecoveryResources = append([]generated.HostingOwnedResource(nil), in.RecoveryResources...)
 	err = r.store.Read(ctx, func(tx ReadTx) error {
+		if in.RecoveryRunID != "" {
+			var n int
+			if tx.queryRow(ctx, `SELECT COUNT(*) FROM hosting_lifecycle_attempts WHERE target_id=? AND recovery_epoch=? AND status='attempted'`, in.TargetID, in.RecoveryEpoch).Scan(&n) != nil || n != 0 {
+				return actionError(generated.ErrorCodeRecoveryRequired)
+			}
+		}
 		row := func(q string, a ...any) *sql.Row { return tx.queryRow(ctx, q, a...) }
 		var state, epoch int64
 		if row(`SELECT state_revision,recovery_epoch FROM system_meta WHERE id=1`).Scan(&state, &epoch) != nil || state != in.ExpectedStateRevision || epoch != in.RecoveryEpoch {
@@ -233,6 +248,11 @@ func (r *HostingLifecycleRepository) OwnedResources(ctx context.Context, in gene
 		return nil, err
 	}
 	err = r.store.Read(ctx, func(tx ReadTx) error {
+		if in.RecoveryRunID != "" {
+			var e error
+			out, e = r.recoveryResources(func(q string, a ...any) *sql.Row { return tx.queryRow(ctx, q, a...) }, in)
+			return e
+		}
 		var raw []byte
 		var digest string
 		e := tx.queryRow(ctx, `SELECT canonical_bytes,digest FROM hosting_lifecycle_records WHERE target_id=? ORDER BY revision DESC LIMIT 1`, in.TargetID).Scan(&raw, &digest)
@@ -250,6 +270,42 @@ func (r *HostingLifecycleRepository) OwnedResources(ctx context.Context, in gene
 		return nil
 	})
 	return
+}
+
+// Recovery never rewrites a partial result. It selects exact resources for fresh
+// provider observation and a separately acknowledged execution.
+func (r *HostingLifecycleRepository) recoveryResources(row discoveryRow, in generated.HostingLifecycleRequest) ([]generated.HostingOwnedResource, error) {
+	var raw []byte
+	var digest string
+	var prior generated.HostingLifecycleRecord
+	if row(`SELECT canonical_bytes,digest FROM hosting_lifecycle_records WHERE target_id=? ORDER BY revision DESC LIMIT 1`, in.TargetID).Scan(&raw, &digest) != nil || json.Unmarshal(raw, &prior) != nil || hostinglifecycle.Digest(prior) != digest {
+		return nil, actionError(generated.ErrorCodeRecoveryRequired)
+	}
+	if prior.Status != "partial" || prior.RunID != in.RecoveryRunID || digest != in.RecoveryRecordDigest || prior.Revision != in.ExpectedLifecycleRevision || prior.Request.TargetID != in.TargetID || prior.Request.BindingID != in.BindingID || prior.Request.ConfigurationDigest != in.ConfigurationDigest || prior.Request.RecoveryEpoch != in.RecoveryEpoch {
+		return nil, actionError(generated.ErrorCodePlanStale)
+	}
+	var runStatus string
+	if row(`SELECT status FROM plan_runs WHERE run_id=? AND plan_id=? AND recovery_epoch=?`, prior.RunID, prior.PlanID, in.RecoveryEpoch).Scan(&runStatus) != nil || runStatus != "partial" {
+		return nil, actionError(generated.ErrorCodeRecoveryRequired)
+	}
+	var active int
+	if row(`SELECT COUNT(*) FROM hosting_lifecycle_attempts WHERE target_id=? AND recovery_epoch=? AND status='attempted' AND request_digest<>?`, in.TargetID, in.RecoveryEpoch, hostinglifecycle.Digest(in)).Scan(&active) != nil || active != 0 {
+		return nil, actionError(generated.ErrorCodeRecoveryRequired)
+	}
+	// Already recorded IDs are mandatory; an operator cannot discard known effects.
+	for _, known := range prior.OwnedResources {
+		found := false
+		for _, selected := range in.RecoveryResources {
+			if known == selected {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, actionError(generated.ErrorCodeInputInvalid)
+		}
+	}
+	return append([]generated.HostingOwnedResource(nil), in.RecoveryResources...), nil
 }
 
 func (r *HostingLifecycleRepository) CheckTarget(ctx context.Context, in generated.HostingLifecycleRequest, hostID, identityDigest string) error {
