@@ -125,7 +125,7 @@ func (repository *RestoreRepository) CreatePlan(ctx context.Context, request Res
 	now := repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339)
 	repository.store.mu.Lock()
 	defer repository.store.mu.Unlock()
-	transaction, err := repository.store.conn.BeginTx(ctx, nil)
+	transaction, err := beginTransaction(ctx, repository.store.conn, nil)
 	if err != nil {
 		return RestoreSession{}, err
 	}
@@ -157,7 +157,7 @@ func (repository *RestoreRepository) CreatePlan(ctx context.Context, request Res
 		}
 		return RestoreSession{}, restoreStoreError(generated.ErrorCodeStateConflict, "restore-plan")
 	}
-	if err := transaction.Commit(); err != nil {
+	if err := commitTransaction(ctx, transaction); err != nil {
 		return RestoreSession{}, err
 	}
 	return RestoreSession{Binding: request.Binding, Status: "planned", CreatedAt: now}, nil
@@ -278,7 +278,7 @@ func (repository *RestoreRepository) AppendTransition(ctx context.Context, reque
 	}
 	repository.store.mu.Lock()
 	defer repository.store.mu.Unlock()
-	tx, err := repository.store.conn.BeginTx(ctx, nil)
+	tx, err := beginTransaction(ctx, repository.store.conn, nil)
 	if err != nil {
 		return err
 	}
@@ -311,7 +311,7 @@ func (repository *RestoreRepository) AppendTransition(ctx context.Context, reque
 	if err != nil {
 		return restoreStoreError(generated.ErrorCodeStateConflict, "restore-transition")
 	}
-	return tx.Commit()
+	return commitTransaction(ctx, tx)
 }
 
 func (repository *RestoreRepository) BindCandidate(ctx context.Context, request RecoveryCandidateRequest) error {
@@ -320,7 +320,7 @@ func (repository *RestoreRepository) BindCandidate(ctx context.Context, request 
 	}
 	repository.store.mu.Lock()
 	defer repository.store.mu.Unlock()
-	tx, err := repository.store.conn.BeginTx(ctx, nil)
+	tx, err := beginTransaction(ctx, repository.store.conn, nil)
 	if err != nil {
 		return err
 	}
@@ -344,7 +344,7 @@ func (repository *RestoreRepository) BindCandidate(ctx context.Context, request 
 		}
 		return restoreStoreError(generated.ErrorCodeStateConflict, "recovery-candidate")
 	}
-	return tx.Commit()
+	return commitTransaction(ctx, tx)
 }
 
 func compareRestoreState(ctx context.Context, tx *sql.Tx, expected RevisionToken, instance string) error {

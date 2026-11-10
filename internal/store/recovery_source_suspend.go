@@ -45,7 +45,7 @@ func (s *Store) SuspendRecoverySource(ctx context.Context, b generated.HostActio
 	if e = s.readyForTransaction(ctx); e != nil {
 		return e
 	}
-	tx, e := s.conn.BeginTx(ctx, nil)
+	tx, e := beginTransaction(ctx, s.conn, nil)
 	if e != nil {
 		return e
 	}
@@ -107,8 +107,10 @@ func (s *Store) SuspendRecoverySource(ctx context.Context, b generated.HostActio
 	if e = s.checkIdentity(ctx); e != nil {
 		return e
 	}
-	if e = tx.Commit(); e != nil {
-		s.enterSafeMode("recovery-source-suspension-uncertain")
+	if e = commitTransaction(ctx, tx); e != nil {
+		if Code(e) != "INTERRUPTED" {
+			s.enterSafeMode("recovery-source-suspension-uncertain")
+		}
 		return e
 	}
 	s.health.RecoveryPending = true

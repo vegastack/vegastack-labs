@@ -223,7 +223,7 @@ func (repository *LocalRetirementRepository) inTx(ctx context.Context, business 
 	if err := store.readyForTransaction(ctx); err != nil {
 		return err
 	}
-	tx, err := store.conn.BeginTx(ctx, nil)
+	tx, err := beginTransaction(ctx, store.conn, nil)
 	if err != nil {
 		return store.transactionError(ctx, err)
 	}
@@ -231,7 +231,7 @@ func (repository *LocalRetirementRepository) inTx(ctx context.Context, business 
 	if err := business(ctx, tx); err != nil {
 		return err
 	}
-	if err := tx.Commit(); err != nil {
+	if err := commitTransaction(ctx, tx); err != nil {
 		return store.transactionError(ctx, err)
 	}
 	return nil

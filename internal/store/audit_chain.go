@@ -72,7 +72,7 @@ func ensureAuditGenesis(ctx context.Context, tx *sql.Tx, instanceID string, epoc
 }
 
 func (store *Store) backfillPreAnchor(ctx context.Context) (BackfillResult, error) {
-	tx, err := store.conn.BeginTx(ctx, nil)
+	tx, err := beginTransaction(ctx, store.conn, nil)
 	if err != nil {
 		return BackfillResult{}, store.transactionError(ctx, err)
 	}
@@ -137,7 +137,7 @@ func (store *Store) backfillPreAnchor(ctx context.Context) (BackfillResult, erro
 		}
 		result.Added++
 	}
-	if err := tx.Commit(); err != nil {
+	if err := commitTransaction(ctx, tx); err != nil {
 		return BackfillResult{}, store.transactionError(ctx, err)
 	}
 	return result, nil
@@ -156,7 +156,7 @@ func (store *Store) PrepareRecoveryAuditEpoch(ctx context.Context, epoch int64, 
 	if err := store.readyForRead(ctx); err != nil {
 		return err
 	}
-	tx, err := store.conn.BeginTx(ctx, nil)
+	tx, err := beginTransaction(ctx, store.conn, nil)
 	if err != nil {
 		return store.transactionError(ctx, err)
 	}
@@ -179,7 +179,7 @@ func (store *Store) PrepareRecoveryAuditEpoch(ctx context.Context, epoch int64, 
 	if _, err := tx.ExecContext(ctx, `INSERT INTO audit_epoch_genesis(recovery_epoch,instance_id,prior_checkpoint_digest,recovery_decision_digest,genesis_digest) VALUES(?,?,?,?,?)`, epoch, instanceID, priorCheckpoint, recoveryDecision, genesis.LinkDigest); err != nil {
 		return store.transactionError(ctx, err)
 	}
-	if err := tx.Commit(); err != nil {
+	if err := commitTransaction(ctx, tx); err != nil {
 		return store.transactionError(ctx, err)
 	}
 	return nil

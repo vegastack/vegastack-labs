@@ -63,7 +63,7 @@ func (store *Store) PrepareRecoveredAuthority(ctx context.Context, binding gener
 	if err := store.readyForTransaction(ctx); err != nil {
 		return err
 	}
-	tx, err := store.conn.BeginTx(ctx, nil)
+	tx, err := beginTransaction(ctx, store.conn, nil)
 	if err != nil {
 		return store.transactionError(ctx, err)
 	}
@@ -102,7 +102,7 @@ func (store *Store) PrepareRecoveredAuthority(ctx context.Context, binding gener
 	if changed != 1 {
 		return newStoreError(generated.ErrorCodeStateConflict, "recovery-authority", false, nil)
 	}
-	if err := tx.Commit(); err != nil {
+	if err := commitTransaction(ctx, tx); err != nil {
 		return store.transactionError(ctx, err)
 	}
 	store.health.Revision = RevisionToken{StateRevision: revision + 1, RecoveryEpoch: binding.NextRecoveryEpoch}
@@ -119,7 +119,7 @@ func (store *Store) EnableRecoveredAuthority(ctx context.Context, instanceID str
 	}
 	store.mu.Lock()
 	defer store.mu.Unlock()
-	tx, err := store.conn.BeginTx(ctx, nil)
+	tx, err := beginTransaction(ctx, store.conn, nil)
 	if err != nil {
 		return err
 	}
@@ -142,7 +142,7 @@ func (store *Store) EnableRecoveredAuthority(ctx context.Context, instanceID str
 	if changed != 1 {
 		return newStoreError(generated.ErrorCodeRecoveryRequired, "recovery-enable", false, nil)
 	}
-	if err := tx.Commit(); err != nil {
+	if err := commitTransaction(ctx, tx); err != nil {
 		return store.transactionError(ctx, err)
 	}
 	store.health.Revision = RevisionToken{StateRevision: revision + 1, RecoveryEpoch: epoch}

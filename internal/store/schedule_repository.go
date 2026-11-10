@@ -626,7 +626,7 @@ func (repository *ScheduleRepository) inTx(ctx context.Context, business func(co
 	if err := repository.store.readyForTransaction(ctx); err != nil {
 		return err
 	}
-	tx, err := repository.store.conn.BeginTx(ctx, nil)
+	tx, err := beginTransaction(ctx, repository.store.conn, nil)
 	if err != nil {
 		return repository.store.transactionError(ctx, err)
 	}
@@ -634,7 +634,7 @@ func (repository *ScheduleRepository) inTx(ctx context.Context, business func(co
 	if err := business(ctx, tx); err != nil {
 		return err
 	}
-	if err := tx.Commit(); err != nil {
+	if err := commitTransaction(ctx, tx); err != nil {
 		return repository.store.transactionError(ctx, err)
 	}
 	return nil

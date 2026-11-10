@@ -30,7 +30,7 @@ func (store *Store) RecordRecoveryCanaryNoop(ctx context.Context, request Recove
 	if err := store.readyForRead(ctx); err != nil {
 		return err
 	}
-	transaction, err := store.conn.BeginTx(ctx, nil)
+	transaction, err := beginTransaction(ctx, store.conn, nil)
 	if err != nil {
 		return store.transactionError(ctx, err)
 	}
@@ -66,7 +66,7 @@ func (store *Store) RecordRecoveryCanaryNoop(ctx context.Context, request Recove
 	if err := store.checkIdentity(ctx); err != nil {
 		return err
 	}
-	if err := transaction.Commit(); err != nil {
+	if err := commitTransaction(ctx, transaction); err != nil {
 		return store.transactionError(ctx, err)
 	}
 	if result.Created {

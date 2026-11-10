@@ -22,7 +22,7 @@ func (store *Store) Read(ctx context.Context, callback func(ReadTx) error) error
 	if err := store.readyForRead(ctx); err != nil {
 		return err
 	}
-	transaction, err := store.conn.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	transaction, err := beginTransaction(ctx, store.conn, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
 		return store.transactionError(ctx, err)
 	}
@@ -36,6 +36,9 @@ func (store *Store) Read(ctx context.Context, callback func(ReadTx) error) error
 			return store.transactionError(ctx, err)
 		}
 		return err
+	}
+	if err := ctx.Err(); err != nil {
+		return interruptedError("database-read", err)
 	}
 	if err := transaction.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
 		return store.transactionError(ctx, err)
@@ -55,7 +58,7 @@ func (store *Store) WriteIntent(ctx context.Context, expected *RevisionToken, ca
 	if err := store.readyForTransaction(ctx); err != nil {
 		return Commit{}, err
 	}
-	transaction, err := store.conn.BeginTx(ctx, nil)
+	transaction, err := beginTransaction(ctx, store.conn, nil)
 	if err != nil {
 		return Commit{}, store.transactionError(ctx, err)
 	}
@@ -112,8 +115,10 @@ func (store *Store) WriteIntent(ctx context.Context, expected *RevisionToken, ca
 			return Commit{}, databaseError("INTEGRITY_FAILURE", err)
 		}
 	}
-	if err := transaction.Commit(); err != nil {
-		store.enterSafeMode("commit-failure")
+	if err := commitTransaction(ctx, transaction); err != nil {
+		if Code(err) != "INTERRUPTED" {
+			store.enterSafeMode("commit-failure")
+		}
 		return Commit{}, store.transactionError(ctx, err)
 	}
 	current.StateRevision++
