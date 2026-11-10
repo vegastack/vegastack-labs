@@ -181,6 +181,23 @@ func (c *serviceDeploymentComposition) Prepare(ctx context.Context, d generated.
 	}
 	return q, nil
 }
+
+// deploymentImageSettings preserves ordinary provider probes; manual admission is
+// resolved by the caller from the exact currently applied protected binding.
+func deploymentImageSettings(configuration generated.ServiceConfiguration, manual bool) (coolify.ImageSettings, error) {
+	settings, err := coolify.Settings(configuration)
+	if err != nil {
+		return settings, err
+	}
+	if manual {
+		// The signed image owns its native Docker healthcheck. Coolify's generated
+		// CMD-SHELL probe cannot run in a scratch image with no shell. The native
+		// runtime observer below must still prove healthy and the exact digest.
+		settings.HealthEnabled = false
+	}
+	return settings, nil
+}
+
 func (c *serviceDeploymentComposition) Deploy(ctx context.Context, q generated.ServiceDeploymentRequest, actor identity.Principal) (out servicecatalog.DeploymentOutcome, err error) {
 	out.Status = "partial"
 	if !identity.ValidPrincipal(actor) {
@@ -287,7 +304,11 @@ func (c *serviceDeploymentComposition) Deploy(ctx context.Context, q generated.S
 	cb := service.Coolify
 	var settings *coolify.ImageSettings
 	if q.Configuration != nil {
-		mapped, e := coolify.Settings(*q.Configuration)
+		manual, e := c.manualAdmission(ctx, q.Definition, b, q.RecoveryEpoch)
+		if e != nil {
+			return out, e
+		}
+		mapped, e := deploymentImageSettings(*q.Configuration, manual)
 		if e != nil {
 			return out, e
 		}
