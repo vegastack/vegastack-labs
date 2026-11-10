@@ -599,11 +599,12 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 	secretGate = ingressSecretGate{source: ingressSource, fallback: secretGate}
 	secretGate = ciPublicationGate{source: ciPublication, fallback: secretGate}
 	secretGate = manualPublicationGate{source: manualPublication, fallback: secretGate}
+	loadedCredentials := controllerLoadedCredentials(profile, credentialRepository, gateRepository, adapters)
 	setupVerifier := newControllerSetupPilotVerifier(authority, gateRepository, profile.ControllerSetupPilot, time.Now)
-	secretGate = hostActionGate{connector: ingressConnectorAuthorization(profile, authority, gateRepository, setupVerifier.Verify), jobs: ciJobs, targets: store.NewHostActionRepository(authority), credentials: credentialRepository, allowed: profile.HostActionIdentityDigests, fallback: secretGate}
-	lifecycleGate := hostActionGate{targets: store.NewHostActionRepository(authority), credentials: credentialRepository, allowed: profile.HostActionIdentityDigests, fallback: runengine.UnavailableGateVerifier{}}
+	secretGate = hostActionGate{connector: ingressConnectorAuthorization(profile, authority, gateRepository, setupVerifier.Verify), jobs: ciJobs, targets: store.NewHostActionRepository(authority), credentials: credentialRepository, allowed: profile.HostActionIdentityDigests, loadedCredential: loadedCredentials, fallback: secretGate}
+	lifecycleGate := hostActionGate{targets: store.NewHostActionRepository(authority), credentials: credentialRepository, allowed: profile.HostActionIdentityDigests, loadedCredential: loadedCredentials, fallback: runengine.UnavailableGateVerifier{}}
 	credentialStep := &runengine.CredentialStep{Bindings: credentialRepository, Resolvers: adapters, Profiles: gateRepository, Plans: plans, ScheduledPlans: scheduledAdmission, Clock: time.Now}
-	credentialCore, err := runengine.NewCoreCredentialEffect(credentialRepository, store.NewAcknowledgementRepository(authority), lifecycleGate, composeNativeCredentialLifecycleVerifier(ctx, operations.databasePath, profile.SocketOwnerUID), runengine.UnavailableCredentialRecoveryVerifier{}, time.Now)
+	credentialCore, err := runengine.NewCoreCredentialEffect(credentialRepository, store.NewAcknowledgementRepository(authority), lifecycleGate, composeNativeCredentialLifecycleVerifier(ctx, operations.databasePath, profile.SocketOwnerUID, loadedCredentials), runengine.UnavailableCredentialRecoveryVerifier{}, time.Now)
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err

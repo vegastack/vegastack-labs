@@ -842,6 +842,13 @@
         "commands": [],
         "imports": [],
         "mutationBoundaryDigest": "sha256:fc10303a0765466529cedeecd5a902ad69f948769c277be81d40918af0191e00"
+      },
+      {
+        "id": "phase9-controller-credential-activation-issue317-v1",
+        "issue": 317,
+        "commands": [],
+        "imports": [],
+        "mutationBoundaryDigest": "sha256:6a24c920a765ba7bfbdb615e2faf6d727fb49ac5fccd1d5d254951bca4dba404"
       }
     ]
   },

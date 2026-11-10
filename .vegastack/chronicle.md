@@ -1,3 +1,13 @@
+## 10-11-2026 — Activate the controller’s declared delivery credentials without interrupting its run ([#317](https://github.com/vegastack/vegastack-labs/issues/317))
+
+- **What:** Hosting, service observation/deployment and signed manual-publication credentials declared in the protected controller profile can use the existing loaded-credential verification during initial activation.
+- **Why:** The prior no-restart path admitted only Cloudflare ingress, leaving the working Harbor path blocked and routing other controller consumers toward restarting their own server.
+- **How it went:** The fix reuses existing native delivery and denied-reader proofs with exact binding/capability checks; live activation remains separate evidence.
+- **Changed:** Declared controller credentials activate without a self-restart; mismatched or drifting references remain blocked.
+- **Decisions:** No new dependency, public API, service or credential authority.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/317-controller-credential-activation
+
 ## 10-11-2026 — Match the manual delivery client to Coolify's actual API ([#317](https://github.com/vegastack/vegastack-labs/issues/317))
 
 The live Coolify instance exposed a mismatch between earlier fixtures and its selected version: team observation uses `/teams/current`, server responses hide their numeric ID, and application responses omit additional-destination counts. The client now reads the real team endpoint and keeps deployment identity proof in the separately observed primary destination, which exposes both the numeric server ID and UUID. Exactly one primary destination remains mandatory, and explicit nonzero count fields still fail closed. A realistic public-response regression failed before the fix and passes afterward; mismatched primary-server identity is denied before any write. This changes no schema, credential authority or live deployment state. Hosting resource creation remains deferred where its other assumed response fields are unavailable.

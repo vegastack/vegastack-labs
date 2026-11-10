@@ -192,7 +192,7 @@ func nativeRestartEnrollment(t *testing.T, f hostActionEnrollmentFixture, mode s
 		t.Fatal(err)
 	}
 	gate := hostActionGate{targets: store.NewHostActionRepository(f.Authority), credentials: refs, allowed: []string{f.DestinationIdentity}}
-	core, err := runengine.NewCoreCredentialEffect(refs, store.NewAcknowledgementRepository(f.Authority), gate, nativeLifecycleRunVerifier{native}, runengine.UnavailableCredentialRecoveryVerifier{}, f.Clock)
+	core, err := runengine.NewCoreCredentialEffect(refs, store.NewAcknowledgementRepository(f.Authority), gate, nativeLifecycleRunVerifier{native: native}, runengine.UnavailableCredentialRecoveryVerifier{}, f.Clock)
 	if err != nil {
 		t.Fatal(err)
 	}

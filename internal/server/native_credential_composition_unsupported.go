@@ -8,6 +8,6 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/run"
 )
 
-func composeNativeCredentialLifecycleVerifier(context.Context, string, uint32) run.CredentialLifecycleVerifier {
+func composeNativeCredentialLifecycleVerifier(context.Context, string, uint32, ...controllerLoadedCredentialCheck) run.CredentialLifecycleVerifier {
 	return run.UnavailableCredentialLifecycleVerifier{}
 }
