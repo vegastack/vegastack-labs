@@ -1477,6 +1477,9 @@ export interface HostingLifecycleRequest {
   readonly "recoveryEpoch": number;
   readonly "idempotencyKey": string;
   readonly "reasonDigest": string;
+  readonly "recoveryRunId"?: string;
+  readonly "recoveryRecordDigest"?: string;
+  readonly "recoveryResources"?: ReadonlyArray<HostingOwnedResource>;
 }
 
 export interface HostingOwnedResource {
@@ -11367,6 +11370,32 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "recoveryRunId",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "recoveryRecordDigest",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "recoveryResources",
+        "kind": "array",
+        "required": false,
+        "nullable": false,
+        "omitEmpty": true,
+        "itemRef": "vegastack-labs.dev/hosting-owned-resource",
+        "minItems": 1,
+        "maxItems": 512
       }
     ]
   },

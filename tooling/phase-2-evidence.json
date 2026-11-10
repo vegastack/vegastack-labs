@@ -849,6 +849,13 @@
         "commands": [],
         "imports": [],
         "mutationBoundaryDigest": "sha256:6a24c920a765ba7bfbdb615e2faf6d727fb49ac5fccd1d5d254951bca4dba404"
+      },
+      {
+        "id": "phase9-harbor-lifecycle-recovery-issue391-v1",
+        "issue": 391,
+        "commands": [],
+        "imports": [],
+        "mutationBoundaryDigest": "sha256:36c111097f7bf060b10c93d64d93000ae75cd8d0b7c7cff2cde212dca9ae33c5"
       }
     ]
   },

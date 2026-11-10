@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"reflect"
 
 	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/change"
@@ -37,7 +38,7 @@ func (app *Application) hostingLifecycleDraft(c HostingLifecycleOperations) func
 	return func(w http.ResponseWriter, r *http.Request, _ authorization.ReadScope, _ map[string]string) {
 		const op = "api.v1.hosting.lifecycle-drafts.create"
 		var input generated.HostingLifecycleDraftRequest
-		if err := decodeOperationRequest(r, 16384, []string{"schema", "schemaVersion", "targetId", "action", "expectedStateRevision", "recoveryEpoch", "idempotencyKey", "reasonDigest"}, &input); err != nil {
+		if err := decodeOperationRequest(r, 16384, []string{"schema", "schemaVersion", "targetId", "action", "expectedStateRevision", "recoveryEpoch", "idempotencyKey", "reasonDigest"}, &input, "recoveryRunId", "recoveryRecordDigest", "recoveryResources"); err != nil {
 			app.failure(w, op, err)
 			return
 		}
@@ -57,7 +58,7 @@ func (app *Application) hostingLifecycleDraft(c HostingLifecycleOperations) func
 			app.failure(w, op, err)
 			return
 		}
-		if prepared.TargetID != input.TargetID || prepared.Action != input.Action || prepared.ExpectedStateRevision != input.ExpectedStateRevision || prepared.RecoveryEpoch != input.RecoveryEpoch || prepared.IdempotencyKey != input.IdempotencyKey || prepared.ReasonDigest != input.ReasonDigest {
+		if prepared.TargetID != input.TargetID || prepared.Action != input.Action || prepared.ExpectedStateRevision != input.ExpectedStateRevision || prepared.RecoveryEpoch != input.RecoveryEpoch || prepared.IdempotencyKey != input.IdempotencyKey || prepared.ReasonDigest != input.ReasonDigest || prepared.RecoveryRunID != input.RecoveryRunID || prepared.RecoveryRecordDigest != input.RecoveryRecordDigest || !reflect.DeepEqual(prepared.RecoveryResources, input.RecoveryResources) {
 			app.failure(w, op, apiFailure(generated.ErrorCodeIntegrityFailure, "service-request"))
 			return
 		}

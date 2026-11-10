@@ -41,6 +41,22 @@
           "minimum": 0,
           "type": "integer"
         },
+        "recoveryRecordDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "recoveryResources": {
+          "items": {
+            "$ref": "#/$defs/hosting-owned-resource"
+          },
+          "maxItems": 512,
+          "minItems": 1,
+          "type": "array"
+        },
+        "recoveryRunId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
         "schema": {
           "enum": [
             "vegastack-labs.dev/hosting-lifecycle-request"

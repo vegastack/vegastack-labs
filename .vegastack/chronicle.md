@@ -1,3 +1,13 @@
+## 10-11-2026 — Finish a partial registry setup without losing its history ([#391](https://github.com/vegastack/vegastack-labs/issues/391))
+
+- **What:** The existing Harbor workflow sets pre-staged robot credentials through the vendor's supported secret update and can prepare a fresh, explicitly bound recovery of a partial setup.
+- **Why:** Harbor generated its own create-time secret, so comparing it with the protected pre-staged value failed after resources had already been created. The ordinary next draft then refused those unbound existing IDs.
+- **How it went:** The live mismatch exposed an inaccurate fixture. The correction keeps the partial result and requires its full record digest, prior run and exact resource IDs; actual live recovery remains separate evidence.
+- **Changed:** Supported create-then-secret-update sequence · exact partial-record recovery through the same plan and Slack approval · historical partial records preserved.
+- **Decisions:** No new command, service, dependency or approval authority. Existing deferrals remain unchanged.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/391-harbor-lifecycle-recovery
+
 ## 10-11-2026 — Activate the controller’s declared delivery credentials without interrupting its run ([#317](https://github.com/vegastack/vegastack-labs/issues/317))
 
 - **What:** Hosting, service observation/deployment and signed manual-publication credentials declared in the protected controller profile can use the existing loaded-credential verification during initial activation.
