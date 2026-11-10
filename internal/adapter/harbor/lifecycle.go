@@ -274,9 +274,15 @@ func equalRetention(a, b retentionPolicy) bool {
 	b.ID = 0
 	for i := range a.Rules {
 		a.Rules[i].ID = 0
+		if len(a.Rules[i].Params) == 0 {
+			a.Rules[i].Params = nil
+		}
 	}
 	for i := range b.Rules {
 		b.Rules[i].ID = 0
+		if len(b.Rules[i].Params) == 0 {
+			b.Rules[i].Params = nil
+		}
 	}
 	x, _ := json.Marshal(a)
 	y, _ := json.Marshal(b)

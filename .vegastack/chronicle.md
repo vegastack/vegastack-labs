@@ -1,3 +1,9 @@
+## 10-11-2026 — Accept Harbor's omitted empty retention parameters ([#391](https://github.com/vegastack/vegastack-labs/issues/391))
+
+The live recovery draft exposed a response-shape mismatch: Harbor omits the empty parameter map on its always-retain rule. The adapter now treats absent and empty parameter maps identically while still rejecting missing or changed required retention counts. A focused regression failed before the correction and passes afterward. No retention policy, approval boundary or historical record changes; actual recovery remains separate acceptance evidence.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/391-harbor-retention-normalization
+
 ## 10-11-2026 — Finish a partial registry setup without losing its history ([#391](https://github.com/vegastack/vegastack-labs/issues/391))
 
 - **What:** The existing Harbor workflow sets pre-staged robot credentials through the vendor's supported secret update and can prepare a fresh, explicitly bound recovery of a partial setup.

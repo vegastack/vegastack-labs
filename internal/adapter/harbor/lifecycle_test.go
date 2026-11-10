@@ -252,3 +252,24 @@ func TestRobotSecretAcceptsVendorValidSpaces(t *testing.T) {
 		t.Fatal("missing required uppercase accepted")
 	}
 }
+
+// Harbor omits an empty params object when returning an always retention rule.
+func TestRetentionComparisonAllowsVendorOmittedEmptyParams(t *testing.T) {
+	p := ProjectBinding{ID: 11, Name: "project", RetentionID: 9, KeepLast: 5}
+	expected := retention(p)
+	observed := retention(p)
+	observed.Rules[1].Params = nil
+	if !equalRetention(observed, expected) || !equalRetention(expected, observed) {
+		t.Fatal("vendor-omitted empty parameters rejected")
+	}
+	changed := retention(p)
+	changed.Rules[0].Params = nil
+	if equalRetention(changed, expected) {
+		t.Fatal("missing required latestPushedK accepted")
+	}
+	changed = retention(p)
+	changed.Rules[0].Params["latestPushedK"] = 6
+	if equalRetention(changed, expected) {
+		t.Fatal("changed retention count accepted")
+	}
+}
