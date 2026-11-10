@@ -863,6 +863,13 @@
         "commands": [],
         "imports": [],
         "mutationBoundaryDigest": "sha256:efb1ac795d4b58aedbe8fe6cfcc742a5dec359600ac5026f073573d8f42e1032"
+      },
+      {
+        "id": "phase9-manual-publication-risk-issue386-v2",
+        "issue": 386,
+        "commands": [],
+        "imports": [],
+        "mutationBoundaryDigest": "sha256:49397f8064d061758949ebdc59fe36d883035625d5a6d42f35a6fe5ef27af05d"
       }
     ]
   },

@@ -1,3 +1,9 @@
+## 10-11-2026 — Classify signed manual publication consistently ([#386](https://github.com/vegastack/vegastack-labs/issues/386))
+
+The actual publication draft exposed a planner mismatch: it inherited the production default destructive risk while authorization requires the already-defined control-plane risk. The planner now validates the exact manual declaration and requires its existing human/central branch before selecting control-plane. Malformed inputs still fail closed. The rejected immutable plan remains intact; installation and a fresh acknowledged publication are separate live evidence. No new permission or publication authority is added.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/386-manual-publication-risk
+
 ## 10-11-2026 — Accept Harbor's omitted empty retention parameters ([#391](https://github.com/vegastack/vegastack-labs/issues/391))
 
 The live recovery draft exposed a response-shape mismatch: Harbor omits the empty parameter map on its always-retain rule. The adapter now treats absent and empty parameter maps identically while still rejecting missing or changed required retention counts. A focused regression failed before the correction and passes afterward. No retention policy, approval boundary or historical record changes; actual recovery remains separate acceptance evidence.

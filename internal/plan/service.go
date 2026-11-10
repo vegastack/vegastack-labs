@@ -267,6 +267,15 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 		risk = string(authorization.RiskInfrastructure)
 	}
 
+	if !store.ValidManualPublicationDeclaration(declaration) {
+		return store.PlanCommitResult{}, planError(generated.ErrorCodeAuthorizationDenied)
+	}
+	if declaration.DeclarationType == store.ManualPublicationOperation {
+		if service.config.AuthorizationBranch != "human" || service.config.ExecutorMode != "central" {
+			return store.PlanCommitResult{}, planError(generated.ErrorCodeAuthorizationDenied)
+		}
+		risk = string(authorization.RiskControlPlane)
+	}
 	if declaration.DeclarationType == store.CIPublicationOperation {
 		if !store.ValidCIPublicationDeclaration(declaration) || service.config.AuthorizationBranch != "human" || service.config.ExecutorMode != "central" {
 			return store.PlanCommitResult{}, planError(generated.ErrorCodeAuthorizationDenied)
