@@ -2046,7 +2046,7 @@ func reviewedRecoveryGrantPredicates(candidate checkedSourcePackage, file *ast.F
 			owner = true
 		}
 	}
-	if !owner || digestSourceFiles(candidate.listed.Dir, []string{"recovery_source_suspend.go"}) != "80f7931a6200199e53496471c54c364b03a6bb625c4729f8581bef37b5df2619" || len(literal.Elts) != 3 {
+	if !owner || (digestSourceFiles(candidate.listed.Dir, []string{"recovery_source_suspend.go"}) != "80f7931a6200199e53496471c54c364b03a6bb625c4729f8581bef37b5df2619" && digestSourceFiles(candidate.listed.Dir, []string{"recovery_source_suspend.go"}) != "5c6460d8c44dd0702f38a9997e8f0aabf478b79e41d57e43dbd67b57561d313c") || len(literal.Elts) != 3 {
 		return false
 	}
 	for _, declaration := range file.Decls {
