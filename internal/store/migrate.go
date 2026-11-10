@@ -54,7 +54,7 @@ func (store *Store) migrateLocked(ctx context.Context, catalog []Migration) erro
 		return newStoreError("MIGRATION_BLOCKED", "migration-recovery", false, err)
 	}
 
-	transaction, err := store.conn.BeginTx(ctx, nil)
+	transaction, err := beginTransaction(ctx, store.conn, nil)
 	if err != nil {
 		return store.failMigration(ctx, source, snapshot, store.transactionError(ctx, err))
 	}
@@ -103,7 +103,7 @@ func (store *Store) migrateLocked(ctx context.Context, catalog []Migration) erro
 			return store.failMigration(ctx, source, snapshot, databaseError("INTEGRITY_FAILURE", err))
 		}
 	}
-	if err := transaction.Commit(); err != nil {
+	if err := commitTransaction(ctx, transaction); err != nil {
 		return store.failMigration(ctx, source, snapshot, store.transactionError(ctx, err))
 	}
 	committed = true

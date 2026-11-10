@@ -763,7 +763,7 @@ func safeOffsiteRetirementPath(value string, maximum int) bool {
 }
 
 func (r *OffsiteRetirementRepository) inTx(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
-	tx, err := r.store.conn.BeginTx(ctx, nil)
+	tx, err := beginTransaction(ctx, r.store.conn, nil)
 	if err != nil {
 		return err
 	}
@@ -771,7 +771,7 @@ func (r *OffsiteRetirementRepository) inTx(ctx context.Context, fn func(context.
 		_ = tx.Rollback()
 		return err
 	}
-	return tx.Commit()
+	return commitTransaction(ctx, tx)
 }
 
 var _ = errors.Is

@@ -269,7 +269,7 @@ func (store *Store) applyFoundation(ctx context.Context) error {
 	if err := validateMigrationCatalog(catalog); err != nil || catalog[0].ID != 1 {
 		return migrationCatalogError(errors.New("foundation migration is unavailable"))
 	}
-	transaction, err := store.conn.BeginTx(ctx, nil)
+	transaction, err := beginTransaction(ctx, store.conn, nil)
 	if err != nil {
 		return databaseError("INTEGRITY_FAILURE", err)
 	}
@@ -307,7 +307,10 @@ func (store *Store) applyFoundation(ctx context.Context) error {
 			return err
 		}
 	}
-	if err := transaction.Commit(); err != nil {
+	if err := commitTransaction(ctx, transaction); err != nil {
+		if Code(err) == "INTERRUPTED" {
+			return err
+		}
 		return databaseError("INTEGRITY_FAILURE", err)
 	}
 	if store.config.InitialSetup != nil {

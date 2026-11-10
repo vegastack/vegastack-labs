@@ -342,7 +342,7 @@ func (store *Store) executePreparedBrowserSessionAudit(ctx context.Context, prep
 	if err := store.readyForTransaction(ctx); err != nil {
 		return intentResult{}, err
 	}
-	tx, err := store.conn.BeginTx(ctx, nil)
+	tx, err := beginTransaction(ctx, store.conn, nil)
 	if err != nil {
 		return intentResult{}, store.transactionError(ctx, err)
 	}
@@ -388,8 +388,10 @@ func (store *Store) executePreparedBrowserSessionAudit(ctx context.Context, prep
 			}
 		}
 	}
-	if err := tx.Commit(); err != nil {
-		store.enterSafeMode("commit-failure")
+	if err := commitTransaction(ctx, tx); err != nil {
+		if Code(err) != "INTERRUPTED" {
+			store.enterSafeMode("commit-failure")
+		}
 		return intentResult{}, store.transactionError(ctx, err)
 	}
 	if result.Created {

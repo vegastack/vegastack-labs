@@ -95,7 +95,7 @@ func (repository *PlanRepository) CommitOperationalPlan(ctx context.Context, req
 	if err := repository.store.readyForTransaction(ctx); err != nil {
 		return PlanCommitResult{}, err
 	}
-	tx, err := repository.store.conn.BeginTx(ctx, nil)
+	tx, err := beginTransaction(ctx, repository.store.conn, nil)
 	if err != nil {
 		return PlanCommitResult{}, repository.store.transactionError(ctx, err)
 	}
@@ -115,7 +115,7 @@ func (repository *PlanRepository) CommitOperationalPlan(ctx context.Context, req
 	if err != nil {
 		return PlanCommitResult{}, classifySQLiteError(ctx, err)
 	}
-	if err = tx.Commit(); err != nil {
+	if err = commitTransaction(ctx, tx); err != nil {
 		return PlanCommitResult{}, repository.store.transactionError(ctx, err)
 	}
 	return PlanCommitResult{Plan: request.Plan, Canonical: append([]byte(nil), request.CanonicalBytes...), Readable: request.Readable, Commit: Commit{Changed: false, StateRevision: stateRevision, RecoveryEpoch: recoveryEpoch}, Created: true}, nil

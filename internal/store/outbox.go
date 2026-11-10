@@ -41,7 +41,7 @@ func (store *Store) RecordOutboxAttempt(ctx context.Context, attempt audit.Outbo
 	if err := store.readyForTransaction(ctx); err != nil {
 		return audit.OutboxRecord{}, err
 	}
-	transaction, err := store.conn.BeginTx(ctx, nil)
+	transaction, err := beginTransaction(ctx, store.conn, nil)
 	if err != nil {
 		return audit.OutboxRecord{}, store.transactionError(ctx, err)
 	}
@@ -94,8 +94,10 @@ func (store *Store) RecordOutboxAttempt(ctx context.Context, attempt audit.Outbo
 	if err := store.checkIdentity(ctx); err != nil {
 		return audit.OutboxRecord{}, err
 	}
-	if err := transaction.Commit(); err != nil {
-		store.enterSafeMode("outbox-commit-failure")
+	if err := commitTransaction(ctx, transaction); err != nil {
+		if Code(err) != "INTERRUPTED" {
+			store.enterSafeMode("outbox-commit-failure")
+		}
 		return audit.OutboxRecord{}, store.transactionError(ctx, err)
 	}
 	return updated, nil
@@ -113,7 +115,7 @@ func (store *Store) payloadForAttempt(ctx context.Context, id audit.OutboxID, no
 	if err := store.readyForTransaction(ctx); err != nil {
 		return nil, err
 	}
-	transaction, err := store.conn.BeginTx(ctx, nil)
+	transaction, err := beginTransaction(ctx, store.conn, nil)
 	if err != nil {
 		return nil, store.transactionError(ctx, err)
 	}
@@ -161,8 +163,10 @@ func (store *Store) payloadForAttempt(ctx context.Context, id audit.OutboxID, no
 			}
 			return nil, store.transactionError(ctx, rowsErr)
 		}
-		if commitErr := transaction.Commit(); commitErr != nil {
-			store.enterSafeMode("outbox-commit-failure")
+		if commitErr := commitTransaction(ctx, transaction); commitErr != nil {
+			if Code(commitErr) != "INTERRUPTED" {
+				store.enterSafeMode("outbox-commit-failure")
+			}
 			return nil, store.transactionError(ctx, commitErr)
 		}
 		store.enterSafeMode("outbox-payload-integrity")

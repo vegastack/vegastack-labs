@@ -60,7 +60,7 @@ func (store *Store) executeAuditIntent(ctx context.Context, request intentReques
 	if err := store.readyForTransaction(ctx); err != nil {
 		return intentResult{}, err
 	}
-	transaction, err := store.conn.BeginTx(ctx, nil)
+	transaction, err := beginTransaction(ctx, store.conn, nil)
 	if err != nil {
 		return intentResult{}, store.transactionError(ctx, err)
 	}
@@ -88,8 +88,10 @@ func (store *Store) executeAuditIntent(ctx context.Context, request intentReques
 			return intentResult{}, databaseError("INTEGRITY_FAILURE", err)
 		}
 	}
-	if err := transaction.Commit(); err != nil {
-		store.enterSafeMode("commit-failure")
+	if err := commitTransaction(ctx, transaction); err != nil {
+		if Code(err) != "INTERRUPTED" {
+			store.enterSafeMode("commit-failure")
+		}
 		return intentResult{}, store.transactionError(ctx, err)
 	}
 	if result.Created {

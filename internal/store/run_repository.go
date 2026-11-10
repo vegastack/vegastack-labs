@@ -523,7 +523,7 @@ func (repository *RunRepository) PruneRunHistory(ctx context.Context, now time.T
 	if err := repository.store.readyForTransaction(ctx); err != nil {
 		return RunPruneResult{}, err
 	}
-	transaction, err := repository.store.conn.BeginTx(ctx, nil)
+	transaction, err := beginTransaction(ctx, repository.store.conn, nil)
 	if err != nil {
 		return RunPruneResult{}, repository.store.transactionError(ctx, err)
 	}
@@ -536,7 +536,7 @@ func (repository *RunRepository) PruneRunHistory(ctx context.Context, now time.T
 	if err != nil {
 		return RunPruneResult{}, classifySQLiteError(ctx, err)
 	}
-	if err := transaction.Commit(); err != nil {
+	if err := commitTransaction(ctx, transaction); err != nil {
 		return RunPruneResult{}, repository.store.transactionError(ctx, err)
 	}
 	detailedCount, _ := details.RowsAffected()

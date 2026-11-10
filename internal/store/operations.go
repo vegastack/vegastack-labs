@@ -26,7 +26,7 @@ func (s *Store) RecordOperationsObservation(ctx context.Context, expected Revisi
 	if e := s.readyForTransaction(ctx); e != nil {
 		return operations.Alert{}, e
 	}
-	tx, e := s.conn.BeginTx(ctx, nil)
+	tx, e := beginTransaction(ctx, s.conn, nil)
 	if e != nil {
 		return operations.Alert{}, s.transactionError(ctx, e)
 	}
@@ -90,8 +90,10 @@ func (s *Store) RecordOperationsObservation(ctx context.Context, expected Revisi
 	if e = s.checkIdentity(ctx); e != nil {
 		return previous, e
 	}
-	if e = tx.Commit(); e != nil {
-		s.enterSafeMode("operations-commit-failure")
+	if e = commitTransaction(ctx, tx); e != nil {
+		if Code(e) != "INTERRUPTED" {
+			s.enterSafeMode("operations-commit-failure")
+		}
 		return previous, s.transactionError(ctx, e)
 	}
 	s.events.signal()

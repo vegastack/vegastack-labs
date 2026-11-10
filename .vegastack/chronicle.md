@@ -1,3 +1,13 @@
+## 10-11-2026 — Keep the controller database usable after client cancellation ([#317](https://github.com/vegastack/vegastack-labs/issues/317))
+
+- **What:** Existing store transactions retain controller-owned cleanup when a caller cancels. SQL statements still observe caller cancellation, and a canceled caller cannot begin a commit.
+- **Why:** The SQLite driver lacks session reset/validation hooks, so database/sql discarded the one lifetime-pinned connection after an automatically canceled rollback. Later reads appeared to have an integrity failure and writes entered safe mode even though the database file was unchanged.
+- **How it went:** Real SQLite regressions reproduced canceled reads, writes and audit work poisoning later access. The correction routes all existing store transaction starts and commits through two small private helpers, preserves explicit rollback and real commit-failure handling, and introduces no new service or dependency.
+- **Changed:** Cancellation cleanup and commit guards only. Existing authorization, audit/lease/acknowledgement boundaries, unknown-outcome history and recovery behavior remain controlling; no connection auto-reopen or operation retry is added.
+- **Decisions:** The application is observed healthy separately, while the interrupted engine outcome still requires truthful reconciliation. This source work does not claim Phase9 completion or a performed application rollback.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/317-cancelled-store-connection
+
 ## 10-11-2026 — Preserve the signed manual image's native healthcheck ([#317](https://github.com/vegastack/vegastack-labs/issues/317))
 
 - **What:** The exact manual delivery branch disables only Coolify's generated shell probe, preserving the signed image's exec-form native healthcheck and its 30-second interval.

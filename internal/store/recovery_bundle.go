@@ -30,7 +30,7 @@ func (store *Store) WriteRecoveredAuthorityBundle(ctx context.Context, bundle Re
 	}
 	store.mu.Lock()
 	defer store.mu.Unlock()
-	tx, err := store.conn.BeginTx(ctx, nil)
+	tx, err := beginTransaction(ctx, store.conn, nil)
 	if err != nil {
 		return "", err
 	}
@@ -57,7 +57,7 @@ func (store *Store) WriteRecoveredAuthorityBundle(ctx context.Context, bundle Re
 		if _, err := tx.ExecContext(ctx, `UPDATE system_meta SET state_revision=MAX(state_revision,?) WHERE id=1`, bundle.Plan.Binding.StateRevision); err != nil {
 			return err
 		}
-		return tx.Commit()
+		return commitTransaction(ctx, tx)
 	}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO recovery_authority_bundles(plan_id,plan_digest,bundle_digest,plan_bytes,readable_plan,request_bytes,binding_bytes,status,created_at,continuity_bytes) VALUES(?,?,?,?,?,?,?,?,?,?)`, bundle.Plan.PlanID, bundle.Plan.PlanDigest, digest, planBytes, bundle.Readable, requestBytes, bindingBytes, bundle.Status, store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339), continuityBytes); err != nil {
 		var existingDigest string

@@ -102,7 +102,7 @@ func (repository *OffsiteRepository) FinishCustody(ctx context.Context, attemptI
 func (repository *OffsiteRepository) inCustodyTx(ctx context.Context, business func(context.Context, *sql.Tx) error) error {
 	repository.backup.store.mu.Lock()
 	defer repository.backup.store.mu.Unlock()
-	transaction, err := repository.backup.store.conn.BeginTx(ctx, nil)
+	transaction, err := beginTransaction(ctx, repository.backup.store.conn, nil)
 	if err != nil {
 		return err
 	}
@@ -110,5 +110,5 @@ func (repository *OffsiteRepository) inCustodyTx(ctx context.Context, business f
 	if err := business(ctx, transaction); err != nil {
 		return err
 	}
-	return transaction.Commit()
+	return commitTransaction(ctx, transaction)
 }
