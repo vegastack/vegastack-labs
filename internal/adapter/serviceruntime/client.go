@@ -27,6 +27,8 @@ type Target struct {
 	Address, User, HostKey     string
 	ExpectedMachineIDDigest    string
 	Port                       uint16
+	// AllowSharedCPU is an exact manual-demo admission choice, never a default.
+	AllowSharedCPU bool
 }
 type Selection struct {
 	ApplicationUUID, Repository, Digest string

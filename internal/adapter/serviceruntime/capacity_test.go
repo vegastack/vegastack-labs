@@ -77,3 +77,21 @@ func TestObserveCapacityPinnedAlgorithmWithMultipleServerKeys(t *testing.T) {
 		})
 	}
 }
+
+func TestObserveCapacitySharedCPURequiresExplicitOptIn(t *testing.T) {
+	for _, mode := range []string{"healthy", "resources"} {
+		t.Run(mode, func(t *testing.T) {
+			target, _, value, _ := fixture(t, mode)
+			target.ApplicationUUID = "another-application"
+			target.AllowSharedCPU = true
+			out, e := NewClient().ObserveCapacity(context.Background(), target, value, func(context.Context) error { return nil })
+			expected := int64(300)
+			if mode == "resources" {
+				expected = 175
+			}
+			if e != nil || out.CPUQuotaPercent != expected || out.MemoryBytes != 3865470561 || out.StorageBytes != 9663676416 {
+				t.Fatal("shared CPU dropped finite accounting or OS/memory/disk reserve", out, e)
+			}
+		})
+	}
+}

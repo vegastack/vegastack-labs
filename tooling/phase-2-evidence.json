@@ -884,6 +884,13 @@
         "commands": [],
         "imports": [],
         "mutationBoundaryDigest": "sha256:cab0163c6c9aee9ae1d1488ad46017ba6cc2fc3209f19f37bb2d68cd4db16be8"
+      },
+      {
+        "id": "phase9-manual-shared-cpu-issue317-v1",
+        "issue": 317,
+        "commands": [],
+        "imports": [],
+        "mutationBoundaryDigest": "sha256:d1768b0ce06803ee66da6beacc270d711bf1dd1b361e65579073c3c27f0d1fca"
       }
     ]
   },

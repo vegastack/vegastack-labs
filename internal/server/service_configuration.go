@@ -18,12 +18,23 @@ func (c *serviceDeploymentComposition) observeCapacity(ctx context.Context, d ge
 	if e != nil {
 		return out, e
 	}
+	allowSharedCPU, e := c.sharedCPUAdmission(ctx, d, b, target.RecoveryEpoch)
+	if e != nil {
+		return out, e
+	}
 	value, credential, e := c.base.borrow(ctx, d, false, target.RecoveryEpoch, b.RuntimeReferenceID, "service.runtime", "runtime-observe", "credential.service-runtime.read")
 	if e != nil {
 		return out, e
 	}
 	defer value.Close()
 	check := func(ctx context.Context) error {
+		currentShared, e := c.sharedCPUAdmission(ctx, d, b, target.RecoveryEpoch)
+		if e != nil {
+			return e
+		}
+		if currentShared != allowSharedCPU {
+			return serviceFailure(generated.ErrorCodePlanStale)
+		}
 		if _, e := c.base.check(ctx, d, false, target.RecoveryEpoch); e != nil {
 			return e
 		}
@@ -58,6 +69,7 @@ func (c *serviceDeploymentComposition) observeCapacity(ctx context.Context, d ge
 		return out, serviceFailure(generated.ErrorCodePrerequisiteBlocked)
 	}
 	runtimeTarget := runtimeCapacityTarget(target)
+	runtimeTarget.AllowSharedCPU = allowSharedCPU
 	runtimeTarget.ApplicationUUID = binding.Coolify.ApplicationUUID
 	observed, e := observer.ObserveCapacity(ctx, runtimeTarget, value, check)
 	if e != nil {
@@ -93,6 +105,10 @@ func (c *serviceDeploymentComposition) Configuration(ctx context.Context, servic
 	copy.SecretReferenceIDs = append([]string{}, b.Configuration.SecretReferenceIDs...)
 	out.Configuration = &copy
 	out.ConfigurationDigest = b.Binding.ConfigurationDigest
+	sharedCPU, e := c.sharedCPUAdmission(ctx, record.Definition, b, record.RecoveryEpoch)
+	if e != nil {
+		return generated.ServiceConfigurationStatus{}, e
+	}
 	capacity, e := c.observeCapacity(ctx, record.Definition, b)
 	if e != nil {
 		if _, currentErr := c.base.repo.Get(ctx, serviceID); currentErr != nil {
@@ -119,8 +135,18 @@ func (c *serviceDeploymentComposition) Configuration(ctx context.Context, servic
 	}
 	out.PlacementState = "eligible"
 	out.PlacementReason = "current-qualified-capacity"
+	currentShared, e := c.sharedCPUAdmission(ctx, record.Definition, b, record.RecoveryEpoch)
+	if e != nil {
+		return generated.ServiceConfigurationStatus{}, e
+	}
+	if currentShared != sharedCPU {
+		return generated.ServiceConfigurationStatus{}, serviceFailure(generated.ErrorCodePlanStale)
+	}
 	if manual {
 		out.PlacementReason = "current-working-demo-capacity"
+		if sharedCPU {
+			out.PlacementReason = "current-working-demo-shared-cpu-capacity"
+		}
 	}
 	return out, nil
 }

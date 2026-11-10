@@ -198,6 +198,10 @@ func (c *serviceDeploymentComposition) Deploy(ctx context.Context, q generated.S
 	if b.Configuration == nil {
 		return out, serviceFailure(generated.ErrorCodePrerequisiteBlocked)
 	}
+	allowSharedCPU, err := c.sharedCPUAdmission(ctx, q.Definition, b, q.RecoveryEpoch)
+	if err != nil {
+		return out, err
+	}
 	target, err := c.authority(ctx, q, nil)
 	if err != nil {
 		return out, err
@@ -252,6 +256,14 @@ func (c *serviceDeploymentComposition) Deploy(ctx context.Context, q generated.S
 		environmentProof = append(environmentProof, serviceruntime.EnvironmentFingerprint{Name: secret.Name, Digest: serviceruntime.EnvironmentDigest(secret.Name, value.Bytes())})
 	}
 	check := func(ctx context.Context) error {
+		currentShared, e := c.sharedCPUAdmission(ctx, q.Definition, b, q.RecoveryEpoch)
+		if e != nil {
+			return e
+		}
+		if currentShared != allowSharedCPU {
+			return serviceFailure(generated.ErrorCodePlanStale)
+		}
+
 		if _, err := c.authority(ctx, q, &target); err != nil {
 			return err
 		}

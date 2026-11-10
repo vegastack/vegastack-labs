@@ -1,3 +1,13 @@
+## 10-11-2026 — Let the selected manual demo share CPU explicitly ([#317](https://github.com/vegastack/vegastack-labs/issues/317))
+
+- **What:** The exact private stateless manual application can select best-effort CPU sharing through an additional binding-specific applied capability. The original manual policy alone retains strict capacity accounting.
+- **Why:** Existing registry workloads had no finite CPU quotas, and the operator chose “Prepare shared CPU for this manual demo; keep strict rules elsewhere” instead of reconfiguring those workloads.
+- **How it went:** The correction reuses the existing manual admission, profile acknowledgement and deployment checks. Source behavior and actual policy activation remain separate; no deployment or runtime health is claimed here.
+- **Changed:** Explicit shared-CPU opt-in for the same protected service/deployment digest · no reserved CPU-availability or isolation guarantee · own application CPU/memory limits, memory/disk checks and identity/acknowledgement/runtime guards retained.
+- **Decisions:** User-selected best-effort CPU sharing is limited to the configured development/private/stateless application. Other requests and CI remain strict; no new service, framework or approval authority.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/317-runtime-pinned-ssh
+
 ## 10-11-2026 — Read the runtime when a server advertises several SSH keys ([#317](https://github.com/vegastack/vegastack-labs/issues/317))
 
 - **What:** Runtime and capacity inspection now negotiate the registered host key's algorithm before checking its exact identity. A server advertising an additional SSH key can no longer cause the selected key to be rejected before inspection starts.
