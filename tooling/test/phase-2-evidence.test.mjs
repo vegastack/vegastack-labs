@@ -791,7 +791,8 @@ test("the #317 delivery, #363 account, #365 host-key, #367 clock-skew, #369 star
   assert.deepEqual(manifest.contract.reviewedWaves.slice(0,79).at(-1), {"id":"phase9-retained-administrator-issue379-v1","issue":379,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:eb87c2ca46ca9c91ebf2898acbec6996478b2848c579a945a244d0273fe04cb1"});
   assert.deepEqual(manifest.contract.reviewedWaves.slice(0,80).at(-1), {"id":"phase9-manual-publication-issue386-v1","issue":386,"commands":["artifact publication draft"],"imports":[],"mutationBoundaryDigest":"sha256:096bb27ae12add6685234a379d771ac10f27a4e67083d0162b91ec85cea2a4b7"});
   assert.deepEqual(manifest.contract.reviewedWaves.slice(0,81).at(-1), {"id":"phase9-manual-delivery-issue317-v2","issue":317,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:887df596d8342899d12e5bf28de857b5e58772b10c8db92a8263cbe9833b108c"});
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-1), {"id":"phase9-coolify-contract-issue317-v1","issue":317,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:fc10303a0765466529cedeecd5a902ad69f948769c277be81d40918af0191e00"});
+  assert.deepEqual(manifest.contract.reviewedWaves.slice(0,82).at(-1), {"id":"phase9-coolify-contract-issue317-v1","issue":317,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:fc10303a0765466529cedeecd5a902ad69f948769c277be81d40918af0191e00"});
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-1), {"id":"phase9-controller-credential-activation-issue317-v1","issue":317,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:6a24c920a765ba7bfbdb615e2faf6d727fb49ac5fccd1d5d254951bca4dba404"});
   assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.reviewedWaves.at(-1).mutationBoundaryDigest);
   assert.equal(validateEvidence(manifest, facts).status, "pass");
   for (const mutate of [

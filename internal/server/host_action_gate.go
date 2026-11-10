@@ -24,12 +24,13 @@ type hostActionLifecycleSource interface {
 // This routes only exact host-action use and its native credential activation.
 // Existing unrelated prerequisite checks retain their original fallback.
 type hostActionGate struct {
-	connector   func(context.Context, generated.Plan) error
-	jobs        *store.CIJobRepository
-	targets     hostActionConsoleSource
-	credentials hostActionLifecycleSource
-	allowed     []string
-	fallback    run.GateVerifier
+	connector        func(context.Context, generated.Plan) error
+	jobs             *store.CIJobRepository
+	targets          hostActionConsoleSource
+	credentials      hostActionLifecycleSource
+	allowed          []string
+	fallback         run.GateVerifier
+	loadedCredential controllerLoadedCredentialCheck
 }
 
 func (g hostActionGate) VerifySecretStep(ctx context.Context, p generated.Plan, op generated.PlanOperation) error {
@@ -41,7 +42,7 @@ func (g hostActionGate) VerifySecretStep(ctx context.Context, p generated.Plan, 
 	}
 	action := op.AdapterID == hostaction.AdapterID && (op.OperationType == hostaction.OperationType || op.OperationType == debianaccess.LocalProbeOperation)
 	lifecycle := p.HostActionConsole != nil && (op.OperationType == string(credentialref.ActionActivate) || op.OperationType == string(credentialref.ActionRotate))
-	if !action && !lifecycle && g.ingressLifecycle(ctx, p, op) {
+	if !action && !lifecycle && (g.ingressLifecycle(ctx, p, op) || g.controllerLoadedLifecycle(ctx, p, op)) {
 		return nil
 	}
 	if !action && !lifecycle {
@@ -144,4 +145,12 @@ func (g hostActionGate) ingressLifecycle(ctx context.Context, p generated.Plan, 
 // ingressNativeLifecycle is the one binding shape verified without a restart.
 func ingressNativeLifecycle(b credentialref.LifecycleBinding) bool {
 	return b.HostActionConsole == nil && b.Action == credentialref.ActionActivate && b.ResolverID == "native-systemd" && len(b.ConsumerIDs) == 1 && b.ConsumerIDs[0] == ingress.AdapterID && len(b.NativeConsumers) == 1
+}
+
+func (g hostActionGate) controllerLoadedLifecycle(ctx context.Context, p generated.Plan, op generated.PlanOperation) bool {
+	if g.credentials == nil || g.loadedCredential == nil || p.HostActionConsole != nil || op.OperationType != string(credentialref.ActionActivate) || p.AuthorizationBranch != "human" || p.ExecutorMode != "central" || len(p.Operations) != 1 || p.Operations[0] != op {
+		return false
+	}
+	b, err := g.credentials.GetLifecycleBinding(ctx, p, op.OperationID)
+	return err == nil && b.TargetID == op.TargetID && b.RecoveryEpoch == p.Binding.RecoveryEpoch && string(b.Action) == op.OperationType && g.loadedCredential(ctx, b)
 }
