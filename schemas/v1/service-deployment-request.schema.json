@@ -382,6 +382,53 @@
       ],
       "type": "object"
     },
+    "service-deployment-recovery": {
+      "additionalProperties": false,
+      "properties": {
+        "priorPlanId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "priorRequestDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "priorRunId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "priorStepId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "providerReceiptId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/service-deployment-recovery"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "priorPlanId",
+        "priorRunId",
+        "priorStepId",
+        "priorRequestDigest",
+        "providerReceiptId"
+      ],
+      "type": "object"
+    },
     "service-environment-secret": {
       "additionalProperties": false,
       "properties": {
@@ -428,7 +475,8 @@
     "action": {
       "enum": [
         "deploy",
-        "rollback"
+        "rollback",
+        "reconcile"
       ],
       "type": "string"
     },
@@ -487,6 +535,16 @@
     "reasonDigest": {
       "pattern": "^sha256:[a-f0-9]{64}$",
       "type": "string"
+    },
+    "recovery": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/service-deployment-recovery"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "recoveryEpoch": {
       "minimum": 0,

@@ -179,6 +179,15 @@ func (c *serviceDeploymentComposition) Prepare(ctx context.Context, d generated.
 			return q, err
 		}
 	}
+	if q.Action == "reconcile" {
+		actor, ok := identity.PrincipalFromContext(ctx)
+		if !ok {
+			return q, serviceFailure(generated.ErrorCodeAuthenticationRequired)
+		}
+		if _, e := c.reconcileDeployment(ctx, q, actor); e != nil {
+			return q, e
+		}
+	}
 	return q, nil
 }
 
@@ -199,6 +208,9 @@ func deploymentImageSettings(configuration generated.ServiceConfiguration, manua
 }
 
 func (c *serviceDeploymentComposition) Deploy(ctx context.Context, q generated.ServiceDeploymentRequest, actor identity.Principal) (out servicecatalog.DeploymentOutcome, err error) {
+	if q.Action == "reconcile" {
+		return c.reconcileDeployment(ctx, q, actor)
+	}
 	out.Status = "partial"
 	if !identity.ValidPrincipal(actor) {
 		return out, serviceFailure(generated.ErrorCodeAuthenticationRequired)

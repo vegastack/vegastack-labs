@@ -2273,9 +2273,20 @@ export interface ServiceDeploymentRecord {
   readonly "completedAt": string;
 }
 
+export interface ServiceDeploymentRecovery {
+  readonly "schema": "vegastack-labs.dev/service-deployment-recovery";
+  readonly "schemaVersion": "1.0.0";
+  readonly "priorPlanId": string;
+  readonly "priorRunId": string;
+  readonly "priorStepId": string;
+  readonly "priorRequestDigest": string;
+  readonly "providerReceiptId": string;
+}
+
 export interface ServiceDeploymentRequest {
   readonly "schema": "vegastack-labs.dev/service-deployment-request";
   readonly "schemaVersion": "1.0.0";
+  readonly "recovery"?: ServiceDeploymentRecovery | null;
   readonly "environmentBindings"?: ReadonlyArray<ServiceEnvironmentSecret>;
   readonly "configuration"?: ServiceConfiguration | null;
   readonly "capacity"?: ServiceCapacity | null;
@@ -2283,7 +2294,7 @@ export interface ServiceDeploymentRequest {
   readonly "binding": ServiceDeploymentBinding;
   readonly "artifact": ServiceDeploymentArtifact;
   readonly "artifactProofDigest": string;
-  readonly "action": "deploy" | "rollback";
+  readonly "action": "deploy" | "rollback" | "reconcile";
   readonly "expectedDeploymentRevision": number;
   readonly "expectedStateRevision": number;
   readonly "recoveryEpoch": number;
@@ -16650,6 +16661,64 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/service-deployment-recovery",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/service-deployment-recovery"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "priorPlanId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "priorRunId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "priorStepId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "priorRequestDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "providerReceiptId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/service-deployment-request",
     "fields": [
       {
@@ -16669,6 +16738,14 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "enum": [
           "1.0.0"
         ]
+      },
+      {
+        "name": "recovery",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "omitEmpty": true,
+        "ref": "vegastack-labs.dev/service-deployment-recovery"
       },
       {
         "name": "environmentBindings",
@@ -16730,7 +16807,8 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "nullable": false,
         "enum": [
           "deploy",
-          "rollback"
+          "rollback",
+          "reconcile"
         ]
       },
       {
@@ -18534,6 +18612,10 @@ function decodeServiceDeploymentBinding(value: unknown): ServiceDeploymentBindin
 
 function decodeServiceDeploymentRecord(value: unknown): ServiceDeploymentRecord {
   return decodeSchema("vegastack-labs.dev/service-deployment-record", value) as unknown as ServiceDeploymentRecord;
+}
+
+function decodeServiceDeploymentRecovery(value: unknown): ServiceDeploymentRecovery {
+  return decodeSchema("vegastack-labs.dev/service-deployment-recovery", value) as unknown as ServiceDeploymentRecovery;
 }
 
 function decodeServiceDeploymentRequest(value: unknown): ServiceDeploymentRequest {

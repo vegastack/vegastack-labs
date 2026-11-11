@@ -119,6 +119,11 @@ func (r *DeploymentRepository) validate(p identity.Principal, row discoveryRow, 
 	if err := validateEnvironmentContinuity(row, in); err != nil {
 		return err
 	}
+	if in.Action == "reconcile" {
+		if _, err := r.validateRecovery(row, in); err != nil {
+			return err
+		}
+	}
 	if in.Action == "rollback" {
 		if in.Binding.DataPolicy != "stateless" && in.Binding.DataPolicy != "compatible" {
 			return actionError(generated.ErrorCodePrerequisiteBlocked)
@@ -132,7 +137,7 @@ func (r *DeploymentRepository) validate(p identity.Principal, row discoveryRow, 
 }
 func (r *DeploymentRepository) Prepare(ctx context.Context, in generated.ServiceDeploymentDraftRequest) (out generated.ServiceDeploymentRequest, err error) {
 	raw, _ := json.Marshal(in)
-	if generated.ValidateContractJSON(generated.SchemaIDServiceDeploymentDraftRequest, raw, generated.ContractExact) != nil {
+	if generated.ValidateContractJSON(generated.SchemaIDServiceDeploymentDraftRequest, raw, generated.ContractExact) != nil || (in.Action == "reconcile") != (in.Recovery != nil) {
 		return out, actionError(generated.ErrorCodeInputInvalid)
 	}
 	actor, err := serviceActor(ctx)
@@ -143,7 +148,7 @@ func (r *DeploymentRepository) Prepare(ctx context.Context, in generated.Service
 	if err != nil {
 		return out, err
 	}
-	out = generated.ServiceDeploymentRequest{Schema: generated.SchemaIDServiceDeploymentRequest, SchemaVersion: "1.0.0", Binding: policy.Binding, Configuration: policy.Configuration, EnvironmentBindings: policy.EnvironmentBindings, Action: in.Action, ExpectedStateRevision: in.ExpectedStateRevision, RecoveryEpoch: in.RecoveryEpoch, IdempotencyKey: in.IdempotencyKey, ReasonDigest: in.ReasonDigest}
+	out = generated.ServiceDeploymentRequest{Schema: generated.SchemaIDServiceDeploymentRequest, SchemaVersion: "1.0.0", Binding: policy.Binding, Configuration: policy.Configuration, EnvironmentBindings: policy.EnvironmentBindings, Action: in.Action, Recovery: in.Recovery, ExpectedStateRevision: in.ExpectedStateRevision, RecoveryEpoch: in.RecoveryEpoch, IdempotencyKey: in.IdempotencyKey, ReasonDigest: in.ReasonDigest}
 	for _, a := range policy.Artifacts {
 		if a.ArtifactID == in.ArtifactID {
 			out.Artifact = a

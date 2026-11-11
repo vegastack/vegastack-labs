@@ -41,7 +41,7 @@ func newDeploymentFixture(t *testing.T) (*registrationStoreFixture, *DeploymentR
 	in.RecoveryEpoch = revision.RecoveryEpoch
 	return f, NewDeploymentRepository(f.s), in
 }
-func seedDeploymentExecution(t *testing.T, f *registrationStoreFixture, in generated.ServiceDeploymentRequest) ServiceDeploymentApply {
+func seedDeploymentExecution(t *testing.T, f *registrationStoreFixture, in generated.ServiceDeploymentRequest, suffix ...string) ServiceDeploymentApply {
 	t.Helper()
 	exec := func(q string, a ...any) {
 		t.Helper()
@@ -53,6 +53,10 @@ func seedDeploymentExecution(t *testing.T, f *registrationStoreFixture, in gener
 	stage, err := r.Stage(f.ctx, in)
 	if err != nil {
 		t.Fatal(err)
+	}
+	tail := ""
+	if len(suffix) > 0 {
+		tail = suffix[0]
 	}
 	now := f.s.config.Clock().UTC().Truncate(time.Second)
 	digest := servicecatalog.Digest(in)
@@ -84,11 +88,11 @@ func seedDeploymentExecution(t *testing.T, f *registrationStoreFixture, in gener
 	if !decodeStoredPlan(raw, "readable\n", &checked) {
 		t.Fatal("fixture plan invalid")
 	}
-	exec(`INSERT INTO immutable_plans VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, p.PlanID, p.PlanDigest, p.DeclarationID, 2, p.Binding.StateRevision, p.Binding.RecoveryEpoch, p.Binding.ObservationFingerprint, servicecatalog.Digest("deploy-key"), digest, raw, "readable\n", p.ReadableDigest, p.CreatedAt, p.ExpiresAt)
-	const runID = "deployment-run"
-	const stepID = "deployment-step"
-	const leaseID = "deployment-lease"
-	const ackID = "deployment-ack"
+	exec(`INSERT INTO immutable_plans VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, p.PlanID, p.PlanDigest, p.DeclarationID, 2, p.Binding.StateRevision, p.Binding.RecoveryEpoch, p.Binding.ObservationFingerprint, servicecatalog.Digest("deploy-key"+tail), digest, raw, "readable\n", p.ReadableDigest, p.CreatedAt, p.ExpiresAt)
+	runID := "deployment-run" + tail
+	stepID := "deployment-step" + tail
+	leaseID := "deployment-lease" + tail
+	ackID := "deployment-ack" + tail
 	exec(`INSERT INTO acknowledgement_requests VALUES(?,?,?,?,?,'operator-a','fixture-authority',?,0,0,'later','approved',?,?,'now','now','now')`, ackID, p.PlanID, p.PlanDigest, digest, digest, digest, []byte(`{}`), []byte(`{}`))
 	exec(`INSERT INTO plan_runs VALUES(?,?,?,'decision',?,'1.0.0','central','executor-central',?,'running',0,'not-requested','pending',NULL,0,?,0,?,?,?,'now','now')`, runID, p.PlanID, p.PlanDigest, ackID, digest, p.Binding.StateRevision, digest, digest, []byte(`{}`))
 	exec(`INSERT INTO plan_run_steps(step_id,run_id,sequence,operation_id,operation_type,adapter_id,executor_id,target_id,input_digest,artifact_digest,idempotent,status,effect_state,active_lease_id,result_digest,started_at,finished_at) VALUES(?,?,1,?,?,?,'executor-central',?,?,?,0,'running','intent-recorded',?,NULL,'now',NULL)`, stepID, runID, servicecatalog.DeploymentOperationID, servicecatalog.DeploymentOperation, servicecatalog.DeploymentAdapterID, in.Definition.ServiceID, digest, digest, leaseID)

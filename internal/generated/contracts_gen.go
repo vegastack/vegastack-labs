@@ -428,6 +428,7 @@ const (
 	SchemaIDServiceDeploymentDraftRequest          = "vegastack-labs.dev/service-deployment-draft-request"
 	SchemaIDServiceDeploymentProviderBinding       = "vegastack-labs.dev/service-deployment-provider-binding"
 	SchemaIDServiceDeploymentRecord                = "vegastack-labs.dev/service-deployment-record"
+	SchemaIDServiceDeploymentRecovery              = "vegastack-labs.dev/service-deployment-recovery"
 	SchemaIDServiceDeploymentRequest               = "vegastack-labs.dev/service-deployment-request"
 	SchemaIDServiceEnvironmentSecret               = "vegastack-labs.dev/service-environment-secret"
 	SchemaIDServiceImportDraftRequest              = "vegastack-labs.dev/service-import-draft-request"
@@ -6042,15 +6043,16 @@ type ServiceDeploymentBinding struct {
 }
 
 type ServiceDeploymentDraftRequest struct {
-	Schema                string `json:"schema"`
-	SchemaVersion         string `json:"schemaVersion"`
-	ServiceID             string `json:"serviceId"`
-	ArtifactID            string `json:"artifactId"`
-	Action                string `json:"action"`
-	ExpectedStateRevision int64  `json:"expectedStateRevision"`
-	RecoveryEpoch         int64  `json:"recoveryEpoch"`
-	IdempotencyKey        string `json:"idempotencyKey"`
-	ReasonDigest          string `json:"reasonDigest"`
+	Schema                string                     `json:"schema"`
+	SchemaVersion         string                     `json:"schemaVersion"`
+	Recovery              *ServiceDeploymentRecovery `json:"recovery,omitempty"`
+	ServiceID             string                     `json:"serviceId"`
+	ArtifactID            string                     `json:"artifactId"`
+	Action                string                     `json:"action"`
+	ExpectedStateRevision int64                      `json:"expectedStateRevision"`
+	RecoveryEpoch         int64                      `json:"recoveryEpoch"`
+	IdempotencyKey        string                     `json:"idempotencyKey"`
+	ReasonDigest          string                     `json:"reasonDigest"`
 }
 
 type ServiceDeploymentProviderBinding struct {
@@ -6087,9 +6089,20 @@ type ServiceDeploymentRecord struct {
 	CompletedAt       string                   `json:"completedAt"`
 }
 
+type ServiceDeploymentRecovery struct {
+	Schema             string `json:"schema"`
+	SchemaVersion      string `json:"schemaVersion"`
+	PriorPlanID        string `json:"priorPlanId"`
+	PriorRunID         string `json:"priorRunId"`
+	PriorStepID        string `json:"priorStepId"`
+	PriorRequestDigest string `json:"priorRequestDigest"`
+	ProviderReceiptID  string `json:"providerReceiptId"`
+}
+
 type ServiceDeploymentRequest struct {
 	Schema                     string                     `json:"schema"`
 	SchemaVersion              string                     `json:"schemaVersion"`
+	Recovery                   *ServiceDeploymentRecovery `json:"recovery,omitempty"`
 	EnvironmentBindings        []ServiceEnvironmentSecret `json:"environmentBindings,omitempty"`
 	Configuration              *ServiceConfiguration      `json:"configuration,omitempty"`
 	Capacity                   *ServiceCapacity           `json:"capacity,omitempty"`

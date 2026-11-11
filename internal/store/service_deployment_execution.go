@@ -120,11 +120,17 @@ func (r *DeploymentRepository) Begin(ctx context.Context, in ServiceDeploymentAp
 			return err
 		}
 		var n int
-		if row(`SELECT COUNT(*) FROM service_deployment_attempts WHERE plan_id=? OR (run_id=? AND step_id=?) OR (service_id=? AND recovery_epoch=? AND status='attempted')`, in.PlanID, in.RunID, in.StepID, b.Definition.ServiceID, b.RecoveryEpoch).Scan(&n) != nil || n != 0 {
+		excludedPlan := ""
+		if b.Action == "reconcile" {
+			excludedPlan = b.Recovery.PriorPlanID
+		}
+		if row(`SELECT COUNT(*) FROM service_deployment_attempts WHERE plan_id=? OR (run_id=? AND step_id=?) OR (service_id=? AND recovery_epoch=? AND status='attempted' AND plan_id!=?)`, in.PlanID, in.RunID, in.StepID, b.Definition.ServiceID, b.RecoveryEpoch, excludedPlan).Scan(&n) != nil || n != 0 {
 			return actionError(generated.ErrorCodeStateConflict)
 		}
-		if err := reserveServiceCapacity(ctx, tx, *b, in.PlanID); err != nil {
-			return err
+		if b.Action != "reconcile" {
+			if err := reserveServiceCapacity(ctx, tx, *b, in.PlanID); err != nil {
+				return err
+			}
 		}
 		_, err := tx.ExecContext(ctx, `INSERT INTO service_deployment_attempts(plan_id,run_id,step_id,request_digest,service_id,recovery_epoch,status) VALUES(?,?,?,?,?,?,'attempted')`, in.PlanID, in.RunID, in.StepID, digest, b.Definition.ServiceID, b.RecoveryEpoch)
 		return err
@@ -143,6 +149,9 @@ func deploymentRecord(in generated.ServiceDeploymentRequest, apply ServiceDeploy
 		out.Status = "partial"
 	}
 	missingProof := out.ReceiptDigest == "" || out.RuntimeDigest == ""
+	if in.Action == "reconcile" && (in.Recovery == nil || out.ProviderReceiptID != in.Recovery.ProviderReceiptID) {
+		missingProof = true
+	}
 	if out.ReceiptDigest == "" {
 		out.ReceiptDigest = servicecatalog.Digest("no-receipt")
 	}
@@ -202,6 +211,11 @@ func (r *DeploymentRepository) Complete(ctx context.Context, in ServiceDeploymen
 		}
 		if record.Status == "succeeded" {
 			if err := r.validateDeploymentExecution(ctx, row, p.Plan, *b, in, r.store.config.Clock().UTC()); err != nil {
+				return err
+			}
+		}
+		if record.Status == "succeeded" {
+			if err := settleDeploymentRecovery(ctx, tx, *b); err != nil {
 				return err
 			}
 		}

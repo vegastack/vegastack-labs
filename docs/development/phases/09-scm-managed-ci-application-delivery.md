@@ -1,5 +1,7 @@
 # Phase 9 — SCM, managed CI and application delivery
 
+The existing deployment workflow now supports an explicitly selected observation-only reconciliation of an incomplete deployment attempt with no completion record or an exact selected latest partial result. A fresh current human-approved plan must adopt the exact prior attempt and finished provider receipt and verify the signed image, runtime health and limits independently. It never redeploys or rewrites the original partial run. This source work alone is not live reconciliation evidence and does not close Phase 9; the amended manual finish line and all deferrals below remain unchanged.
+
 ## Current manual delivery scope — 09-11-2026
 
 (omkarmohanta09) selected signed manual delivery and explicitly deferred managed CI. This amends the immediate Phase 9 finish line under [D-134](../../decisions-and-sources.md#d-134); original assigned-job, CI signing/isolation and runner cleanup acceptance remains deferred under [Module 4](https://github.com/vegastack/vegastack-labs/issues/10). Earlier CI descriptions below preserve implementation history and do not override this current scope. Phase 9 remains open until [the amended acceptance owner](https://github.com/vegastack/vegastack-labs/issues/317) has actual live evidence.

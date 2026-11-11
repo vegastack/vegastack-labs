@@ -11,6 +11,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/identity"
 	"github.com/vegastack/vegastack-labs/internal/principal"
 	"github.com/vegastack/vegastack-labs/internal/result"
+	"github.com/vegastack/vegastack-labs/internal/servicecatalog"
 	"github.com/vegastack/vegastack-labs/internal/store"
 )
 
@@ -37,7 +38,7 @@ func (app *Application) serviceDeploymentDraft(c ServiceDeploymentOperations) fu
 	return func(w http.ResponseWriter, r *http.Request, _ authorization.ReadScope, _ map[string]string) {
 		const op = "api.v1.services.deployment-drafts.create"
 		var input generated.ServiceDeploymentDraftRequest
-		if err := decodeOperationRequest(r, 16384, []string{"schema", "schemaVersion", "serviceId", "artifactId", "action", "expectedStateRevision", "recoveryEpoch", "idempotencyKey", "reasonDigest"}, &input); err != nil {
+		if err := decodeOperationRequest(r, 16384, []string{"schema", "schemaVersion", "serviceId", "artifactId", "action", "expectedStateRevision", "recoveryEpoch", "idempotencyKey", "reasonDigest"}, &input, "recovery"); err != nil {
 			app.failure(w, op, err)
 			return
 		}
@@ -57,7 +58,7 @@ func (app *Application) serviceDeploymentDraft(c ServiceDeploymentOperations) fu
 			app.failure(w, op, err)
 			return
 		}
-		if prepared.Definition.ServiceID != input.ServiceID || prepared.Artifact.ArtifactID != input.ArtifactID || prepared.Action != input.Action || prepared.ExpectedStateRevision != input.ExpectedStateRevision || prepared.RecoveryEpoch != input.RecoveryEpoch || prepared.IdempotencyKey != input.IdempotencyKey || prepared.ReasonDigest != input.ReasonDigest {
+		if prepared.Definition.ServiceID != input.ServiceID || prepared.Artifact.ArtifactID != input.ArtifactID || prepared.Action != input.Action || prepared.ExpectedStateRevision != input.ExpectedStateRevision || prepared.RecoveryEpoch != input.RecoveryEpoch || prepared.IdempotencyKey != input.IdempotencyKey || prepared.ReasonDigest != input.ReasonDigest || servicecatalog.Digest(prepared.Recovery) != servicecatalog.Digest(input.Recovery) {
 			app.failure(w, op, apiFailure(generated.ErrorCodeIntegrityFailure, "service-request"))
 			return
 		}
