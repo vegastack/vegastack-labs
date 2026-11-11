@@ -1,6 +1,18 @@
 # Phase 10 — Operations, monitoring and agent/manual workflows
 
-Status on 28-10-2026: source deliveries #323, #325 and #326 were merged in PR #329 after the required combined exact-head checks passed. Maintenance issue #324 and live acceptance remain open. This phase is not accepted as complete. The existing simplicity mandate, protected-host exclusion and separate source/live authority boundaries remain controlling.
+Historical source status on 28-10-2026: source deliveries #323, #325 and #326 were merged in PR #329 after the required combined exact-head checks passed. Maintenance issue #324 and live acceptance remain open. This phase is not accepted as complete. The existing simplicity mandate, protected-host exclusion and separate source/live authority boundaries remain controlling.
+
+## Current working acceptance — 11-11-2026
+
+The operator approved finishing useful working operations while keeping all prior deferrals, then explicitly requested reconciliation of the original Phase10 plan against delivered work. This amends the immediate finish line; original full Phase10 and full-v1 acceptance remain unpassed wherever live/native proof is missing. The original requirements and source deliveries below remain intact.
+
+The selected finish line is truthful installed read status and diagnosis, existing source-proven maintenance/incident preparation, equivalent documented command procedures, and complete original-versus-delivered evidence accounting. The installed `operations status` JSON/human forms were run through the protected controller profile at 11-11-2026 11:49:47 AM IST on source `990ee406`; both succeeded and agreed, including notifications disabled. This was a persisted-state read, with no provider/managed-host refresh. An empty alert list is not a healthy-fleet result. Earlier actual status/doctor/recorded-maintenance diagnosis is reused only for its stated read-only boundary; stale evidence is not a current service failure.
+
+Maintenance/incident preparation and exact one-host repair delegation retain their existing software/fixture proof. This continuation does not claim an actual live maintenance/incident draft, host repair, drain, canary progression or emergency recovery. Aggregate execution remains unsupported. Native Codex discovery remains metadata discovery only; full manual/profile/peer/native custody and vendor-runtime qualification remain deferred.
+
+All26 original software requirement numbers remain mapped in the [software acceptance map](../phase-10-software-acceptance.md). [deferred original acceptance #400](https://github.com/vegastack/vegastack-labs/issues/400) is OPEN/blocked outside the immediate working milestone and retains actual maintenance/canary/drain/recovery, monitoring/G-011/R2/Worker/independent outage detection/human read, and native/full manual acceptance. Open modules [#14](https://github.com/vegastack/vegastack-labs/issues/14) and [#15](https://github.com/vegastack/vegastack-labs/issues/15) remain umbrella owners. Closing #324 or an amended working milestone cannot close those obligations.
+
+[Phase9's amended signed manual delivery is complete](https://github.com/vegastack/vegastack-labs/issues/317#issuecomment-6788224444); original managedCI/PAT/runner/SBOM/provenance remains deferred under open #10/#383/#385. Alerts/status/R2/Worker activation, Slack-card repair, public Tunnel, Mac, encryption/full-native/thermal/advanced hardening/recovery remain deferred. Nodes04/05 stay excluded.
 
 ## Requirements and solution
 
@@ -36,4 +48,4 @@ Phase 6 native, macOS/iMac and advanced-recovery deferrals remain unchanged. Nei
 
 Phase 10 software acceptance must map each implemented requirement to actual induced failure/recovery, alert/delivery dedupe, site-silence, source-staleness, maintenance failure/recovery, secret/provider/self-approval denial, instruction generation and manual-parity evidence. Missing capabilities remain open in the table above. Text hashes cannot replace native runtime proof, plan preparation cannot replace execution proof, and missing provider credentials cannot be called a successful live test.
 
-Live activation additionally requires its applicable current gate evidence and separately scoped approval. Phase 9's blocked real delivery demonstration and prior live deployment gates are neither bypassed nor declared passed by this source work.
+Live activation additionally requires its applicable current gate evidence and separately scoped approval. The amended Phase9 manual delivery has its own actual completion evidence linked above. Prior live deployment gates and the original managedCI acceptance are not passed by this Phase10 source work.
