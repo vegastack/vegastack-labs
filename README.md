@@ -157,6 +157,7 @@ JSON output is the exact validated API envelope, while human output uses the sam
 
 ## Documentation map
 
+- [Local cluster operating guide](docs/operator-local-cluster.md) — everyday inspection, registration preparation, recorded failures and the current pilot controller-maintenance limits. [Working acceptance](docs/development/phases/11-local-working-product-acceptance.md) distinguishes completed proof from deferred full-v1 work.
 - [Portable product lifecycle](docs/platform-lifecycle.md) — generic OSS setup, account-free read/preparation and recovery, Slack-only v1 human acknowledgement, profile boundaries, enrollment and safe exit.
 - [Architecture and networking](docs/architecture-and-networking.md) — LAN, ES216G/HX510, Mesh, Tunnel, names, Coolify and CI.
 - [Network device capabilities and operations](docs/network-device-operations.md) — researched ES216G/HX510 limits, DHCP ownership, guided device operations, diagnostics and recovery; exact firmware/UI behavior remains qualification evidence.
