@@ -10230,6 +10230,11 @@
       "artifactPath": "schemas/v1/service-deployment-record.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/service-deployment-recovery",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/service-deployment-recovery.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/service-deployment-request",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/service-deployment-request.schema.json"

@@ -48,6 +48,9 @@ type DeploymentOutcome struct {
 }
 
 func ValidateDeploymentRequest(r generated.ServiceDeploymentRequest) error {
+	if (r.Action == "reconcile") != (r.Recovery != nil) {
+		return failure.New(generated.ErrorCodeInputInvalid, "service-deployment", false)
+	}
 	raw, err := json.Marshal(r)
 	if err != nil || generated.ValidateContractJSON(generated.SchemaIDServiceDeploymentRequest, raw, generated.ContractExact) != nil || r.Binding.ServiceID != r.Definition.ServiceID || r.Binding.BindingID != r.Definition.BindingID || r.Artifact.ManifestSHA != r.Artifact.Digest || r.ArtifactProofDigest != Digest(r.Artifact) {
 		return failure.New(generated.ErrorCodeInputInvalid, "service-deployment", false)

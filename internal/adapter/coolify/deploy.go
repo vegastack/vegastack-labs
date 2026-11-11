@@ -29,6 +29,7 @@ type ImageDeploymentRequest struct {
 // DeploymentReceipt records provider acknowledgement, never runtime digest proof.
 // A nonempty attempted stage must be persisted even when the call returns an error.
 type DeploymentReceipt struct {
+	CreatedAt             string `json:"created_at,omitempty"`
 	ApplicationUUID       string `json:"application_uuid"`
 	DeploymentUUID        string `json:"deployment_uuid,omitempty"`
 	Stage                 string `json:"stage"`

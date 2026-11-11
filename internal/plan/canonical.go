@@ -57,6 +57,9 @@ func readablePlan(plan generated.Plan) string {
 	if plan.ServiceDeployment != nil {
 		raw, _, _ := stateexport.CanonicalJSON(plan.ServiceDeployment)
 		d := plan.ServiceDeployment
+		if d.Action == "reconcile" {
+			fmt.Fprintln(&body, "Observe/reconcile existing deployment; no redeployment. Adopt only the selected prior receipt after current independent verification; original partial run remains historical.")
+		}
 		fmt.Fprintf(&body, "Service %s in %s: %s %s@%s on host %s\nProtected configuration: %s; data policy: %s; previous deployment revision: %d\nExact service deployment intent: %s\nRequires running exact image digest and Docker health verification. Rollback requires a separate approved plan.\n", d.Definition.ServiceID, d.Definition.EnvironmentID, d.Action, d.Artifact.Repository, d.Artifact.Digest, d.Definition.HostID, d.Binding.ConfigurationDigest, d.Binding.DataPolicy, d.ExpectedDeploymentRevision, raw)
 	}
 	if plan.CIJob != nil {

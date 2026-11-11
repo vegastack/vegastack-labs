@@ -8,6 +8,16 @@
 
 — approved by (omkarmohanta09) · built by Codex · branch fix/317-cancelled-store-connection
 
+## 11-11-2026 — Reconcile a working deployment without replaying it ([#317](https://github.com/vegastack/vegastack-labs/issues/317))
+
+- **What:** Added observation-only reconciliation to the existing deployment draft, plan and executor. The request names the exact earlier attempt and provider receipt; it requires a fresh current human acknowledgement.
+- **Why:** A cancelled database transaction interrupted completion recording even though the provider had deployed the signed image successfully. A healthy application could not truthfully replace the missing engine record, and replaying the original write was unsafe.
+- **How it went:** Focused real-SQLite tests preserve the old partial run, reject cross-target/history and duplicate recovery, and allow a fresh precise observation after a failed read. The provider path permits GET only and never borrows the mutation credential. Source proof does not claim live reconciliation or native qualification.
+- **Changed:** Optional typed recovery selector · bounded exact receipt observation · atomic new verified record linked to the old attempt · no new command, service, schema version, migration or approval bypass.
+- **Decisions:** Keep the original unknown outcome and all existing deferrals visible. No new Slack request or live action is included in this source change.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/317-deployment-reconciliation
+
 ## 10-11-2026 — Preserve the signed manual image's native healthcheck ([#317](https://github.com/vegastack/vegastack-labs/issues/317))
 
 - **What:** The exact manual delivery branch disables only Coolify's generated shell probe, preserving the signed image's exec-form native healthcheck and its 30-second interval.
