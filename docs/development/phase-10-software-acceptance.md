@@ -1,8 +1,24 @@
 # Phase 10 software acceptance map
 
+## Current working scope — 11-11-2026
+
+The operator approved finishing the useful Phase 10 operator workflows first: installed read-only operational inspection, truthful healthy/stale/unknown/unavailable results, maintenance diagnosis, inert maintenance preparation and incident-recording procedures. Track this work and the original acceptance comparison in #324. Actual host repair, patching, reboot, drain and failed-canary execution are not required or claimed by this working scope.
+
+The original software requirement map and historical run evidence below remain intact. Closing an amended working scope does not pass the full original Phase 10 acceptance. Alerts and delivery routes, R2/Worker/status projection, Slack-button repair, public Tunnel, native agent execution/trust/precedence and full native/manual qualification remain deferred or unproven as described below. No new live result is asserted by this scope amendment; installed operator-command evidence must identify its actual receipts before acceptance.
+
+Phase 9's amended signed manual-delivery scope is [complete and closed](https://github.com/vegastack/vegastack-labs/issues/317#issuecomment-6788224444). Original managed CI and its credentials, runner enrollment and CI provenance requirements remain deferred and open; the manual delivery result does not establish them.
+
+## Historical software evidence
+
 Status on 02-11-2026: this maps each Phase 10 software requirement to the isolated test that proves it, on merged `main` at commit `e176c607`. It is **software and fixture evidence only**. It records no live target, provider, credential, host or VM operation and does not pass any live gate. The protected hosts `vsk-node-04` and `vsk-node-05` were not involved.
 
 Tests that only build on Linux (for example `notification_readiness_workflow_linux_test.go`) were not executed on the macOS development machine that produced this map; they are marked.
+
+## Current working evidence and residual owner
+
+At 11-11-2026 11:49:47 AM IST, installed source `990ee406` executed the existing `operations status` command in JSON and human form through its protected operator profile. Both succeeded and agreed on persisted results, including notifications disabled. No provider refresh, managed-host access, credential/configuration change or Slack request occurred. This establishes those two actual standalone read invocations, not live alert delivery, fleet health, broad protected-profile/OS-peer qualification or vendor-runtime behavior. Previous installed status/doctor/recorded-maintenance observations remain evidence only for their actual bounded commands.
+
+The complete original comparison retains all26 software numbers below. Rows18–22 prove maintenance diagnosis, inert preparation, exact one-host request delegation and denial behavior in software; this continuation does not claim an actual live maintenance/incident draft or execution. Original real maintenance/drain/canary/recovery, live monitoring/G-011/R2/Worker/outage/human-read and native/full manual acceptance remain explicitly OPEN/unpassed in [deferred original acceptance #400](https://github.com/vegastack/vegastack-labs/issues/400). Source owners #323/#325/#326 being closed does not activate their providers or qualify native agents. #324 may close only for the selected working scope; #400 stays open outside that immediate milestone.
 
 ## Result of the run
 
@@ -56,7 +72,7 @@ These stay **open**. A software test does not close them, and a missing provider
 - **Native agent activation, trust and precedence:** installed Codex discovery is now checked below, but Codex execution/precedence, Claude runtime behavior and Hermes remain unproven. Generated-text hashes do not supply this evidence.
 - **Full manual-procedure acceptance:** the CLI/API command rehearsal below compares human and JSON status through the same isolated failure/recovery scenario. Standalone executable, protected-profile loading, OS-peer authentication and live/manual rehearsal remain unqualified.
 - **Standalone executable and live/provider/native credential composition** remain unproven. The connected workflow below covers the CLI parser, local HTTP client and API/server path with explicitly injected profile and peer identity.
-- Phase 9's blocked real delivery demonstration (#317) is neither bypassed nor declared passed.
+- Phase 9's amended signed manual-delivery demonstration is complete, as linked above. Original managed CI acceptance remains deferred and open; it is not a Phase 10 working-scope completion claim.
 
 ## Connected server workflow — 02-11-2026 continuation
 
