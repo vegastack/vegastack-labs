@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { fixtureAudit, installReadFixture } from "./api-fixture";
 
 const ORIGIN = "http://127.0.0.1:4173";
-const GENERATED_READ_PATH = /^(?:\/api\/v1\/(?:summary|sources|health|database\/status|events|gates|backups\/status|recovery-points|audit-checkpoints|audit-history\/verification|restore-plans|scheduled-job-policies|scheduled-jobs)|\/api\/v1\/plans\/[^/]+|\/api\/v1\/inventory-drafts(?:\/[^/]+\/revisions\/\d+(?:\/(?:assets|nodes|aliases|observations)(?:\/[^/]+)?)?)?)$/;
+const GENERATED_READ_PATH = /^(?:\/api\/v1\/(?:summary|sources|hosts|people|services|providers|health|database\/status|events|gates|backups\/status|recovery-points|audit-checkpoints|audit-history\/verification|restore-plans|scheduled-job-policies|scheduled-jobs)|\/api\/v1\/plans\/[^/]+|\/api\/v1\/inventory-drafts(?:\/[^/]+\/revisions\/\d+(?:\/(?:assets|nodes|aliases|observations)(?:\/[^/]+)?)?)?)$/;
 const GENERATED_PHASE5_WRITE_PATH = /^\/api\/v1\/(?:gates\/[^/]+\/(?:check|evidence)|recovery-points\/[^/]+\/restore-drafts)$/;
 const SOURCE_IDS = new Set(["database", "nodes", "gates", "people", "services", "backups", "providers"]);
 const SOURCE_STATES = new Set(["healthy", "stale", "unknown", "unavailable", "failed"]);
@@ -37,6 +37,7 @@ function isGeneratedReadRequest(url: URL) {
   if (!GENERATED_READ_PATH.test(url.pathname) || !validGeneratedPath(url.pathname)) return false;
   const keys = [...url.searchParams.keys()];
   if (new Set(keys).size !== keys.length) return false;
+  if (["/api/v1/people", "/api/v1/services"].includes(url.pathname)) return keys.every(key => ["after", "limit"].includes(key)) && validLength(url.searchParams.get("after"), 128) && (url.searchParams.get("limit") === null || (/^[1-9]\d*$/.test(url.searchParams.get("limit")!) && Number(url.searchParams.get("limit")) <= 100));
   if (url.pathname === "/api/v1/sources") return keys.every(key => ["cursor", "limit", "sort", "source", "state"].includes(key))
     && validLimit(url.searchParams.get("limit"))
     && validLength(url.searchParams.get("cursor"), 2048)
@@ -93,7 +94,7 @@ test("skip link, focus order, and named landmarks work", async ({ page }) => {
 
 test("each route has a unique browser title", async ({ page }) => {
   const { assertClean } = monitorBrowser(page);
-  const routes = new Map([["/", "Overview"], ["/nodes", "Nodes — VegaStack Labs Console"], ["/people", "People — VegaStack Labs Console"], ["/services", "Services — VegaStack Labs Console"], ["/backups", "Backups — VegaStack Labs Console"], ["/audit", "Audit — VegaStack Labs Console"], ["/providers", "Providers — VegaStack Labs Console"], ["/gates", "Gates — VegaStack Labs Console"], ["/changes", "Changes — VegaStack Labs Console"], ["/dashboard", "Console foundation — VegaStack Labs Console"], ["/states", "Foundation states — VegaStack Labs Console"], ["/unavailable", "Service unavailable — VegaStack Labs Console"]]);
+  const routes = new Map([["/", "Overview"], ["/nodes", "Nodes — VegaStack Labs Console"], ["/people", "People — VegaStack Labs Console"], ["/services", "Services — VegaStack Labs Console"], ["/backups", "Backups — VegaStack Labs Console"], ["/audit", "Audit — VegaStack Labs Console"], ["/providers", "Providers — VegaStack Labs Console"], ["/gates", "Gates — VegaStack Labs Console"], ["/changes", "Changes — VegaStack Labs Console"], ["/dashboard", "Overview shortcut — VegaStack Labs Console"], ["/states", "Foundation states — VegaStack Labs Console"], ["/unavailable", "Service unavailable — VegaStack Labs Console"]]);
   const titles = new Set<string>();
   for (const [route, title] of routes) {
     await page.goto(route, { waitUntil: "networkidle" });
@@ -124,6 +125,7 @@ test("generated Gates GET stays clean while unreviewed gate requests are detecte
 test("truthful empty, loading, error, and unavailable states render", async ({ page }) => {
   const { assertClean } = monitorBrowser(page);
   await page.goto("/");
+  await page.getByText("Technical details", { exact: true }).click();
   await expect(page.getByText(/State revision 8/i)).toBeVisible();
   await page.goto("/states");
   for (const kind of ["loading", "empty", "error", "unavailable"]) await expect(page.locator(`[data-console-state="${kind}"]`)).toBeVisible();

@@ -27,6 +27,14 @@ export function formatConsoleTime(value: string | null): string {
  */
 export function SourceStatus({ source }: { source: ApiSourceData }) {
   const display = sourceDisplay(source.state);
+  const label = { healthy: "Recent observation", stale: "Older observation", unknown: "Time not recorded", unavailable: "Not reported", failed: "Collection failed" }[source.state];
+  const explanation = {
+    healthy: "A recent observation is recorded for this source.",
+    stale: "The saved observation is older than its freshness limit. This does not, by itself, mean the service is down.",
+    unknown: "This summary has no observation time. Open the relevant page to inspect its available records.",
+    unavailable: "This source is not reporting observations. Its page may still provide authorized records.",
+    failed: "The source reported a collection failure. Inspect its page for the recorded reason and next action.",
+  }[source.state];
   return (
     <div className="flex flex-col gap-2" data-source-state={source.state}>
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -35,13 +43,13 @@ export function SourceStatus({ source }: { source: ApiSourceData }) {
           <span className="min-w-0 truncate text-sm font-medium capitalize text-foreground">{source.id}</span>
         </div>
         <Badge intent={display.intent} size="md">
-          {display.label}
+          {label}
         </Badge>
       </div>
-      {source.reason ? <p className="text-sm text-muted-foreground">{source.reason}</p> : null}
-      <p className="text-xs text-muted-foreground">Collected: {formatConsoleTime(source.collectedAt)}</p>
-      <p className="text-xs text-muted-foreground">Last success: {formatConsoleTime(source.lastSuccessAt)}</p>
-      <p className="text-xs text-muted-foreground">Last error: {formatConsoleTime(source.lastErrorAt)}</p>
+      <p className="text-sm text-muted-foreground">{explanation}</p>
+      {source.collectedAt ? <p className="text-xs text-muted-foreground">Recorded: {formatConsoleTime(source.collectedAt)}</p> : null}
+      {source.lastSuccessAt && source.lastSuccessAt !== source.collectedAt ? <p className="text-xs text-muted-foreground">Last success: {formatConsoleTime(source.lastSuccessAt)}</p> : null}
+      {source.lastErrorAt ? <p className="text-xs text-muted-foreground">Last recorded error: {formatConsoleTime(source.lastErrorAt)}</p> : null}
     </div>
   );
 }

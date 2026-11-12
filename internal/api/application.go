@@ -141,7 +141,7 @@ func (app *Application) Health(ctx context.Context) (readmodel.ApplicationHealth
 	if err != nil {
 		return readmodel.ApplicationHealth{}, err
 	}
-	out := readmodel.ApplicationHealth{SafeMode: health.Mode == store.DatabaseSafeMode, RecoveryEpoch: health.Revision.RecoveryEpoch, StateRevision: health.Revision.StateRevision}
+	out := readmodel.ApplicationHealth{MutationEnabled: health.MutationEnabled && health.Mode == store.DatabaseReady && !health.RecoveryPending, SafeMode: health.Mode == store.DatabaseSafeMode, RecoveryEpoch: health.Revision.RecoveryEpoch, StateRevision: health.Revision.StateRevision}
 	if source, ok := app.config.Authority.(interface {
 		CurrentAuthority(context.Context) (store.AuthorityState, error)
 	}); ok && !out.SafeMode {

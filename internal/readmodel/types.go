@@ -14,10 +14,12 @@ type RevisionToken struct {
 }
 
 type ApplicationHealth struct {
-	InstanceID    string
-	SafeMode      bool
-	RecoveryEpoch int64
-	StateRevision int64
+	// MutationEnabled describes the local engine, never caller authorization.
+	MutationEnabled bool
+	InstanceID      string
+	SafeMode        bool
+	RecoveryEpoch   int64
+	StateRevision   int64
 }
 
 type DatabaseStatus struct {

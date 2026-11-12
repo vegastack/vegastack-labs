@@ -6,13 +6,13 @@ test("registered hosts appear automatically and can be inspected without enterin
  await installReadFixture(page);let count=0;
  await page.route("**/api/v1/hosts",route=>{count++;return route.fulfill({json:envelope("api.v1.hosts.list",{schema:"vegastack-labs.dev/managed-host-list",schemaVersion:"1.0.0",hosts:[host],stateRevision:3,recoveryEpoch:0})});});
  await page.route("**/api/v1/hosts/host-a",route=>route.fulfill({json:envelope("api.v1.hosts.get",host)}));
- await page.route("**/api/v1/gates/host.*",route=>route.fulfill({status:503,json:{...envelope("api.v1.gates.get",null),status:"failed",errors:[{code:"DEPENDENCY_UNAVAILABLE",message:"Admission unavailable.",retryable:false}]}}));
+ await page.route("**/api/v1/gates/host.*",route=>route.fulfill({status:503,json:{...envelope("api.v1.gates.get",{}),status:"failed",errors:[{code:"DEPENDENCY_UNAVAILABLE",target:"host-admission",retryable:false}]}}));
  await page.goto("/nodes");
  await expect(page.getByRole("list",{name:"Registered host list"})).toContainText("host-a");
  await expect(page.getByRole("list",{name:"Registered host list"})).toContainText("Workload admission requires current checks");
  await page.screenshot({path:info.outputPath("registered-host-list.png"),fullPage:true});
  await page.getByRole("button",{name:"Inspect host-a",exact:true}).click();
- await expect(page.getByText("Host host-a: adopted-unadmitted",{exact:true})).toBeVisible();expect(count).toBe(1);
+ await expect(page.getByText("Host host-a: adopted-unadmitted",{exact:true})).toBeVisible();await expect(page.getByText("Admission could not be read. Workload qualification is unknown.", {exact:true})).toBeVisible();expect(count).toBe(1);
 });
 test("empty and unavailable registered lists are distinct and refresh explicitly",async({page})=>{
  await installReadFixture(page);let calls=0;
@@ -23,7 +23,7 @@ test("empty and unavailable registered lists are distinct and refresh explicitly
 });
 test("revoking collection access removes previously displayed registrations",async({page})=>{
  await installReadFixture(page);let revoked=false;
- await page.route("**/api/v1/hosts",route=>revoked?route.fulfill({status:403,json:{...envelope("api.v1.hosts.list",null),status:"failed",errors:[{code:"AUTHORIZATION_DENIED",message:"Current authority required.",retryable:false}]}}):route.fulfill({json:envelope("api.v1.hosts.list",{schema:"vegastack-labs.dev/managed-host-list",schemaVersion:"1.0.0",hosts:[host],stateRevision:3,recoveryEpoch:0})}));
+ await page.route("**/api/v1/hosts",route=>revoked?route.fulfill({status:403,json:{...envelope("api.v1.hosts.list",{}),status:"failed",errors:[{code:"AUTHORIZATION_DENIED",target:"hosts",retryable:false}]}}):route.fulfill({json:envelope("api.v1.hosts.list",{schema:"vegastack-labs.dev/managed-host-list",schemaVersion:"1.0.0",hosts:[host],stateRevision:3,recoveryEpoch:0})}));
  await page.goto("/nodes");await expect(page.getByRole("button",{name:"Inspect host-a",exact:true})).toBeVisible();revoked=true;
  await page.getByRole("button",{name:"Refresh registered hosts",exact:true}).click();
  await expect(page.getByRole("button",{name:"Inspect host-a",exact:true})).toHaveCount(0);

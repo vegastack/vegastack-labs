@@ -61,7 +61,8 @@ func (repository *ReadRepository) Summary(ctx context.Context, scope authorizati
 		mode = string(repository.store.health.Mode)
 		result.DatabaseMode = mode
 		result.ReadAvailable = true
-		result.MutationAvailable = false
+		// Engine availability is independent of the caller's mutation grants.
+		result.MutationAvailable = repository.store.health.MutationEnabled && repository.store.health.Mode == DatabaseReady && !repository.store.health.RecoveryPending
 		statuses, sourceErr := NewSourceRepository(repository.store).evaluate(ctx, tx, result.StateRevision)
 		if sourceErr != nil {
 			return sourceErr

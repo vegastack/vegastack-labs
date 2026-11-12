@@ -1,5 +1,7 @@
 "use client";
 
+import { formatConsoleTime } from "@/components/source-status";
+
 import { useEffect, useRef, useState } from "react";
 import { RefreshCw, Send } from "lucide-react";
 import { ReadClientError, type Plan, type RunPresentation } from "@/generated/read-api";
@@ -50,9 +52,11 @@ export function PlanReview({ view, observeApprovalInitially, executionKey, onApp
   }, [executionKey, onRunStarted, plan.planId, resolveRunAsync]);
 
   async function requestSlackApproval() {
-    await requestApproval.mutateAsync(plan);
-    setObserveApproval(true);
-    onApprovalRequested();
+    try {
+      await requestApproval.mutateAsync(plan);
+      setObserveApproval(true);
+      onApprovalRequested();
+    } catch { /* Keep the mutation error visible without creating acknowledgement state. */ }
   }
   async function startRun() {
     const refreshed = await approval.refetch();
@@ -93,7 +97,7 @@ export function PlanReview({ view, observeApprovalInitially, executionKey, onApp
           <PropertyRow><PropertyLabel>Plan ID</PropertyLabel><PropertyValue className="break-all font-mono text-xs">{plan.planId}</PropertyValue></PropertyRow>
           <PropertyRow><PropertyLabel>Plan digest</PropertyLabel><PropertyValue className="break-all font-mono text-xs">{plan.planDigest}</PropertyValue></PropertyRow>
           <PropertyRow><PropertyLabel>Readable digest</PropertyLabel><PropertyValue className="break-all font-mono text-xs">{plan.readableDigest}</PropertyValue></PropertyRow>
-          <PropertyRow><PropertyLabel>Expires</PropertyLabel><PropertyValue>{plan.expiresAt}</PropertyValue></PropertyRow>
+          <PropertyRow><PropertyLabel>Expires</PropertyLabel><PropertyValue>{formatConsoleTime(plan.expiresAt)}</PropertyValue></PropertyRow>
           <PropertyRow><PropertyLabel>Executor</PropertyLabel><PropertyValue>{plan.executorMode}{plan.executorId ? ` — ${plan.executorId}` : ""}</PropertyValue></PropertyRow>
           <PropertyRow><PropertyLabel>Expected interruption</PropertyLabel><PropertyValue>Execution may pause only at server-owned safe boundaries.</PropertyValue></PropertyRow>
           <PropertyRow><PropertyLabel>Verification and recovery</PropertyLabel><PropertyValue>The server records each step&apos;s verification result; inspect the durable run before any recovery action.</PropertyValue></PropertyRow>

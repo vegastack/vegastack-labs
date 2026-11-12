@@ -1,5 +1,7 @@
 "use client";
 
+import { formatConsoleTime } from "@/components/source-status";
+
 import type { ApprovalStatus as ApprovalStatusData } from "@/generated/read-api";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,8 +18,8 @@ export function ApprovalStatus({ approval }: { approval: ApprovalStatusData }) {
       <PropertyList>
         <PropertyRow><PropertyLabel>Approval owner</PropertyLabel><PropertyValue>Assigned maintainer</PropertyValue></PropertyRow>
         <PropertyRow><PropertyLabel>Channel</PropertyLabel><PropertyValue>Slack</PropertyValue></PropertyRow>
-        <PropertyRow><PropertyLabel>Expires</PropertyLabel><PropertyValue className="break-all">{approval.expiresAt}</PropertyValue></PropertyRow>
-        <PropertyRow><PropertyLabel>Observed</PropertyLabel><PropertyValue className="break-all">{approval.observedAt}</PropertyValue></PropertyRow>
+        <PropertyRow><PropertyLabel>Expires</PropertyLabel><PropertyValue className="break-all">{formatConsoleTime(approval.expiresAt)}</PropertyValue></PropertyRow>
+        <PropertyRow><PropertyLabel>Observed</PropertyLabel><PropertyValue className="break-all">{formatConsoleTime(approval.observedAt)}</PropertyValue></PropertyRow>
       </PropertyList>
       <p className="text-sm text-muted-foreground">This page only observes the server result. Approval happens outside the browser.</p>
     </CardContent>

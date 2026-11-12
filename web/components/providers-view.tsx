@@ -55,7 +55,8 @@ export function ProvidersView() {
           description="Configuration alone does not confirm a working connection."
         />
       ) : null}
-      {data ? (
+      {data && data.providers.length === 0 ? <ReadViewState kind="empty" title="No provider capabilities visible" description="No provider configuration is visible in your current read scope. This does not establish whether providers are connected or healthy." /> : null}
+      {data && data.providers.length > 0 ? (
         <ul
           aria-label="Provider capabilities"
           className="grid gap-4 sm:grid-cols-2"

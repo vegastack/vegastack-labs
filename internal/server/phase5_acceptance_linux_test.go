@@ -256,7 +256,7 @@ func (fixture *phase5BuiltRecoveryFixture) assertAvailable(t *testing.T, stage s
 	for deadline := time.Now().Add(7 * time.Second); time.Now().Before(deadline); {
 		status, err := client.Status(context.Background(), fixture.profile)
 		lastErr = err
-		if err == nil && status.ExitCode == 0 && status.Status.State == string(StateReady) && status.Status.ReadAvailable && !status.Status.MutationAvailable && status.Status.RecoveryEpoch == 1 {
+		if err == nil && status.ExitCode == 0 && status.Status.State == string(StateReady) && status.Status.ReadAvailable && status.Status.MutationAvailable && status.Status.RecoveryEpoch == 1 {
 			return
 		}
 		select {

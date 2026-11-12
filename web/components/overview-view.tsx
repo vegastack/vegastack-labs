@@ -1,6 +1,7 @@
 "use client";
 
 import { RefreshCw } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
@@ -28,7 +29,7 @@ export function OverviewView() {
     <>
       <PageHeader
         title="Overview"
-        description="Authorized read-only summary of the local control plane and its domain sources."
+        description="Check the controller and open the records you need."
         actions={
           <Button variant="outline" loading={view.isRefreshing} onClick={view.refresh}>
             <RefreshCw aria-hidden />
@@ -70,7 +71,7 @@ function OverviewContent({ summary, sources }: { summary: Overview["summary"]; s
         <section className="flex flex-col gap-3">
           <div className="grid gap-4 sm:grid-cols-3">
             <Stat>
-              <StatLabel>Database</StatLabel>
+              <StatLabel>Controller database</StatLabel>
               <StatValue className="capitalize">{summary.databaseMode.replace("-", " ")}</StatValue>
             </Stat>
             <Stat>
@@ -78,21 +79,35 @@ function OverviewContent({ summary, sources }: { summary: Overview["summary"]; s
               <StatValue>{summary.readAvailable ? "Available" : "Unavailable"}</StatValue>
             </Stat>
             <Stat>
-              <StatLabel>Mutations</StatLabel>
-              <StatValue>{summary.mutationAvailable ? "Available" : "Unavailable"}</StatValue>
+              <StatLabel>Change engine</StatLabel>
+              <StatValue>{summary.mutationAvailable ? "Ready for review" : "Read-only"}</StatValue>
             </Stat>
           </div>
-          <p className="text-sm text-muted-foreground">
-            State revision {summary.stateRevision} · Recovery epoch {summary.recoveryEpoch} · Drafts {summary.draftCount} ({summary.validDraftCount} valid, {summary.blockedDraftCount} blocked)
-          </p>
+          <p className="text-sm text-muted-foreground">Each change still requires its own permissions, checks and approval.</p>
+          <details className="text-sm text-muted-foreground">
+            <summary className="cursor-pointer">Technical details</summary>
+            <p>State revision {summary.stateRevision} · Recovery epoch {summary.recoveryEpoch} · Drafts {summary.draftCount} ({summary.validDraftCount} valid, {summary.blockedDraftCount} blocked)</p>
+          </details>
         </section>
       ) : null}
 
+      <section aria-label="Common tasks" className="grid gap-4 sm:grid-cols-3">
+        {[
+          { href: "/nodes", title: "Inspect nodes", description: "See registered machines and prepare onboarding." },
+          { href: "/services", title: "Inspect services", description: "Read application settings and recorded deployment results." },
+          { href: "/changes", title: "Inspect or prepare a change", description: "Open an existing run or review a proposed operation." },
+        ].map(task => <Card key={task.href}><CardContent><Link prefetch={false} href={task.href} className="font-medium underline">{task.title}</Link><p className="mt-2 text-sm text-muted-foreground">{task.description}</p></CardContent></Card>)}
+      </section>
+
       <section aria-labelledby="source-heading" className="flex flex-col gap-4">
         <h2 id="source-heading" className="text-h4 text-foreground">
-          Domain sources
+          Recorded information
         </h2>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <p className="text-sm text-muted-foreground">These are controller records, not live health checks of your machines or applications. Open a page to inspect its details.</p>
+        {sources.some(source => source.state === "failed") ? <p role="status" className="text-sm text-destructive">A source reported a collection failure. Open collection details for its recorded status.</p> : null}
+        <details>
+        <summary className="cursor-pointer text-sm font-medium">Collection details</summary>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {overviewSourceIds.map((id) => {
             const source = sources.find((candidate) => candidate.id === id);
             return (
@@ -103,14 +118,16 @@ function OverviewContent({ summary, sources }: { summary: Overview["summary"]; s
                   ) : (
                     <div className="flex flex-col gap-1.5" data-source-state="unknown">
                       <p className="text-sm font-medium capitalize text-foreground">{id}</p>
-                      <p className="text-sm text-muted-foreground">Not returned — no health can be inferred.</p>
+                      <p className="text-sm text-muted-foreground">No record was returned in your current access scope.</p>
                     </div>
                   )}
+                  {id !== "database" ? <Link prefetch={false} className="mt-3 inline-block text-sm underline" href={`/${id}`}>Open {id.charAt(0).toUpperCase() + id.slice(1)}</Link> : null}
                 </CardContent>
               </Card>
             );
           })}
         </div>
+        </details>
       </section>
     </div>
   );

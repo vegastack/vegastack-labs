@@ -256,7 +256,7 @@ func TestShutdownToleratesExpectedHTTPListenerDoubleClose(t *testing.T) {
 
 func TestServiceReportsAuthenticatedHealthAndRejectsSpoofHeaders(t *testing.T) {
 	listener := newTestListener(t, true)
-	application := &testApplication{health: ApplicationHealth{RecoveryEpoch: 7, StateRevision: 42}}
+	application := &testApplication{health: ApplicationHealth{MutationEnabled: true, RecoveryEpoch: 7, StateRevision: 42}}
 	service, err := New(Config{
 		Profile: testServerProfile(), Application: application, Results: testResultFactory(),
 		ListenerFactory: func(context.Context, localapi.ListenConfig) (localapi.Listener, error) { return listener, nil },
@@ -286,7 +286,7 @@ func TestServiceReportsAuthenticatedHealthAndRejectsSpoofHeaders(t *testing.T) {
 	}
 	_ = response.Body.Close()
 	var status generated.ServerStatusData
-	if err := json.Unmarshal(envelope.Data, &status); err != nil || status.State != "ready" || !status.ReadAvailable || status.MutationAvailable || status.RecoveryEpoch != 7 || status.StateRevision != 42 {
+	if err := json.Unmarshal(envelope.Data, &status); err != nil || status.State != "ready" || !status.ReadAvailable || !status.MutationAvailable || status.RecoveryEpoch != 7 || status.StateRevision != 42 {
 		t.Fatalf("health = %#v, %v", status, err)
 	}
 	request, _ := http.NewRequest(http.MethodGet, "http://"+listener.Addr().String()+"/api/v1/health", nil)
@@ -384,7 +384,7 @@ func TestServiceAuthenticatesBeforeReadingBody(t *testing.T) {
 }
 
 func TestServiceUnauthenticatedFailureDoesNotProbeOrDiscloseHealth(t *testing.T) {
-	application := &testApplication{health: ApplicationHealth{RecoveryEpoch: 7, StateRevision: 42}}
+	application := &testApplication{health: ApplicationHealth{MutationEnabled: true, RecoveryEpoch: 7, StateRevision: 42}}
 	service := &service{
 		config: Config{Application: application, Results: testResultFactory()},
 		state:  StateReady,

@@ -112,8 +112,8 @@ func TestSourceRepositoryFiltersEveryStateAndPaginatesBothDirections(t *testing.
 	wantByState := map[readmodel.SourceState][]readmodel.SourceID{
 		readmodel.SourceHealthy:     {readmodel.SourceBackups, readmodel.SourceDatabase},
 		readmodel.SourceStale:       {readmodel.SourcePeople},
-		readmodel.SourceUnknown:     {readmodel.SourceNodes},
-		readmodel.SourceUnavailable: {readmodel.SourceGates, readmodel.SourceProviders},
+		readmodel.SourceUnknown:     {readmodel.SourceGates, readmodel.SourceNodes, readmodel.SourceProviders},
+		readmodel.SourceUnavailable: {},
 		readmodel.SourceFailed:      {readmodel.SourceServices},
 	}
 	for state, want := range wantByState {

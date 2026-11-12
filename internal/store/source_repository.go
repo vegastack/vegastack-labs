@@ -93,7 +93,7 @@ func (repository *SourceRepository) evaluate(ctx context.Context, tx ReadTx, sta
 }
 
 func (repository *SourceRepository) evaluateAt(ctx context.Context, tx ReadTx, stateRevision int64, evaluationAt time.Time) ([]readmodel.SourceStatus, error) {
-	observations, err := repository.observations(ctx, tx, stateRevision)
+	observations, err := repository.observations(ctx, tx, stateRevision, evaluationAt)
 	if err != nil {
 		return nil, err
 	}
@@ -112,24 +112,41 @@ func (repository *SourceRepository) evaluateAt(ctx context.Context, tx ReadTx, s
 	return statuses, nil
 }
 
-func (repository *SourceRepository) observations(ctx context.Context, tx ReadTx, stateRevision int64) ([]readmodel.SourceObservation, error) {
+func (repository *SourceRepository) observations(ctx context.Context, tx ReadTx, stateRevision int64, evaluationAt time.Time) ([]readmodel.SourceObservation, error) {
 	health := repository.store.health
 	database := readmodel.SourceObservation{
-		ID:            readmodel.SourceDatabase,
-		Capability:    readmodel.SourceCapability(readmodel.SourceDatabase),
-		Available:     true,
-		CollectedAt:   health.LastIntegrityCheckAt,
-		LastSuccessAt: health.LastIntegrityCheckAt,
+		ID:         readmodel.SourceDatabase,
+		Capability: readmodel.SourceCapability(readmodel.SourceDatabase),
+		Available:  true,
+		// This read has reached the authoritative local database successfully.
+		// The actual integrity-check timestamp remains in DatabaseStatus.
+		CollectedAt:   &evaluationAt,
+		LastSuccessAt: &evaluationAt,
 	}
 	if health.Mode == DatabaseSafeMode || health.IntegrityStatus == IntegrityFailed {
 		database.FailureCode = "DATABASE_UNHEALTHY"
 	}
 
 	var observed sql.NullString
-	if err := tx.queryRow(ctx, `SELECT MAX(o.observed_at)
+	if err := tx.queryRow(ctx, `SELECT MAX(observed_at) FROM (
+SELECT o.observed_at
 FROM inventory_draft_observations o
 JOIN inventory_drafts d ON d.draft_id=o.draft_id AND d.draft_revision=o.draft_revision
-JOIN audit_events e ON e.event_type='inventory.draft.persisted' AND e.target_kind='inventory-draft' AND e.target_id=d.draft_id AND e.after_fingerprint=d.content_digest AND e.state_revision<=?`, stateRevision).Scan(&observed); err != nil {
+JOIN audit_events e ON e.event_type='inventory.draft.persisted' AND e.target_kind='inventory-draft' AND e.target_id=d.draft_id AND e.after_fingerprint=d.content_digest
+WHERE e.state_revision<=? AND e.recovery_epoch=(SELECT recovery_epoch FROM system_meta WHERE id=1)
+UNION ALL
+SELECT json_extract(o.canonical_bytes,'$.observedAt')
+FROM managed_hosts h
+JOIN host_observations o ON o.observation_id=h.observation_id AND o.target_id=h.target_id AND o.recovery_epoch=h.recovery_epoch
+JOIN host_discovery_targets t ON t.target_id=o.target_id AND t.revision=o.target_revision AND t.recovery_epoch=o.recovery_epoch
+JOIN immutable_plans p ON p.plan_id=t.plan_id
+WHERE h.state_revision<=? AND o.state_revision<=? AND p.state_revision<=?
+ AND h.recovery_epoch=(SELECT recovery_epoch FROM system_meta WHERE id=1) AND t.status='active'
+ AND NOT EXISTS (
+  SELECT 1 FROM host_discovery_targets newer JOIN immutable_plans np ON np.plan_id=newer.plan_id
+  WHERE newer.target_id=t.target_id AND newer.recovery_epoch=t.recovery_epoch AND newer.revision>t.revision AND np.state_revision<=?
+ )
+)`, stateRevision, stateRevision, stateRevision, stateRevision, stateRevision).Scan(&observed); err != nil {
 		return nil, err
 	}
 	nodes := readmodel.SourceObservation{ID: readmodel.SourceNodes, Capability: readmodel.SourceCapability(readmodel.SourceNodes), Available: true}
@@ -141,8 +158,11 @@ JOIN audit_events e ON e.event_type='inventory.draft.persisted' AND e.target_kin
 		nodes.CollectedAt, nodes.LastSuccessAt = &value, &value
 	}
 	result := []readmodel.SourceObservation{database, nodes}
+	// These local domain reads exist, but have no aggregate collection producer.
+	// Do not turn profile edits, user changes or old deployments into fresh live
+	// observations. Their detail workflows retain their own outcomes/evidence.
 	for _, id := range []readmodel.SourceID{readmodel.SourceGates, readmodel.SourcePeople, readmodel.SourceServices, readmodel.SourceBackups, readmodel.SourceProviders} {
-		observation := readmodel.SourceObservation{ID: id, Capability: readmodel.SourceCapability(id), Available: false}
+		observation := readmodel.SourceObservation{ID: id, Capability: readmodel.SourceCapability(id), Available: true}
 		if candidate, ok := repository.fixtures[id]; ok {
 			observation.Available = candidate.Available
 			observation.CollectedAt = candidate.CollectedAt

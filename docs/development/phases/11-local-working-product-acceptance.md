@@ -8,6 +8,14 @@ The outcome is an accurate account of what the local pilot can do, a short [oper
 
 The platform remains one `vsk-labs` executable, one server-owned SQLite database and the existing API/Console/plan/acknowledgement engine. No new service, dependency, package channel, updater or privileged management framework is required. Inventory import/export moves or compares records; registration does not install software, prepare a host or admit workloads.
 
+## Console correction after the initial working acceptance — 12-11-2026
+
+The operator's actual browser walkthrough exposed gaps the earlier bounded read/documentation acceptance did not prove: Overview used legacy placeholder availability and observation data; several pages exposed advanced controls before ordinary inspection, omitted refresh or existing-run lookup, or used misleading unavailable text. The working milestone was reopened with [correction #404](https://github.com/vegastack/vegastack-labs/issues/404). Historical #402 receipts remain valid only for their named read/procedure scope; they do not certify a complete Console.
+
+The correction audits every existing route and its meaningful states/actions, reuses actual domain and engine state, simplifies normal inspection, and verifies isolated browser behavior on desktop and mobile. Engine availability is not permission to apply a change. Source timestamps describe local read/observation freshness, never a new integrity check, full host qualification or live application health. Domains with no aggregate collection timestamp remain unknown rather than being fabricated as healthy or reported as unimplemented.
+
+Completion of #404 requires separate accounting of local browser/source proof and actual installed-site verification. Source merge, fixture screenshots or this document alone cannot close installed remediation. Previous CI, native/hardening, monitoring, release and recovery deferrals remain deferred, and nodes04/05 remain excluded.
+
 ## Selected pilot roles and evidence
 
 Exact physical identities, endpoints, resource IDs and raw receipts remain in protected local records. The following role names describe existing selected targets, not new role assignments or authority to access more machines. Nodes04/05 remain absolutely excluded from direct and indirect reads, mutations and CI.
