@@ -16,7 +16,8 @@ test("every foundation state is named and the Console makes no healthy claim", a
   for (const kind of ["loading", "empty", "error", "unavailable"]) {
     assert.match(state, new RegExp(kind));
   }
-  assert.match(`${home}\n${dashboard}`, /data integration is not implemented/i);
+  assert.match(dashboard, /OverviewView/);
+  assert.doesNotMatch(`${home}\n${dashboard}`, /data integration is not implemented/i);
   assert.doesNotMatch(`${home}\n${dashboard}`, /all systems operational/i);
 });
 
@@ -29,6 +30,6 @@ test("foundation routes use the shared shell and expose unique titles", async ()
 
   for (const source of [home, dashboard, unavailable]) assert.match(source, /ConsoleShell/);
   assert.match(home, /title="Overview"/);
-  assert.match(dashboard, /title="Console foundation"/);
+  assert.match(dashboard, /title="Overview"/);
   assert.match(unavailable, /title="Service unavailable"/);
 });

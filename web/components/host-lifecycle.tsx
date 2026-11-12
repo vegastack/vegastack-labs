@@ -1,5 +1,6 @@
 "use client";
 
+import { formatConsoleTime } from "@/components/source-status";
 import { HostReplacement } from "@/components/host-replacement";
 
 import { useState, useRef, type FormEvent } from "react";
@@ -53,10 +54,11 @@ function HostLifecycleContent({ initialHostId }: { initialHostId: string | null 
         {registered.data.data.hosts.length === 0 ? <p>No registered hosts are visible to your account.</p> : <ul className="space-y-2" aria-label="Registered host list">{registered.data.data.hosts.map(item => <li key={item.hostId} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3"><div><p>{item.hostId}</p><p className="text-sm text-muted-foreground">{item.profileId} · {item.status} · Workload admission requires current checks</p></div><Button variant="outline" onClick={() => { setHostId(item.hostId); if (hostId === item.hostId) host.refetch(); }}>Inspect {item.hostId}</Button></li>)}</ul>}
         <Button variant="outline" onClick={() => registered.refetch()} disabled={registered.isFetching}>Refresh registered hosts</Button>
       </div>}
-      <form onSubmit={e => { const d = form(e); setHostId(text(d, "hostId")); }} className="flex items-end gap-2"><Field name="hostId" label="Managed host ID" value={hostId ?? ""} /><Button type="submit">Inspect registered host</Button></form>
+      <details><summary className="cursor-pointer text-sm font-medium">Inspect a host by ID</summary><form onSubmit={e => { const d = form(e); setHostId(text(d, "hostId")); }} className="flex flex-wrap items-end gap-2"><Field name="hostId" label="Managed host ID" value={hostId ?? ""} /><Button type="submit">Inspect registered host</Button></form></details>
       {host.data ? <div role="status"><p>Host {host.data.data.hostId}: {host.data.data.status}</p><p>Target {host.data.data.targetId}; profile {host.data.data.profileId}</p><p>Registration is recorded. Admission requires current baseline and role checks.</p></div> : null}
     </CardContent></Card>
     {error ? <ReadViewState kind={classifyReadFailure(error)} title="Host operation could not complete" description="No automatic retry was made. Review current state before submitting again; unsaved input remains available for temporary failures." /> : null}
+    <details className="rounded-lg border border-border p-4"><summary className="cursor-pointer font-medium">Add or prepare a node</summary><p className="my-3 text-sm text-muted-foreground">Use these administrator workflows to prepare a target, inspect discovery and register the exact machine. Each applied change still requires its existing plan and approval.</p><div className="space-y-4">
     <Card><CardHeader><CardTitle>Prepare discovery target</CardTitle><CardDescription>Save an inert target draft using an existing credential reference and an independently verified public SSH host key. This does not connect to the machine.</CardDescription></CardHeader><CardContent>
       <form className="grid gap-3 sm:grid-cols-2" onSubmit={async e => {
         const d = form(e);
@@ -75,17 +77,20 @@ function HostLifecycleContent({ initialHostId }: { initialHostId: string | null 
         <Field name="targetId" label="Activated target ID" /><Field name="targetRevision" label="Activated target revision" number /><RevisionFields /><Button type="submit" disabled={busy}>Connect and discover target</Button>
       </form>
       <form onSubmit={e=>{const d=form(e);setObservationId(text(d,"observationId"));}} className="flex items-end gap-2"><Field name="observationId" label="Saved observation ID" /><Button type="submit">Inspect observation</Button></form>
-      {observation.data ? <div role="status"><p>Observation {observation.data.data.observationId}: {observation.data.data.status}</p><p>Target: {observation.data.data.targetId}; expires {observation.data.data.expiresAt}</p><p>Blockers: {observation.data.data.blockers.join(", ") || "None reported; qualification remains separate."}</p></div> : null}
+      {observation.data ? <div role="status"><p>Observation {observation.data.data.observationId}: {observation.data.data.status}</p><p>Target: {observation.data.data.targetId}; expires {formatConsoleTime(observation.data.data.expiresAt)}</p><p>Blockers: {observation.data.data.blockers.join(", ") || "None reported; qualification remains separate."}</p></div> : null}
     </CardContent></Card>
     <Card><CardHeader><CardTitle>Prepare registration</CardTitle><CardDescription>An administrator verifies the exact identity against the saved observation. The resulting registration draft still needs plan approval and apply.</CardDescription></CardHeader><CardContent>
       <form className="grid gap-3 sm:grid-cols-2" onSubmit={async e=>{const d=form(e); const o=observation.data?.data;if(!o)return;try{const r=await adoption.mutateAsync({schema:"vegastack-labs.dev/host-adoption-request",schemaVersion:"1.0.0",hostId:text(d,"hostId"),observationId:o.observationId,observationDigest:o.contentDigest,idempotencyKey:key("adopt"),expectedStateRevision:number(d,"revision"),recoveryEpoch:o.recoveryEpoch,confirmation:{schema:"vegastack-labs.dev/host-identity-confirmation",schemaVersion:"1.0.0",targetDigest:o.targetDigest,targetRevision:o.targetRevision,identityDigest:text(d,"identityDigest"),identityClass:text(d,"identityClass") as "physical" | "qualified-virtual",identityKind:text(d,"identityKind") as "product-serial" | "product-uuid",confirmedAt:new Date().toISOString().replace(/\.\d{3}Z$/, "Z")}});saveDraft(r.data,"host-adoption");}catch{}}}>
         <Field name="hostId" label="New managed host ID" /><Field name="identityDigest" label="Independently verified identity digest" /><label className="grid gap-1 text-sm">Identity class<select aria-label="Identity class" name="identityClass" defaultValue="physical" className="rounded-md border p-2"><option value="physical">Physical machine</option><option value="qualified-virtual">Qualified virtual machine</option></select></label><label className="grid gap-1 text-sm">Identity kind<select aria-label="Identity kind" name="identityKind" defaultValue="product-serial" className="rounded-md border p-2"><option value="product-serial">Product serial</option><option value="product-uuid">Product UUID</option></select></label><Field name="revision" label="Current state revision" number /><Button type="submit" disabled={busy || !observation.data}>Prepare registration</Button>
       </form>
     </CardContent></Card>
+    </div></details>
     {host.data ? <HostAdmission key={host.data.data.hostId} hostId={host.data.data.hostId} revision={host.data.data.stateRevision} epoch={host.data.data.recoveryEpoch} /> : null}
+    <details className="rounded-lg border border-border p-4"><summary className="cursor-pointer font-medium">Advanced host maintenance</summary><p className="my-3 text-sm text-muted-foreground">Role preparation, initial controller setup and replacement are separate administrator operations. Inspect the host and its admission result first.</p><div className="space-y-4">
     <HostPolicyForm onPrepared={saveDraft} />
     <InitialControlGuidance />
     <HostReplacement onPrepared={saveDraft} />
+    </div></details>
     {draft ? <Card><CardHeader><CardTitle>Draft prepared</CardTitle><CardDescription>No host action has been applied.</CardDescription></CardHeader><CardContent className="space-y-3"><p>Declaration: {draft.declarationId}</p><p className="break-all">Digest: {draft.digest}</p><Button disabled={busy} onClick={async()=>{try{const selected = draft; const p=await planning.mutateAsync(selected.declarationId); if (selectedDraft.current === selected) setPlannedDraft({ declarationId: selected.declarationId, digest: selected.digest, planId: p.planId });}catch{}}}>Create exact plan</Button><ExactPlanLauncher key={planId ?? draft.declarationId} kind={draft.kind} planId={planId} destructive /></CardContent></Card> : null}
   </section>;
 }

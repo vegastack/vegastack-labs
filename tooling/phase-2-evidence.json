@@ -912,6 +912,13 @@
         "commands": [],
         "imports": [],
         "mutationBoundaryDigest": "sha256:fae31e26415d9be392744986e7c12f6b368427dc6446e2ce26b410fbdbc3ba30"
+      },
+      {
+        "id": "console-correction-issue404-v1",
+        "issue": 404,
+        "commands": [],
+        "imports": [],
+        "mutationBoundaryDigest": "sha256:2d626c1de0b9f3c0154baa57a7d1e16ca4f296106c3b88bf5c10dcb0977c9a57"
       }
     ]
   },

@@ -27,7 +27,7 @@ function Header({ view }: { view?: { refresh: () => void; busy: boolean } }) {
   return (
     <PageHeader
       title="Nodes"
-      description="The newest authorized inventory draft and its declared nodes, aliases, and observations."
+      description="Inspect registered hosts and their readiness. Inventory drafts are separate proposed records."
       actions={
         view ? (
           <Button variant="outline" loading={view.busy} onClick={view.refresh}>
@@ -59,7 +59,7 @@ export function NodesView() {
   const refresh = async () => {
     clearFailure();
     await queryClient.cancelQueries({ queryKey: ["read"] });
-    await Promise.all([records.draft.refetch(), records.source.refetch(), records.collections.nodes.refetch(), records.collections.aliases.refetch(), records.collections.observations.refetch()]);
+    await Promise.all([records.draft.refetch(), records.source.refetch(), records.collections.nodes.refetch(), records.collections.aliases.refetch(), records.collections.observations.refetch(), queryClient.refetchQueries({ queryKey: ["read", "hosts"], type: "active" })]);
   };
 
   if (failure) return <NodesShell><NodeFailure error={failure} retained={false} onRetry={() => void recoverFailure()} /></NodesShell>;
@@ -89,6 +89,7 @@ export function NodesView() {
         />
       ) : null}
 
+      <details className="rounded-lg border border-border p-4"><summary className="cursor-pointer font-medium">Inventory draft details</summary><div className="mt-4 space-y-4">
       <Card>
         <CardHeader>
           <CardTitle>Draft inventory</CardTitle>
@@ -99,7 +100,7 @@ export function NodesView() {
             <Badge intent={draft.validationStatus === "valid" ? "success" : "warning"} size="lg" className="capitalize">{draft.validationStatus}</Badge>
             <Badge variant="outline" size="lg">Declared authority</Badge>
           </div>
-          <p className="text-sm text-muted-foreground">Qualification is unavailable until its owning phase supplies verified records.</p>
+          <p className="text-sm text-muted-foreground">An inventory draft does not establish live host health or workload readiness. Inspect a registered host above for its admission checks.</p>
           {nodeSource ? <SourceStatus source={nodeSource} /> : <p className="text-sm text-muted-foreground" data-source-state="unknown">Node source status is unknown; no health can be inferred.</p>}
         </CardContent>
       </Card>
@@ -123,6 +124,7 @@ export function NodesView() {
         />
       ))}
 
+      </div></details>
       <ReadDetail title={`${singular} details`} open={Boolean(selection)} onOpenChange={(open) => !open && setSelection(null)} returnFocusRef={trigger}>
         {detail.isPending ? (
           <p role="status" className="text-sm text-muted-foreground">Loading authorized details…</p>

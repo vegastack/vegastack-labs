@@ -388,7 +388,7 @@ func (service *service) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 	remote := service.currentRemote()
 	status := generated.ServerStatusData{
 		InstanceID: health.InstanceID, State: string(state), ReadAvailable: state == StateReady || state == StateSafeMode,
-		MutationAvailable: false, RecoveryEpoch: health.RecoveryEpoch, StateRevision: health.StateRevision,
+		MutationAvailable: state == StateReady && health.MutationEnabled && !health.SafeMode, RecoveryEpoch: health.RecoveryEpoch, StateRevision: health.StateRevision,
 		RemoteReadState: string(remote.state), RemoteReadReason: string(remote.reason),
 	}
 	envelope, err := service.config.Results.Success(generated.CommandNameServerStatus, health.RecoveryEpoch, health.StateRevision, status)

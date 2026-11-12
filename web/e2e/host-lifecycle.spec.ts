@@ -6,6 +6,7 @@ const fixture=JSON.parse(readFileSync(__dirname+"/../../internal/localapi/testda
 const digest=`sha256:${"a".repeat(64)}`;
 function envelope(command:string,data:unknown,code?:string){return {schema:"vegastack-labs.dev/browser-run-result",schemaVersion:"1.0.0",toolVersion:"test",command,runId:null,status:code?"failed":"succeeded",changed:false,recoveryEpoch:0,stateRevision:3,snapshotDigest:null,releaseBuildId:"test",sourceRevision:null,planId:null,errors:code?[{code,message:"Current authority required.",retryable:false}]:[],data};}
 async function fillTarget(page:Page){
+ await page.getByText("Add or prepare a node",{exact:true}).click();
  const form=page.getByRole("button",{name:"Prepare target draft",exact:true}).locator("..");
  const values:Record<string,string>={"Target ID":fixture.target.targetId,"Exact target address":fixture.target.address,"SSH port":"22","Existing nonroot account":fixture.target.user,"Verified public SSH host key":fixture.target.hostKey,"Profile ID":fixture.target.profileId,"Credential reference ID":fixture.target.credentialReferenceId,"Credential material version":fixture.target.materialVersion,"Expected Debian version":fixture.target.expectedVersion,"Expected architecture":fixture.target.expectedArchitecture,"Current state revision":"1","Recovery epoch":"0"};
  for(const [label,value] of Object.entries(values))await form.getByLabel(label,{exact:true}).fill(value);
@@ -38,7 +39,7 @@ test("temporary transport failure preserves input without retries",async({page})
 test("bounded access policy import reviews exact host before any request",async({page})=>{
  await installReadFixture(page);let mutations=0;
  await page.route("**/api/v1/host-access/draft",route=>{mutations++;return route.abort();});
- await page.goto("/nodes");await page.getByRole("button",{name:"Access and firewall",exact:true}).click();
+ await page.goto("/nodes");await page.getByText("Advanced host maintenance",{exact:true}).click();await page.getByRole("button",{name:"Access and firewall",exact:true}).click();
  const policy=JSON.parse(readFileSync(__dirname+"/../../internal/localapi/testdata/host-access.json","utf8"));
  policy.subject.actionId="debian.access.apply";policy.subject.hostId=policy.input.hostId;policy.subject.callerUid=policy.input.automationUid;policy.subject.consoleConfirmation.hostIdentityDigest=policy.input.hostIdentityDigest;
  await page.getByLabel("Prepared access policy file").setInputFiles({name:"policy.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify(policy))});
@@ -52,7 +53,7 @@ test("revoked host read clears unsaved values and inspection state",async({page}
  await installReadFixture(page);
  await page.route("**/api/v1/hosts/host-a",route=>route.fulfill({status:403,json:envelope("api.v1.hosts.get",null,"AUTHORIZATION_DENIED")}));
  await page.goto("/nodes");await fillTarget(page);
- await page.getByLabel("Managed host ID",{exact:true}).fill("host-a");await page.getByRole("button",{name:"Inspect registered host",exact:true}).click();
+ await page.getByText("Inspect a host by ID",{exact:true}).click();await page.getByLabel("Managed host ID",{exact:true}).fill("host-a");await page.getByRole("button",{name:"Inspect registered host",exact:true}).click();
  await expect(page.getByText("Host workflow unavailable")).toBeVisible();await expect(page.getByLabel("Exact target address",{exact:true})).toHaveCount(0);
  await expect(page.getByRole("button",{name:"Create exact plan",exact:true})).toHaveCount(0);
 });
@@ -60,7 +61,7 @@ test("registration submits bounded identity enums and seconds-only confirmation"
  await installReadFixture(page);let captured!: HostAdoptionRequest;
  await page.route("**/api/v1/host-observations/observation-a",route=>route.fulfill({json:envelope("api.v1.host-observations.get",{schema:"vegastack-labs.dev/host-observation",schemaVersion:"1.0.0",observationId:"observation-a",targetId:"target-a",targetRevision:1,targetDigest:digest,collector:"collector-a",collectorVersion:"1.0.0",observedAt:"2026-10-08T00:00:00Z",expiresAt:"2026-10-08T00:15:00Z",status:"incomplete",facts:[],blockers:["hardening-unverified"],contentDigest:digest,stateRevision:3,recoveryEpoch:0})}));
  await page.route("**/api/v1/host-adoptions/draft",route=>{captured=route.request().postDataJSON();return route.fulfill({status:403,json:envelope("api.v1.host-adoptions.draft",null,"AUTHORIZATION_DENIED")});});
- await page.goto("/nodes");await page.getByLabel("Saved observation ID",{exact:true}).fill("observation-a");await page.getByRole("button",{name:"Inspect observation",exact:true}).click();
+ await page.goto("/nodes");await page.getByText("Add or prepare a node",{exact:true}).click();await page.getByLabel("Saved observation ID",{exact:true}).fill("observation-a");await page.getByRole("button",{name:"Inspect observation",exact:true}).click();
  await expect(page.getByText("Observation observation-a: incomplete")).toBeVisible();
  const form=page.getByRole("button",{name:"Prepare registration",exact:true}).locator("..");
  await form.getByLabel("New managed host ID",{exact:true}).fill("host-a");await form.getByLabel("Independently verified identity digest",{exact:true}).fill(digest);await form.getByLabel("Current state revision",{exact:true}).fill("3");
@@ -75,7 +76,7 @@ test("role import stays inert and shows independent admission prerequisites",asy
  const request=JSON.parse(readFileSync(__dirname+"/../../internal/localapi/testdata/host-action.json","utf8"));
  Object.assign(request,{actionId:"debian.role.apply",hostId:input.hostId,callerUid:input.automationUid,actionInput:JSON.stringify(input)});request.consoleConfirmation.hostIdentityDigest=input.hostIdentityDigest;
  await page.route("**/api/v1/host-actions/draft",async route=>{mutations++;captured=route.request().postDataJSON();const originalRequestDigest=await hostRequestDigest("vegastack-labs.dev/host-action-request",captured);return route.fulfill({json:envelope("api.v1.host-actions.draft",{schema:"vegastack-labs.dev/host-action-submission",schemaVersion:"1.0.0",draftId:"host-action-"+digest.slice(7,39),declarationId:"host-action-"+digest.slice(7,39),contentDigest:digest,originalRequestDigest,stateRevision:3,recoveryEpoch:0})});});
- await page.goto("/nodes");await page.getByRole("button",{name:"Role and service handoff",exact:true}).click();
+ await page.goto("/nodes");await page.getByText("Advanced host maintenance",{exact:true}).click();await page.getByRole("button",{name:"Role and service handoff",exact:true}).click();
  await page.getByLabel("Prepared role policy file").setInputFiles({name:"role.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify(request))});
  await expect(page.getByLabel("Prepared role details")).toContainText(`Role: ${input.roleId}`);
  await expect(page.getByText("Role apply leaves network qualification pending.",{exact:false})).toBeVisible();expect(mutations).toBe(0);
@@ -93,7 +94,7 @@ test("baseline success does not replace blocked or stale role admission",async({
   const outcome=role?(stale?"stale":"blocked"):"passed";
   return route.fulfill({json:envelope("api.v1.gates.get",{schema:"vegastack-labs.dev/gate-view",schemaVersion:"1.1.0",applicabilityReasonCode:"applicable",definition:{schema:"vegastack-labs.dev/gate-definition",schemaVersion:"1.1.0",gateId,definitionVersion:"1.1.0",layer:"platform",profileId:null,capabilityId:null,subjectKinds:["node"],applicability:"always",prerequisiteGateIds:[],evidenceSchemaId:"vegastack-labs.dev/gate-evidence",evaluatorVersion:"1.1.0",freshnessSeconds:86400,recoveryEpochBound:true},evaluation:{schema:"vegastack-labs.dev/gate-evaluation",schemaVersion:"1.1.0",evaluationId:"evaluation-a",gateId,subjectId:"host-a",definitionVersion:"1.1.0",evaluatorVersion:"1.1.0",evidenceIds:role?[]:["baseline-evidence-a"],evaluatedAt:"2026-10-09T12:00:00Z",recoveryEpoch:0,outcome,reasonCode:role?(stale?"host.binding-changed":"host.role-evidence-missing"):"requirements-passed",evidenceSource:"local",readyForInput:role}})});
  });
- await page.goto("/nodes");await page.getByLabel("Managed host ID",{exact:true}).fill("host-a");await page.getByRole("button",{name:"Inspect registered host",exact:true}).click();
+ await page.goto("/nodes");await page.getByText("Inspect a host by ID",{exact:true}).click();await page.getByLabel("Managed host ID",{exact:true}).fill("host-a");await page.getByRole("button",{name:"Inspect registered host",exact:true}).click();
  await expect(page.getByText("Baseline: passed",{exact:true})).toBeVisible();await expect(page.getByText("Role admission: blocked",{exact:true})).toBeVisible();
  stale=true;await page.getByRole("button",{name:"Read current admission",exact:true}).click();await expect(page.getByText("Role admission: stale",{exact:true})).toBeVisible();
  await expect(page.getByText("Missing or stale role evidence leaves this host unadmitted.",{exact:false})).toBeVisible();

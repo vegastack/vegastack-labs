@@ -1,3 +1,13 @@
+## 12-11-2026 — Make the Console describe real state and put normal tasks first ([#404](https://github.com/vegastack/vegastack-labs/issues/404))
+
+- **What:** Overview distinguishes the working controller and change engine from saved observations and per-operation approval. Existing pages put inspection ahead of advanced forms, offer explicit refresh and recorded-run lookup, and explain unavailable or missing information without claiming the controller is disconnected.
+- **Why:** The operator's real screenshot exposed legacy placeholder status that the earlier read/documentation acceptance had not tested in the browser. That acceptance was too narrow to establish a finished Console.
+- **How it went:** Real SQLite and browser regressions reproduced the causes. Browser integration also caught static navigation prefetch and weak screenshot fixtures; the correction preserves these failures as evidence rather than treating heading-only layout checks as successful page operation. Installed remediation has a separate verification boundary.
+- **Changed:** Truthful engine/read projections · registered-host observation freshness · simpler inspection and optional advanced details · refresh/run lookup · human times and error guidance · disabled recovery actions when prerequisite status is unavailable.
+- **Decisions:** none; existing authorization, exact acknowledgement, secret/data-preservation rules and all agreed deferrals remain controlling.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/404-console-working-flows
+
 ## 10-11-2026 — Keep the controller database usable after client cancellation ([#317](https://github.com/vegastack/vegastack-labs/issues/317))
 
 - **What:** Existing store transactions retain controller-owned cleanup when a caller cancels. SQL statements still observe caller cancellation, and a canceled caller cannot begin a commit.

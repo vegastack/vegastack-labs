@@ -1,6 +1,6 @@
 "use client";
 
-import { Boxes, ClipboardCheck, DatabaseBackup, FileClock, LayoutDashboard, Plug, Server, Settings, ShieldCheck, Users, type LucideIcon } from "lucide-react";
+import { Boxes, ClipboardCheck, DatabaseBackup, FileClock, LayoutDashboard, Plug, Server, ShieldCheck, Users, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AppShellSidebar } from "@/components/ui/app-shell";
@@ -31,11 +31,6 @@ const controlNav: readonly NavItem[] = [
   { label: "Gates", href: "/gates", icon: ShieldCheck },
   { label: "Audit", href: "/audit", icon: FileClock },
   { label: "Changes", href: "/changes", icon: ClipboardCheck },
-];
-
-// Not yet implemented — the links resolve to the honest "unavailable" screen.
-const plannedNav: readonly NavItem[] = [
-  { label: "Settings", href: "/unavailable", icon: Settings },
 ];
 
 function NavList({ items, pathname }: { items: readonly NavItem[]; pathname: string }) {
@@ -75,10 +70,6 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupLabel>Console</SidebarGroupLabel>
           <NavList items={controlNav} pathname={pathname} />
-        </SidebarGroup>
-        <SidebarGroup>
-          <SidebarGroupLabel>Coming soon</SidebarGroupLabel>
-          <NavList items={plannedNav} pathname={pathname} />
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>

@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { ReadViewState } from "@/components/read-view-state";
 import { usePeople, usePersonAccess } from "@/lib/operator-access-queries";
 
-function State({ state }: { state: string }) {
+function State({ state, subject = "People" }: { state: string; subject?: string }) {
   const kind = state as
     | "loading"
     | "denied"
@@ -18,10 +18,10 @@ function State({ state }: { state: string }) {
       kind={kind}
       title={
         state === "denied"
-          ? "People access denied"
+          ? `${subject} access denied`
           : state === "loading"
-            ? "Loading people"
-            : "People could not be read"
+            ? `Loading ${subject.toLowerCase()}`
+            : `${subject} could not be read`
       }
       description={
         state === "denied"
@@ -155,7 +155,7 @@ function PersonRecords({
         </Button>
       </CardHeader>
       <CardContent className="space-y-3 break-all">
-        {view.state !== "current" ? <State state={view.state} /> : null}
+        {view.state !== "current" ? <State state={view.state} subject={kind === "devices" ? "Devices" : "Grants"} /> : null}
         {data && "devices" in data ? (
           <ul aria-label="Devices">
             {data.devices.map((d) => (

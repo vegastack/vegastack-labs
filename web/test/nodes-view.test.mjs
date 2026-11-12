@@ -12,6 +12,6 @@ test("Nodes keeps three server-paginated generated collections in memory", async
 test("Nodes has generated details, qualification truth, and focus restoration", async () => {
   const view = await read("components/nodes-view.tsx");
   assert.match(view, /getInventoryDraftNode/);
-  assert.match(view, /Qualification is unavailable/);
+  assert.match(view, /does not establish live host health or workload readiness/);
   assert.match(view, /returnFocusRef/);
 });

@@ -51,9 +51,9 @@ export function HostReplacement({ onPrepared }: { onPrepared: (draft: { declarat
       <p>Aliases: {current.aliasBindings.map(a => a.aliasId).join(", ")}</p>
       {current.status !== "committed" ? <p>Ownership transfer is incomplete. A restored or running service alone does not complete replacement.</p> : <p>The server records the ownership transfer as committed. Native acceptance and provider admission remain separate.</p>}
       {current.runId ? <RunProgress key={current.runId} runId={current.runId} /> : null}
-      {current.restorePlanId ? <p>Restore plan: {current.restorePlanId}. Inspect its verification and safe next action in <Link href="/backups" className="underline">Backups and recovery</Link>.</p> : null}
+      {current.restorePlanId ? <p>Restore plan: {current.restorePlanId}. Inspect its verification and safe next action in <Link prefetch={false} href="/backups" className="underline">Backups and recovery</Link>.</p> : null}
       {current.planId && !current.runId ? <ExactPlanLauncher key={`${current.planId}:${current.recoveryEpoch}`} kind="host-replacement" planId={current.planId} destructive /> : null}
     </section> : null}
-    <p className="text-sm">Use <Link href="/backups" className="underline">Backups and recovery</Link> for existing recovery-point selection and restore status. Recovery-required work follows the server’s safe next action; this page never restarts, retries a restore or reimages a machine automatically. Import a fresh commit request after the prerequisites are verified.</p>
+    <p className="text-sm">Use <Link prefetch={false} href="/backups" className="underline">Backups and recovery</Link> for existing recovery-point selection and restore status. Recovery-required work follows the server’s safe next action; this page never restarts, retries a restore or reimages a machine automatically. Import a fresh commit request after the prerequisites are verified.</p>
   </CardContent></Card>;
 }

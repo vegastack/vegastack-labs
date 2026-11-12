@@ -104,6 +104,18 @@ export function ChangesWorkspace() {
     setReference({ declarationId, revision });
   }
 
+  function inspectRun(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const value = String(new FormData(event.currentTarget).get("runId") ?? "").trim();
+    if (!handlePattern.test(value)) return;
+    clearFailure();
+    setReference(null);
+    setPlanId(null);
+    setApprovalPlanId(null);
+    setExecutionKey(null);
+    setRunId(value);
+  }
+
   const current = declaration.data?.data;
   const failure = declaration.error ? classifyReadFailure(declaration.error, false) : null;
   const planView = planQuery.data?.data;
@@ -112,9 +124,10 @@ export function ChangesWorkspace() {
     <>
       <PageHeader
         title="Changes"
-        description="Open an exact declaration revision to prepare an inert draft change, plan, approval, and run. Nothing here alters infrastructure until an approved plan executes."
+        description="Inspect an existing operation, or open a declaration to prepare a change. Infrastructure changes require an approved exact plan."
       />
       <div className="space-y-6" data-change-workflow>
+      <Card><CardHeader><CardTitle>Inspect existing run</CardTitle><CardDescription>Enter the run reference from an operation result. Opening it only reads the recorded operation; it does not retry execution.</CardDescription></CardHeader><CardContent><form className="flex flex-wrap items-end gap-3" onSubmit={inspectRun}><FieldRoot className="min-w-0 flex-1"><FieldLabel>Run ID</FieldLabel><Input name="runId" required maxLength={128} pattern="[a-z][a-z0-9._:\\-]{0,127}" autoComplete="off" /></FieldRoot><Button type="submit" variant="outline">Inspect run</Button></form></CardContent></Card>
       <Card>
         <CardHeader>
           <CardTitle>Open an inert declaration</CardTitle>
@@ -136,7 +149,7 @@ export function ChangesWorkspace() {
       </Card>
 
       {hardFailure ? <ReadViewState kind="denied" title="Change details cleared" description="Your session, authorization, or response integrity is no longer valid. Reopen an authorized declaration to continue." /> : null}
-      {!hardFailure && !reference && !planId && !runId ? <ReadViewState kind="empty" title="No declaration open" description="Open an authorized declaration revision to prepare a draft change." /> : null}
+      {!hardFailure && !reference && !planId && !runId ? <ReadViewState kind="empty" title="No declaration open" description="Inspect an existing run above, or open an authorized declaration revision to prepare a change." /> : null}
       {declaration.isPending && reference ? <ReadViewState kind="loading" title="Loading declaration" description="Reading the exact authorized revision from the control plane." /> : null}
       {failure ? <ReadViewState kind={failure} title={failure === "denied" ? "Declaration access denied" : failure === "unavailable" ? "Declaration unavailable" : "Declaration response rejected"} description={failure === "denied" ? "Your current session cannot read this declaration." : "No draft, plan, or run action is available until the exact revision can be read safely."} onRetry={() => void declaration.refetch()} /> : null}
       {current ? <DeclarationEditor key={`${current.declarationId}:${current.revision}`} declaration={current} focusAfterSave={focusSavedRevision === current.revision} onSaved={(saved) => { setFocusSavedRevision(saved.revision); setReference({ declarationId: saved.declarationId, revision: saved.revision }); setPlanId(null); setApprovalPlanId(null); setExecutionKey(null); setRunId(null); }} onPlanCreated={(created) => { const createdPlanId = planFromView(created).planId; setPlanId(createdPlanId); setApprovalPlanId(null); setExecutionKey(null); setRunId(null); }} /> : null}

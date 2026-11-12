@@ -16,8 +16,10 @@ async function expectNoSeriousAccessibilityViolations(page: Page) {
 
 test("Overview keeps only retryable per-query stale data and hides it after denial", async ({ page }) => {
   await page.goto("/");
+  await page.getByText("Technical details", { exact: true }).click();
+  await page.getByText("Collection details", { exact: true }).click();
   await expect(page.getByText("State revision 8", { exact: false })).toBeVisible();
-  await expect(page.getByText("Collected: 11-09-2026 01:30 PM IST", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Recorded: 11-09-2026 01:30 PM IST", { exact: true }).first()).toBeVisible();
   fixtureState.mode = "dependency";
   await page.getByRole("button", { name: "Refresh Overview" }).click();
   await expect(page.locator('[data-read-state="stale"]')).toContainText(/showing last known/i);
@@ -40,6 +42,7 @@ test("Overview preserves source statuses when its summary is temporarily unavail
   await page.goto("/");
   await expect(page.locator('[data-read-state="partial"]')).toBeVisible();
   await expect(page.locator('[data-source-state]')).toHaveCount(7);
+  await page.getByText("Collection details", { exact: true }).click();
   await expect(page.getByText("database", { exact: true })).toBeVisible();
 });
 
@@ -47,6 +50,7 @@ test("Overview treats zero drafts with missing sources as partial, not empty", a
   fixtureState.mode = "empty";
   await page.goto("/");
   await expect(page.locator('[data-read-state="partial"]')).toBeVisible();
+  await page.getByText("Technical details", { exact: true }).click();
   await expect(page.getByText(/Drafts 0 \(0 valid, 0 blocked\)/)).toBeVisible();
   await expect(page.locator('[data-source-state="unknown"]')).toHaveCount(7);
 });
@@ -65,6 +69,7 @@ test("Overview distinguishes loading, unavailable, and rejected responses", asyn
 
 test("Nodes pages independently with opaque cursors and opens every detail kind", async ({ page }) => {
   await page.goto("/nodes");
+  await page.getByText("Inventory draft details", { exact: true }).click();
   for (const collection of ["nodes", "aliases", "observations"] as const) {
     await page.getByRole("button", { name: `Next ${collection} page` }).click();
     await expect(page.getByText(collection === "nodes" ? "node-two" : collection === "aliases" ? "alias-two" : "observation-two")).toBeVisible();
@@ -134,6 +139,7 @@ test("Nodes classifies loading, empty, unavailable, denied, and rejected respons
 
 test("Nodes distinguishes stale, partial, unknown, and scope denial after successful reads", async ({ page }) => {
   await page.goto("/nodes");
+  await page.getByText("Inventory draft details", { exact: true }).click();
   await expect(page.getByText("node-one", { exact: true })).toBeVisible();
 
   fixtureState.mode = "dependency";
@@ -142,6 +148,7 @@ test("Nodes distinguishes stale, partial, unknown, and scope denial after succes
 
   fixtureState.mode = "healthy";
   await page.reload();
+  await page.getByText("Inventory draft details", { exact: true }).click();
   fixtureState.mode = "dependency-node-page";
   await page.getByRole("button", { name: "Next nodes page" }).click();
   await expect(page.locator('[data-read-state="partial"]')).toBeVisible();
@@ -149,6 +156,7 @@ test("Nodes distinguishes stale, partial, unknown, and scope denial after succes
 
   fixtureState.mode = "healthy";
   await page.reload();
+  await page.getByText("Inventory draft details", { exact: true }).click();
   fixtureState.mode = "deny-node-page";
   await page.getByRole("button", { name: "Next nodes page" }).click();
   await expect(page.locator('[data-read-state="denied"]')).toBeVisible();
@@ -157,6 +165,7 @@ test("Nodes distinguishes stale, partial, unknown, and scope denial after succes
 
   fixtureState.mode = "missing";
   await page.reload();
+  await page.getByText("Inventory draft details", { exact: true }).click();
   await expect(page.locator('[data-source-state="unknown"]')).toContainText(/no health can be inferred/i);
 });
 
@@ -167,8 +176,10 @@ test("private fixture records remain behind the authorized response boundary", a
   await page.goto("/nodes");
   fixtureState.mode = "denied";
   await page.reload();
+  await expect(page.getByText("Nodes access denied", { exact: true })).toBeVisible();
   fixtureState.mode = "malformed";
-  await page.getByRole("button", { name: "Refresh" }).click();
+  await page.getByRole("alert").filter({ has: page.getByText("Nodes access denied", { exact: true }) }).getByRole("button", { name: "Refresh", exact: true }).click();
+  await expect(page.getByText("Nodes response rejected", { exact: true })).toBeVisible();
   const browserState = await page.evaluate(async () => ({
     local: Object.entries(localStorage),
     session: Object.entries(sessionStorage),
@@ -186,10 +197,12 @@ test("private fixture records remain behind the authorized response boundary", a
 test("Overview, Nodes, Gates, and the details overlay have no serious accessibility violations", async ({ page }) => {
   for (const [route, ready] of [["/", "[data-overview-records]"], ["/nodes", "text=node-one"], ["/gates", "[data-gate-records]"]] as const) {
     await page.goto(route);
+    if (route === "/nodes") await page.getByText("Inventory draft details", { exact: true }).click();
     await expect(page.locator(ready)).toBeVisible();
     await expectNoSeriousAccessibilityViolations(page);
   }
   await page.goto("/nodes");
+  await page.getByText("Inventory draft details", { exact: true }).click();
   await page.getByRole("button", { name: "View node" }).click();
   await expectNoSeriousAccessibilityViolations(page);
   await page.setViewportSize({ width: 390, height: 844 });
@@ -207,6 +220,7 @@ test("Overview, Nodes, Gates, and the details overlay have no serious accessibil
 test("Nodes remains readable and operable on a narrow screen", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/nodes");
+  await page.getByText("Inventory draft details", { exact: true }).click();
   for (const heading of ["Nodes", "Aliases", "Observations"]) await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Toggle sidebar" }).click();
   await expect(page.getByRole("navigation", { name: "Console navigation" }).getByRole("link", { name: "Nodes", exact: true })).toHaveAttribute("aria-current", "page");

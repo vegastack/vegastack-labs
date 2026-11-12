@@ -2,6 +2,14 @@
 
 Use the installed `vsk-labs` executable and your protected operator profile. Replace every placeholder below with an exact authorized ID or private path from the controller records. Keep responses and operational identifiers private. Nodes04/05 remain excluded, including reads and indirect effects. This procedure covers the existing pilot; it grants no new host enrollment, service change or maintenance authority.
 
+## Use the Console
+
+Overview reports the controller database, read access and change-engine state. A ready change engine still requires permissions, checks and acknowledgement for each exact operation. Use the normal Nodes and Services pages to inspect registered machines and recorded deployments; expand technical collection details only when diagnosing observation freshness. A recent local database read is not a newly completed integrity check or proof that applications are healthy.
+
+Nodes keeps registration inspection first; expand add/preparation or advanced maintenance only for that task. Inventory drafts remain separate proposed records. Services presents its recorded deployment before optional configuration, provider and recovery detail. In Changes, enter an existing run reference to inspect its durable result without retrying execution. Backups, Audit and Gates refresh their existing records explicitly; a refresh does not initiate backup, restore, provider probing or host repair. Restore preparation remains disabled while required backup/audit status is unknown.
+
+The obsolete Settings link is absent. Direct unavailable addresses describe an unavailable feature, not a disconnected controller; the old dashboard address opens the existing Overview. Design-state examples are labelled examples. [Console correction #404](https://github.com/vegastack/vegastack-labs/issues/404) records the exact tested source and installed verification; these instructions describe that corrected behavior and do not upgrade a running pilot by themselves.
+
 ## Check the controller and recorded state
 
 ```text
@@ -29,6 +37,25 @@ vsk-labs node add --config <protected-profile> --file <reviewed-node-add.json> -
 ```
 
 The request uses the generated `vegastack-labs.dev/host-adoption-request` contract. The command prepares an inert registration declaration. Review the returned declaration, then use the existing commit/plan, genuine human acknowledgement and exact apply workflow under explicit execution authorization. Preparation alone performs no registration or host configuration. Applicable baseline and role checks remain separate before workload admission; see [Linux role installation](development/linux-role-installation.md).
+
+## Console correction coverage
+
+Issue #404 covers the existing Console, including its legacy addresses. The following coverage is isolated browser and source evidence; it does not establish installed-site behavior or native/provider health.
+
+| Page | Browser-tested behavior | Source-inspected or locally unverified behavior |
+| --- | --- | --- |
+| Overview | Summary/source states, outage and denial clearing, record links and collection disclosures (`read-views`, `console-working-flows`) | Installed controller responses and served assets unverified |
+| Nodes | Registered list/inspection/refresh, draft pagination/details, discovery/registration/action forms, admission states and stale-plan races (`registered-host-list`, `host-lifecycle`, `host-replacement`, `host-plan-race`) | Real discovery, host changes and admission unverified |
+| People | Authorized list/detail, pagination, denial/revocation clearing (`operator-access`) | Actual identity-provider changes unverified |
+| Services | Registration/detail, recorded deployment/settings/recovery/provider reads and empty/stale/denied states (`domain-status-views`) | Fresh native/provider health or deployment unverified |
+| Backups | Status/recovery-point reads, inert restore drafting and prerequisite blocking (`phase5-workflows`, `console-working-flows`); successful refresh and delayed-response denial (`console-refresh`, `backup-refresh-correction`) | Scheduling/run launchers and uncertain-result UI paths source-inspected; not independently browser-proven by this correction |
+| Providers | Configured capabilities, missing connectivity and absent-provider distinctions (`console-working-flows`, `operator-access`) | Provider denied/error UI source-inspected; real connectivity and changes unverified |
+| Gates | Evaluations and read failure families (`read-views`); successful refresh (`console-refresh`) | Explicit check/evidence forms and epoch handling source-inspected; submission behavior not browser-proven by this correction |
+| Audit | Verification/checkpoint reads (`phase5-workflows`); successful refresh (`console-refresh`) | Independent recovery qualification unverified |
+| Changes | Draft/revision/plan, approval polling, exact execution, uncertainty recovery, event reconnect and access clearing (`change-workflow`); existing-run lookup (`console-working-flows`) | Cancel/resume controls source-inspected; live acknowledgement/execution unverified |
+| Navigation and legacy routes | Sidebar/theme/keyboard, desktop/mobile layouts, dashboard, design examples and unavailable guidance (`console`, `console-working-flows`) | Authenticated installed-site smoke check unverified |
+
+Test names above identify files under `web/e2e/`. All nine main pages have populated fixture checks and desktop/mobile accessibility/layout coverage. Tests retain malformed-response and denied-access behavior; a successful screenshot alone is not a successful operation. Source inspection is explicitly separate from browser proof. Native/provider actions, deferred workflows and installed-site behavior still require their own evidence and existing prerequisites.
 
 ## Import and export inventory drafts
 

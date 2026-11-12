@@ -4,8 +4,14 @@ import { fixtureAudit, fixtureState, installReadFixture, privateDomainCanaries, 
 
 test.beforeEach(async ({ page }) => installReadFixture(page));
 
+async function openServiceSection(page: Page, title: string) {
+  const summary = page.locator("summary").filter({ hasText: new RegExp(`^${title}$`) });
+  if (await summary.locator("..").getAttribute("open") === null) await summary.click();
+}
+
 async function inspect(page: Page) {
   await page.getByRole("button", { name: "Inspect service-a", exact: true }).click();
+  await openServiceSection(page, "Provider observations");
   await expect(page.getByText("Coolify reported status: running:healthy", { exact: true })).toBeVisible();
 }
 
@@ -28,6 +34,9 @@ test("Services is accessible on mobile with keyboard, truthful observations and 
   releaseList();
   const inspectButton = page.getByRole("button", { name: "Inspect service-a", exact: true });
   await inspectButton.focus();
+  await page.keyboard.press("Enter");
+  const observations = page.locator("summary").filter({ hasText: /^Provider observations$/ });
+  await observations.focus();
   await page.keyboard.press("Enter");
   await expect(page.getByText("Coolify reported status: running:healthy", { exact: true })).toBeVisible();
   await expect(page.getByText("Configured image: fixture/app:v1", { exact: true })).toBeVisible();
@@ -64,6 +73,7 @@ test("provider unavailability stays explicit while registration remains visible"
   serviceFixtureState.unavailableProviders = true;
   await page.goto("/services");
   await page.getByRole("button", { name: "Inspect service-a", exact: true }).click();
+  await openServiceSection(page, "Provider observations");
   await expect(page.getByText("Hosting observation: unavailable · provider-unavailable", { exact: true })).toBeVisible();
   await expect(page.getByText("Artifact observation: unavailable · provider-unavailable", { exact: true })).toBeVisible();
   await expect(page.getByText("Scan: unavailable", { exact: true })).toBeVisible();
@@ -103,6 +113,7 @@ for (const denial of ["scoped", "session"] as const) {
     if (denial === "session") {
       await page.route("**/api/v1/services/service-a", route => route.fulfill({ status: 401, json: { schema: "vegastack-labs.dev/browser-run-result", schemaVersion: "1.0.0", toolVersion: "test", command: "api.v1.services.get", runId: null, status: "failed", changed: false, recoveryEpoch: 2, stateRevision: 8, snapshotDigest: null, releaseBuildId: "test", sourceRevision: null, planId: null, errors: [{ code: "SESSION_EXPIRED", target: "session", retryable: false }], data: {} } }));
     } else fixtureState.mode = "denied";
+    await openServiceSection(page, "Registration details");
     await page.getByRole("button", { name: "Refresh registration", exact: true }).click();
     await expect(page.getByText("Services access denied", { exact: true })).toBeVisible();
     await page.waitForTimeout(650);
@@ -151,13 +162,15 @@ test("a valid but wrong source response is rejected", async ({ page }) => {
 test("Services distinguishes desired settings and blocked placement from partial deployment and unverified recovery", async ({ page }) => {
   await page.goto("/services");
   await inspect(page);
+  await openServiceSection(page, "Desired settings and placement");
+  await openServiceSection(page, "Data recovery result");
   await expect(page.getByText("Explicit target eligibility: blocked · admission-or-capacity-unavailable", { exact: true })).toBeVisible();
-  await expect(page.getByText("CPU quota: 100% · Memory: 268435456 bytes", { exact: true })).toBeVisible();
+  await expect(page.getByText("CPU limit: 1 CPU · Memory: 256 MiB", { exact: true })).toBeVisible();
   await expect(page.getByText("Deployment: partial · deploy", { exact: true })).toBeVisible();
   await expect(page.getByText("Recovery: blocked · backup", { exact: true })).toBeVisible();
-  await expect(page.getByText("Consistent restore verified: false", { exact: true })).toBeVisible();
+  await expect(page.getByText("Consistent restore verified: No", { exact: true })).toBeVisible();
   fixtureState.mode = "denied";
   await page.getByRole("button", { name: "Refresh Services", exact: true }).click();
   await expect(page.getByRole("region", { name: "Service detail" })).toHaveCount(0);
-  for (const text of ["CPU quota: 100% · Memory: 268435456 bytes", "Deployment: partial · deploy", "Recovery: blocked · backup"]) await expect(page.getByText(text, { exact: true })).toHaveCount(0);
+  for (const text of ["CPU limit: 1 CPU · Memory: 256 MiB", "Deployment: partial · deploy", "Recovery: blocked · backup"]) await expect(page.getByText(text, { exact: true })).toHaveCount(0);
 });

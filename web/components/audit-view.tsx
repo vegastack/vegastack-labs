@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ReadPagination } from "@/components/read-pagination";
 import { ReadViewState } from "@/components/read-view-state";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
@@ -21,7 +23,8 @@ export function AuditView() {
   const verificationData = verification.data?.data;
   const incident = verificationData?.status === "incident";
   return <>
-    <PageHeader title="Audit" description="Sanitized checkpoint continuity and independent verification from the server-owned audit service." />
+    <PageHeader title="Audit" description="Check the integrity of recorded operation history. These checkpoints are continuity records, not a list of every operation." actions={<Button variant="outline" loading={checkpoints.isFetching || verification.isFetching} onClick={() => { void checkpoints.refetch(); void verification.refetch(); }}>Refresh Audit</Button>} />
+    <p className="text-sm text-muted-foreground">To inspect an operation result, open its run reference in <Link prefetch={false} href="/changes" className="underline">Changes</Link>.</p>
     {incident ? <ReadViewState kind="error" title="Audit incident" description={`${verificationData.reasonCode}. Preserve current authority and follow the audit continuity runbook. Ordinary mutations remain disabled.`} /> : null}
     <section className="space-y-3" aria-labelledby="audit-verification-title">
       <h2 id="audit-verification-title" className="text-h3">Independent verification</h2>
