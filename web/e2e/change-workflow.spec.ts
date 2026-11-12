@@ -41,18 +41,19 @@ async function selectTheme(page: Page, theme: "light" | "dark") {
 
 test("declaration save, plan review, approval observation, and durable run stay server-owned", async ({ page }) => {
   await page.goto("/changes");
-  await page.getByLabel("Declaration ID").fill("declaration-one");
-  await page.getByLabel("Revision").fill("1");
-  await page.getByRole("button", { name: "Open declaration" }).click();
-  await expect(page.getByText("Draft revision 1", { exact: true })).toBeVisible();
+  await page.getByLabel("Settings reference", { exact: true }).fill("declaration-one");
+  await page.getByLabel("Version", { exact: true }).fill("1");
+  await page.getByRole("button", { name: "Open settings" }).click();
+  await expect(page.getByText("Saved settings · version 1", { exact: true })).toBeVisible();
 
-  await page.getByLabel("Reason digest").fill(changeFixture.reasonDigest);
-  await page.getByLabel("Reason digest").blur();
+  await page.getByLabel("Reason fingerprint", { exact: true }).fill(changeFixture.reasonDigest);
+  await page.getByLabel("Reason fingerprint", { exact: true }).blur();
   expect(changeFixture.requestBodies).toEqual([]);
-  await page.getByRole("button", { name: "Save declaration" }).click();
-  await expect(page.getByText("Draft revision 2", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Save settings" }).click();
+  await expect(page.getByText("Saved settings · version 2", { exact: true })).toBeVisible();
   expect(JSON.parse(changeFixture.requestBodies.at(-1) ?? "{}").expectedRevision).toBe(2);
-  await page.getByRole("button", { name: "Generate plan" }).click();
+  await page.getByRole("button", { name: "Prepare plan" }).click();
+  await page.getByText("Technical plan details", { exact: true }).click();
   await expect(page.getByText(changeFixture.planDigest, { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /approve/i })).toHaveCount(0);
 
@@ -81,25 +82,25 @@ test("declaration save, plan review, approval observation, and durable run stay 
 
 test("save cancels the old revision read and mounts the exact returned revision", async ({ page }) => {
   await page.goto("/changes");
-  await page.getByLabel("Declaration ID").fill("declaration-one");
-  await page.getByLabel("Revision").fill("1");
-  await page.getByRole("button", { name: "Open declaration" }).click();
-  await expect(page.getByText("Draft revision 1", { exact: true })).toBeVisible();
+  await page.getByLabel("Settings reference", { exact: true }).fill("declaration-one");
+  await page.getByLabel("Version", { exact: true }).fill("1");
+  await page.getByRole("button", { name: "Open settings" }).click();
+  await expect(page.getByText("Saved settings · version 1", { exact: true })).toBeVisible();
   const revisionOneReads = changeFixture.requestPaths.filter(path => path === "/api/v1/declarations/declaration-one/revisions/1").length;
 
-  await page.getByLabel("Reason digest").fill(changeFixture.reasonDigest);
-  await page.getByRole("button", { name: "Save declaration" }).click();
-  await expect(page.getByText("Draft revision 2", { exact: true })).toBeVisible();
+  await page.getByLabel("Reason fingerprint", { exact: true }).fill(changeFixture.reasonDigest);
+  await page.getByRole("button", { name: "Save settings" }).click();
+  await expect(page.getByText("Saved settings · version 2", { exact: true })).toBeVisible();
   expect(changeFixture.requestPaths.filter(path => path === "/api/v1/declarations/declaration-one/revisions/1")).toHaveLength(revisionOneReads);
   await expect(page.getByText("Change details cleared", { exact: true })).toHaveCount(0);
 });
 
 test("refresh restores the exact durable plan and run without resubmitting", async ({ page }) => {
   await page.goto("/changes");
-  await page.getByLabel("Declaration ID").fill("declaration-one");
-  await page.getByLabel("Revision").fill("1");
-  await page.getByRole("button", { name: "Open declaration" }).click();
-  await page.getByRole("button", { name: "Generate plan" }).click();
+  await page.getByLabel("Settings reference", { exact: true }).fill("declaration-one");
+  await page.getByLabel("Version", { exact: true }).fill("1");
+  await page.getByRole("button", { name: "Open settings" }).click();
+  await page.getByRole("button", { name: "Prepare plan" }).click();
   await page.getByRole("button", { name: "Request Slack approval" }).click();
   changeFixture.approval = "approved";
   await page.getByRole("button", { name: "Refresh approval status" }).click();
@@ -111,6 +112,7 @@ test("refresh restores the exact durable plan and run without resubmitting", asy
   expect(safeHandles).toEqual({ declarationId: "declaration-one", revision: 1, planId: "plan-one", runId: "run-one" });
 
   await page.reload();
+  await page.getByText("Technical plan details", { exact: true }).click();
   await expect(page.getByText(changeFixture.planDigest, { exact: true })).toBeVisible();
   await expect(page.locator('[data-run-status="running"]')).toBeVisible();
   expect(changeFixture.executeRequests).toBe(beforeReload);
@@ -121,10 +123,10 @@ test("a lost execute response resolves one durable run without resubmitting", as
   changeFixture.dropExecuteResponseOnce = true;
   changeFixture.resolutionDelayMs = 400;
   await page.goto("/changes");
-  await page.getByLabel("Declaration ID").fill("declaration-one");
-  await page.getByLabel("Revision").fill("1");
-  await page.getByRole("button", { name: "Open declaration" }).click();
-  await page.getByRole("button", { name: "Generate plan" }).click();
+  await page.getByLabel("Settings reference", { exact: true }).fill("declaration-one");
+  await page.getByLabel("Version", { exact: true }).fill("1");
+  await page.getByRole("button", { name: "Open settings" }).click();
+  await page.getByRole("button", { name: "Prepare plan" }).click();
   changeFixture.approval = "approved";
   await page.getByRole("button", { name: "Request Slack approval" }).click();
   await page.getByRole("button", { name: "Start run" }).click();
@@ -145,10 +147,10 @@ test("a lost execute response resolves one durable run without resubmitting", as
 
 test("pending approval polling survives reload while the plan is still planned", async ({ page }) => {
   await page.goto("/changes");
-  await page.getByLabel("Declaration ID").fill("declaration-one");
-  await page.getByLabel("Revision").fill("1");
-  await page.getByRole("button", { name: "Open declaration" }).click();
-  await page.getByRole("button", { name: "Generate plan" }).click();
+  await page.getByLabel("Settings reference", { exact: true }).fill("declaration-one");
+  await page.getByLabel("Version", { exact: true }).fill("1");
+  await page.getByRole("button", { name: "Open settings" }).click();
+  await page.getByRole("button", { name: "Prepare plan" }).click();
   await page.getByRole("button", { name: "Request Slack approval" }).click();
   await expect(page.locator('[data-approval-status="pending"]')).toBeVisible();
   expect(changeFixture.approvalRequestPosts).toBe(1);
@@ -166,10 +168,10 @@ test("a cached running response waits for the fresh terminal GET before opening 
   changeFixture.run = "running";
   changeFixture.runAfterExecute = "succeeded";
   await page.goto("/changes");
-  await page.getByLabel("Declaration ID").fill("declaration-one");
-  await page.getByLabel("Revision").fill("1");
-  await page.getByRole("button", { name: "Open declaration" }).click();
-  await page.getByRole("button", { name: "Generate plan" }).click();
+  await page.getByLabel("Settings reference", { exact: true }).fill("declaration-one");
+  await page.getByLabel("Version", { exact: true }).fill("1");
+  await page.getByRole("button", { name: "Open settings" }).click();
+  await page.getByRole("button", { name: "Prepare plan" }).click();
   changeFixture.approval = "approved";
   await page.getByRole("button", { name: "Request Slack approval" }).click();
   await page.getByRole("button", { name: "Start run" }).click();
@@ -184,10 +186,10 @@ test("a fresh terminal run never opens an SSE watcher", async ({ page }) => {
     resetChangeFixture();
     changeFixture.run = state;
     await page.goto("/changes");
-    await page.getByLabel("Declaration ID").fill("declaration-one");
-    await page.getByLabel("Revision").fill("1");
-    await page.getByRole("button", { name: "Open declaration" }).click();
-    await page.getByRole("button", { name: "Generate plan" }).click();
+    await page.getByLabel("Settings reference", { exact: true }).fill("declaration-one");
+    await page.getByLabel("Version", { exact: true }).fill("1");
+    await page.getByRole("button", { name: "Open settings" }).click();
+    await page.getByRole("button", { name: "Prepare plan" }).click();
     changeFixture.approval = "approved";
     await page.getByRole("button", { name: "Request Slack approval" }).click();
     await page.getByRole("button", { name: "Start run" }).click();
@@ -200,23 +202,24 @@ test("a fresh terminal run never opens an SSE watcher", async ({ page }) => {
 
 test("focus follows an explicit save into the new immutable revision", async ({ page }) => {
   await page.goto("/changes");
-  await page.getByLabel("Declaration ID").fill("declaration-one");
-  await page.getByLabel("Revision").fill("1");
-  await page.getByRole("button", { name: "Open declaration" }).click();
-  await page.getByLabel("Reason digest").fill(changeFixture.reasonDigest);
-  await page.getByRole("button", { name: "Save declaration" }).click();
-  await expect(page.getByText("Draft revision 2", { exact: true })).toBeVisible();
-  await expect(page.getByLabel("Reason digest")).toBeFocused();
+  await page.getByLabel("Settings reference", { exact: true }).fill("declaration-one");
+  await page.getByLabel("Version", { exact: true }).fill("1");
+  await page.getByRole("button", { name: "Open settings" }).click();
+  await page.getByLabel("Reason fingerprint", { exact: true }).fill(changeFixture.reasonDigest);
+  await page.getByRole("button", { name: "Save settings" }).click();
+  await expect(page.getByText("Saved settings · version 2", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Reason fingerprint", { exact: true })).toBeFocused();
 });
 
 test("approval expiry and a final server recheck fail closed", async ({ page }) => {
   const now = Date.now();
   await page.clock.install({ time: now });
   await page.goto("/changes");
-  await page.getByLabel("Declaration ID").fill("declaration-one");
-  await page.getByLabel("Revision").fill("1");
-  await page.getByRole("button", { name: "Open declaration" }).click();
-  await page.getByRole("button", { name: "Generate plan" }).click();
+  await page.getByLabel("Settings reference", { exact: true }).fill("declaration-one");
+  await page.getByLabel("Version", { exact: true }).fill("1");
+  await page.getByRole("button", { name: "Open settings" }).click();
+  await page.getByRole("button", { name: "Prepare plan" }).click();
+  await page.getByText("Technical plan details", { exact: true }).click();
   await expect(page.getByText(changeFixture.planDigest, { exact: true })).toBeVisible();
   changeFixture.approval = "approved";
   changeFixture.approvalExpiresAt = new Date(now + 60_000).toISOString().replace(/\.\d{3}Z$/, "Z");
@@ -238,10 +241,10 @@ test("approval expiry and a final server recheck fail closed", async ({ page }) 
 test("SSE reconnect carries the last event and re-reads without resubmitting", async ({ page }) => {
   changeFixture.eventMode = "reconnect";
   await page.goto("/changes");
-  await page.getByLabel("Declaration ID").fill("declaration-one");
-  await page.getByLabel("Revision").fill("1");
-  await page.getByRole("button", { name: "Open declaration" }).click();
-  await page.getByRole("button", { name: "Generate plan" }).click();
+  await page.getByLabel("Settings reference", { exact: true }).fill("declaration-one");
+  await page.getByLabel("Version", { exact: true }).fill("1");
+  await page.getByRole("button", { name: "Open settings" }).click();
+  await page.getByRole("button", { name: "Prepare plan" }).click();
   changeFixture.approval = "approved";
   await page.getByRole("button", { name: "Request Slack approval" }).click();
   await page.getByRole("button", { name: "Start run" }).click();
@@ -256,10 +259,10 @@ test("same-run GET revision after SSE keeps the reconnect cursor without resubmi
   changeFixture.eventMode = "reconnect";
   changeFixture.changeRunRevisionAfterFirstEvent = true;
   await page.goto("/changes");
-  await page.getByLabel("Declaration ID").fill("declaration-one");
-  await page.getByLabel("Revision").fill("1");
-  await page.getByRole("button", { name: "Open declaration" }).click();
-  await page.getByRole("button", { name: "Generate plan" }).click();
+  await page.getByLabel("Settings reference", { exact: true }).fill("declaration-one");
+  await page.getByLabel("Version", { exact: true }).fill("1");
+  await page.getByRole("button", { name: "Open settings" }).click();
+  await page.getByRole("button", { name: "Prepare plan" }).click();
   changeFixture.approval = "approved";
   await page.getByRole("button", { name: "Request Slack approval" }).click();
   await page.getByRole("button", { name: "Start run" }).click();
@@ -273,10 +276,10 @@ test("a new run starts SSE without the previous run cursor", async ({ page }) =>
   changeFixture.eventMode = "reconnect";
   changeFixture.switchRunIdAfterFirstEvent = true;
   await page.goto("/changes");
-  await page.getByLabel("Declaration ID").fill("declaration-one");
-  await page.getByLabel("Revision").fill("1");
-  await page.getByRole("button", { name: "Open declaration" }).click();
-  await page.getByRole("button", { name: "Generate plan" }).click();
+  await page.getByLabel("Settings reference", { exact: true }).fill("declaration-one");
+  await page.getByLabel("Version", { exact: true }).fill("1");
+  await page.getByRole("button", { name: "Open settings" }).click();
+  await page.getByRole("button", { name: "Prepare plan" }).click();
   changeFixture.approval = "approved";
   await page.getByRole("button", { name: "Request Slack approval" }).click();
   await page.getByRole("button", { name: "Start run" }).click();
@@ -295,10 +298,10 @@ test("a one-shot durable GET failure retries before opening SSE without resubmit
   changeFixture.eventMode = "reconnect";
   changeFixture.runReadFailuresRemaining = 1;
   await page.goto("/changes");
-  await page.getByLabel("Declaration ID").fill("declaration-one");
-  await page.getByLabel("Revision").fill("1");
-  await page.getByRole("button", { name: "Open declaration" }).click();
-  await page.getByRole("button", { name: "Generate plan" }).click();
+  await page.getByLabel("Settings reference", { exact: true }).fill("declaration-one");
+  await page.getByLabel("Version", { exact: true }).fill("1");
+  await page.getByRole("button", { name: "Open settings" }).click();
+  await page.getByRole("button", { name: "Prepare plan" }).click();
   changeFixture.approval = "approved";
   await page.getByRole("button", { name: "Request Slack approval" }).click();
   await page.getByRole("button", { name: "Start run" }).click();
@@ -311,10 +314,10 @@ test("a one-shot durable GET failure retries before opening SSE without resubmit
 
 test("authorization loss clears every mounted change projection", async ({ page }) => {
   await page.goto("/changes");
-  await page.getByLabel("Declaration ID").fill("declaration-one");
-  await page.getByLabel("Revision").fill("1");
-  await page.getByRole("button", { name: "Open declaration" }).click();
-  await page.getByRole("button", { name: "Generate plan" }).click();
+  await page.getByLabel("Settings reference", { exact: true }).fill("declaration-one");
+  await page.getByLabel("Version", { exact: true }).fill("1");
+  await page.getByRole("button", { name: "Open settings" }).click();
+  await page.getByRole("button", { name: "Prepare plan" }).click();
   changeFixture.approval = "approved";
   changeFixture.run = "succeeded";
   await page.getByRole("button", { name: "Request Slack approval" }).click();
@@ -329,17 +332,17 @@ test("authorization loss clears every mounted change projection", async ({ page 
   await expect(page.getByText("Change details cleared", { exact: true })).toBeVisible();
   await expect(page.locator("[data-run-status]")).toHaveCount(0);
   await expect(page.locator("[data-plan-status]")).toHaveCount(0);
-  await expect(page.getByText(/Draft revision/)).toHaveCount(0);
+  await expect(page.getByText(/Saved settings · version/)).toHaveCount(0);
   expect(await page.evaluate(() => history.state.vskChangeHandles)).toBeUndefined();
 });
 
 test("stale authorization is disabled and private fields never reach browser-visible state", async ({ page }) => {
   changeFixture.approval = "expired";
   await page.goto("/changes");
-  await page.getByLabel("Declaration ID").fill("declaration-one");
-  await page.getByLabel("Revision").fill("1");
-  await page.getByRole("button", { name: "Open declaration" }).click();
-  await page.getByRole("button", { name: "Generate plan" }).click();
+  await page.getByLabel("Settings reference", { exact: true }).fill("declaration-one");
+  await page.getByLabel("Version", { exact: true }).fill("1");
+  await page.getByRole("button", { name: "Open settings" }).click();
+  await page.getByRole("button", { name: "Prepare plan" }).click();
   await page.getByRole("button", { name: "Request Slack approval" }).click();
   await expect(page.getByRole("button", { name: "Start run" })).toBeDisabled();
   const visible = [await page.locator("body").innerText(), page.url(), JSON.stringify(await page.evaluate(() => ({ local: { ...localStorage }, session: { ...sessionStorage } }))), changeFixture.requestBodies.join("\n")].join("\n");
@@ -349,10 +352,10 @@ test("stale authorization is disabled and private fields never reach browser-vis
 test("every change state preserves keyboard focus, accessibility, themes, mobile layout, and 200% reflow", async ({ page }) => {
   test.setTimeout(120_000);
   const approvalStates = [
-    { state: "pending", label: "Pending", authorization: "Authorization is not current" },
-    { state: "rejected", label: "Rejected", authorization: "Authorization is not current" },
-    { state: "expired", label: "Expired", authorization: "Authorization is not current" },
-    { state: "approved", label: "Approved", authorization: "Authorization is current" },
+    { state: "pending", label: "Pending", authorization: "Approval needs to be checked again" },
+    { state: "rejected", label: "Rejected", authorization: "Approval needs to be checked again" },
+    { state: "expired", label: "Expired", authorization: "Approval needs to be checked again" },
+    { state: "approved", label: "Approved", authorization: "Approval is still valid" },
   ] as const;
   const runStates = [
     { state: "queued", label: "Queued", next: "inspect or cancel through the server" },
@@ -384,27 +387,27 @@ test("every change state preserves keyboard focus, accessibility, themes, mobile
 
       // empty
       const empty = page.locator('[data-read-state="empty"]').filter({ visible: true });
-      await expect(empty.getByRole("status")).toContainText("No declaration open");
-      await expect(empty.getByText("No declaration open", { exact: true })).toBeVisible();
-      await page.getByLabel("Declaration ID").focus();
-      await expect(page.getByLabel("Declaration ID")).toBeFocused();
+      await expect(empty.getByRole("status")).toContainText("No saved settings open");
+      await expect(empty.getByText("No saved settings open", { exact: true })).toBeVisible();
+      await page.getByLabel("Settings reference", { exact: true }).focus();
+      await expect(page.getByLabel("Settings reference", { exact: true })).toBeFocused();
       await expectStateSurface(page);
 
       // loading
       changeFixture.declarationDelayMs = 150;
-      await page.getByLabel("Declaration ID").fill("declaration-one");
-      await page.getByLabel("Revision").fill("1");
-      const open = page.getByRole("button", { name: "Open declaration" });
+      await page.getByLabel("Settings reference", { exact: true }).fill("declaration-one");
+      await page.getByLabel("Version", { exact: true }).fill("1");
+      const open = page.getByRole("button", { name: "Open settings" });
       await activateWithKeyboard(page, open);
       const loading = page.locator('[data-read-state="loading"]').filter({ visible: true });
       await expect(loading.getByRole("status")).toContainText("Loading declaration");
       await expect(loading.getByText("Loading declaration", { exact: true })).toBeVisible();
       await expect(open).toBeFocused();
       await expectStateSurface(page);
-      await expect(page.getByText("Draft revision 1", { exact: true })).toBeVisible();
+      await expect(page.getByText("Saved settings · version 1", { exact: true })).toBeVisible();
       changeFixture.declarationDelayMs = 0;
 
-      await activateWithKeyboard(page, page.getByRole("button", { name: "Generate plan" }));
+      await activateWithKeyboard(page, page.getByRole("button", { name: "Prepare plan" }));
       await activateWithKeyboard(page, page.getByRole("button", { name: "Request Slack approval" }));
       for (const expected of approvalStates) {
         changeFixture.approval = expected.state;
@@ -464,8 +467,8 @@ test("every change state preserves keyboard focus, accessibility, themes, mobile
       await expect(clearedAlert).toContainText("Change details cleared");
       await expect(denied.getByText("Change details cleared", { exact: true })).toBeVisible();
       await expect(page.locator("[data-run-status], [data-plan-status], [data-approval-status]")).toHaveCount(0);
-      await page.getByLabel("Declaration ID").focus();
-      await expect(page.getByLabel("Declaration ID")).toBeFocused();
+      await page.getByLabel("Settings reference", { exact: true }).focus();
+      await expect(page.getByLabel("Settings reference", { exact: true })).toBeFocused();
       await expectStateSurface(page);
     }
   }

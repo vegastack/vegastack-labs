@@ -6,9 +6,9 @@ const read = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
 test("declaration changes persist only after Save through the generated client", async () => {
   const source = await read("components/declaration-editor.tsx");
-  assert.match(source, /Save declaration/);
+  assert.match(source, /Save settings/);
   assert.match(source, /useSaveDeclaration/);
-  assert.match(source, /Generate plan/);
+  assert.match(source, /Prepare plan/);
   assert.doesNotMatch(source, /setInterval|onBlur=.*save|fetch\(/);
 });
 

@@ -12,7 +12,7 @@ test("registered hosts appear automatically and can be inspected without enterin
  await expect(page.getByRole("list",{name:"Registered host list"})).toContainText("Workload admission requires current checks");
  await page.screenshot({path:info.outputPath("registered-host-list.png"),fullPage:true});
  await page.getByRole("button",{name:"Inspect host-a",exact:true}).click();
- await expect(page.getByText("Host host-a: adopted-unadmitted",{exact:true})).toBeVisible();await expect(page.getByText("Admission could not be read. Workload qualification is unknown.", {exact:true})).toBeVisible();expect(count).toBe(1);
+ await expect(page.getByText("Selected machine: host-a",{exact:true})).toBeVisible();await page.getByText("Registration technical details",{exact:true}).click();await expect(page.getByText("Status: adopted-unadmitted",{exact:true})).toBeVisible();await expect(page.getByText("Readiness checks could not be loaded. Do not assume this machine is ready.", {exact:true})).toBeVisible();expect(count).toBe(1);
 });
 test("empty and unavailable registered lists are distinct and refresh explicitly",async({page})=>{
  await installReadFixture(page);let calls=0;

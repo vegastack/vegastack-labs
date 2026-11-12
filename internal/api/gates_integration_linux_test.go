@@ -16,13 +16,14 @@ import (
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/change"
+	"github.com/vegastack/vegastack-labs/internal/gate"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/identity"
 	"github.com/vegastack/vegastack-labs/internal/result"
 	"github.com/vegastack/vegastack-labs/internal/store"
 )
 
-func gateAPIFixture(t *testing.T) (*Application, *store.GateRepository, *store.PlanRepository, string) {
+func gateAPIFixture(t *testing.T, configure ...func(*GateOperations)) (*Application, *store.GateRepository, *store.PlanRepository, string) {
 	t.Helper()
 	directory := t.TempDir()
 	if err := os.Chmod(directory, 0700); err != nil {
@@ -66,7 +67,11 @@ func gateAPIFixture(t *testing.T) (*Application, *store.GateRepository, *store.P
 	}
 	gates := store.NewGateRepository(authority)
 	revisions := store.NewPlanRepository(authority)
-	if err := RegisterGateOperations(app, GateOperations{Gates: gates, Revisions: revisions, Declarations: declarations, Results: factory, Build: result.BuildInfo{ToolVersion: "0.0.0-test", ReleaseBuildID: "build-test"}, Clock: func() time.Time { return time.Date(2026, 9, 15, 8, 0, 0, 0, time.UTC) }}); err != nil {
+	config := GateOperations{Gates: gates, Revisions: revisions, Declarations: declarations, Results: factory, Build: result.BuildInfo{ToolVersion: "0.0.0-test", ReleaseBuildID: "build-test"}, Clock: func() time.Time { return time.Date(2026, 9, 15, 8, 0, 0, 0, time.UTC) }}
+	for _, apply := range configure {
+		apply(&config)
+	}
+	if err := RegisterGateOperations(app, config); err != nil {
 		t.Fatal(err)
 	}
 	return app, gates, revisions, databasePath
@@ -200,5 +205,67 @@ func TestGateEvidenceAPIOnlyAuthorsFixtureDraftAndRejectsPrivateAttachments(t *t
 	token, err := revisions.CurrentRevision(context.Background())
 	if err != nil || token.StateRevision != 2 {
 		t.Fatalf("inert revisions=%#v %v", token, err)
+	}
+}
+
+// A configured pilot callback can depend on keys, provider and origin reads.
+// GET must remain usable when that fresh observation dependency is unavailable.
+func TestGateInspectionNeverInvokesLivePilot(t *testing.T) {
+	calls, inspections := 0, 0
+	app, _, _, path := gateAPIFixture(t, func(config *GateOperations) {
+		config.InspectPilot = func(_ context.Context, scope gate.ResolvedScope, subject, gateID string, at time.Time) (generated.GateEvaluation, bool, error) {
+			if gateID != "platform-safety" {
+				return generated.GateEvaluation{}, false, nil
+			}
+			inspections++
+			def, _ := gateDefinition(gateID)
+			evaluation := gateUnknown(def, subject, "proof-unverified", at, scope.RecoveryEpoch)
+			evaluation.EvidenceIDs = []string{"saved-pilot-evidence"}
+			return evaluation, true, nil
+		}
+		config.EvaluatePilot = func(context.Context, gate.ResolvedScope, string, string, time.Time) (generated.GateEvaluation, bool, error) {
+			calls++
+			return generated.GateEvaluation{}, true, context.DeadlineExceeded
+		}
+	})
+	scope := store.GateAppliedProfile{ProfileID: "vegastack-labs", ProfileVersion: "1.0.0", PolicyID: "policy-a", PolicyVersion: "1.0.0", Capabilities: []string{}}
+	digest, err := store.ProfileScopeDigest(scope)
+	if err != nil {
+		t.Fatal(err)
+	}
+	draft := generated.GateProfileDraftRequest{Schema: generated.SchemaIDGateProfileDraftRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: 0, RecoveryEpoch: 0, TargetDigest: digest, IdempotencyKey: "inspection-profile", BindingID: "inspection-binding", ProfileID: scope.ProfileID, ProfileVersion: scope.ProfileVersion, PolicyID: scope.PolicyID, PolicyVersion: scope.PolicyVersion, Capabilities: scope.Capabilities}
+	if response := serveGateRequest(t, app, http.MethodPost, "/api/v1/gates/profile-drafts", draft); response.Code != http.StatusOK {
+		t.Fatalf("profile fixture: %d %s", response.Code, response.Body.String())
+	}
+	db, err := sql.Open("sqlite3", "file:"+path+"?mode=rw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	_, err = db.Exec(`INSERT INTO gate_applied_profiles VALUES('inspection-binding','vegastack-labs','1.0.0','policy-a','1.0.0',?,2,0,'profile-declaration',1,'profile-plan',?,'profile-run','profile-step','profile-lease','human-a','2026-09-15T08:00:00Z')`, []byte(`[]`), "sha256:"+strings.Repeat("a", 64))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, endpoint := range []string{"/api/v1/gates", "/api/v1/gates/platform-safety"} {
+		t.Run(endpoint, func(t *testing.T) {
+			before, inspected := calls, inspections
+			response := serveGateRequest(t, app, http.MethodGet, endpoint, nil)
+			if calls != before || inspections != inspected+1 || response.Code != http.StatusOK {
+				t.Fatalf("saved inspection reached live pilot: calls=%d status=%d body=%s", calls-before, response.Code, response.Body.String())
+			}
+			if !strings.Contains(response.Body.String(), "saved-pilot-evidence") {
+				t.Fatal("saved inspection callback was skipped")
+			}
+			if strings.Contains(response.Body.String(), `"outcome":"passed"`) {
+				t.Fatal("saved inspection certified readiness")
+			}
+		})
+	}
+	def, _ := gateDefinition("platform-safety")
+	input := generated.GateCheckRequest{Schema: generated.SchemaIDGateCheckRequest, SchemaVersion: "1.0.0", ExpectedStateRevision: 2, RecoveryEpoch: 0, TargetDigest: "sha256:" + strings.Repeat("a", 64), IdempotencyKey: "inspection-check", GateID: def.GateID, SubjectID: "scope", DefinitionVersion: def.DefinitionVersion}
+	before, inspected := calls, inspections
+	response := serveGateRequest(t, app, http.MethodPost, "/api/v1/gates/platform-safety/check", input)
+	if calls != before+1 || inspections != inspected || response.Code == http.StatusOK {
+		t.Fatalf("explicit check skipped fresh dependency: calls=%d status=%d body=%s", calls-before, response.Code, response.Body.String())
 	}
 }

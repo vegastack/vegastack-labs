@@ -27,9 +27,9 @@ const controlNav: readonly NavItem[] = [
   { label: "People", href: "/people", icon: Users },
   { label: "Services", href: "/services", icon: Server },
   { label: "Backups", href: "/backups", icon: DatabaseBackup },
-  { label: "Providers", href: "/providers", icon: Plug },
-  { label: "Gates", href: "/gates", icon: ShieldCheck },
-  { label: "Audit", href: "/audit", icon: FileClock },
+  { label: "Connections", href: "/providers", icon: Plug },
+  { label: "Checks", href: "/gates", icon: ShieldCheck },
+  { label: "History checks", href: "/audit", icon: FileClock },
   { label: "Changes", href: "/changes", icon: ClipboardCheck },
 ];
 
@@ -74,7 +74,7 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter>
         <p className="px-2 py-1 text-label-sm text-muted-foreground group-data-[state=collapsed]/sidebar:hidden">
-          Server-authorized control-plane connection
+          Connected through the Labs server
         </p>
       </SidebarFooter>
     </AppShellSidebar>

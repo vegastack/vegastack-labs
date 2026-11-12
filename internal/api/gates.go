@@ -23,9 +23,11 @@ import (
 )
 
 // GateOperations only drafts source-generated, bounded input. It deliberately
-// has no setter for an applied profile or a gate result.
+// has no setter for an applied profile or a gate result. InspectPilot reads saved
+// evidence; EvaluatePilot performs fresh observations for an explicit check.
 type GateOperations struct {
 	EvaluateNotificationReadiness func(context.Context, gate.ResolvedScope, string, string, time.Time) (generated.GateEvaluation, bool, error)
+	InspectPilot                  func(context.Context, gate.ResolvedScope, string, string, time.Time) (generated.GateEvaluation, bool, error)
 	EvaluatePilot                 func(context.Context, gate.ResolvedScope, string, string, time.Time) (generated.GateEvaluation, bool, error)
 	Gates                         *store.GateRepository
 	Revisions                     *store.PlanRepository
@@ -125,7 +127,7 @@ func gateUnboundProjection(evaluation generated.GateEvaluation, applicable bool,
 	return evaluation
 }
 
-func gateResult(ctx context.Context, config GateOperations, def generated.GateDefinition, subjectID string, boundSubject bool, token store.RevisionToken) (generated.GateView, error) {
+func gateResult(ctx context.Context, config GateOperations, def generated.GateDefinition, subjectID string, boundSubject bool, token store.RevisionToken, fresh bool) (generated.GateView, error) {
 	at := config.Clock().UTC().Truncate(time.Second)
 	scope, found, err := gateScope(ctx, config)
 	if err != nil {
@@ -193,8 +195,12 @@ func gateResult(ctx context.Context, config GateOperations, def generated.GateDe
 				if err != nil {
 					return generated.GateView{}, err
 				}
-				if !handled && config.EvaluatePilot != nil {
-					evaluation, handled, err = config.EvaluatePilot(ctx, scope, subjectID, def.GateID, at)
+				pilot := config.InspectPilot
+				if fresh {
+					pilot = config.EvaluatePilot
+				}
+				if !handled && pilot != nil {
+					evaluation, handled, err = pilot(ctx, scope, subjectID, def.GateID, at)
 					if err != nil {
 						return generated.GateView{}, err
 					}
@@ -242,7 +248,7 @@ func (app *Application) gatesList(config GateOperations) func(http.ResponseWrite
 			if hostAdmissionGate(def.GateID) {
 				selectedSubject = subject
 			}
-			view, err := gateResult(r.Context(), config, def, selectedSubject, r.URL.RawQuery != "", token)
+			view, err := gateResult(r.Context(), config, def, selectedSubject, r.URL.RawQuery != "", token, false)
 			if err != nil {
 				app.failure(w, op, err)
 				return
@@ -288,7 +294,7 @@ func (app *Application) gateGet(config GateOperations) func(http.ResponseWriter,
 			app.failure(w, op, err)
 			return
 		}
-		view, err := gateResult(r.Context(), config, def, subject, r.URL.RawQuery != "", token)
+		view, err := gateResult(r.Context(), config, def, subject, r.URL.RawQuery != "", token, false)
 		if err != nil {
 			app.failure(w, op, err)
 			return
@@ -335,7 +341,7 @@ func (app *Application) gateCheck(config GateOperations) func(http.ResponseWrite
 			app.failure(w, op, apiFailure(generated.ErrorCodePlanStale, "gate-check"))
 			return
 		}
-		view, err := gateResult(r.Context(), config, def, input.SubjectID, true, token)
+		view, err := gateResult(r.Context(), config, def, input.SubjectID, true, token, true)
 		if err != nil {
 			app.failure(w, op, err)
 			return

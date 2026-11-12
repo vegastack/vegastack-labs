@@ -926,6 +926,13 @@
         "commands": [],
         "imports": [],
         "mutationBoundaryDigest": "sha256:3e4588e0198c6474e826447bc54281663c6c538d8d221321948a0b53da6da9ab"
+      },
+      {
+        "id": "console-gates-inspection-issue404-v1",
+        "issue": 404,
+        "commands": [],
+        "imports": [],
+        "mutationBoundaryDigest": "sha256:8a410fdb86501d9c673daf9b2745c505c1ec33b6c58dbdbc91129fcbd36d0c00"
       }
     ]
   },

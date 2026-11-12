@@ -13,7 +13,7 @@ test("Phase 5 acceptance keeps protected recovery authority out of the browser",
   await page.goto("/backups");
 
   await expect(page.getByText("Recovery required", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Create inert restore draft" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Prepare restore" })).toBeDisabled();
   await expect(page.getByRole("button", { name: /force|run restore|delete|reveal|start run/i })).toHaveCount(0);
 
   const denials = await page.evaluate(async (paths) => Promise.all(paths.map(async (path) => {
@@ -39,7 +39,7 @@ test("Phase 5 acceptance artifacts contain no private or secret material", async
   const consoleMessages: string[] = [];
   page.on("console", (message) => consoleMessages.push(message.text()));
   await page.goto("/audit");
-  await expect(page.getByRole("heading", { name: "Independent verification" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "History verification" })).toBeVisible();
 
   const evidence = await captureVisibleBrowserEvidence(page, consoleMessages);
   assertPrivacyEvidence(evidence, phase5PrivateCanaries, "Phase 5 browser evidence");

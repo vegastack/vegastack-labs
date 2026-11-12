@@ -282,6 +282,34 @@ func (c *ingressAuthority) CollectPilotEvidence(ctx context.Context, q generated
 	}
 	return c.pilot.collect(ctx, q, a)
 }
+
+// Saved inspection includes superseded and revoked rows for audit visibility.
+// This reader is used only with an empty proof registry, never for validation.
+type savedPilotEvidenceReader struct{ gate.EvidenceReader }
+
+func (r savedPilotEvidenceReader) ListCurrentAppliedGateEvidence(ctx context.Context, gateID, subjectID string) ([]generated.GateEvidence, error) {
+	return r.ListAppliedGateEvidence(ctx, gateID, subjectID)
+}
+
+// InspectPilot preserves applied evidence lineage and concrete blockers without
+// treating saved facts as new observations. An empty registry cannot pass proof.
+func (c *ingressAuthority) InspectPilot(ctx context.Context, scope gate.ResolvedScope, subjectID, gateID string, at time.Time) (generated.GateEvaluation, bool, error) {
+	if c.pilot == nil || !c.pilot.enabled(scope) || (gateID != "platform-safety" && gateID != ingress.PilotGateID && gateID != "G-016") {
+		return generated.GateEvaluation{}, false, nil
+	}
+	subject, kind := pilotSubject(gateID)
+	if subjectID != subject {
+		return generated.GateEvaluation{}, false, nil
+	}
+	evaluation, err := gate.EvaluateIngressPilot(ctx, savedPilotEvidenceReader{c.gates}, scope, gate.Subject{ID: subject, Kind: kind, ReleaseBuildID: c.build.ReleaseBuildID, ToolVersion: c.build.ToolVersion, StateRevision: scope.StateRevision}, gateID, at, gate.NewProofRegistry())
+	// The generic evaluator retains its initial unresolved reason when every
+	// historical row is revoked or replaced. Keep that concrete blocker visible.
+	if err == nil && evaluation.ReasonCode == "definition-unresolved" && len(evaluation.EvidenceIDs) > 0 {
+		evaluation.Outcome, evaluation.ReasonCode = "blocked", "evidence-revoked-or-replaced"
+	}
+	return evaluation, true, err
+}
+
 func (c *ingressAuthority) EvaluatePilot(ctx context.Context, scope gate.ResolvedScope, subjectID, gateID string, at time.Time) (generated.GateEvaluation, bool, error) {
 	if c.pilot == nil || !c.pilot.enabled(scope) || (gateID != "platform-safety" && gateID != ingress.PilotGateID && gateID != "G-016") {
 		return generated.GateEvaluation{}, false, nil

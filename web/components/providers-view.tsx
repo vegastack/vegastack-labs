@@ -1,4 +1,5 @@
 "use client";
+import { FieldHelp } from "@/components/field-help";
 import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -28,15 +29,15 @@ export function ProvidersView() {
   return (
     <>
       <PageHeader
-        title="Providers"
-        description="Configured adapter capabilities. Configuration does not prove connectivity or workload readiness."
+        title="Connections"
+        description="See which outside services are set up for sign-in, approvals and backups. Check the connection status before relying on one."
         actions={
           <Button
             variant="outline"
             loading={view.isFetching}
             onClick={() => void view.refetch()}
           >
-            Refresh Providers
+            Refresh Connections
           </Button>
         }
       />
@@ -55,7 +56,7 @@ export function ProvidersView() {
           description="Configuration alone does not confirm a working connection."
         />
       ) : null}
-      {data && data.providers.length === 0 ? <ReadViewState kind="empty" title="No provider capabilities visible" description="No provider configuration is visible in your current read scope. This does not establish whether providers are connected or healthy." /> : null}
+      {data && data.providers.length === 0 ? <ReadViewState kind="empty" title="No connections visible" description="No provider configuration is visible in your current read scope. This does not establish whether providers are connected or healthy." /> : null}
       {data && data.providers.length > 0 ? (
         <ul
           aria-label="Provider capabilities"
@@ -68,16 +69,15 @@ export function ProvidersView() {
                   <CardTitle>{providerLabels[p.capability] ?? p.capability}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  <p>{p.configured ? "Configured" : "Not configured"}</p>
-                  <p>Connectivity: {p.connectivity}</p>
+                  <p>{p.configured ? "Settings saved" : "Not set up"} <FieldHelp label="Provider setup">A provider is an outside service used by this Console. Settings saved means its configuration exists; a separate connection check is needed to confirm it works.</FieldHelp></p>
+                  <p>Connection status: {p.connectivity === "unknown" ? "Not checked" : "Unavailable"}</p>
                   {p.configured ? (
                     <p className="text-sm text-muted-foreground">
                       No current connectivity observation is available.
                     </p>
                   ) : (
                     <p className="text-sm text-muted-foreground">
-                      This capability is unavailable until configured through an
-                      approved workflow.
+                      Ask an administrator to set up this connection through an approved change.
                     </p>
                   )}
                 </CardContent>

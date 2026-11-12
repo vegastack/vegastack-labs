@@ -27,20 +27,20 @@ export function formatConsoleTime(value: string | null): string {
  */
 export function SourceStatus({ source }: { source: ApiSourceData }) {
   const display = sourceDisplay(source.state);
-  const label = { healthy: "Recent observation", stale: "Older observation", unknown: "Time not recorded", unavailable: "Not reported", failed: "Collection failed" }[source.state];
+  const label = { healthy: "Recently collected", stale: "Older saved information", unknown: "Not checked", unavailable: "No information reported", failed: "Collection failed" }[source.state];
   const explanation = {
-    healthy: "A recent observation is recorded for this source.",
-    stale: "The saved observation is older than its freshness limit. This does not, by itself, mean the service is down.",
-    unknown: "This summary has no observation time. Open the relevant page to inspect its available records.",
-    unavailable: "This source is not reporting observations. Its page may still provide authorized records.",
-    failed: "The source reported a collection failure. Inspect its page for the recorded reason and next action.",
+    healthy: "Information was recently collected from this source. This does not confirm that a machine or application is healthy.",
+    stale: "The saved information is older than the allowed age. Open the page and refresh before using it to make a decision.",
+    unknown: "The collection time is missing. Open the page to see the saved records.",
+    unavailable: "No collected information is available here. Open the page to see any records you can access.",
+    failed: "Information could not be collected. Open the page to see the recorded reason and next step.",
   }[source.state];
   return (
     <div className="flex flex-col gap-2" data-source-state={source.state}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <StatusIcon status={display.status} size="sm" />
-          <span className="min-w-0 truncate text-sm font-medium capitalize text-foreground">{source.id}</span>
+          <span className="min-w-0 truncate text-sm font-medium capitalize text-foreground">{{ database: "Saved records", nodes: "Machines", gates: "Checks", people: "People", services: "Services", backups: "Backups", providers: "Connections" }[source.id] ?? source.id}</span>
         </div>
         <Badge intent={display.intent} size="md">
           {label}

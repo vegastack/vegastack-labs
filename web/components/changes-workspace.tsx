@@ -1,5 +1,6 @@
 "use client";
 
+import { FieldHelp } from "@/components/field-help";
 import { useEffect, useState, type FormEvent } from "react";
 import { DeclarationEditor } from "@/components/declaration-editor";
 import { PlanReview } from "@/components/plan-review";
@@ -124,32 +125,32 @@ export function ChangesWorkspace() {
     <>
       <PageHeader
         title="Changes"
-        description="Inspect an existing operation, or open a declaration to prepare a change. Infrastructure changes require an approved exact plan."
+        description="Look up an operation result, or open saved settings to prepare a change. Review the proposed steps and get approval before anything runs."
       />
       <div className="space-y-6" data-change-workflow>
-      <Card><CardHeader><CardTitle>Inspect existing run</CardTitle><CardDescription>Enter the run reference from an operation result. Opening it only reads the recorded operation; it does not retry execution.</CardDescription></CardHeader><CardContent><form className="flex flex-wrap items-end gap-3" onSubmit={inspectRun}><FieldRoot className="min-w-0 flex-1"><FieldLabel>Run ID</FieldLabel><Input name="runId" required maxLength={128} pattern="[a-z][a-z0-9._:\\-]{0,127}" autoComplete="off" /></FieldRoot><Button type="submit" variant="outline">Inspect run</Button></form></CardContent></Card>
+      <Card><CardHeader><CardTitle>Look up an operation</CardTitle><CardDescription>Copy the operation reference from a previous result. Looking it up shows what happened and does not run it again.</CardDescription></CardHeader><CardContent><form className="flex flex-wrap items-end gap-3" onSubmit={inspectRun}><FieldRoot className="min-w-0 flex-1"><div className="flex items-center gap-2"><FieldLabel>Operation reference</FieldLabel><FieldHelp label="Operation reference">Copy the run ID from an operation result, for example run-example-123. Use a reference your server returned; the example is not a real operation.</FieldHelp></div><Input name="runId" required maxLength={128} pattern="[a-z][a-z0-9._:\\-]{0,127}" autoComplete="off" /></FieldRoot><Button type="submit" variant="outline">Look up operation</Button></form></CardContent></Card>
       <Card>
         <CardHeader>
-          <CardTitle>Open an inert declaration</CardTitle>
-          <CardDescription>Enter an exact declaration and revision. Opening or editing it does not change infrastructure.</CardDescription>
+          <CardTitle>Open saved settings</CardTitle>
+          <CardDescription>A declaration is a saved set of proposed settings. Copy its reference and version from a saved draft or command line result; opening or editing it does not change machines.</CardDescription>
         </CardHeader>
         <CardContent>
           <form className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_8rem_auto] sm:items-end" onSubmit={openDeclaration}>
             <FieldRoot>
-              <FieldLabel>Declaration ID</FieldLabel>
+              <div className="flex items-center gap-2"><FieldLabel>Settings reference</FieldLabel><FieldHelp label="Settings reference">Copy the declaration ID returned when the settings were saved. Example format: declaration-example. Do not invent a reference: ask the person who prepared the change if you do not have it.</FieldHelp></div>
               <Input name="declarationId" required maxLength={128} pattern="[a-z][a-z0-9._:\\-]{0,127}" autoComplete="off" />
             </FieldRoot>
             <FieldRoot>
-              <FieldLabel>Revision</FieldLabel>
+              <div className="flex items-center gap-2"><FieldLabel>Version</FieldLabel><FieldHelp label="Version">Enter the revision number returned with these saved settings, such as 1. It must match the version you want to review; do not guess the latest number.</FieldHelp></div>
               <Input name="revision" type="number" required min={1} step={1} inputMode="numeric" />
             </FieldRoot>
-            <Button type="submit">Open declaration</Button>
+            <Button type="submit">Open settings</Button>
           </form>
         </CardContent>
       </Card>
 
       {hardFailure ? <ReadViewState kind="denied" title="Change details cleared" description="Your session, authorization, or response integrity is no longer valid. Reopen an authorized declaration to continue." /> : null}
-      {!hardFailure && !reference && !planId && !runId ? <ReadViewState kind="empty" title="No declaration open" description="Inspect an existing run above, or open an authorized declaration revision to prepare a change." /> : null}
+      {!hardFailure && !reference && !planId && !runId ? <ReadViewState kind="empty" title="No saved settings open" description="Look up an operation above, or enter a settings reference and version to prepare a change." /> : null}
       {declaration.isPending && reference ? <ReadViewState kind="loading" title="Loading declaration" description="Reading the exact authorized revision from the control plane." /> : null}
       {failure ? <ReadViewState kind={failure} title={failure === "denied" ? "Declaration access denied" : failure === "unavailable" ? "Declaration unavailable" : "Declaration response rejected"} description={failure === "denied" ? "Your current session cannot read this declaration." : "No draft, plan, or run action is available until the exact revision can be read safely."} onRetry={() => void declaration.refetch()} /> : null}
       {current ? <DeclarationEditor key={`${current.declarationId}:${current.revision}`} declaration={current} focusAfterSave={focusSavedRevision === current.revision} onSaved={(saved) => { setFocusSavedRevision(saved.revision); setReference({ declarationId: saved.declarationId, revision: saved.revision }); setPlanId(null); setApprovalPlanId(null); setExecutionKey(null); setRunId(null); }} onPlanCreated={(created) => { const createdPlanId = planFromView(created).planId; setPlanId(createdPlanId); setApprovalPlanId(null); setExecutionKey(null); setRunId(null); }} /> : null}

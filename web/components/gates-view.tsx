@@ -1,5 +1,6 @@
 "use client";
 
+import { FieldHelp } from "@/components/field-help";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { GateCheckRequest, GateView } from "@/generated/read-api";
@@ -29,23 +30,26 @@ function GateRecord({ gate, stateRevision, recoveryEpoch }: { gate: GateView; st
   const recoveryRequired = evaluation.reasonCode === "recovery-required";
   const cannotDraft = recoveryRequired || !evaluation.readyForInput || evaluation.outcome === "not-applicable" || evaluation.evidenceSource === "fixture";
   return <Card data-gate-outcome={evaluation.outcome} data-recovery-required={recoveryRequired || undefined}>
-    <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2"><CardTitle className="font-mono">{definition.gateId}</CardTitle><Badge bordered intent={outcomeIntent[evaluation.outcome]}>{evaluation.outcome}</Badge></CardHeader>
+    <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2"><CardTitle className="font-mono">{definition.gateId}</CardTitle><Badge bordered intent={outcomeIntent[evaluation.outcome]}>{{ passed: "Passed", blocked: "Blocked", stale: "Needs a new check", unknown: "Not checked", "not-applicable": "Not required" }[evaluation.outcome]}</Badge></CardHeader>
     <CardContent className="space-y-4 text-sm">
+      <p>{evaluation.outcome === "passed" ? "The saved proof meets this check’s current requirements." : evaluation.outcome === "blocked" ? "This check has not passed. Review the checks needed first and the recorded proof before preparing a new report." : evaluation.outcome === "stale" ? "The saved proof is too old or no longer matches the current settings. Collect current results before continuing." : evaluation.outcome === "not-applicable" ? "This check is not required for the current item or is planned for later." : "There is no confirmed result yet. Review the required proof before continuing."}</p>
       <PropertyList>
-        <PropertyRow><PropertyLabel>Applicability</PropertyLabel><PropertyValue>{definition.applicability} · {applicabilityReasonCode}</PropertyValue></PropertyRow>
-        <PropertyRow><PropertyLabel>Prerequisites</PropertyLabel><PropertyValue>{definition.prerequisiteGateIds.length ? definition.prerequisiteGateIds.join(", ") : "None"}</PropertyValue></PropertyRow>
-        <PropertyRow><PropertyLabel>Reason</PropertyLabel><PropertyValue>{evaluation.reasonCode}</PropertyValue></PropertyRow>
-        <PropertyRow><PropertyLabel>Evidence source</PropertyLabel><PropertyValue>{evaluation.evidenceSource}</PropertyValue></PropertyRow>
-        <PropertyRow><PropertyLabel>Evidence IDs</PropertyLabel><PropertyValue>{evaluation.evidenceIds.length ? evaluation.evidenceIds.join(", ") : "None"}</PropertyValue></PropertyRow>
-        <PropertyRow><PropertyLabel>Freshness</PropertyLabel><PropertyValue>{formatConsoleTime(evaluation.evaluatedAt)} · {definition.freshnessSeconds}s window</PropertyValue></PropertyRow>
-        <PropertyRow><PropertyLabel>State binding</PropertyLabel><PropertyValue>revision {stateRevision} · recovery epoch {recoveryEpoch}</PropertyValue></PropertyRow>
+        <PropertyRow><PropertyLabel>When this check is needed</PropertyLabel><PropertyValue>{definition.applicability === "deferred" ? "Planned for later" : definition.applicability === "always" ? "Always required" : "Depends on the selected item and settings"}</PropertyValue></PropertyRow>
+        <PropertyRow><PropertyLabel>Checks needed first</PropertyLabel><PropertyValue>{definition.prerequisiteGateIds.length ? definition.prerequisiteGateIds.join(", ") : "None"}</PropertyValue></PropertyRow>
+        <PropertyRow><PropertyLabel>Details</PropertyLabel><PropertyValue><details><summary className="cursor-pointer">Technical details</summary>Reason code: {evaluation.reasonCode}</details></PropertyValue></PropertyRow>
+        <PropertyRow><PropertyLabel>Evidence source</PropertyLabel><PropertyValue>{evaluation.evidenceSource === "fixture" ? "Sample data" : evaluation.evidenceSource === "none" ? "No proof recorded" : "Saved proof"}</PropertyValue></PropertyRow>
+
+        <PropertyRow><PropertyLabel>Saved proof inspected / allowed age</PropertyLabel><PropertyValue>{formatConsoleTime(evaluation.evaluatedAt)} · {definition.freshnessSeconds}s window</PropertyValue></PropertyRow>
+
       </PropertyList>
+      <FieldHelp label="Readiness check">A gate is a required readiness check. Passed means its recorded evidence meets the current requirements; blocked means something is missing. Read the reason and the checks needed first before preparing evidence.</FieldHelp>
+      <details><summary className="cursor-pointer font-medium">Technical details</summary><p>Evidence source: {evaluation.evidenceSource}</p><p>Applicability reason: {applicabilityReasonCode}</p><p>Evidence IDs: {evaluation.evidenceIds.length ? evaluation.evidenceIds.join(", ") : "None"}</p><p>State revision: {stateRevision} · Recovery epoch: {recoveryEpoch}</p></details>
       {evaluation.evidenceSource === "fixture" ? <ReadViewState kind="partial" title="Fixture-only evidence" description="This fixture cannot qualify a live gate." /> : null}
       {recoveryRequired ? <ReadViewState kind="unavailable" title="Recovery required" description="Ordinary mutations are disabled. Preserve current authority and follow the recovery runbook before checking or drafting evidence." /> : null}
-      <details className="rounded-lg border border-border p-3"><summary className="cursor-pointer font-medium">Advanced checks and evidence</summary><div className="mt-3 space-y-3">
+      <details className="rounded-lg border border-border p-3"><summary className="cursor-pointer font-medium">Check results and submit proof</summary><div className="mt-3 space-y-3">
       <GateCheckForm gate={gate} stateRevision={stateRevision} recoveryEpoch={recoveryEpoch} disabled={recoveryRequired} />
-      <p className="text-muted-foreground">Safe next action: {cannotDraft ? "Inspect prerequisites and current evidence with the CLI." : "Create an inert evidence draft, then continue through the existing plan flow."}</p>
-      <Button variant="outline" disabled={cannotDraft} onClick={() => setEvidenceOpen((open) => !open)}>{evidenceOpen ? "Close evidence draft" : "Draft evidence"}</Button>
+      <p className="text-muted-foreground">Safe next action: {cannotDraft ? "Review the checks needed first and use the command line tool to inspect the missing proof." : "Prepare a proof draft, then review and approve its plan before applying it."}</p>
+      <Button variant="outline" disabled={cannotDraft} onClick={() => setEvidenceOpen((open) => !open)}>{evidenceOpen ? "Close proof draft" : "Prepare proof"}</Button>
       {evidenceOpen ? <GateEvidenceForm gate={gate} stateRevision={stateRevision} recoveryEpoch={recoveryEpoch} disabled={cannotDraft} /> : null}
       </div></details>
     </CardContent>
@@ -64,9 +68,9 @@ function GateCheckForm({ gate, stateRevision, recoveryEpoch, disabled }: { gate:
     try { await check.mutateAsync({ gateId: gate.definition.gateId, request }); } catch { /* The mutation result below explains the failure. */ }
   }
   return <form className="grid gap-3 rounded-lg border border-border p-4 sm:grid-cols-2" onSubmit={(event) => void submit(event)}>
-    <FieldRoot><FieldLabel>Exact subject</FieldLabel><Input value={subjectId} onChange={(event) => setSubjectId(event.target.value)} required maxLength={128} autoComplete="off" /></FieldRoot>
-    <FieldRoot><FieldLabel>Target digest</FieldLabel><Input value={targetDigest} onChange={(event) => setTargetDigest(event.target.value)} required pattern={digestPattern} maxLength={71} autoComplete="off" spellCheck={false} /></FieldRoot>
-    <div aria-live="polite" role="status" className="min-h-6 text-sm text-muted-foreground sm:col-span-2">{check.data ? `Structured check result: ${check.data.data.outcome}. No evidence was changed.` : check.error ? "Check failed; no readiness state was changed." : "A structured check evaluates current applied evidence only."}</div>
+    <FieldRoot><div className="flex items-center gap-2"><FieldLabel>Item being checked</FieldLabel><FieldHelp label="Item being checked">This is the saved subject ID for the machine, service or site being checked. Keep the prefilled value unless the check output gives a different exact subject.</FieldHelp></div><Input value={subjectId} onChange={(event) => setSubjectId(event.target.value)} required maxLength={128} autoComplete="off" /></FieldRoot>
+    <FieldRoot><div className="flex items-center gap-2"><FieldLabel>Target fingerprint</FieldLabel><FieldHelp label="Target fingerprint">Copy targetDigest from the command line check output for this item. A digest is a fingerprint, written as sha256: followed by 64 lowercase hexadecimal characters. It identifies the exact target state; do not calculate or invent one by hand.</FieldHelp></div><Input value={targetDigest} onChange={(event) => setTargetDigest(event.target.value)} required pattern={digestPattern} maxLength={71} autoComplete="off" spellCheck={false} /></FieldRoot>
+    <div aria-live="polite" role="status" className="min-h-6 text-sm text-muted-foreground sm:col-span-2">{check.data ? `Check result: ${check.data.data.outcome}. No evidence was changed.` : check.error ? "Check failed; no readiness state was changed." : "Checks saved results and may contact connected services to confirm them. It does not change settings or save new proof."}</div>
     <Button ref={button} type="submit" variant="outline" className="sm:col-start-2" loading={check.isPending} disabled={disabled || check.isPending}>Check current evidence</Button>
   </form>;
 }
@@ -82,5 +86,5 @@ export function GatesView() {
     body = <ReadViewState kind={kind} title={copy[0]} description={copy[1]} staleData={retained} onRetry={() => void query.refetch()} />;
   } else if (query.data.data.gates.length === 0) body = <ReadViewState kind="empty" title="No gates in this read scope" description="The server returned no gate definitions for this scope. No gate pass can be inferred." />;
   else body = <GateRecords gates={query.data.data.gates} stateRevision={query.data.stateRevision} recoveryEpoch={query.data.recoveryEpoch} />;
-  return <><PageHeader title="Gates" description="Readiness checks derived from recorded evidence. A blocked or stale result explains what is missing; advanced checks do not grant approval." actions={<Button variant="outline" loading={query.isFetching} onClick={() => void query.refetch()}>Refresh Gates</Button>} />{body}</>;
+  return <><PageHeader title="Checks" description="See which readiness checks have passed and what is missing. Read the reason and the checks needed first; open the proof controls only when you have results from the check tool." actions={<Button variant="outline" loading={query.isFetching} onClick={() => void query.refetch()}>Refresh Checks</Button>} />{body}</>;
 }

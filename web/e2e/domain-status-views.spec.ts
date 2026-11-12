@@ -9,9 +9,17 @@ async function openServiceSection(page: Page, title: string) {
   if (await summary.locator("..").getAttribute("open") === null) await summary.click();
 }
 
+async function openTechnicalReason(page: Page, reason: string) {
+  const details = page.locator("details").filter({ hasText: reason }).last();
+  await details.locator(":scope > summary").click();
+  await expect(details).toHaveAttribute("open", "");
+  await expect(details).toBeVisible();
+  await expect(details).toContainText(reason);
+}
+
 async function inspect(page: Page) {
-  await page.getByRole("button", { name: "Inspect service-a", exact: true }).click();
-  await openServiceSection(page, "Provider observations");
+  await page.getByRole("button", { name: "View service-a", exact: true }).click();
+  await openServiceSection(page, "Reports from connected services");
   await expect(page.getByText("Coolify reported status: running:healthy", { exact: true })).toBeVisible();
 }
 
@@ -32,24 +40,24 @@ test("Services is accessible on mobile with keyboard, truthful observations and 
   await page.goto("/services");
   await expect(page.locator('[data-read-state="loading"]')).toBeVisible();
   releaseList();
-  const inspectButton = page.getByRole("button", { name: "Inspect service-a", exact: true });
+  const inspectButton = page.getByRole("button", { name: "View service-a", exact: true });
   await inspectButton.focus();
   await page.keyboard.press("Enter");
-  const observations = page.locator("summary").filter({ hasText: /^Provider observations$/ });
+  const observations = page.locator("summary").filter({ hasText: /^Reports from connected services$/ });
   await observations.focus();
   await page.keyboard.press("Enter");
   await expect(page.getByText("Coolify reported status: running:healthy", { exact: true })).toBeVisible();
   await expect(page.getByText("Configured image: fixture/app:v1", { exact: true })).toBeVisible();
-  for (const text of ["Actual running digest: unknown", "Application health: unknown", "Signature: unverified", "Provenance: unverified", "Scan: findings"]) await expect(page.getByText(text, { exact: true })).toBeVisible();
+  for (const text of ["Actual running digest: unknown", "Application health: unknown", "Signature: unverified", "Build origin: unverified", "Scan: findings"]) await expect(page.getByText(text, { exact: true })).toBeVisible();
   await expect(page.getByRole("list", { name: "Registered services" })).toContainText("registered");
-  await expect(page.getByRole("list", { name: "Registered services" })).toContainText("Host admission: not-verified");
+  await expect(page.getByRole("list", { name: "Registered services" })).toContainText("Machine readiness: not-verified");
   await expect(page.getByRole("link", { name: "Changes", exact: true }).last()).toHaveAttribute("href", "/changes");
-  await expect(page.getByRole("button", { name: /import|deploy|apply|approve/i })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /import|deploy|apply|approve/i }).and(page.getByRole("button", { name: /^(?!Help:|Refresh )/ }))).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await accessible(page);
   await page.screenshot({ path: info.outputPath("services-current-narrow.png"), fullPage: true });
   await page.getByRole("button", { name: "Next services page" }).click();
-  await expect(page.getByRole("button", { name: "Inspect service-b", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "View service-b", exact: true })).toBeVisible();
   await expect(page.getByRole("region", { name: "Service detail" })).toHaveCount(0);
   expect(fixtureAudit.requests.some(url => url.includes("after=service-a") && url.includes("limit=25"))).toBe(true);
   await page.getByRole("button", { name: "Previous services page" }).click();
@@ -66,16 +74,18 @@ test("Services distinguishes every safe status: empty, denied, unavailable and m
   }
   fixtureState.mode = "healthy";
   await page.getByRole("button", { name: "Refresh Services", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Inspect service-a", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "View service-a", exact: true })).toBeVisible();
 });
 
 test("provider unavailability stays explicit while registration remains visible", async ({ page }) => {
   serviceFixtureState.unavailableProviders = true;
   await page.goto("/services");
-  await page.getByRole("button", { name: "Inspect service-a", exact: true }).click();
-  await openServiceSection(page, "Provider observations");
-  await expect(page.getByText("Hosting observation: unavailable · provider-unavailable", { exact: true })).toBeVisible();
-  await expect(page.getByText("Artifact observation: unavailable · provider-unavailable", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "View service-a", exact: true }).click();
+  await openServiceSection(page, "Reports from connected services");
+  await expect(page.getByText("Hosting observation: unavailable", { exact: true })).toBeVisible();
+  await openTechnicalReason(page, "Hosting reason: provider-unavailable");
+  await expect(page.getByText("Artifact observation: unavailable", { exact: true })).toBeVisible();
+  await openTechnicalReason(page, "Artifact reason: provider-unavailable");
   await expect(page.getByText("Scan: unavailable", { exact: true })).toBeVisible();
   await expect(page.getByRole("list", { name: "Registered services" })).toContainText("registered");
 });
@@ -148,7 +158,7 @@ test("a valid but wrong source response is rejected", async ({ page }) => {
     const url = `**/api/v1/services/service-a${observation ? "/observation" : ""}`;
     await page.route(url, route => route.fulfill({ json: result(observation ? "api.v1.services.observation.get" : "api.v1.services.get", observation ? wrongObservation : wrongRecord) }));
     await page.goto("/services");
-    await page.getByRole("button", { name: "Inspect service-a", exact: true }).click();
+    await page.getByRole("button", { name: "View service-a", exact: true }).click();
     await expect(page.locator('[data-read-state="error"]').first()).toBeVisible();
     await expect(page.getByRole("region", { name: "Service detail" })).toHaveCount(0);
     await expect(page.getByRole("list", { name: "Registered services" })).toHaveCount(0);
@@ -162,9 +172,10 @@ test("a valid but wrong source response is rejected", async ({ page }) => {
 test("Services distinguishes desired settings and blocked placement from partial deployment and unverified recovery", async ({ page }) => {
   await page.goto("/services");
   await inspect(page);
-  await openServiceSection(page, "Desired settings and placement");
+  await openServiceSection(page, "Saved settings and machine choice");
   await openServiceSection(page, "Data recovery result");
-  await expect(page.getByText("Explicit target eligibility: blocked · admission-or-capacity-unavailable", { exact: true })).toBeVisible();
+  await expect(page.getByText("Can the selected machine run this application: blocked", { exact: true })).toBeVisible();
+  await openTechnicalReason(page, "Placement reason: admission-or-capacity-unavailable");
   await expect(page.getByText("CPU limit: 1 CPU · Memory: 256 MiB", { exact: true })).toBeVisible();
   await expect(page.getByText("Deployment: partial · deploy", { exact: true })).toBeVisible();
   await expect(page.getByText("Recovery: blocked · backup", { exact: true })).toBeVisible();
