@@ -42,20 +42,20 @@ The request uses the generated `vegastack-labs.dev/host-adoption-request` contra
 
 Issue #404 covers the existing Console, including its legacy addresses. The following coverage is isolated browser and source evidence; it does not establish installed-site behavior or native/provider health.
 
-| Page | Browser behavior covered | Boundary still requiring live evidence |
+| Page | Browser-tested behavior | Source-inspected or locally unverified behavior |
 | --- | --- | --- |
-| Overview | Summary/source states, outage and denial clearing, record links, collapsed collection details | Installed controller response and served assets |
-| Nodes | Registered list and inspection, refresh, draft pagination/details, discovery/registration/action forms, admission states and stale-plan races | Real discovery, host changes and admission |
-| People | Authorized list/detail, pagination, denial/revocation clearing and refresh | Actual identity-provider changes |
-| Services | Registration/detail, recorded deployment/settings/recovery/provider reads, empty/stale/denied states | Fresh native/provider health or deployment |
-| Backups | Status and recovery-point reads, restore-draft prerequisites, scheduling/run launchers, uncertain/denied result handling | Actual backup or restore execution |
-| Providers | Configured capability reads, missing connectivity and denied/error states | Provider connectivity and changes |
-| Gates | Evaluations, explicit check/evidence forms, failure families and recovery-epoch handling | Applied evidence from its real producer |
-| Audit | Verification/checkpoint reads, refresh, continuity limits and denial/error states | Independent recovery qualification |
-| Changes | Draft/revision/plan, approval polling, exact execution, uncertainty recovery, event reconnect, cancel/resume and existing-run lookup | Genuine human acknowledgement and live execution |
-| Navigation and legacy routes | Sidebar navigation, theme/keyboard checks, desktop/mobile layouts, dashboard Overview, design examples and unavailable-page guidance | Authenticated installed-site smoke check |
+| Overview | Summary/source states, outage and denial clearing, record links and collection disclosures (`read-views`, `console-working-flows`) | Installed controller responses and served assets unverified |
+| Nodes | Registered list/inspection/refresh, draft pagination/details, discovery/registration/action forms, admission states and stale-plan races (`registered-host-list`, `host-lifecycle`, `host-replacement`, `host-plan-race`) | Real discovery, host changes and admission unverified |
+| People | Authorized list/detail, pagination, denial/revocation clearing (`operator-access`) | Actual identity-provider changes unverified |
+| Services | Registration/detail, recorded deployment/settings/recovery/provider reads and empty/stale/denied states (`domain-status-views`) | Fresh native/provider health or deployment unverified |
+| Backups | Status/recovery-point reads, inert restore drafting and prerequisite blocking (`phase5-workflows`, `console-working-flows`); successful refresh and delayed-response denial (`console-refresh`, `backup-refresh-correction`) | Scheduling/run launchers and uncertain-result UI paths source-inspected; not independently browser-proven by this correction |
+| Providers | Configured capability reads and missing connectivity (`console-working-flows`); denied/error states (`operator-access`) | Provider connectivity and changes unverified |
+| Gates | Evaluations and read failure families (`read-views`); successful refresh (`console-refresh`) | Explicit check/evidence forms and epoch handling source-inspected; submission behavior not browser-proven by this correction |
+| Audit | Verification/checkpoint reads (`phase5-workflows`); successful refresh (`console-refresh`) | Independent recovery qualification unverified |
+| Changes | Draft/revision/plan, approval polling, exact execution, uncertainty recovery, event reconnect and access clearing (`change-workflow`); existing-run lookup (`console-working-flows`) | Cancel/resume controls source-inspected; live acknowledgement/execution unverified |
+| Navigation and legacy routes | Sidebar/theme/keyboard, desktop/mobile layouts, dashboard, design examples and unavailable guidance (`console`, `console-working-flows`) | Authenticated installed-site smoke check unverified |
 
-All nine main pages have populated fixture checks and desktop/mobile accessibility/layout coverage. Legacy routes and error states are exercised by their owning browser tests. Tests deliberately retain malformed-response and denied-access behavior; a successful screenshot alone is not a successful operation. Advanced or deferred workflows remain bounded by their existing prerequisites.
+Test names above identify files under `web/e2e/`. All nine main pages have populated fixture checks and desktop/mobile accessibility/layout coverage. Tests retain malformed-response and denied-access behavior; a successful screenshot alone is not a successful operation. Source inspection is explicitly separate from browser proof. Native/provider actions, deferred workflows and installed-site behavior still require their own evidence and existing prerequisites.
 
 ## Import and export inventory drafts
 

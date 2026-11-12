@@ -48,7 +48,7 @@ test("an existing run can be inspected without executing or requesting approval"
 test("missing audit status disables restore preparation instead of inviting a doomed action", async ({ page }) => {
   await page.route("**/api/v1/audit-history/verification", route => route.fulfill({ status: 503, json: {
     schema: "vegastack-labs.dev/browser-run-result", schemaVersion: "1.0.0", toolVersion: "test", command: "api.v1.audit-history.verification", runId: null, status: "failed", changed: false, recoveryEpoch: 2, stateRevision: 8, snapshotDigest: null, releaseBuildId: "test", sourceRevision: null, planId: null,
-    errors: [{ code: "DEPENDENCY_UNAVAILABLE", message: "temporarily unavailable", retryable: true }], data: null,
+    errors: [{ code: "DEPENDENCY_UNAVAILABLE", target: "audit", retryable: true }], data: {},
   } }));
   await page.goto("/backups");
   await expect(page.getByText("point-a", { exact: true }).first()).toBeVisible();

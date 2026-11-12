@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { BrowserRecoveryPoint, BrowserRestoreDraftRequest } from "@/generated/read-api";
+import { useReadFailure } from "@/components/query-provider";
 import { formatConsoleTime } from "@/components/source-status";
 import { ExactPlanLauncher } from "@/components/exact-plan-launcher";
 import { ReadPagination } from "@/components/read-pagination";
@@ -13,9 +14,25 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { PageHeader } from "@/components/ui/page-header";
 import { PropertyList, PropertyLabel, PropertyRow, PropertyValue } from "@/components/ui/property-list";
 import { classifyReadFailure } from "@/lib/read-queries";
-import { phase5Queries, useDraftRestore } from "@/lib/phase5-queries";
+import { phase5Keys, phase5Queries, useDraftRestore } from "@/lib/phase5-queries";
 
 export function BackupRecoveryView() {
+  const { failure, clearFailure } = useReadFailure("phase5");
+  const queryClient = useQueryClient();
+  function recoverReads() {
+    // The protected content is unmounted while latched. Discard cleared query
+    // snapshots so explicit recovery must obtain fresh prerequisite objects.
+    queryClient.removeQueries({ queryKey: phase5Keys.all });
+    clearFailure();
+  }
+  if (failure) return <>
+    <PageHeader title="Backups and recovery" description="Recorded backup status and recovery plans." />
+    <ReadViewState kind={classifyReadFailure(failure)} title="Backup records cleared" description="Your session, permissions or response integrity changed. Read current authorized records again before preparing any restore." onRetry={recoverReads} />
+  </>;
+  return <BackupRecoveryContent />;
+}
+
+function BackupRecoveryContent() {
   const recoveryPage = useCursorPage();
   const restorePage = useCursorPage();
   const policyPage = useCursorPage();
@@ -28,7 +45,7 @@ export function BackupRecoveryView() {
   const jobs = useQuery(phase5Queries.scheduledJobs({ limit: 25, ...(jobPage.cursor ? { cursor: jobPage.cursor } : {}) }));
   const backup = status.data?.data;
   const auditIncident = audit.data?.data.status === "incident";
-  const recoveryStatusKnown = status.isSuccess && audit.isSuccess && !status.error && !audit.error;
+  const recoveryStatusKnown = Boolean(backup && audit.data?.data) && status.isSuccess && audit.isSuccess && !status.error && !audit.error;
   const recoveryRequired = backup?.recoveryRequired === true || backup?.status === "recovery-required" || auditIncident;
   return <>
     <PageHeader title="Backups and recovery" description="Recorded backup status, recovery points and restore plans. A restore draft does not start restoration; execution needs an approved exact plan." actions={<Button variant="outline" loading={[status, audit, recoveryPoints, restores, policies, jobs].some(query => query.isFetching)} onClick={() => { for (const query of [status, audit, recoveryPoints, restores, policies, jobs]) void query.refetch(); }}>Refresh Backups</Button>} />

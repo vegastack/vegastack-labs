@@ -64,9 +64,9 @@ export function ConsoleQueryProvider({ children }: { children: ReactNode }) {
       for (const cached of queryCache.findAll()) {
         if (cached.queryKey[0] !== "read" && cached.queryKey[0] !== "change") continue;
         if (scope === "all" || keyScope(cached.queryKey) === scope) {
-          // Cancel service reads before clearing so a late response cannot restore
-          // private records after an authorization or identity failure.
-          if (keyScope(cached.queryKey) === "services") void cached.cancel({ silent: true, revert: false });
+          // Cancel every affected read before clearing: parallel successes must
+          // not restore private records after an authorization or identity failure.
+          void cached.cancel({ silent: true, revert: false });
           cached.setState({ data: null });
         }
       }

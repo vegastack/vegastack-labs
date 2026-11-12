@@ -19,7 +19,7 @@ test("the original Phase 2 baseline stays immutable while later waves have exact
   assert.equal(manifest.contract.productionDependencyDigest, "sha256:a9e8788558fa5c3347b5b8464d8d5e4a67dcc9357e5ae07478b606a806f78133");
   assert.equal(manifest.contract.mutationAvailable, false);
   assert.equal(manifest.contract.reviewedWaves?.length, 93);
-  assert.deepEqual(manifest.contract.reviewedWaves.at(-1), {"id":"console-correction-issue404-v1","issue":404,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:2e402dd5d12a71eb325bf29f60bfcbc9c80b35de958982091af8368d601e256d"});
+  assert.deepEqual(manifest.contract.reviewedWaves.at(-1), {"id":"console-correction-issue404-v1","issue":404,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:2d626c1de0b9f3c0154baa57a7d1e16ca4f296106c3b88bf5c10dcb0977c9a57"});
   assert.equal(manifest.contract.reviewedWaves.slice(0, 62).length, 62);
   assert.deepEqual(manifest.contract.reviewedWaves.find(wave => wave.issue === 269), {"id":"phase7-issue269-v1","issue":269,"commands":["user offboard","user onboard","user resume","user suspend"],"imports":[],"mutationBoundaryDigest":"sha256:5e96ac023243311b523932fede76f010dacb3d42b020d140e9c4b694468bd4c8"});
   assert.deepEqual(manifest.contract.reviewedWaves.find(wave => wave.issue === 270), {"id":"phase7-issue270-v1","issue":270,"commands":["device approve","device request","device revoke"],"imports":[],"mutationBoundaryDigest":"sha256:0169a3072c212b8288df2c957bd5843e42637296dd1a02a802251b340ebecf0d"});
