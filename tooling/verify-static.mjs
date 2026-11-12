@@ -93,7 +93,7 @@ export async function verifyStaticExport(output = OUTPUT, embedded = output === 
       ["services.html", "Loading services"],
       ["backups.html", "Loading backup status"],
       ["providers.html", "Loading providers"],
-      ["changes.html", "No declaration open"],
+      ["changes.html", "No saved settings open"],
     ]);
     for (const [route, marker] of routeMarkers) {
       const html = await readFile(path.join(output, route), "utf8");
