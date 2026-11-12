@@ -1,3 +1,13 @@
+## 12-11-2026 — Accept truthful ready-engine health in the operator client ([#404](https://github.com/vegastack/vegastack-labs/issues/404))
+
+- **What:** The existing status client accepts a ready, readable controller with its change engine enabled; safe or non-ready states cannot claim mutation availability.
+- **Why:** The Console correction reported actual engine state, but the old client validator still rejected every true value. During the approved installation this made a running controller fail its health probe, so maintenance restored the old binary and preserved database revision440.
+- **How it went:** A real Unix HTTP status regression reproduces the compatibility mismatch. The bounded correction preserves response integrity, current revision/epoch and authorization failures; no UI, schema, permission or host configuration changes are included.
+- **Changed:** Status validation and focused regressions. Installed acceptance remains open until a corrected merged build is separately approved, installed and verified.
+- **Decisions:** none; the first rollback receipt is retained, and no failed health result is treated as successful installation.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/404-console-status-client
+
 ## 12-11-2026 — Make the Console describe real state and put normal tasks first ([#404](https://github.com/vegastack/vegastack-labs/issues/404))
 
 - **What:** Overview distinguishes the working controller and change engine from saved observations and per-operation approval. Existing pages put inspection ahead of advanced forms, offer explicit refresh and recorded-run lookup, and explain unavailable or missing information without claiming the controller is disconnected.

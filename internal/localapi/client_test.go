@@ -72,6 +72,59 @@ func TestStatusPreservesExactValidatedEnvelope(t *testing.T) {
 	}
 }
 
+// This exercises the real Unix HTTP transport and exact result-envelope parser,
+// not just the status predicate. A ready controller can truthfully advertise
+// mutation availability without granting this read-only client apply authority.
+func TestStatusAcceptsMutationAvailabilityOnlyForReadyReadableController(t *testing.T) {
+	for _, tc := range []struct {
+		name, state                string
+		readable, mutation, accept bool
+		epoch, revision            int64
+	}{
+		{"ready-enabled", "ready", true, true, true, 7, 42},
+		{"ready-disabled", "ready", true, false, true, 7, 42},
+		{"safe-mode-enabled", "safe-mode", true, true, false, 7, 42},
+		{"safe-mode-disabled", "safe-mode", true, false, true, 7, 42},
+		{"starting-enabled", "starting", false, true, false, 7, 42},
+		{"starting-disabled", "starting", false, false, true, 7, 42},
+		{"stopping-enabled", "stopping", false, true, false, 7, 42},
+		{"stopping-disabled", "stopping", false, false, true, 7, 42},
+		{"unavailable-enabled", "unavailable", false, true, false, 7, 42},
+		{"unavailable-disabled", "unavailable", false, false, false, 7, 42},
+		{"ready-not-readable", "ready", false, true, false, 7, 42},
+		{"epoch-mismatch", "ready", true, true, false, 8, 42},
+		{"revision-mismatch", "ready", true, true, false, 7, 43},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			status := generated.ServerStatusData{State: tc.state, ReadAvailable: tc.readable, MutationAvailable: tc.mutation, RecoveryEpoch: tc.epoch, StateRevision: tc.revision, RemoteReadState: "disabled", RemoteReadReason: "none"}
+			envelope, e := clientTestFactory().Success(generated.CommandNameServerStatus, 7, 42, status)
+			if e != nil {
+				t.Fatal(e)
+			}
+			raw, e := json.Marshal(envelope)
+			if e != nil {
+				t.Fatal(e)
+			}
+			raw = append(raw, '\n')
+			profile := serveUnixResponse(t, raw, "application/json", http.StatusOK)
+			response, e := NewClient(clientTestFactory()).Status(context.Background(), profile)
+			if tc.accept {
+				if e != nil {
+					t.Fatalf("legitimate controller status rejected: %v", e)
+				}
+				if response.ExitCode != 0 || response.Status != status || string(response.Raw) != string(raw) {
+					t.Fatal("status/envelope changed", response)
+				}
+			} else {
+				stable, ok := failure.As(e)
+				if !ok || stable.Code != generated.ErrorCodeIntegrityFailure || stable.Target != "control-service-response" {
+					t.Fatalf("inconsistent status accepted: %v", e)
+				}
+			}
+		})
+	}
+}
+
 func TestStatusPreservesRemoteFailureEnvelopeAndExit(t *testing.T) {
 	status := generated.ServerStatusData{State: "safe-mode", ReadAvailable: true, RecoveryEpoch: 9, StateRevision: 3, RemoteReadState: "disabled", RemoteReadReason: "none"}
 	envelope, err := clientTestFactory().Failure(generated.CommandNameServerStatus, generated.RunStatusFailed, generated.ErrorCodeIntegrityFailure, "application-health", false, 9, 3, status)

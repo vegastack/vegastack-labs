@@ -659,7 +659,7 @@ func expectedHTTPStatus(code string) int {
 }
 
 func validRemoteStatus(status generated.ServerStatusData, envelope generated.RunResult) bool {
-	if status.RecoveryEpoch != envelope.RecoveryEpoch || status.StateRevision != envelope.StateRevision || status.MutationAvailable || status.State == "unavailable" {
+	if status.RecoveryEpoch != envelope.RecoveryEpoch || status.StateRevision != envelope.StateRevision || (status.MutationAvailable && (status.State != "ready" || !status.ReadAvailable)) || status.State == "unavailable" {
 		return false
 	}
 	switch status.State {

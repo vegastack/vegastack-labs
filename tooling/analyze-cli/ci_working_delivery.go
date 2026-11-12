@@ -40,6 +40,9 @@ var ciWorkingDeliverySourceSeals = func() map[string]hostActionSourceSeal {
 	for key, seal := range manualPublicationSourceSeals {
 		current[key] = seal
 	}
+	for key, seal := range consoleStatusClientSourceSeals {
+		current[key] = seal
+	}
 	return current
 }()
 
