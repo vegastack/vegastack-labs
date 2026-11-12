@@ -454,6 +454,11 @@ func (operations *Operations) serveAuthority(ctx context.Context, platform Platf
 		}
 		v, e := m.notificationEvaluation(ctx, applied, h, at)
 		return v, true, e
+	}, InspectPilot: func(ctx context.Context, scope gate.ResolvedScope, subjectID, gateID string, at time.Time) (generated.GateEvaluation, bool, error) {
+		if ingressSourceForGates == nil {
+			return generated.GateEvaluation{}, false, nil
+		}
+		return ingressSourceForGates.InspectPilot(ctx, scope, subjectID, gateID, at)
 	}, EvaluatePilot: func(ctx context.Context, scope gate.ResolvedScope, subjectID, gateID string, at time.Time) (generated.GateEvaluation, bool, error) {
 		if ingressSourceForGates == nil {
 			return generated.GateEvaluation{}, false, nil

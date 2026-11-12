@@ -4,9 +4,9 @@ import { fixtureState, installReadFixture } from "./api-fixture";
 test.beforeEach(async ({ page }) => installReadFixture(page));
 
 for (const [route, populated, button, empty] of [
-  ["/gates", "G-008", "Refresh Gates", "No gates in this read scope"],
+  ["/gates", "G-008", "Refresh Checks", "No gates in this read scope"],
   ["/backups", "point-a", "Refresh Backups", "No recovery points"],
-  ["/audit", "checkpoint-a", "Refresh Audit", "No audit checkpoints"],
+  ["/audit", "checkpoint-a", "Refresh History Checks", "No audit checkpoints"],
 ] as const) {
   test(`${button} updates successful visible records`, async ({ page }) => {
     await page.goto(route);
@@ -26,9 +26,14 @@ for (const [route, populated, button, empty] of [
 test("Refresh Audit updates verification as well as checkpoints", async ({ page }) => {
   await page.goto("/audit");
   await expect(page.getByText("checkpoint-a", { exact: true })).toBeVisible();
-  await expect(page.getByText("independent-match", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("History verified", { exact: true }).first()).toBeVisible();
+  const matchingReason = page.locator("details").filter({ hasText: "Reason code: independent-match" }).first();
+  await matchingReason.locator("summary").click();
+  await expect(matchingReason).toContainText("Reason code: independent-match");
   fixtureState.mode = "recovery-required";
-  await page.getByRole("button", { name: "Refresh Audit", exact: true }).click();
+  await page.getByRole("button", { name: "Refresh History Checks", exact: true }).click();
   await expect(page.getByText("Audit incident", { exact: true })).toBeVisible();
-  await expect(page.getByText("independent-mismatch", { exact: true })).toBeVisible();
+  const mismatchReason = page.locator("details").filter({ hasText: "Reason code: independent-mismatch" }).first();
+  await mismatchReason.locator("summary").click();
+  await expect(mismatchReason).toContainText("Reason code: independent-mismatch");
 });

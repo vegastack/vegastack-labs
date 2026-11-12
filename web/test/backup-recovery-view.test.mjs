@@ -12,6 +12,6 @@ test("recovery-required UI has no direct restore authority", async () => {
 
 test("backup workflow keeps status, recovery, restore, and schedule regions separate", async () => {
   const source = await readFile(new URL("../components/backup-recovery-view.tsx", import.meta.url), "utf8");
-  for (const label of ["Backup status", "Recovery points", "Restore status", "Scheduled jobs"]) assert.match(source, new RegExp(label, "i"));
+  for (const label of ["Backup status", "Saved backups", "Restore results", "Scheduled jobs"]) assert.match(source, new RegExp(label, "i"));
   assert.match(source, /useDraftRestore/);
 });

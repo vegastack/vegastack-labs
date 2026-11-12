@@ -1,3 +1,13 @@
+## 12-11-2026 — Explain the Console and keep saved checks separate from live observations ([#404](https://github.com/vegastack/vegastack-labs/issues/404))
+
+- **What:** Existing pages use plain labels, practical field guidance and accessible information buttons. Normal inspection stays separate from exact technical records and administrator-prepared repair files. Gates list/detail use saved pilot evidence without starting live provider/origin checks; deliberate checks and execution preserve fresh validation.
+- **Why:** The operator still could not tell what the forms expected, and installed Gates verification failed at the existing client deadline. Source inspection exposed live observations on the read path; it did not establish which remote stage caused that timeout.
+- **How it went:** The API regression reproduces a page read reaching a failed live callback. The correction separates inspection from explicit checking without inventing current passed readiness from stored proof. UI proof and installed verification are tracked separately.
+- **Changed:** Existing page copy, field help and technical disclosures; bounded pilot inspection callback. No new service, dependency, schema or approval bypass.
+- **Decisions:** none; protected hosts and all earlier deferrals remain excluded. Source proof is not a new installation or authenticated website result.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/404-gates-saved-inspection
+
 ## 12-11-2026 — Accept truthful ready-engine health in the operator client ([#404](https://github.com/vegastack/vegastack-labs/issues/404))
 
 - **What:** The existing status client accepts a ready, readable controller with its change engine enabled; safe or non-ready states cannot claim mutation availability.

@@ -11,12 +11,12 @@ import { planFromView, usePlan } from "@/lib/change-queries";
 export type ExactPlanKind = "backup" | "backup-verify" | "restore" | "host-target" | "host-adoption" | "host-action" | "host-access" | "host-role" | "host-replacement";
 
 const labels: Record<ExactPlanKind, string> = {
-  "host-target": "Discovery target plan",
-  "host-adoption": "Host registration plan",
-  "host-action": "Host action plan",
-  "host-access": "Host access plan",
-  "host-role": "Host role plan",
-  "host-replacement": "Host replacement plan",
+  "host-target": "Connection setup plan",
+  "host-adoption": "Add node plan",
+  "host-action": "Node maintenance plan",
+  "host-access": "Node login plan",
+  "host-role": "Node setup plan",
+  "host-replacement": "Replace node plan",
   backup: "Backup plan",
   "backup-verify": "Backup verification plan",
   restore: "Restore plan",
@@ -29,14 +29,14 @@ export function ExactPlanLauncher({ kind, planId, destructive, disabled = false 
   const [runId, setRunId] = useState<string | null>(null);
 
   if (disabled) {
-    return <ReadViewState kind="unavailable" title={`${labels[kind]} disabled`} description="Current recovery or audit state blocks ordinary mutations. Resolve the named prerequisites through the manual runbook before opening a plan." />;
+    return <ReadViewState kind="unavailable" title={`${labels[kind]} disabled`} description="Changes are paused because backup or history checks need attention. Read the reported problem before trying to continue." />;
   }
   if (!planId) {
-    return <Card><CardHeader><CardTitle>{labels[kind]}</CardTitle><CardDescription>No exact server plan is available for this operation.</CardDescription></CardHeader><CardContent className="text-sm text-muted-foreground">Create the inert draft through its supported workflow, then inspect the resulting exact plan here.</CardContent></Card>;
+    return <Card><CardHeader><CardTitle>{labels[kind]}</CardTitle><CardDescription>No change plan has been created yet.</CardDescription></CardHeader><CardContent className="text-sm text-muted-foreground">Fill in the form above to prepare a plan. Preparing a plan does not change a machine.</CardContent></Card>;
   }
   if (runId) return <RunProgress runId={runId} />;
-  if (planQuery.isPending) return <ReadViewState kind="loading" title={`Loading ${labels[kind].toLowerCase()}`} description={`Reading exact plan ${planId} from the server-owned plan engine.`} />;
-  if (planQuery.error) return <ReadViewState kind={classifyReadFailure(planQuery.error)} title={`${labels[kind]} unavailable`} description="The saved plan remains inert until its current server projection can be read safely." onRetry={() => void planQuery.refetch()} />;
+  if (planQuery.isPending) return <ReadViewState kind="loading" title={`Loading ${labels[kind].toLowerCase()}`} description={`Reading exact plan ${planId} from the Labs server.`} />;
+  if (planQuery.error) return <ReadViewState kind={classifyReadFailure(planQuery.error)} title={`${labels[kind]} unavailable`} description="The plan could not be loaded. Nothing will run until it is loaded, approved and started." onRetry={() => void planQuery.refetch()} />;
   if (!planQuery.data) return null;
 
   const view = planQuery.data.data;

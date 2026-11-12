@@ -1,4 +1,5 @@
 "use client";
+import { FieldHelp } from "@/components/field-help";
 import { useState } from "react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -25,7 +26,7 @@ function State({ state, subject = "People" }: { state: string; subject?: string 
       }
       description={
         state === "denied"
-          ? "Current authorization is required to view people, devices and grants."
+          ? "Your account needs permission to view these people, devices and permissions. Ask an administrator for access."
           : state === "stale"
             ? "Showing retained records after a temporary failure. Refresh to check current state."
             : "Refresh to request current authorized records."
@@ -42,7 +43,7 @@ export function PeopleView() {
     <>
       <PageHeader
         title="People"
-        description="People, devices and grants visible under your current policy read permissions."
+        description="Choose a person to see their registered devices and what they are allowed to do."
         actions={
           <Button
             variant="outline"
@@ -67,15 +68,15 @@ export function PeopleView() {
                     <CardTitle>{person.principalId}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3 break-all">
-                    <p>
-                      Status: {person.status}; grant revision{" "}
-                      {person.grantRevision}
-                    </p>
+                    <div>
+                      Status: {person.status}
+                      <details><summary className="cursor-pointer">Technical details</summary>Permission record version: {person.grantRevision}</details>
+                    </div>
                     <Button
                       variant="outline"
                       onClick={() => setSelected(person.principalId)}
                     >
-                      Inspect {person.principalId}
+                      View access for {person.principalId}
                     </Button>
                   </CardContent>
                 </Card>
@@ -145,7 +146,7 @@ function PersonRecords({
   return (
     <Card className="my-4">
       <CardHeader>
-        <CardTitle className="capitalize">{kind}</CardTitle>
+        <CardTitle>{kind === "devices" ? "Registered devices" : "Permissions"} <FieldHelp label={kind === "devices" ? "Registered devices" : "Permissions"}>{kind === "devices" ? "Devices recorded for this person. A record alone does not prove that a device is connected or trusted." : "A permission states which action this person can take, on which resource, and whether that permission is active. Ask an administrator if an expected permission is missing."}</FieldHelp></CardTitle>
         <Button
           variant="outline"
           loading={view.isFetching}
@@ -160,7 +161,7 @@ function PersonRecords({
           <ul aria-label="Devices">
             {data.devices.map((d) => (
               <li key={d.deviceId}>
-                {d.deviceId}: {d.status}; revision {d.deviceRevision}
+                {d.deviceId}: {d.status}<details><summary className="cursor-pointer">Technical details</summary>Device record version: {d.deviceRevision}</details>
               </li>
             ))}
           </ul>
@@ -169,10 +170,8 @@ function PersonRecords({
           <ul aria-label="Grants">
             {data.grants.map((g) => (
               <li key={g.grantId}>
-                {g.grantId}: {g.role} · {g.action} · {g.capability} ·{" "}
-                {g.resourceKind}/{g.resourceId} · {g.status}; revision{" "}
-                {g.grantRevision}
-                {g.branch ? ` · ${g.branch}` : ""}
+                {g.role}: {g.action} on {g.resourceKind}/{g.resourceId} · {g.status}
+                <details><summary className="cursor-pointer">Technical details</summary>Permission ID: {g.grantId} · Capability: {g.capability} · Version: {g.grantRevision}{g.branch ? ` · Branch: ${g.branch}` : ""}</details>
               </li>
             ))}
           </ul>

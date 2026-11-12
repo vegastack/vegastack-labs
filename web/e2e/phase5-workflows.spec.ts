@@ -8,10 +8,10 @@ test("Phase 5 recovery shows sanitized reads and creates only an inert restore d
   await page.goto("/backups");
   await expect(page.getByRole("heading", { name: "Backup status", exact: true })).toBeVisible();
   await expect(page.getByText("point-a", { exact: true }).first()).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Restore status" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Restore results" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Scheduled jobs" })).toBeVisible();
-  await page.getByRole("button", { name: "Create inert restore draft" }).click();
-  await expect(page.getByRole("status").filter({ hasText: "draft-restore-a" })).toContainText("Continue through the plan flow");
+  await page.getByRole("button", { name: "Prepare restore" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "draft-restore-a" })).toContainText("Review the restore plan before requesting approval");
   const requests = fixtureAudit.requests.map((value) => new URL(value).pathname);
   expect(requests).toContain("/api/v1/recovery-points/point-a/restore-drafts");
   for (const protectedPath of ["/api/v1/backup-policies/policy-a/jobs", "/api/v1/restore-plans/plan-a/runs", "/api/v1/database/exports"]) expect(requests).not.toContain(protectedPath);
@@ -21,17 +21,17 @@ test("Phase 5 recovery-required and audit incident states disable ordinary mutat
   fixtureState.mode = "recovery-required";
   await page.goto("/backups");
   await expect(page.getByText("Recovery required", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Create inert restore draft" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Prepare restore" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Start run" })).toHaveCount(0);
   await page.goto("/audit");
   await expect(page.getByText("Audit incident", { exact: true })).toBeVisible();
-  await expect(page.getByText("follow the audit continuity runbook", { exact: true })).toBeVisible();
+  await expect(page.getByText("Follow the history recovery procedure before making changes.", { exact: true })).toBeVisible();
 });
 
 test("Phase 5 Audit separates checkpoints from independent verification", async ({ page }) => {
   await page.goto("/audit");
-  await expect(page.getByRole("heading", { name: "Independent verification" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Audit checkpoints", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "History verification" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Saved history checkpoints", exact: true })).toBeVisible();
   await expect(page.getByText("checkpoint-a", { exact: true })).toBeVisible();
   const exposed = [await page.locator("body").innerText(), JSON.stringify(fixtureAudit.responses)].join("\n");
   for (const canary of [...phase5PrivateCanaries, "humanAcknowledgementId", "formerControllerFenceDigest", "signerReferenceId"]) expect(exposed).not.toContain(canary);

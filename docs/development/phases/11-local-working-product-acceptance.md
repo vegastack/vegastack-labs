@@ -78,3 +78,9 @@ Use one integrated scoped review and the required exact-head affected proof for 
 ### Installed Console status compatibility follow-up
 
 The first approved #404 update restored the previous binary after its status check rejected the new server's truthful `mutationAvailable: true` response. The controller database remained at revision440/epoch0; no database restore, profile/policy change or other-host operation occurred. The compatibility correction belongs to the existing status client. #404 and working acceptance remain open until the corrected merged build is installed and its served Console and authorized reads are verified. Prior source/browser proof does not supersede the failed installed check.
+
+### Remaining Console usability and Gates read correction
+
+The corrected compatibility build was separately approved, installed and observed healthy. The following bounded reads succeeded: controller status, platform summary, database status, selected stored node inspections, service list, backup status and audit verification/checkpoints. The installed Gates list exceeded its existing client deadline; this is recorded as failed acceptance, not a successful read. Source inspection found that list/detail could invoke fresh pilot provider/origin observations. The exact remote slow stage remains unproven.
+
+The same correction issue separates saved Gates inspection from explicit fresh checks, preserving stored-proof blockers and all check/apply authorization. The operator also explicitly requested plain words on every page, clickable information help, and practical guidance for each required field, especially adding or repairing nodes. The new UI requires its own fresh build/browser proof. Neither the earlier fixture tests nor a successful binary checksum establishes authenticated installed-site navigation. #404 remains open until its actual correction and verification boundaries are resolved; all earlier deferrals remain deferred.

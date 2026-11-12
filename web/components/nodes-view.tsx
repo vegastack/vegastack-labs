@@ -15,6 +15,7 @@ import { useReadFailure } from "@/components/query-provider";
 import { ReadViewState } from "@/components/read-view-state";
 import { formatConsoleTime, SourceStatus } from "@/components/source-status";
 import { readClient } from "@/lib/read-client";
+import { FieldHelp } from "@/components/field-help";
 import { HostLifecycle } from "@/components/host-lifecycle";
 import { useNodeRecords } from "@/lib/node-queries";
 import { classifyReadFailure, mayRetainStaleData } from "@/lib/read-queries";
@@ -27,7 +28,7 @@ function Header({ view }: { view?: { refresh: () => void; busy: boolean } }) {
   return (
     <PageHeader
       title="Nodes"
-      description="Inspect registered hosts and their readiness. Inventory drafts are separate proposed records."
+      description="See your machines, check whether they are ready for applications, or prepare a new machine."
       actions={
         view ? (
           <Button variant="outline" loading={view.busy} onClick={view.refresh}>
@@ -89,7 +90,7 @@ export function NodesView() {
         />
       ) : null}
 
-      <details className="rounded-lg border border-border p-4"><summary className="cursor-pointer font-medium">Inventory draft details</summary><div className="mt-4 space-y-4">
+      <details className="rounded-lg border border-border p-4"><summary className="cursor-pointer font-medium">Proposed inventory (read only)</summary><div className="mt-4 space-y-4">
       <Card>
         <CardHeader>
           <CardTitle>Draft inventory</CardTitle>
@@ -98,7 +99,7 @@ export function NodesView() {
           <div className="flex flex-wrap items-center gap-2">
             <Badge intent="info" size="lg">Revision {draft.revision}</Badge>
             <Badge intent={draft.validationStatus === "valid" ? "success" : "warning"} size="lg" className="capitalize">{draft.validationStatus}</Badge>
-            <Badge variant="outline" size="lg">Declared authority</Badge>
+            <Badge variant="outline" size="lg">Proposed records</Badge>
           </div>
           <p className="text-sm text-muted-foreground">An inventory draft does not establish live host health or workload readiness. Inspect a registered host above for its admission checks.</p>
           {nodeSource ? <SourceStatus source={nodeSource} /> : <p className="text-sm text-muted-foreground" data-source-state="unknown">Node source status is unknown; no health can be inferred.</p>}
@@ -134,7 +135,7 @@ export function NodesView() {
           <PropertyList>
             {Object.entries(detail.data.data).map(([key, value]) => (
               <PropertyRow key={key}>
-                <PropertyLabel>{key}</PropertyLabel>
+                <PropertyLabel>{key.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/^./, letter => letter.toUpperCase())}</PropertyLabel>
                 <PropertyValue className="break-words">{formatDetailValue(key, value)}</PropertyValue>
               </PropertyRow>
             ))}
@@ -149,7 +150,7 @@ function NodesShell({ children, busy = false, refresh }: { children: React.React
   return (
     <>
       <Header view={refresh ? { busy, refresh } : undefined} />
-      <div className="min-w-0 space-y-6"><HostLifecycle hostId={null} />{children}</div>
+      <div className="min-w-0 space-y-6"><p className="text-sm text-muted-foreground">Start with Registered hosts to inspect a machine. Adding or repairing a node requires administrator details and approval before changes run.</p><FieldHelp label="Registered machines and inventory drafts">A registered host is a machine recorded by the server. An inventory draft is a proposed list of equipment, alternate names and observations; it does not connect to, register or verify any machine. Use the readiness checks on a registered host before assigning applications.</FieldHelp><HostLifecycle hostId={null} />{children}</div>
     </>
   );
 }

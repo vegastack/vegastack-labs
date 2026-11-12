@@ -30,7 +30,7 @@ for (const code of ["AUTHORIZATION_DENIED", "SESSION_EXPIRED"] as const) {
       await route.fulfill({ status: code === "SESSION_EXPIRED" ? 401 : 403, json: envelope("api.v1.backups.status", {}, code) });
     });
     await page.goto("/backups");
-    await expect(page.getByRole("button", { name: "Create inert restore draft", exact: true })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Prepare restore", exact: true })).toBeEnabled();
     refreshing = true;
     await page.getByRole("button", { name: "Refresh Backups", exact: true }).click();
     await started;
@@ -41,13 +41,13 @@ for (const code of ["AUTHORIZATION_DENIED", "SESSION_EXPIRED"] as const) {
     // neither records nor actions can return without an explicit recovery read.
     await page.waitForTimeout(100);
     await expect(page.locator("main")).not.toContainText("late-private-point");
-    await expect(page.getByRole("button", { name: "Create inert restore draft", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Prepare restore", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Request Slack approval", exact: true })).toHaveCount(0);
     await expect(page.locator('[data-read-state="denied"]')).toBeVisible();
     await page.unroute("**/api/v1/backups/status");
     await page.unroute("**/api/v1/recovery-points?**");
     await page.getByRole("button", { name: "Refresh", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Create inert restore draft", exact: true })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Prepare restore", exact: true })).toBeEnabled();
     await expect(page.getByText("point-a", { exact: true }).first()).toBeVisible();
   });
 }

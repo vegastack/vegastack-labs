@@ -10,17 +10,18 @@ import {
 test("Phase 4 acceptance keeps exact plan facts and protected authority out of the browser", async ({ page }) => {
   await installChangeFixture(page);
   await page.goto("/changes");
-  await page.getByLabel("Declaration ID").fill("declaration-one");
-  await page.getByLabel("Revision").fill("1");
-  await page.getByRole("button", { name: "Open declaration" }).click();
-  await page.getByLabel("Reason digest").fill(changeFixture.reasonDigest);
-  await page.getByRole("button", { name: "Save declaration" }).click();
-  await page.getByRole("button", { name: "Generate plan" }).click();
+  await page.getByLabel("Settings reference", { exact: true }).fill("declaration-one");
+  await page.getByLabel("Version", { exact: true }).fill("1");
+  await page.getByRole("button", { name: "Open settings" }).click();
+  await page.getByLabel("Reason fingerprint", { exact: true }).fill(changeFixture.reasonDigest);
+  await page.getByRole("button", { name: "Save settings" }).click();
+  await page.getByRole("button", { name: "Prepare plan" }).click();
 
+  await page.getByText("Technical plan details", { exact: true }).click();
   await expect(page.getByText(phase4AcceptancePlan.planDigest, { exact: true })).toBeVisible();
-  await expect(page.getByText(new RegExp(`Target ${phase4AcceptancePlan.operations[0].targetId}`))).toBeVisible();
+  await expect(page.getByText(new RegExp(`Machine or service: ${phase4AcceptancePlan.operations[0].targetId}`))).toBeVisible();
   await expect(page.getByText(phase4AcceptancePlan.risk, { exact: true })).toBeVisible();
-  await expect(page.getByText(`${phase4AcceptancePlan.authorizationBranch} authorization`, { exact: true })).toBeVisible();
+  await expect(page.getByText("Needs human approval", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /approve/i })).toHaveCount(0);
 
   const surface = [

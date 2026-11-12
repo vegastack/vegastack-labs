@@ -445,19 +445,19 @@ try {
 
 	if (fullLoop) {
 		stage = "browser-open-declaration";
-		await page.getByLabel("Declaration ID").fill("declaration-browser");
-		await page.getByLabel("Revision").fill("1");
-		await page.getByRole("button", { name: "Open declaration" }).click();
-		await page.getByText("Draft revision 1", { exact: true }).waitFor();
+		await page.getByLabel("Settings reference", { exact: true }).fill("declaration-browser");
+		await page.getByLabel("Version", { exact: true }).fill("1");
+		await page.getByRole("button", { name: "Open settings" }).click();
+		await page.getByText("Saved settings · version 1", { exact: true }).waitFor();
 
 		stage = "browser-save-declaration";
-		await page.getByLabel("Reason digest").fill(digest("d"));
-		await page.getByRole("button", { name: "Save declaration" }).click();
+		await page.getByLabel("Reason fingerprint", { exact: true }).fill(digest("d"));
+		await page.getByRole("button", { name: "Save settings" }).click();
 		try {
-			await page.getByText("Draft revision 2", { exact: true }).waitFor();
+			await page.getByText("Saved settings · version 2", { exact: true }).waitFor();
 		} catch (error) {
 			if (await page.getByText(/Save failed/).count()) stage = "browser-save-ui-failed";
-			else if (await page.getByText("Draft revision 1", { exact: true }).count()) stage = "browser-save-ui-stale";
+			else if (await page.getByText("Saved settings · version 1", { exact: true }).count()) stage = "browser-save-ui-stale";
 			else stage = "browser-save-ui-cleared";
 			throw error;
 		}
@@ -475,7 +475,7 @@ try {
 			stage = "browser-open-cli-plan";
 		} else {
 			stage = "browser-create-plan";
-			const generatePlan = page.getByRole("button", { name: "Generate plan" });
+			const generatePlan = page.getByRole("button", { name: "Prepare plan" });
 			if (await generatePlan.isDisabled()) { stage = "browser-plan-disabled"; throw new Error("browser plan action remained disabled after save"); }
 			await generatePlan.click();
 		}
@@ -487,7 +487,7 @@ try {
 			else if (!stage.startsWith("browser-plan-response") && !stage.startsWith("browser-plan-preparation") && !stage.startsWith("browser-plan-read")) {
 				if (await page.getByText(/Plan generation failed/).count()) stage = "browser-plan-ui-failed";
 				else if (await page.getByText("Change details cleared", { exact: true }).count()) stage = "browser-plan-ui-cleared";
-				else if (await page.getByText("Draft revision 2", { exact: true }).count()) stage = "browser-cli-plan-no-read";
+				else if (await page.getByText("Saved settings · version 2", { exact: true }).count()) stage = "browser-cli-plan-no-read";
 				else stage = "browser-plan-ui-missing";
 			}
 			throw error;
@@ -554,16 +554,16 @@ try {
 			extensions: [],
 		});
 		if (cancelDeclaration.status !== 200 || cancelDeclaration.body?.data?.stateRevision !== 8) throw new Error("browser cancel declaration seed failed");
-		await page.getByLabel("Declaration ID").fill("declaration-browser-cancel");
-		await page.getByLabel("Revision").fill("1");
-		await page.getByRole("button", { name: "Open declaration" }).click();
-		await page.getByText("Draft revision 1", { exact: true }).waitFor();
-		await page.getByLabel("Reason digest").fill(digest("d"));
-		await page.getByRole("button", { name: "Save declaration" }).click();
-		await page.getByText("Draft revision 2", { exact: true }).waitFor();
+		await page.getByLabel("Settings reference", { exact: true }).fill("declaration-browser-cancel");
+		await page.getByLabel("Version", { exact: true }).fill("1");
+		await page.getByRole("button", { name: "Open settings" }).click();
+		await page.getByText("Saved settings · version 1", { exact: true }).waitFor();
+		await page.getByLabel("Reason fingerprint", { exact: true }).fill(digest("d"));
+		await page.getByRole("button", { name: "Save settings" }).click();
+		await page.getByText("Saved settings · version 2", { exact: true }).waitFor();
 
 		stage = "browser-cancel-create-plan";
-		await page.getByRole("button", { name: "Generate plan" }).click();
+		await page.getByRole("button", { name: "Prepare plan" }).click();
 		await page.getByText("Exact plan review", { exact: true }).waitFor();
 		const cancelHandles = await page.evaluate(() => history.state?.vskChangeHandles);
 		const cancelPlanResult = await request("GET", `/api/v1/plans/${cancelHandles.planId}`);

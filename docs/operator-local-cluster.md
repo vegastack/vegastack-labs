@@ -38,6 +38,16 @@ vsk-labs node add --config <protected-profile> --file <reviewed-node-add.json> -
 
 The request uses the generated `vegastack-labs.dev/host-adoption-request` contract. The command prepares an inert registration declaration. Review the returned declaration, then use the existing commit/plan, genuine human acknowledgement and exact apply workflow under explicit execution authorization. Preparation alone performs no registration or host configuration. Applicable baseline and role checks remain separate before workload admission; see [Linux role installation](development/linux-role-installation.md).
 
+## Finding your way around
+
+Use **Overview** for saved cluster information, **Nodes** for machines, **People** for accounts and permissions, **Services** for registered applications, **Backups** for saved copies, **Connections** for external services, **Checks** for readiness requirements, **History checks** for verification of recorded changes, and **Changes** to prepare, review and track a change. The underlying page addresses stay the same.
+
+Click an **i** button beside an unfamiliar field or status for an explanation. Form help says where to find the value; never guess a fingerprint, saved credential reference or server revision. Start with the registered machine list. Adding a machine has three numbered stages: save its connection details, read its machine report, and register its independently verified identity. Each prepared change still needs its existing approval and execution steps.
+
+Repair and replacement need a configuration file prepared for the exact machine by an infrastructure administrator. The Console explains what the file must contain and shows its requested changes before creating a plan; it does not currently generate a security policy from a few answers. Uploading a file alone changes nothing. Technical details keep exact identifiers and verification data available without putting them ahead of the normal task.
+
+Checks list/detail inspect recorded evidence; they do not refresh provider identity keys or probe the controller origin. Saved pilot proof cannot establish current readiness. A deliberate check or execution still uses its existing fresh-validation and authorization rules.
+
 ## Console correction coverage
 
 Issue #404 covers the existing Console, including its legacy addresses. The following coverage is isolated browser and source evidence; it does not establish installed-site behavior or native/provider health.

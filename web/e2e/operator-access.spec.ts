@@ -96,14 +96,17 @@ test("people reads real typed records, devices and grants with keyboard and narr
   );
   await page.goto("/people");
   const inspect = page.getByRole("button", {
-    name: "Inspect person-a",
+    name: "View access for person-a",
     exact: true,
   });
   await inspect.focus();
   await page.keyboard.press("Enter");
   await expect(
     page.getByRole("list", { name: "Devices", exact: true }),
-  ).toContainText("device-a: approved; revision 2");
+  ).toContainText("device-a: approved");
+  const deviceDetails = page.getByRole("list", { name: "Devices", exact: true }).locator("details");
+  await deviceDetails.locator("summary").click();
+  await expect(deviceDetails).toContainText("Device record version: 2");
   await expect(
     page.getByRole("list", { name: "Grants", exact: true }),
   ).toContainText("host-a");
@@ -164,7 +167,7 @@ test("denial clears previously loaded people and detail caches", async ({
   );
   await page.goto("/people");
   await page
-    .getByRole("button", { name: "Inspect person-a", exact: true })
+    .getByRole("button", { name: "View access for person-a", exact: true })
     .click();
   await expect(
     page.getByRole("list", { name: "Devices", exact: true }),
@@ -236,9 +239,9 @@ test("configured providers show unknown connectivity and absent providers unavai
   );
   await page.goto("/providers");
   const providers = page.getByRole("list", { name: "Provider capabilities" });
-  await expect(providers).toContainText("Connectivity: unknown");
-  await expect(providers).toContainText("Not configured");
-  await expect(providers).toContainText("Connectivity: unavailable");
+  await expect(providers).toContainText("Connection status: Not checked");
+  await expect(providers).toContainText("Not set up");
+  await expect(providers).toContainText("Connection status: Unavailable");
   await expect(providers).not.toContainText("healthy");
   await page.screenshot({
     path: info.outputPath("providers-configured.png"),

@@ -15,6 +15,6 @@ test("gate evidence success remains an inert draft", async () => {
   const source = await readFile(new URL("../components/gate-evidence-form.tsx", import.meta.url), "utf8");
   assert.match(source, /draftId/);
   assert.match(source, /changeId/);
-  assert.match(source, /plan flow/i);
+  assert.match(source, /review.*approv|approv.*review/i);
   assert.doesNotMatch(source, /executePlan|humanAcknowledgementId/);
 });
