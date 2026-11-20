@@ -29,7 +29,7 @@ test("proof fields explain exact report values and do not treat help as approval
     const check = page.locator('[data-gate-outcome="blocked"]').first();
     await check.getByText("Check results and submit proof", { exact: true }).click();
     await check.getByRole("button", { name: "Help: Target fingerprint", exact: true }).click();
-    await expect(check.getByText("Copy targetDigest from the command line check output", { exact: false })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Target fingerprint", exact: true }).getByText("Copy targetDigest from the command line check output", { exact: false })).toBeVisible();
     await check.getByRole("button", { name: "Prepare proof", exact: true }).click();
     await check.getByText("Technical details — proof report fields", { exact: true }).click();
     const artifactHelp = check.getByRole("button", { name: "Help: Artifact digest", exact: true });

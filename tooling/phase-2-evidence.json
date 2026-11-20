@@ -933,6 +933,13 @@
         "commands": [],
         "imports": [],
         "mutationBoundaryDigest": "sha256:8a410fdb86501d9c673daf9b2745c505c1ec33b6c58dbdbc91129fcbd36d0c00"
+      },
+      {
+        "id": "console-regent-help-issue404-v1",
+        "issue": 404,
+        "commands": [],
+        "imports": [],
+        "mutationBoundaryDigest": "sha256:704c7eaa46ce0d64228554108e12f4355cbb413fdb8bb1cc754ec5640acf63e4"
       }
     ]
   },

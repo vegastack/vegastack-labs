@@ -165,6 +165,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/access-probe-observation.schema.json",
 		"schemas/v1/access-probe-source.schema.json",
 		"schemas/v1/access-probe-tuple.schema.json",
+		"schemas/v1/access-retained-administrator.schema.json",
 		"schemas/v1/access-rollback-specification.schema.json",
 		"schemas/v1/access-service-key.schema.json",
 		"schemas/v1/access-target-identity.schema.json",
@@ -401,6 +402,8 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/maintenance-target.schema.json",
 		"schemas/v1/managed-host-list.schema.json",
 		"schemas/v1/managed-host.schema.json",
+		"schemas/v1/manual-publication-binding.schema.json",
+		"schemas/v1/manual-publication-draft-request.schema.json",
 		"schemas/v1/mesh-change.schema.json",
 		"schemas/v1/mesh-draft-request.schema.json",
 		"schemas/v1/mesh-draft-submission.schema.json",
@@ -525,6 +528,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/service-deployment-draft-request.schema.json",
 		"schemas/v1/service-deployment-provider-binding.schema.json",
 		"schemas/v1/service-deployment-record.schema.json",
+		"schemas/v1/service-deployment-recovery.schema.json",
 		"schemas/v1/service-deployment-request.schema.json",
 		"schemas/v1/service-environment-secret.schema.json",
 		"schemas/v1/service-import-draft-request.schema.json",
@@ -970,9 +974,10 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 			}
 		}
 	}
-	if available != 109 || planned != 12 {
-		t.Fatalf("command availability = (%d available, %d planned), want (109, 12)", available, planned)
+	if available != 110 || planned != 12 {
+		t.Fatalf("command availability = (%d available, %d planned), want (110, 12)", available, planned)
 	}
+	// #386 adds the exact operator-signed manual publication command.
 	// The current pilot/Phase10 wave adds seven commands and promotes doctor.
 	// #304 adds three exact CI enrollment commands.
 	// #286 adds four exact service list/show/observe/import-draft commands.
