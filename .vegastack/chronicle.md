@@ -1,3 +1,13 @@
+## 12-11-2026 — Use Regent’s inline help pattern in the Console ([#404](https://github.com/vegastack/vegastack-labs/issues/404))
+
+- **What:** Small information icons sit beside their labels; explanations open in an anchored panel on hover or click and close with Escape or an outside click. Reading help no longer shifts the form.
+- **Why:** The operator’s screenshot showed detached circles and misaligned fields. They asked to follow Regent Dev instead.
+- **How it went:** Checked Regent’s existing source: inline ghost icon buttons with Base UI tooltip/popover surfaces. A browser regression reproduced the label misalignment before correction. Reused the already-installed Base UI and existing Console floating surface; no dependency added.
+- **Changed:** Shared help, node label placement and focused browser assertions. Forms, requests and authorization are unchanged. The broader wizard proposal was withdrawn after the operator clarified the complaint.
+- **Decisions:** none. This source correction is not installed-site acceptance.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/404-node-setup-guidance
+
 ## 12-11-2026 — Explain the Console and keep saved checks separate from live observations ([#404](https://github.com/vegastack/vegastack-labs/issues/404))
 
 - **What:** Existing pages use plain labels, practical field guidance and accessible information buttons. Normal inspection stays separate from exact technical records and administrator-prepared repair files. Gates list/detail use saved pilot evidence without starting live provider/origin checks; deliberate checks and execution preserve fresh validation.

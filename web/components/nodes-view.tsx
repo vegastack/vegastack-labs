@@ -150,7 +150,7 @@ function NodesShell({ children, busy = false, refresh }: { children: React.React
   return (
     <>
       <Header view={refresh ? { busy, refresh } : undefined} />
-      <div className="min-w-0 space-y-6"><p className="text-sm text-muted-foreground">Start with Registered hosts to inspect a machine. Adding or repairing a node requires administrator details and approval before changes run.</p><FieldHelp label="Registered machines and inventory drafts">A registered host is a machine recorded by the server. An inventory draft is a proposed list of equipment, alternate names and observations; it does not connect to, register or verify any machine. Use the readiness checks on a registered host before assigning applications.</FieldHelp><HostLifecycle hostId={null} />{children}</div>
+      <div className="min-w-0 space-y-6"><div className="flex items-center gap-1"><p className="text-sm text-muted-foreground">Start with Registered hosts to inspect a machine. Adding or repairing a node requires administrator details and approval before changes run.</p><FieldHelp label="Registered machines and inventory drafts">A registered host is a machine recorded by the server. An inventory draft is a proposed list of equipment, alternate names and observations; it does not connect to, register or verify any machine. Use the readiness checks on a registered host before assigning applications.</FieldHelp></div><HostLifecycle hostId={null} />{children}</div>
     </>
   );
 }

@@ -1,13 +1,34 @@
 "use client";
 
-import { useId, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
+import { Popover } from "@base-ui/react/popover";
+import { Info } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { FloatingSurface } from "@/components/ui/floating-surface";
 
-/** Help stays open until dismissed and works with touch, pointer and keyboard. */
+/** Regent-style inline hint: hover or click to read, Escape or click away to close. */
 export function FieldHelp({ label, children }: { label: string; children: ReactNode }) {
-  const [open, setOpen] = useState(false);
-  const id = useId();
-  return <span className="inline-flex max-w-full flex-col items-start gap-1 align-middle">
-    <button type="button" aria-label={`Help: ${label}`} aria-expanded={open} aria-controls={id} onClick={() => setOpen(!open)} className="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-sm font-medium text-muted-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"><span aria-hidden className="inline-flex size-6 items-center justify-center rounded-full border border-border">i</span></button>
-    <span id={id} hidden={!open} className="max-w-prose rounded-md border border-border bg-muted p-2 text-sm font-normal text-foreground">{children}</span>
-  </span>;
+  const popupProps: Popover.Popup.Props = { initialFocus: false, finalFocus: false };
+  return (
+    <Popover.Root>
+      <Popover.Trigger
+        openOnHover
+        delay={200}
+        render={<Button type="button" variant="ghost" size="xs" aria-label={`Help: ${label}`} className="size-11 shrink-0 p-0 align-middle text-muted-foreground" />}
+      >
+        <Info aria-hidden className="size-4" />
+      </Popover.Trigger>
+      <FloatingSurface
+        parts={{ Portal: Popover.Portal, Positioner: Popover.Positioner, Popup: Popover.Popup }}
+        slot="field-help"
+        surface="panel"
+        positioning={{ side: "bottom", align: "start", sideOffset: 4 }}
+        popupProps={popupProps}
+        className="text-sm"
+      >
+        <Popover.Title className="mb-1 font-medium">{label}</Popover.Title>
+        <Popover.Description render={<div />}>{children}</Popover.Description>
+      </FloatingSurface>
+    </Popover.Root>
+  );
 }
