@@ -940,6 +940,13 @@
         "commands": [],
         "imports": [],
         "mutationBoundaryDigest": "sha256:704c7eaa46ce0d64228554108e12f4355cbb413fdb8bb1cc754ec5640acf63e4"
+      },
+      {
+        "id": "console-reload-recovery-issue404-v1",
+        "issue": 404,
+        "commands": [],
+        "imports": [],
+        "mutationBoundaryDigest": "sha256:dae5b87fe223257ec1e2bf80276ece693a871a4d64bf5399ca5df5f4ff29f5a8"
       }
     ]
   },

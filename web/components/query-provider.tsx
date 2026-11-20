@@ -67,7 +67,10 @@ export function ConsoleQueryProvider({ children }: { children: ReactNode }) {
           // Cancel every affected read before clearing: parallel successes must
           // not restore private records after an authorization or identity failure.
           void cached.cancel({ silent: true, revert: false });
-          cached.setState({ data: null });
+          // Silent cancellation does not settle the query's fetching state.
+          // Keep the failure explicit so Refresh is usable, and a canceled
+          // parallel response cannot restore records after access was revoked.
+          cached.setState({ data: null, error: error instanceof Error ? error : new Error("Read request failed"), status: "error", fetchStatus: "idle" });
         }
       }
     }

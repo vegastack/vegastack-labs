@@ -6,6 +6,7 @@ import { HostReplacement } from "@/components/host-replacement";
 import { FieldHelp } from "@/components/field-help";
 
 import { useState, useRef, useId, type FormEvent } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { HostAdmission, InitialControlGuidance } from "@/components/host-admission";
 import { HostPolicyForm } from "@/components/host-policy-form";
 import { Button } from "@/components/ui/button";
@@ -48,10 +49,16 @@ function key(action: string) { return `console-host-${action}-${crypto.randomUUI
 function RevisionFields() { return <><Field name="revision" label="Current server state revision" number /><Field name="epoch" label="Current recovery epoch" number /></>; }
 
 export function HostLifecycle({ hostId }: { hostId: string | null }) {
+  const queryClient = useQueryClient();
   const hostFailure = useReadFailure("hosts");
   const planFailure = useReadFailure("changes");
   const failure = hostFailure.failure ?? planFailure.failure;
-  const clearFailure = hostFailure.clearFailure;
+  const clearFailure = () => {
+    // The failure boundary unmounted these reads. Discard their failed cache
+    // before remounting; retryOnMount is intentionally disabled globally.
+    queryClient.removeQueries({ queryKey: ["read", "hosts"] });
+    hostFailure.clearFailure();
+  };
   // Unmount all forms and exact-plan state when scope/session/binding is revoked.
   if (failure) return <ReadViewState kind={classifyReadFailure(failure)} title="Host workflow unavailable" description="Read current state again before preparing a new plan. Previous execution and form state have been cleared." onRetry={clearFailure} />;
   return <HostLifecycleContent initialHostId={hostId} />;

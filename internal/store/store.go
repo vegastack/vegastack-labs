@@ -405,7 +405,13 @@ func (store *Store) runIntegrityChecks(ctx context.Context) error {
 }
 
 func (store *Store) checkIdentity(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return interruptedError("database-identity", err)
+	}
 	actual, err := store.filesystem.InspectDatabase(ctx, store.config.DatabasePath, store.config.ExpectedUID)
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return interruptedError("database-identity", err)
+	}
 	if err != nil || !store.filesystem.SameFile(store.identity, actual) {
 		store.enterSafeMode("unsafe-file-identity")
 		if err == nil {

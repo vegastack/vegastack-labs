@@ -1,3 +1,7 @@
+## 20-11-2026 — Reloading the Console must not disable the controller
+
+A canceled browser request could be mistaken for a changed database file, permanently putting Labs into safe mode and blocking browser sessions. Cancellation now returns an interrupted request without changing database readiness; real identity failures still enter safe mode. Cleared parallel reads now settle as errors instead of staying busy, and the Nodes Refresh action discards its failed host cache before retrying. Focused reproductions cover canceled database inspection, real identity failure, Nodes recovery and History checks with a late denied response. Live acceptance remains separately recorded.
+
 ## 12-11-2026 — Use Regent’s inline help pattern in the Console ([#404](https://github.com/vegastack/vegastack-labs/issues/404))
 
 - **What:** Small information icons sit beside their labels; explanations open in an anchored panel on hover or click and close with Escape or an outside click. Reading help no longer shifts the form.
