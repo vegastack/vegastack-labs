@@ -1,6 +1,6 @@
 ## 23-11-2026 — Keep the saved host draft intact when planning ([#415](https://github.com/vegastack/vegastack-labs/issues/415))
 
-The first live Console time-check rehearsal saved its draft, then failed when creating the plan. The Nodes page sent an empty binding list even though the saved draft contained credential and action fingerprints. The server correctly rejected that incomplete request. The Console now reads the saved declaration through its existing client, checks its identity, revision and recovery epoch, and carries its bindings unchanged. Focused browser coverage checks those values and prevents submission after a mismatched or denied declaration read. No server approval or execution check was loosened; live completion remains tracked separately in #414.
+The first live Console time-check rehearsal saved its draft, then failed when creating the plan. The Nodes and Changes pages sent an empty binding list even though the saved draft contained credential and action fingerprints. The server correctly rejected that incomplete request. Nodes now reads the saved declaration through its existing client and checks its identity, revision and recovery epoch. Both pages carry the saved bindings unchanged. Focused browser coverage checks those values and prevents submission after a mismatched or denied declaration read. No server approval or execution check was loosened; live completion remains tracked separately in #414.
 
 — approved by (omkarmohanta09) · built by Codex · branch fix/415-console-host-plan-bindings
 

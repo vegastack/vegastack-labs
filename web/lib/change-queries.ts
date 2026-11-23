@@ -67,7 +67,7 @@ export function useCreatePlan() {
         recoveryEpoch: prepared.data.recoveryEpoch,
         observationFingerprint: prepared.data.observationFingerprint,
         idempotencyKey: actionKey("plan"),
-        extensions: [],
+        extensions: declaration.extensions,
       };
       return changeClient.createPlan({ declarationId: declaration.declarationId }, request);
     },

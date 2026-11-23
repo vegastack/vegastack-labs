@@ -105,7 +105,7 @@ test("baseline success does not replace blocked or stale role admission",async({
  await expect(page.getByText("If a check is missing or out of date, ask an administrator",{exact:false})).toBeVisible();
 });
 
-for (const variant of ["sealed", "wrong-declaration", "denied"] as const) {
+for (const variant of ["sealed", "wrong-declaration", "denied", "changes-sealed"] as const) {
  test(`host plan preserves saved bindings: ${variant}`, async ({page}) => {
   await installReadFixture(page);
   const declarationId="host-action-"+digest.slice(7,39);
@@ -123,10 +123,14 @@ for (const variant of ["sealed", "wrong-declaration", "denied"] as const) {
   const request=JSON.parse(readFileSync(__dirname+"/../../internal/localapi/testdata/host-action.json","utf8"));
   const input=JSON.parse(readFileSync(__dirname+"/../../internal/linuxrole/testdata/role-input.json","utf8"));
   Object.assign(request,{actionId:"debian.role.apply",hostId:input.hostId,callerUid:input.automationUid,actionInput:JSON.stringify(input)});request.consoleConfirmation.hostIdentityDigest=input.hostIdentityDigest;
+  if(variant==="changes-sealed") {
+   await page.goto("/changes");await page.getByLabel("Settings reference",{exact:true}).fill(declarationId);await page.getByLabel("Version",{exact:true}).fill("1");await page.getByRole("button",{name:"Open settings",exact:true}).click();await expect(page.getByText("Saved settings · version 1",{exact:true})).toBeVisible();await page.getByRole("button",{name:"Prepare plan",exact:true}).click();await expect(page.getByText("Change details cleared",{exact:true})).toBeVisible();
+  } else {
   await page.goto("/nodes");await page.getByText("Repair or configure a node (administrator)",{exact:true}).click();await page.getByRole("button",{name:"Machine role or control service",exact:true}).click();
   await page.getByLabel("Prepared machine setup file",{exact:true}).setInputFiles({name:"role.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify(request))});
   await page.getByRole("button",{name:"Prepare role draft",exact:true}).click();await expect(page.getByText("No host action has been applied.")).toBeVisible();
   await page.getByRole("button",{name:"Create exact plan",exact:true}).click();await expect(page.getByText("Host workflow unavailable")).toBeVisible();
-  expect(captured?.extensions).toEqual(variant==="sealed"?extensions:undefined);
+  }
+  expect(captured?.extensions).toEqual(variant==="sealed"||variant==="changes-sealed"?extensions:undefined);
  });
 }
