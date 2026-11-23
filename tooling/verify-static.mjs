@@ -88,11 +88,11 @@ export async function verifyStaticExport(output = OUTPUT, embedded = output === 
   if (requireDeterministicBuildID) {
     const routeMarkers = new Map([
       ["nodes.html", "Loading Nodes"],
-      ["gates.html", "Loading derived gates"],
+      ["gates.html", "Loading readiness checks"],
       ["people.html", "Loading people"],
       ["services.html", "Loading services"],
       ["backups.html", "Loading backup status"],
-      ["providers.html", "Loading providers"],
+      ["providers.html", "Loading connections"],
       ["changes.html", "No saved settings open"],
     ]);
     for (const [route, marker] of routeMarkers) {
