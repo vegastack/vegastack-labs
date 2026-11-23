@@ -97,7 +97,7 @@ test("retryable observation failure visibly labels retained data stale", async (
   await page.getByRole("button", { name: "Refresh observations", exact: true }).click();
   await expect(page.locator('[data-read-state="stale"]')).toBeVisible();
   await expect(page.getByText("Coolify reported status: running:healthy", { exact: true })).toBeVisible();
-  await expect(page.getByText(/Provider availability and current state have not been confirmed/)).toBeVisible();
+  await expect(page.getByText(/the application’s current status has not been confirmed/)).toBeVisible();
 });
 
 test("observation denial removes every visible private service record", async ({ page }) => {

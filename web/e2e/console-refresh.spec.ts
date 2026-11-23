@@ -4,9 +4,9 @@ import { fixtureState, installReadFixture } from "./api-fixture";
 test.beforeEach(async ({ page }) => installReadFixture(page));
 
 for (const [route, populated, button, empty] of [
-  ["/gates", "G-008", "Refresh Checks", "No gates in this read scope"],
+  ["/gates", "Backup storage and recovery", "Refresh Checks", "No readiness checks to show"],
   ["/backups", "point-a", "Refresh Backups", "No recovery points"],
-  ["/audit", "checkpoint-a", "Refresh History Checks", "No audit checkpoints"],
+  ["/audit", "checkpoint-a", "Refresh History Checks", "No saved history checkpoints"],
 ] as const) {
   test(`${button} updates successful visible records`, async ({ page }) => {
     await page.goto(route);

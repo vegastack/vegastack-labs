@@ -46,17 +46,17 @@ export function ProvidersView() {
           kind={state}
           title={
             state === "denied"
-              ? "Provider access denied"
+              ? "Connections access denied"
               : state === "loading"
-                ? "Loading providers"
+                ? "Loading connections"
                 : state === "stale"
-                  ? "Showing last known provider configuration"
-                  : "Providers could not be read"
+                  ? "Showing last saved connection settings"
+                  : "Connections could not be read"
           }
-          description="Configuration alone does not confirm a working connection."
+          description={state === "denied" ? "Your account cannot view these connections. Ask an administrator for access." : state === "loading" ? "Reading the saved connection settings." : "Use Refresh Connections to try again. Saved settings alone do not confirm a working connection."}
         />
       ) : null}
-      {data && data.providers.length === 0 ? <ReadViewState kind="empty" title="No connections visible" description="No provider configuration is visible in your current read scope. This does not establish whether providers are connected or healthy." /> : null}
+      {data && data.providers.length === 0 ? <ReadViewState kind="empty" title="No connections visible" description="No saved connections are visible to your account. Ask an administrator if a connection you need is missing." /> : null}
       {data && data.providers.length > 0 ? (
         <ul
           aria-label="Provider capabilities"
@@ -73,7 +73,7 @@ export function ProvidersView() {
                   <p>Connection status: {p.connectivity === "unknown" ? "Not checked" : "Unavailable"}</p>
                   {p.configured ? (
                     <p className="text-sm text-muted-foreground">
-                      No current connectivity observation is available.
+                      No recent connection check is recorded. Ask an administrator to check it before relying on this service.
                     </p>
                   ) : (
                     <p className="text-sm text-muted-foreground">

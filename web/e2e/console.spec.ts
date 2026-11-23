@@ -108,7 +108,7 @@ test("each route has a unique browser title", async ({ page }) => {
 test("generated Gates GET stays clean while unreviewed gate requests are detected", async ({ page }) => {
   const { failures, assertClean } = monitorBrowser(page);
   await page.goto("/gates");
-  await expect(page.getByText("G-008")).toBeVisible();
+  await expect(page.getByText("Backup storage and recovery", { exact: true })).toBeVisible();
   await expect.poll(() => fixtureAudit.requests.some(request => new URL(request).pathname === "/api/v1/gates")).toBeTruthy();
   assertClean();
 

@@ -68,7 +68,7 @@ test("History checks cancels late private data and lets an explicit refresh reco
     await route.fulfill({ status: 401, json: envelope("api.v1.audit-history.verification", {}, "SESSION_EXPIRED") });
   });
   await page.goto("/audit");
-  await expect(page.getByText("Audit verification unavailable", { exact: true })).toBeVisible();
+  await expect(page.getByText("History verification unavailable", { exact: true })).toBeVisible();
   releaseLate();
   await lateDelivered;
   // Let the delivered response finish rendering before asserting it stays cleared.

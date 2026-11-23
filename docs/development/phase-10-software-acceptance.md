@@ -8,6 +8,24 @@ The original software requirement map and historical run evidence below remain i
 
 Phase 9's amended signed manual-delivery scope is [complete and closed](https://github.com/vegastack/vegastack-labs/issues/317#issuecomment-6788224444). Original managed CI and its credentials, runner enrollment and CI provenance requirements remain deferred and open; the manual delivery result does not establish them.
 
+## Console inspection — 23-11-2026
+
+Issue [#404](https://github.com/vegastack/vegastack-labs/issues/404) remains open for installed usability acceptance. An operator-owned signed-in Windows browser now permits direct inspection without exporting credentials. Current installed source is `a44aa018`; source corrections after this inspection are not installed-site proof.
+
+| Page | Authenticated observation | Remaining boundary |
+|---|---|---|
+| Overview | Main page loads and shows saved records separately from server readiness | All alternate failure states use isolated browser proof |
+| Nodes | Registered list and saved machine inspection load; missing readiness evidence is explicit in technical results | No host check, repair or admission was executed |
+| People | Main list loads | Detail/denial/recovery behavior uses isolated browser proof unless separately recorded |
+| Services | Main list loads | Provider observation and deployment/recovery actions are not claimed live-tested |
+| Backups | Restore-list read returns access denial; current generic message is misleading | Keep denial and clear protected state; explain viewing permissions without granting access |
+| Connections | Saved settings and unchecked connection state load | No provider connectivity check or configuration change |
+| Checks | Saved checks load; technical reference-only titles need readable names | No evidence submission or live check execution |
+| History checks | Saved verification and empty checkpoint state load | No history checkpoint or recovery action |
+| Changes | Lookup/preparation page loads | Exact-plan execution remains isolated fixture proof; no live mutation |
+
+Source correction must preserve authorization, cleared protected records and explicit recovery. A page loading successfully does not establish every flow, machine readiness, native qualification or deferred feature acceptance. Existing deferrals remain unchanged.
+
 ## Historical software evidence
 
 Status on 02-11-2026: this maps each Phase 10 software requirement to the isolated test that proves it, on merged `main` at commit `e176c607`. It is **software and fixture evidence only**. It records no live target, provider, credential, host or VM operation and does not pass any live gate. The protected hosts `vsk-node-04` and `vsk-node-05` were not involved.

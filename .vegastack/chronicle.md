@@ -1,3 +1,13 @@
+## 23-11-2026 — Explain what the Console needs next ([#404](https://github.com/vegastack/vegastack-labs/issues/404))
+
+- **What:** Backups explains missing viewing permission separately from expired sign-in or an unreadable response. Readiness checks have understandable names, and Nodes explains why refreshing cannot create missing check results. Other existing pages use clearer loading, empty and error guidance.
+- **Why:** The operator connected a separate signed-in Windows browser so the agent could inspect the real pages without repeated screenshots. That inspection reproduced a denied restore-list read hidden behind a misleading records-cleared message.
+- **How it went:** Existing denial/late-response tests reproduced the unclear messages; corrections keep their cache clearing, explicit recovery and disabled restore actions. Browser loading and source tests remain separate from new-build installation and every-flow acceptance.
+- **Changed:** Plain-language page guidance · readable check names with exact references in technical details · accurate backup access errors. No grants, API changes, new dependency or host operation.
+- **Decisions:** none; all agreed deferrals remain deferred.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/404-console-guidance
+
 ## 20-11-2026 — Reloading the Console must not disable the controller
 
 A canceled browser request could be mistaken for a changed database file, permanently putting Labs into safe mode and blocking browser sessions. Cancellation now returns an interrupted request without changing database readiness; real identity failures still enter safe mode. Cleared parallel reads now settle as errors instead of staying busy, and the Nodes Refresh action discards its failed host cache before retrying. Focused reproductions cover canceled database inspection, real identity failure, Nodes recovery and History checks with a late denied response. Live acceptance remains separately recorded.

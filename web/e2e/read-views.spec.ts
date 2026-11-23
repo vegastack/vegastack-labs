@@ -112,7 +112,7 @@ test("Gates reads derived records and classifies every failure family", async ({
   await page.goto("/gates");
   await expect(page.locator('[data-read-state="loading"]')).toBeVisible();
   fixtureState.delay = 0;
-  await expect(page.locator('[data-gate-outcome="blocked"]')).toContainText("G-008");
+  await expect(page.locator('[data-gate-outcome="blocked"]')).toContainText("Backup storage and recovery");
   await expect(page.locator('[data-gate-outcome="not-applicable"]')).toContainText("Planned for later");
   await expect(page.getByRole("button", { name: /pass|approve|apply/i })).toHaveCount(0);
   fixtureState.mode = "dependency";

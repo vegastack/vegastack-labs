@@ -100,6 +100,7 @@ test("baseline success does not replace blocked or stale role admission",async({
  });
  await page.goto("/nodes");await page.getByText("Inspect a host by ID",{exact:true}).click();await page.getByLabel("Registered machine name",{exact:true}).fill("host-a");await page.getByRole("button",{name:"Inspect registered host",exact:true}).click();
  await expect(page.getByText("Security requirements: Required check passed",{exact:true})).toBeVisible();await expect(page.getByText("Assigned role requirements: Needs attention",{exact:true})).toBeVisible();
+ await expect(page.getByText("No results are saved for this machine’s check.", { exact: false })).toBeVisible();
  stale=true;await page.getByRole("button",{name:"Refresh readiness checks",exact:true}).click();await expect(page.getByText("Assigned role requirements: Check is out of date",{exact:true})).toBeVisible();
  await expect(page.getByText("If a check is missing or out of date, ask an administrator",{exact:false})).toBeVisible();
 });

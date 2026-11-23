@@ -14,11 +14,11 @@ import { overviewSourceIds, useOverview } from "@/lib/overview-queries";
 type Overview = ReturnType<typeof useOverview>;
 
 const stateCopy: Record<string, [string, string]> = {
-  loading: ["Loading Overview", "Reading the authorized local control-plane summary."],
-  empty: ["No overview records", "The authorized summary returned no records."],
-  denied: ["Overview access denied", "Your current session cannot read this scope. Ask an administrator to review your grant."],
-  unavailable: ["Overview unavailable", "The control-plane read service is temporarily unavailable. Local CLI recovery remains separate."],
-  error: ["Overview could not be read", "The response could not be used safely. Refresh after the service is available."],
+  loading: ["Loading Overview", "Reading your saved records and server status."],
+  empty: ["No overview records", "No overview information is available to your account yet."],
+  denied: ["Overview access denied", "Your account cannot view this information. Ask an administrator for access."],
+  unavailable: ["Overview unavailable", "The Labs server could not return this information. Refresh to try again; ask an administrator if it keeps failing."],
+  error: ["Overview could not be read", "The server response could not be checked. Refresh to try again."],
 };
 
 export function OverviewView() {
@@ -30,7 +30,7 @@ export function OverviewView() {
     <>
       <PageHeader
         title="Overview"
-        description="Start with Machines to add a computer, Services to inspect an application, or Changes to review a proposed operation."
+        description="Start with Nodes to view or add a computer, Services to inspect an application, or Changes to review a proposed operation."
         actions={
           <Button variant="outline" loading={view.isRefreshing} onClick={view.refresh}>
             <RefreshCw aria-hidden />
@@ -52,15 +52,15 @@ function OverviewBody({ view, content }: { view: Overview; content: React.ReactN
         title={view.state === "stale" ? "Showing last known Overview" : "Overview is partial"}
         description={
           view.state === "stale"
-            ? "A temporary source failure occurred. Visible records are older authorized data."
-            : "One authorized source could not be read."
+            ? "Some information could not be refreshed. The records shown are from the last successful read."
+            : "Some information could not be loaded. You can still use the sections shown below."
         }
         staleData={content}
         onRetry={view.refresh}
       />
     );
   }
-  const [title, description] = stateCopy[view.state] ?? ["Overview unavailable", "No safe Overview response is available."];
+  const [title, description] = stateCopy[view.state] ?? ["Overview unavailable", "The overview could not be loaded. Refresh to try again."];
   const kind = view.state === "loading" || view.state === "empty" || view.state === "denied" || view.state === "unavailable" ? view.state : "error";
   return <ReadViewState kind={kind} title={title} description={description} onRetry={view.state === "loading" ? undefined : view.refresh} />;
 }
@@ -104,8 +104,8 @@ function OverviewContent({ summary, sources }: { summary: Overview["summary"]; s
         <h2 id="source-heading" className="text-h4 text-foreground">
           Recorded information
         </h2>
-        <p className="text-sm text-muted-foreground">These are controller records, not live health checks of your machines or applications. Open a page to inspect its details.</p>
-        {sources.some(source => source.state === "failed") ? <p role="status" className="text-sm text-destructive">A source reported a collection failure. Open collection details for its recorded status.</p> : null}
+        <p className="text-sm text-muted-foreground">These are saved records, not live health checks. Open Nodes or Services to inspect a machine or application.</p>
+        {sources.some(source => source.state === "failed") ? <p role="status" className="text-sm text-destructive">Some information could not be collected. Expand the collection details below to see which section needs attention.</p> : null}
         <details>
         <summary className="cursor-pointer text-sm font-medium">When information was last collected</summary>
         <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -119,7 +119,7 @@ function OverviewContent({ summary, sources }: { summary: Overview["summary"]; s
                   ) : (
                     <div className="flex flex-col gap-1.5" data-source-state="unknown">
                       <p className="text-sm font-medium capitalize text-foreground">{id}</p>
-                      <p className="text-sm text-muted-foreground">No record was returned in your current access scope.</p>
+                      <p className="text-sm text-muted-foreground">No information is available to your account for this section.</p>
                     </div>
                   )}
                   {id !== "database" ? <Link prefetch={false} className="mt-3 inline-block text-sm underline" href={`/${id}`}>Open {id.charAt(0).toUpperCase() + id.slice(1)}</Link> : null}
