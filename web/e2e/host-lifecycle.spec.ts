@@ -104,3 +104,29 @@ test("baseline success does not replace blocked or stale role admission",async({
  stale=true;await page.getByRole("button",{name:"Refresh readiness checks",exact:true}).click();await expect(page.getByText("Assigned role requirements: Check is out of date",{exact:true})).toBeVisible();
  await expect(page.getByText("If a check is missing or out of date, ask an administrator",{exact:false})).toBeVisible();
 });
+
+for (const variant of ["sealed", "wrong-declaration", "denied"] as const) {
+ test(`host plan preserves saved bindings: ${variant}`, async ({page}) => {
+  await installReadFixture(page);
+  const declarationId="host-action-"+digest.slice(7,39);
+  const extensions=[{name:"x-credential-bindings",valueDigest:`sha256:${"b".repeat(64)}`},{name:"x-host-action",valueDigest:digest}];
+  let captured: { extensions: unknown } | undefined;
+  await page.route("**/api/v1/host-actions/draft",async route=>{
+   const input=route.request().postDataJSON();const originalRequestDigest=await hostRequestDigest("vegastack-labs.dev/host-action-request",input);
+   await route.fulfill({json:envelope("api.v1.host-actions.draft",{schema:"vegastack-labs.dev/host-action-submission",schemaVersion:"1.0.0",draftId:declarationId,declarationId,contentDigest:digest,originalRequestDigest,stateRevision:3,recoveryEpoch:0})});
+  });
+  await page.route("**/api/v1/declarations/*/revisions/1",route=>variant==="denied"
+   ?route.fulfill({status:403,json:envelope("api.v1.declarations.get",{},"AUTHORIZATION_DENIED")})
+   :route.fulfill({json:envelope("api.v1.declarations.get",{schema:"vegastack-labs.dev/browser-declaration-revision",schemaVersion:"1.0.0",declarationId:variant==="wrong-declaration"?"another-draft":declarationId,declarationType:"host.action",revision:1,stateRevision:3,recoveryEpoch:0,contentDigest:digest,status:"draft",operations:[{sequence:1,operationId:"host-action",operationType:"host.action.execute",adapterId:"host-action",targetId:"host-a",inputDigest:extensions[0].valueDigest,artifactDigest:digest,idempotent:false}],createdAt:"2026-11-23T00:00:00Z",extensions})}));
+  await page.route("**/api/v1/declarations/**/plan-preparation",route=>route.fulfill({json:envelope("api.v1.declarations.plan-preparation.get",{schema:"vegastack-labs.dev/plan-preparation",schemaVersion:"1.0.0",declarationId,declarationRevision:1,expectedStateRevision:3,recoveryEpoch:0,observationFingerprint:digest})}));
+  await page.route("**/api/v1/declarations/*/plans",route=>{captured=route.request().postDataJSON();return route.fulfill({status:403,json:envelope("api.v1.plans.create",{},"AUTHORIZATION_DENIED")});});
+  const request=JSON.parse(readFileSync(__dirname+"/../../internal/localapi/testdata/host-action.json","utf8"));
+  const input=JSON.parse(readFileSync(__dirname+"/../../internal/linuxrole/testdata/role-input.json","utf8"));
+  Object.assign(request,{actionId:"debian.role.apply",hostId:input.hostId,callerUid:input.automationUid,actionInput:JSON.stringify(input)});request.consoleConfirmation.hostIdentityDigest=input.hostIdentityDigest;
+  await page.goto("/nodes");await page.getByText("Repair or configure a node (administrator)",{exact:true}).click();await page.getByRole("button",{name:"Machine role or control service",exact:true}).click();
+  await page.getByLabel("Prepared machine setup file",{exact:true}).setInputFiles({name:"role.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify(request))});
+  await page.getByRole("button",{name:"Prepare role draft",exact:true}).click();await expect(page.getByText("No host action has been applied.")).toBeVisible();
+  await page.getByRole("button",{name:"Create exact plan",exact:true}).click();await expect(page.getByText("Host workflow unavailable")).toBeVisible();
+  expect(captured?.extensions).toEqual(variant==="sealed"?extensions:undefined);
+ });
+}

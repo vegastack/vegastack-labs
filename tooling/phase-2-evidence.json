@@ -961,6 +961,13 @@
         "commands": [],
         "imports": [],
         "mutationBoundaryDigest": "sha256:9f82e248f7a875b79ca53d59139240603e6942bbc7a34ca98c9bf2d77a42e6a2"
+      },
+      {
+        "id": "console-host-plan-bindings-issue415-v1",
+        "issue": 415,
+        "commands": [],
+        "imports": [],
+        "mutationBoundaryDigest": "sha256:c8a47ea2bfd6f3e47994b0075e10066e362e3dad5f8f11ff0dff0a35072eb013"
       }
     ]
   },

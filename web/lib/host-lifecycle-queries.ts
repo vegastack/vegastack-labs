@@ -30,7 +30,10 @@ export function useHostPlan() {
     const prepared = await changeClient.preparePlan({ declarationId, revision: 1 });
     const p = prepared.data;
     if (p.declarationId !== declarationId || p.declarationRevision !== 1 || p.recoveryEpoch !== prepared.recoveryEpoch || p.expectedStateRevision !== prepared.stateRevision) throw new ReadClientError("schema-mismatch", "INTEGRITY_FAILURE", "host-plan-preparation");
-    const result = await changeClient.createPlan({ declarationId }, { schema: "vegastack-labs.dev/plan-create-request", schemaVersion: "1.0.0", declarationId, declarationRevision: p.declarationRevision, expectedStateRevision: p.expectedStateRevision, recoveryEpoch: p.recoveryEpoch, observationFingerprint: p.observationFingerprint, idempotencyKey: `console-host-plan-${crypto.randomUUID()}`, extensions: [] });
+    const saved = await changeClient.getDeclaration({ declarationId, revision: p.declarationRevision });
+    const declaration = saved.data;
+    if (declaration.declarationId !== declarationId || declaration.revision !== p.declarationRevision || declaration.status !== "draft" || declaration.recoveryEpoch !== p.recoveryEpoch || saved.recoveryEpoch !== p.recoveryEpoch || declaration.stateRevision !== saved.stateRevision || declaration.stateRevision > p.expectedStateRevision) throw new ReadClientError("schema-mismatch", "INTEGRITY_FAILURE", "host-plan-declaration");
+    const result = await changeClient.createPlan({ declarationId }, { schema: "vegastack-labs.dev/plan-create-request", schemaVersion: "1.0.0", declarationId, declarationRevision: p.declarationRevision, expectedStateRevision: p.expectedStateRevision, recoveryEpoch: p.recoveryEpoch, observationFingerprint: p.observationFingerprint, idempotencyKey: `console-host-plan-${crypto.randomUUID()}`, extensions: declaration.extensions });
     const plan = planFromView(result.data);
     if (plan.declarationId !== declarationId || plan.binding.declarationRevision !== p.declarationRevision + 1 || plan.binding.recoveryEpoch !== p.recoveryEpoch || result.recoveryEpoch !== p.recoveryEpoch || plan.binding.priorStateRevision !== p.expectedStateRevision || plan.binding.stateRevision !== result.stateRevision || plan.binding.observationFingerprint !== p.observationFingerprint) throw new ReadClientError("schema-mismatch", "INTEGRITY_FAILURE", "host-plan");
     return plan;

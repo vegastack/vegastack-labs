@@ -1,3 +1,9 @@
+## 23-11-2026 — Keep the saved host draft intact when planning ([#415](https://github.com/vegastack/vegastack-labs/issues/415))
+
+The first live Console time-check rehearsal saved its draft, then failed when creating the plan. The Nodes page sent an empty binding list even though the saved draft contained credential and action fingerprints. The server correctly rejected that incomplete request. The Console now reads the saved declaration through its existing client, checks its identity, revision and recovery epoch, and carries its bindings unchanged. Focused browser coverage checks those values and prevents submission after a mismatched or denied declaration read. No server approval or execution check was loosened; live completion remains tracked separately in #414.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/415-console-host-plan-bindings
+
 ## 23-11-2026 — Keep application details when no recovery has run ([#412](https://github.com/vegastack/vegastack-labs/issues/412))
 
 Opening the existing demo application's details exposed a real gap: registration and deployment reads succeeded, but the absent recovery record returned404 and cleared the whole Services page. The recovery result is optional until a recovery attempt exists. The existing optional deployment/recovery reads now explain absence without discarding the other permitted records. Regression cases reproduced the disappearing details before correction and verify that missing results clear their own previous data while denial, expired sign-in and invalid content still clear protected records. No permissions or server contracts changed. Source proof remains separate from installation and a complete live change.
