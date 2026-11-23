@@ -50,11 +50,17 @@ Checks list/detail inspect recorded evidence; they do not refresh provider ident
 
 ## Console correction coverage
 
+### Installed website check — 23-11-2026
+
+[Correction #404 is complete](https://github.com/vegastack/vegastack-labs/issues/404#issuecomment-7093712324) on installed pilot source `4eedf2f7`. All nine main pages loaded in the signed-in Windows test browser; node list reload, saved node inspection, readiness refresh and your own account device/permission reads succeeded. Representative served assets matched the installed build. Backups accurately explains the expected missing viewing permission without granting access. This pass checked existing pages and saved information; it did not execute repairs, deployments, restores or fresh host checks.
+
+### Isolated browser coverage and remaining action limits
+
 Issue #404 covers the existing Console, including its legacy addresses. The following coverage is isolated browser and source evidence; it does not establish installed-site behavior or native/provider health.
 
 | Page | Browser-tested behavior | Source-inspected or locally unverified behavior |
 | --- | --- | --- |
-| Overview | Summary/source states, outage and denial clearing, record links and collection disclosures (`read-views`, `console-working-flows`) | Installed controller responses and served assets unverified |
+| Overview | Summary/source states, outage and denial clearing, record links and collection disclosures (`read-views`, `console-working-flows`) | Installed navigation/read and asset proof recorded above; alternate states use fixtures |
 | Nodes | Registered list/inspection/refresh, draft pagination/details, discovery/registration/action forms, admission states and stale-plan races (`registered-host-list`, `host-lifecycle`, `host-replacement`, `host-plan-race`) | Real discovery, host changes and admission unverified |
 | People | Authorized list/detail, pagination, denial/revocation clearing (`operator-access`) | Actual identity-provider changes unverified |
 | Services | Registration/detail, recorded deployment/settings/recovery/provider reads and empty/stale/denied states (`domain-status-views`) | Fresh native/provider health or deployment unverified |
@@ -63,9 +69,9 @@ Issue #404 covers the existing Console, including its legacy addresses. The foll
 | Gates | Evaluations and read failure families (`read-views`); successful refresh (`console-refresh`) | Explicit check/evidence forms and epoch handling source-inspected; submission behavior not browser-proven by this correction |
 | Audit | Verification/checkpoint reads (`phase5-workflows`); successful refresh (`console-refresh`) | Independent recovery qualification unverified |
 | Changes | Draft/revision/plan, approval polling, exact execution, uncertainty recovery, event reconnect and access clearing (`change-workflow`); existing-run lookup (`console-working-flows`) | Cancel/resume controls source-inspected; live acknowledgement/execution unverified |
-| Navigation and legacy routes | Sidebar/theme/keyboard, desktop/mobile layouts, dashboard, design examples and unavailable guidance (`console`, `console-working-flows`) | Authenticated installed-site smoke check unverified |
+| Navigation and legacy routes | Sidebar/theme/keyboard, desktop/mobile layouts, dashboard, design examples and unavailable guidance (`console`, `console-working-flows`) | Authenticated main-page check recorded above; full client matrix remains unqualified |
 
-Test names above identify files under `web/e2e/`. All nine main pages have populated fixture checks and desktop/mobile accessibility/layout coverage. Tests retain malformed-response and denied-access behavior; a successful screenshot alone is not a successful operation. Source inspection is explicitly separate from browser proof. Native/provider actions, deferred workflows and installed-site behavior still require their own evidence and existing prerequisites.
+Test names above identify files under `web/e2e/`. All nine main pages have populated fixture checks and desktop/mobile accessibility/layout coverage. Tests retain malformed-response and denied-access behavior; a successful screenshot alone is not a successful operation. Source inspection is explicitly separate from browser proof. Native/provider actions and deferred workflows still require their own evidence and existing prerequisites; the installed read/navigation proof above has its own bounded scope.
 
 ## Import and export inventory drafts
 
