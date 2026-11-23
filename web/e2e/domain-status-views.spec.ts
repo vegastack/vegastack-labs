@@ -185,3 +185,63 @@ test("Services distinguishes desired settings and blocked placement from partial
   await expect(page.getByRole("region", { name: "Service detail" })).toHaveCount(0);
   for (const text of ["CPU limit: 1 CPU · Memory: 256 MiB", "Deployment: partial · deploy", "Recovery: blocked · backup"]) await expect(page.getByText(text, { exact: true })).toHaveCount(0);
 });
+
+for (const missing of ["recovery", "deployment"] as const) {
+  test(`Services keeps registration and other results when optional ${missing} is absent`, async ({ page }) => {
+    await page.route(`**/api/v1/services/service-a/${missing}`, route => route.fulfill({ status: 404, json: {
+      schema: "vegastack-labs.dev/browser-run-result", schemaVersion: "1.0.0", toolVersion: "test",
+      command: `api.v1.services.${missing}.get`, runId: null, status: "failed", changed: false,
+      recoveryEpoch: 2, stateRevision: 8, snapshotDigest: null, releaseBuildId: "test", sourceRevision: null,
+      planId: null, errors: [{ code: "RESOURCE_NOT_FOUND", target: `service-${missing}`, retryable: false }], data: {},
+    } }));
+    await page.goto("/services");
+    await inspect(page);
+    await expect(page.getByRole("list", { name: "Registered services" })).toContainText("service-a");
+    if (missing === "recovery") {
+      await openServiceSection(page, "Data recovery result");
+      await expect(page.getByText("No data recovery result has been recorded.", { exact: true })).toBeVisible();
+      await expect(page.getByText("Deployment: partial · deploy", { exact: true })).toBeVisible();
+    } else {
+      await expect(page.getByText("No deployment result has been recorded.", { exact: true })).toBeVisible();
+      await openServiceSection(page, "Data recovery result");
+      await expect(page.getByText("Recovery: blocked · backup", { exact: true })).toBeVisible();
+    }
+    await expect(page.getByText("Services could not be read", { exact: true })).toHaveCount(0);
+    if (missing === "recovery") {
+      await page.getByText("No data recovery result has been recorded.", { exact: true }).scrollIntoViewIfNeeded();
+      await page.screenshot({ path: test.info().outputPath("services-missing-recovery.png"), fullPage: true });
+    }
+  });
+}
+
+test("a missing recovery clears the previous result and later denial still clears Services", async ({ page }) => {
+  await page.goto("/services");
+  await inspect(page);
+  await openServiceSection(page, "Data recovery result");
+  await expect(page.getByText("Recovery: blocked · backup", { exact: true })).toBeVisible();
+  let code = "RESOURCE_NOT_FOUND";
+  await page.route("**/api/v1/services/service-a/recovery", route => route.fulfill({ status: code === "RESOURCE_NOT_FOUND" ? 404 : 403, json: {
+    schema: "vegastack-labs.dev/browser-run-result", schemaVersion: "1.0.0", toolVersion: "test",
+    command: "api.v1.services.recovery.get", runId: null, status: "failed", changed: false,
+    recoveryEpoch: 2, stateRevision: 8, snapshotDigest: null, releaseBuildId: "test", sourceRevision: null,
+    planId: null, errors: [{ code, target: "service-recovery", retryable: false }], data: {},
+  } }));
+  await page.getByRole("button", { name: "Refresh recovery", exact: true }).click();
+  await expect(page.getByText("No data recovery result has been recorded.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Recovery: blocked · backup", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Deployment: partial · deploy", { exact: true })).toBeVisible();
+  code = "AUTHORIZATION_DENIED";
+  await page.getByRole("button", { name: "Refresh recovery", exact: true }).click();
+  await expect(page.getByText("Services access denied", { exact: true })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Registered services" })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Service detail" })).toHaveCount(0);
+});
+
+test("an invalid optional recovery response remains a failure instead of an empty result", async ({ page }) => {
+  await page.route("**/api/v1/services/service-a/recovery", route => route.fulfill({ status: 404, contentType: "application/json", body: "invalid-json" }));
+  await page.goto("/services");
+  await page.getByRole("button", { name: "View service-a", exact: true }).click();
+  await expect(page.getByText("Services could not be read", { exact: true })).toBeVisible();
+  await expect(page.getByText("No data recovery result has been recorded.", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("list", { name: "Registered services" })).toHaveCount(0);
+});

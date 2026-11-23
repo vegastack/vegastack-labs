@@ -2,6 +2,7 @@
 
 import { useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import { useReadFailure } from "@/components/query-provider";
+import { ReadClientError } from "@/generated/read-api";
 import { readClient } from "@/lib/read-client";
 import { classifyReadFailure } from "@/lib/read-queries";
 
@@ -48,16 +49,28 @@ export function useServiceConfiguration(serviceId: string) {
   }));
 }
 
+// A registered service may have no deployment or recovery attempt yet.
+// Keep this exception local: denied, invalid and missing registration reads
+// must still reach the shared protected-state clearing boundary.
+async function optionalAttempt<T>(read: Promise<T>): Promise<T | null> {
+  try {
+    return await read;
+  } catch (error) {
+    if (error instanceof ReadClientError && error.kind === "api" && error.code === "RESOURCE_NOT_FOUND") return null;
+    throw error;
+  }
+}
+
 export function useServiceDeployment(serviceId: string) {
   return useServiceState(useQuery({
     queryKey: [...serviceKey, "deployment", serviceId],
-    queryFn: ({ signal }) => readClient.getServiceDeployment({ serviceID: serviceId }, { signal }),
+    queryFn: ({ signal }) => optionalAttempt(readClient.getServiceDeployment({ serviceID: serviceId }, { signal })),
   }));
 }
 
 export function useServiceRecovery(serviceId: string) {
   return useServiceState(useQuery({
     queryKey: [...serviceKey, "recovery", serviceId],
-    queryFn: ({ signal }) => readClient.getServiceRecovery({ serviceID: serviceId }, { signal }),
+    queryFn: ({ signal }) => optionalAttempt(readClient.getServiceRecovery({ serviceID: serviceId }, { signal })),
   }));
 }
