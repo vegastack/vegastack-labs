@@ -18,7 +18,7 @@ test("the original Phase 2 baseline stays immutable while later waves have exact
   assert.equal(manifest.contract.postPhase2MutationBoundaryDigest, "sha256:ec30a4cc9d4a6e5a3fc9817a55a5b0a1697adcae57b950325edd563637d308a8");
   assert.equal(manifest.contract.productionDependencyDigest, "sha256:a9e8788558fa5c3347b5b8464d8d5e4a67dcc9357e5ae07478b606a806f78133");
   assert.equal(manifest.contract.mutationAvailable, false);
-  assert.equal(manifest.contract.reviewedWaves?.length, 97);
+  assert.equal(manifest.contract.reviewedWaves?.length, 98);
   assert.deepEqual(manifest.contract.reviewedWaves.at(-1), {"id":"console-guidance-issue404-v1","issue":404,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:5ac1c8d71da7b38d9a362add914608aa42f22fcc651fe9456edc1559e91f5339"});
   assert.deepEqual(manifest.contract.reviewedWaves.slice(0,97).at(-1), {"id":"console-reload-recovery-issue404-v1","issue":404,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:dae5b87fe223257ec1e2bf80276ece693a871a4d64bf5399ca5df5f4ff29f5a8"});
   assert.deepEqual(manifest.contract.reviewedWaves.slice(0,96).at(-1), {"id":"console-regent-help-issue404-v1","issue":404,"commands":[],"imports":[],"mutationBoundaryDigest":"sha256:704c7eaa46ce0d64228554108e12f4355cbb413fdb8bb1cc754ec5640acf63e4"});
