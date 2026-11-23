@@ -10,21 +10,21 @@ Phase 9's amended signed manual-delivery scope is [complete and closed](https://
 
 ## Console inspection — 23-11-2026
 
-Issue [#404](https://github.com/vegastack/vegastack-labs/issues/404) remains open for installed usability acceptance. An operator-owned signed-in Windows browser now permits direct inspection without exporting credentials. Current installed source is `a44aa018`; source corrections after this inspection are not installed-site proof.
+The initial inspection of source `a44aa018` found misleading Backups denial text and technical-only Checks titles. Correction [#404](https://github.com/vegastack/vegastack-labs/issues/404#issuecomment-7093712324) is now closed following separately approved installation and authenticated browser verification of source `4eedf2f7` on 23-11-2026. This is actual installed-site read/navigation proof, separate from isolated source/browser fixtures.
 
-| Page | Authenticated observation | Remaining boundary |
+| Page | Authenticated installed observation | Remaining boundary |
 |---|---|---|
-| Overview | Main page loads and shows saved records separately from server readiness | All alternate failure states use isolated browser proof |
-| Nodes | Registered list and saved machine inspection load; missing readiness evidence is explicit in technical results | No host check, repair or admission was executed |
-| People | Main list loads | Detail/denial/recovery behavior uses isolated browser proof unless separately recorded |
-| Services | Main list loads | Provider observation and deployment/recovery actions are not claimed live-tested |
-| Backups | Restore-list read returns access denial; current generic message is misleading | Keep denial and clear protected state; explain viewing permissions without granting access |
+| Overview | Loads saved information separately from server readiness | Alternate failure states retain isolated browser proof |
+| Nodes | List reload, saved node inspection and readiness refresh succeed; missing saved results are explained | No fresh host check, repair or admission was executed |
+| People | Main list and the operator's own device/permission reads succeed | No identity-provider or permission change |
+| Services | Main page and saved records load | No fresh provider observation, deployment or recovery action |
+| Backups | Expected denied restore-list read now explains viewing permission accurately | No access grant or restore; protected records remain cleared |
 | Connections | Saved settings and unchecked connection state load | No provider connectivity check or configuration change |
-| Checks | Saved checks load; technical reference-only titles need readable names | No evidence submission or live check execution |
-| History checks | Saved verification and empty checkpoint state load | No history checkpoint or recovery action |
-| Changes | Lookup/preparation page loads | Exact-plan execution remains isolated fixture proof; no live mutation |
+| Checks | Saved checks load with readable names and exact technical references | No evidence submission or live check execution |
+| History checks | Saved verification and checkpoint view load | No new history checkpoint or recovery action |
+| Changes | Lookup/preparation page loads | Exact-plan execution retains isolated fixture proof; no live mutation |
 
-Source correction must preserve authorization, cleared protected records and explicit recovery. A page loading successfully does not establish every flow, machine readiness, native qualification or deferred feature acceptance. Existing deferrals remain unchanged.
+All nine main pages loaded with no browser runtime errors or unexpected API failures across the captured 28-read pass. Representative served CSS/JavaScript matched the installed manifest; controller health remained Ready at revision440/epoch0. This does not establish every flow, machine readiness, native qualification or deferred feature acceptance. Existing Phase10 residuals remain open in #400.
 
 ## Historical software evidence
 
