@@ -63,6 +63,7 @@ function ServiceDetail({ serviceId }: { serviceId: string }) {
   return <section aria-label="Service detail" className="space-y-4">
     <Card><CardHeader><CardTitle>Recorded deployment result</CardTitle><Button variant="outline" loading={deployment.isFetching} onClick={deployment.refresh}>Refresh deployment result</Button></CardHeader><CardContent className="space-y-2 break-all">
       {deployment.state !== "current" ? <ServiceState state={deployment.state} /> : null}
+      {deployment.state === "current" && deployment.data === null ? <p>No deployment result has been recorded.</p> : null}
       <p className="text-sm text-muted-foreground">This shows what happened during the last recorded deployment. It does not update continuously.</p>
       {deployed ? <><p>Deployment: {deployed.status} · {deployed.request.action}</p><p>Running: {deployed.running ? "Yes" : "No"} · Healthy: {deployed.healthy ? "Yes" : "No"}</p><details><summary className="cursor-pointer font-medium">Technical details</summary><div className="mt-3 space-y-2"><p>Attempt running digest: {deployed.runningDigest}</p><p>Provider stage: {deployed.providerStage} · Receipt: {deployed.providerReceiptId || "none"}</p><p>Configuration in this attempt: {deployed.request.binding.configurationDigest}</p><p>Plan: {deployed.planId} · Run: {deployed.runId}</p></div></details><p>Completed: {formatConsoleTime(deployed.completedAt)}</p><p className="text-sm text-muted-foreground">A successful result confirms the application version, settings and health at that time. If deployment only partly finished, ask an administrator to prepare a recovery or another deployment.</p></> : null}
     </CardContent></Card>
@@ -83,6 +84,7 @@ function ServiceDetail({ serviceId }: { serviceId: string }) {
     <details className="rounded-lg border border-border p-4"><summary className="cursor-pointer font-medium">Data recovery result</summary><div className="mt-3">
     <Card><CardHeader><CardTitle>Data recovery result</CardTitle><Button variant="outline" loading={recovery.isFetching} onClick={recovery.refresh}>Refresh recovery</Button></CardHeader><CardContent className="space-y-2 break-all">
       {recovery.state !== "current" ? <ServiceState state={recovery.state} /> : null}
+      {recovery.state === "current" && recovery.data === null ? <p>No data recovery result has been recorded.</p> : null}
       {recovered ? <><p>Recovery: {recovered.status} · {recovered.request.action}</p><p>Backup point: {recovered.backupPointId || "none"}</p><p>Consistent restore verified: {recovered.isolatedRestoreVerified ? "Yes" : "No"}</p><p>Source resumed: {recovered.sourceResumed ? "Yes" : "No"} · Target writers enabled: {recovered.targetWritersEnabled ? "Yes" : "No"}</p><p>Next action: {recovered.nextAction}</p><p>Plan: {recovered.planId} · Run: {recovered.runId}</p><p>Completed: {formatConsoleTime(recovered.completedAt)}</p></> : null}
     </CardContent></Card>
     </div></details>

@@ -86,6 +86,10 @@ The other supported import format is `labs-sheet1-csv`. Inspect all findings: bo
 
 Export selects one exact draft and requires the configured verified signing/export service. Missing trust or service prerequisites stay blocked. Its signature establishes draft-byte integrity, not acceptance, host authority or recovery qualification. Saving command stdout saves a client response, not a database backup or independently verified recovery point. See [inventory semantics](inventory-and-roles.md#draft-import-diff-and-export-workflow).
 
+## Missing application attempt results
+
+Correction [#412](https://github.com/vegastack/vegastack-labs/issues/412) treats an absent optional deployment or recovery attempt as an empty section, keeping permitted registration and other results visible. It does not create a deployment, backup or restore result. Denied access, expired sign-in and invalid responses retain their clearing behavior. This source correction requires its own installed verification; the earlier main-page navigation check did not exercise this missing-recovery case.
+
 ## Inspect a service or a failed operation
 
 ```text

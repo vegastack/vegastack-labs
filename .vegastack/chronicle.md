@@ -1,3 +1,9 @@
+## 23-11-2026 — Keep application details when no recovery has run ([#412](https://github.com/vegastack/vegastack-labs/issues/412))
+
+Opening the existing demo application's details exposed a real gap: registration and deployment reads succeeded, but the absent recovery record returned404 and cleared the whole Services page. The recovery result is optional until a recovery attempt exists. The existing optional deployment/recovery reads now explain absence without discarding the other permitted records. Regression cases reproduced the disappearing details before correction and verify that missing results clear their own previous data while denial, expired sign-in and invalid content still clear protected records. No permissions or server contracts changed. Source proof remains separate from installation and a complete live change.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/412-optional-service-results
+
 ## 23-11-2026 — Explain what the Console needs next ([#404](https://github.com/vegastack/vegastack-labs/issues/404))
 
 - **What:** Backups explains missing viewing permission separately from expired sign-in or an unreadable response. Readiness checks have understandable names, and Nodes explains why refreshing cannot create missing check results. Other existing pages use clearer loading, empty and error guidance.
