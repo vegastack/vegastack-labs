@@ -947,6 +947,13 @@
         "commands": [],
         "imports": [],
         "mutationBoundaryDigest": "sha256:dae5b87fe223257ec1e2bf80276ece693a871a4d64bf5399ca5df5f4ff29f5a8"
+      },
+      {
+        "id": "console-guidance-issue404-v1",
+        "issue": 404,
+        "commands": [],
+        "imports": [],
+        "mutationBoundaryDigest": "sha256:5ac1c8d71da7b38d9a362add914608aa42f22fcc651fe9456edc1559e91f5339"
       }
     ]
   },

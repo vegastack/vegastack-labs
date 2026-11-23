@@ -28,8 +28,8 @@ function State({ state, subject = "People" }: { state: string; subject?: string 
         state === "denied"
           ? "Your account needs permission to view these people, devices and permissions. Ask an administrator for access."
           : state === "stale"
-            ? "Showing retained records after a temporary failure. Refresh to check current state."
-            : "Refresh to request current authorized records."
+            ? "These records are from the last successful read. Refresh to try loading the latest information."
+            : "Use Refresh to try loading the latest information."
       }
     />
   );
@@ -84,7 +84,7 @@ export function PeopleView() {
             ))}
           </ul>
           {!view.data.data.people.length ? (
-            <p>No people are visible to your account.</p>
+            <p>No people are visible to your account. Ask an administrator if you expected to see someone here.</p>
           ) : null}
           <div className="flex gap-2 py-4">
             {after ? (
@@ -179,7 +179,7 @@ function PersonRecords({
         {data &&
         (("devices" in data && data.devices.length === 0) ||
           ("grants" in data && data.grants.length === 0)) ? (
-          <p>No {kind} are recorded for this person.</p>
+          <p>No {kind === "devices" ? "devices" : "permissions"} are recorded for this person. Ask an administrator if you expected a record here.</p>
         ) : null}
         {after ? (
           <Button variant="outline" onClick={() => setAfter("")}>

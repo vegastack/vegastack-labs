@@ -3,7 +3,7 @@
 import { FieldHelp } from "@/components/field-help";
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { BrowserRecoveryPoint, BrowserRestoreDraftRequest } from "@/generated/read-api";
+import { ReadClientError, type BrowserRecoveryPoint, type BrowserRestoreDraftRequest } from "@/generated/read-api";
 import { useReadFailure } from "@/components/query-provider";
 import { formatConsoleTime } from "@/components/source-status";
 import { ExactPlanLauncher } from "@/components/exact-plan-launcher";
@@ -30,9 +30,18 @@ export function BackupRecoveryView() {
     queryClient.removeQueries({ queryKey: phase5Keys.all });
     clearFailure();
   }
+  const failureCode = failure instanceof ReadClientError ? failure.code : undefined;
+  const signInRequired = failureCode === "AUTHENTICATION_REQUIRED" || failureCode === "SESSION_EXPIRED";
+  const permissionDenied = failureCode === "AUTHORIZATION_DENIED";
+  const failureTitle = signInRequired ? "Sign in again to view backups" : permissionDenied ? "Backup access is limited" : "Backup information could not be verified";
+  const failureDescription = signInRequired
+    ? "Your sign-in is missing or has expired. Sign in to Labs again, then return here and refresh. Backup and restore actions are hidden until your access is confirmed."
+    : permissionDenied
+      ? "Your account cannot view one or more backup or restore records. Ask a Labs administrator to check your backup and restore viewing permissions, then refresh. No backups were deleted."
+      : "Labs could not safely use the latest information. Refresh to read it again. Backup and restore actions stay hidden until the information can be verified.";
   if (failure) return <>
     <PageHeader title="Backups and recovery" description="Recorded backup status and recovery plans." />
-    <ReadViewState kind={classifyReadFailure(failure)} title="Backup records cleared" description="Your session, permissions or response integrity changed. Read current authorized records again before preparing any restore." onRetry={recoverReads} />
+    <ReadViewState kind={classifyReadFailure(failure)} title={failureTitle} description={failureDescription} onRetry={recoverReads} />
   </>;
   return <BackupRecoveryContent />;
 }

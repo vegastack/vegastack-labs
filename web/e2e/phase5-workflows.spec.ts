@@ -25,12 +25,12 @@ test("Phase 5 recovery-required and audit incident states disable ordinary mutat
   await expect(page.getByRole("button", { name: "Start run" })).toHaveCount(0);
   await page.goto("/audit");
   await expect(page.getByText("Audit incident", { exact: true })).toBeVisible();
-  await expect(page.getByText("Follow the history recovery procedure before making changes.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Ask an administrator to investigate and recover the history before making changes.", { exact: true })).toBeVisible();
 });
 
 test("Phase 5 Audit separates checkpoints from independent verification", async ({ page }) => {
   await page.goto("/audit");
-  await expect(page.getByRole("heading", { name: "History verification" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "History verification", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Saved history checkpoints", exact: true })).toBeVisible();
   await expect(page.getByText("checkpoint-a", { exact: true })).toBeVisible();
   const exposed = [await page.locator("body").innerText(), JSON.stringify(fixtureAudit.responses)].join("\n");

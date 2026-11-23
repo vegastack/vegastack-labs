@@ -206,7 +206,7 @@ test("empty, error and explicit refresh states remain distinct", async ({
     .getByRole("button", { name: "Refresh People", exact: true })
     .click();
   await expect(
-    page.getByText("No people are visible to your account.", { exact: true }),
+    page.getByText("No people are visible to your account. Ask an administrator if you expected to see someone here.", { exact: true }),
   ).toBeVisible();
   expect(calls).toBe(2);
 });

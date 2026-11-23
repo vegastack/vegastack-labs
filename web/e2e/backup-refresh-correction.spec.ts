@@ -35,6 +35,8 @@ for (const code of ["AUTHORIZATION_DENIED", "SESSION_EXPIRED"] as const) {
     await page.getByRole("button", { name: "Refresh Backups", exact: true }).click();
     await started;
     await expect(page.locator('[data-read-state="denied"]')).toBeVisible();
+    await expect(page.getByText(code === "SESSION_EXPIRED" ? "Sign in again to view backups" : "Backup access is limited", { exact: true })).toBeVisible();
+    await expect(page.locator("main")).not.toContainText("Backup records cleared");
     releaseLate();
     await delivered;
     // Give the already delivered response a rendering turn before checking that
