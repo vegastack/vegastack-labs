@@ -68,7 +68,7 @@ test("unimplemented addresses do not claim the connected controller is down", as
   await expect(page.getByText(/Data integration is not implemented/)).toHaveCount(0);
 });
 
-const routes = [["/", "Overview"], ["/nodes", "Nodes"], ["/people", "People"], ["/services", "Services"], ["/backups", "Backups and recovery"], ["/providers", "Connections"], ["/gates", "Checks"], ["/audit", "History checks"], ["/changes", "Changes"]] as const;
+const routes = [["/", "Overview"], ["/nodes", "Nodes"], ["/people", "People"], ["/services", "Applications"], ["/backups", "Backups and recovery"], ["/providers", "Connections"], ["/gates", "Checks"], ["/audit", "History checks"], ["/changes", "Changes"]] as const;
 for (const narrow of [false, true]) for (const [route, title] of routes) {
   test(`${narrow ? "mobile" : "desktop"} ${route} has readable layout, navigation and no serious accessibility errors`, async ({ page }, info) => {
     await page.setViewportSize(narrow ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
