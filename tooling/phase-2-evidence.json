@@ -968,6 +968,13 @@
         "commands": [],
         "imports": [],
         "mutationBoundaryDigest": "sha256:03b1fcaf187b8018d1a4d7be63dc176cf5acca6696863f69645b95c990534ee7"
+      },
+      {
+        "id": "console-simple-applications-issue417-v1",
+        "issue": 417,
+        "commands": [],
+        "imports": [],
+        "mutationBoundaryDigest": "sha256:2625960b820bf78d6b26c0d8c8c20c9f0a0b63ea1a7a491924e94a62904d9bae"
       }
     ]
   },

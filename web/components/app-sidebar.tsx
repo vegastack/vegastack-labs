@@ -25,7 +25,7 @@ const controlNav: readonly NavItem[] = [
   { label: "Overview", href: "/", icon: LayoutDashboard },
   { label: "Nodes", href: "/nodes", icon: Boxes },
   { label: "People", href: "/people", icon: Users },
-  { label: "Services", href: "/services", icon: Server },
+  { label: "Applications", href: "/services", icon: Server },
   { label: "Backups", href: "/backups", icon: DatabaseBackup },
   { label: "Connections", href: "/providers", icon: Plug },
   { label: "Checks", href: "/gates", icon: ShieldCheck },

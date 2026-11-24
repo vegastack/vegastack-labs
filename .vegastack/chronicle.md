@@ -1,5 +1,12 @@
 ## 23-11-2026 — Keep the saved host draft intact when planning ([#415](https://github.com/vegastack/vegastack-labs/issues/415))
 
+## 24-11-2026 — Make application status understandable (#417)
+
+The operator’s Services screenshot showed the same problem after earlier wording changes: old deployment success, current unavailable reports, qualification flags and long identifiers were still presented as one task. Applications now leads with current health not confirmed, the dated last deployment outcome and a next step. Exact registration/settings/recovery/provider records are retained together inside one closed administrator section, and a single refresh reloads the active reads. No native health, live repair or deployment is inferred from the read timestamps. The existing API explicitly leaves running health unknown; source changes cannot turn that into a current healthy result. This correction changes presentation only and requires separate installed-site verification.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/417-simple-application-status
+
+
 The first live Console time-check rehearsal saved its draft, then failed when creating the plan. The Nodes and Changes pages sent an empty binding list even though the saved draft contained credential and action fingerprints. The server correctly rejected that incomplete request. Nodes now reads the saved declaration through its existing client and checks its identity, revision and recovery epoch. Both pages carry the saved bindings unchanged. Focused browser coverage checks those values and prevents submission after a mismatched or denied declaration read. No server approval or execution check was loosened; live completion remains tracked separately in #414.
 
 — approved by (omkarmohanta09) · built by Codex · branch fix/415-console-host-plan-bindings
